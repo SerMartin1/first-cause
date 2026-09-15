@@ -47,6 +47,11 @@ and `docs/FIRST-CAUSE-Implementation-Roadmap-v0.1.md`.
     of:** `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`
     (and `pnpm test:e2e` when relevant). Never report PASS for a
     command that did not actually pass.
+13. **After every change to this repository, add an entry to
+    `CHANGELOG.md`** (newest first) under today's date (`YYYY-MM-DD`,
+    a new heading if today doesn't have one yet), briefly describing
+    what changed and why. This applies to doc changes, roadmap
+    updates, and code changes alike -- not only milestone completions.
 
 ## If a tuning value or mechanic is undecided
 
