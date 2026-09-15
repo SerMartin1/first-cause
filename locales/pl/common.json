@@ -1,0 +1,9 @@
+{
+  "app.title": "FIRST CAUSE",
+  "app.milestone": "Fundament Repozytorium",
+  "worker.status.online": "Simulation Worker: ONLINE",
+  "worker.status.offline": "Simulation Worker: OFFLINE",
+  "worker.status.connecting": "Simulation Worker: ŁĄCZENIE",
+  "environment.label": "Środowisko: {{environment}}",
+  "language.label": "Język"
+}

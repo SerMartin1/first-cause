@@ -1,0 +1,7 @@
+{
+  "id": "iron_ore",
+  "nameKey": "resource.iron_ore.name",
+  "category": "mineral",
+  "finite": true,
+  "phase": "VS"
+}

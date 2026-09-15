@@ -1,0 +1,33 @@
+node_modules/
+dist/
+dist-electron/
+out/
+build/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# Electron/Vite
+apps/desktop/out/
+apps/desktop/dist/
+
+# Testing
+playwright-report/
+test-results/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Saves (local dev artifacts, never committed)
+saves/
