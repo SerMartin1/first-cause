@@ -75,6 +75,21 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("before-quit", () => {
-  void simulationBridge?.dispose();
+let shutdownStarted = false;
+let shutdownComplete = false;
+app.on("before-quit", (event) => {
+  if (!simulationBridge || shutdownComplete) return;
+  event.preventDefault();
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  ipcMain.removeHandler(SIMULATION_IPC_CHANNEL);
+  void simulationBridge
+    .dispose()
+    .catch((error: unknown) => {
+      console.error("Simulation Worker shutdown failed", error);
+    })
+    .finally(() => {
+      shutdownComplete = true;
+      app.quit();
+    });
 });

@@ -16,7 +16,9 @@ enabled it (`Butterfly Effect`).
 
 ## Current milestone
 
-**M0 -- Repository Foundation.** This milestone establishes the
+**M0 = DONE; M0.1 Audit Fixes = DONE; M1 = READY (not started).**
+M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
+Next: **M1 -- Deterministic Core**. The completed foundation establishes the
 monorepo, build tooling, Electron/React/Vite shell, a minimal typed IPC
 path to a real Simulation Worker, and the content/localization
 foundations. It intentionally implements **no gameplay systems** --
@@ -98,10 +100,11 @@ first-cause/
 
 `packages/entities`, `packages/worldgen`, `packages/causality`,
 `packages/chronicle`, `packages/persistence` and `packages/ui` are part
-of the target architecture (see Technology Stack Decision SS10) but are
-not scaffolded yet -- each is created when its milestone begins (`M3`,
-`M22`, `M17`, `M19`, `M20`, `M21` respectively), per the "no
-placeholders" rule in the Implementation Roadmap.
+of the target architecture (see Technology Stack Decision SS10).
+A package is created at its first real consumer / system implementation,
+as documented in the roadmap's M0 results. Deferral is intentional,
+not missing M0 scope. In particular, `causality` begins with its first
+fact infrastructure consumer; it does not wait for full integration in M17.
 
 ## Architecture boundaries
 

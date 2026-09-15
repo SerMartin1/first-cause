@@ -10,6 +10,7 @@ import type {
 type WorkerMessage = WorkerEnvelope<SimulationResponse> | WorkerErrorEnvelope;
 
 interface PendingRequest {
+  readonly timer: ReturnType<typeof setTimeout>;
   readonly resolve: (response: SimulationResponse) => void;
   readonly reject: (error: Error) => void;
 }
@@ -28,6 +29,8 @@ function isErrorEnvelope(message: WorkerMessage): message is WorkerErrorEnvelope
  * preload (see electron/preload/index.ts).
  */
 export class SimulationBridge {
+  private state: "running" | "failed" | "disposed" = "running";
+  private disposal: Promise<void> | undefined;
   private readonly worker: Worker;
   private readonly pending = new Map<string, PendingRequest>();
 
@@ -40,6 +43,7 @@ export class SimulationBridge {
         return;
       }
       this.pending.delete(message.requestId);
+      clearTimeout(pending.timer);
 
       if (isErrorEnvelope(message)) {
         pending.reject(new Error(message.error));
@@ -49,26 +53,74 @@ export class SimulationBridge {
     });
 
     this.worker.on("error", (error: Error) => {
-      for (const pending of this.pending.values()) {
-        pending.reject(error);
-      }
-      this.pending.clear();
+      this.fail(error);
+    });
+    this.worker.on("exit", (code) => {
+      this.fail(new Error(`Simulation Worker exited unexpectedly (code ${code})`));
     });
   }
 
   invoke(request: SimulationRequest): Promise<SimulationResponse> {
+    if (this.state !== "running") {
+      return Promise.reject(new Error(`Simulation bridge is ${this.state}`));
+    }
     const requestId = randomUUID();
     return new Promise<SimulationResponse>((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject });
+      // Wall-clock IPC deadline, unrelated to simulated world time.
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId);
+        reject(new Error("Simulation request timed out after 10000 ms"));
+      }, 10_000);
+      this.pending.set(requestId, { resolve, reject, timer });
       const envelope: WorkerEnvelope<SimulationRequest> = {
         requestId,
         payload: request,
       };
-      this.worker.postMessage(envelope);
+      try {
+        this.worker.postMessage(envelope);
+      } catch (error) {
+        this.fail(error instanceof Error ? error : new Error(String(error)));
+      }
     });
   }
 
-  async dispose(): Promise<void> {
-    await this.worker.terminate();
+  private rejectPending(error: Error): void {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
+  }
+
+  private fail(error: Error): void {
+    if (this.state !== "running") return;
+    this.state = "failed";
+    this.rejectPending(error);
+  }
+
+  dispose(): Promise<void> {
+    if (this.disposal) return this.disposal;
+    this.state = "disposed";
+    this.rejectPending(new Error("Simulation bridge is disposed"));
+    this.disposal = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.worker.unref();
+        reject(new Error("Simulation Worker shutdown timed out after 5000 ms"));
+      }, 5_000);
+      Promise.resolve()
+        .then(() => this.worker.terminate())
+        .then(
+          () => {
+            clearTimeout(timer);
+            resolve();
+          },
+          (error: unknown) => {
+            clearTimeout(timer);
+            this.worker.unref();
+            reject(error);
+          },
+        );
+    });
+    return this.disposal;
   }
 }

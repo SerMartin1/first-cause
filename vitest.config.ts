@@ -11,10 +11,14 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   test: {
-    include: ["packages/**/src/**/*.test.ts", "apps/desktop/src/**/*.test.tsx"],
+    include: [
+      "packages/**/src/**/*.test.ts",
+      "apps/desktop/src/**/*.test.tsx",
+      "apps/desktop/electron/**/*.test.ts",
+    ],
     exclude: ["**/node_modules/**", "**/dist/**", "**/out/**"],
     environment: "node",
-    environmentMatchGlobs: [["apps/desktop/**", "jsdom"]],
+    environmentMatchGlobs: [["apps/desktop/src/**", "jsdom"]],
     setupFiles: ["./vitest.setup.ts"],
     css: false,
     restoreMocks: true,

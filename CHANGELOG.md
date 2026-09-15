@@ -10,6 +10,14 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.1.md`
 
 ## 2026-09-15
 
+- Completed **M0.1 Audit Fixes** (M0-01–M0-05): bounded IPC request and
+  shutdown lifecycle with controlled-worker tests; Ubuntu Electron E2E
+  runs under Xvfb; detached, deeply frozen content definitions and
+  locale-independent ID ordering with regression tests. Synchronized
+  README/roadmap status, package creation policy, semantic validation
+  scope and audited dev results. M1 remains unimplemented; remote CI
+  is not claimed as verified by local gates.
+
 - Configured `origin` (`https://github.com/SerMartin1/first-cause`,
   private repo created via `gh repo create`) and pushed `main`
   (required refreshing the `gh` auth token with the `workflow` scope

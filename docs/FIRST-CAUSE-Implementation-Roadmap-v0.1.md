@@ -422,8 +422,8 @@ narzędziowy.
 **Moduły:**
 
 ```text
-pnpm workspace + packages/{simulation,worldgen,entities,content,
-  causality,chronicle,persistence,localization,shared,ui}
+pnpm workspace + packages/{simulation,content,localization,shared}
+pozostałe pakiety architektury docelowej przy pierwszym rzeczywistym użyciu
 apps/desktop (Electron main + preload + renderer)
 TypeScript strict (noUncheckedIndexedAccess) w całym repo
 Vite dev server dla renderer
@@ -470,8 +470,8 @@ zwłaszcza §1, §10--13, §65--75, §92, §97).
   Response`, `FirstCauseApi`, `AppInfo`), współdzielony przez main,
   preload i renderer.
 - `packages/content` -- Zod schema (`ResourceDefinitionSchema`),
-  `DefinitionRegistry`, loader z pełną walidacją strukturalną i
-  semantyczną (duplicate ID), jedna realna definicja
+  `DefinitionRegistry`, loader z walidacją strukturalną Zod i
+  kontrolą duplicate IDs (obecny zakres walidacji semantycznej), jedna realna definicja
   (`content/resources/iron_ore.json`), testy poprawnej i błędnej
   definicji.
 - `packages/localization` -- `createI18n()` (i18next + react-i18next),
@@ -518,23 +518,43 @@ zwłaszcza §1, §10--13, §65--75, §92, §97).
 
 **Dług techniczny (świadomie pozostawiony, nieblokujący M1):**
 
-- P1: `pnpm dev` (HMR) nie został zweryfikowany w tym środowisku (brak
-  możliwości interaktywnego zostawienia procesu deweloperskiego) --
-  zweryfikowano wyłącznie `pnpm build` + uruchomienie zbudowanej
-  aplikacji. Import lokalizacji (`../../../locales/...json` z
-  `apps/desktop/src`) może teoretycznie wymagać jawnego
-  `server.fs.allow` w trybie dev, jeśli Vite nie wykryje automatycznie
-  workspace roota -- do zweryfikowania przy pierwszym realnym `pnpm dev`.
-- P2: `packages/entities` i `packages/worldgen` świadomie nie zostały
-  utworzone w M0 (patrz sekcja 3 tego dokumentu) -- powstaną na starcie
-  odpowiednio M3 i M4/M22.
+- Audyt M0 potwierdził działanie `pnpm dev`; problem `server.fs.allow`
+  nie został odtworzony. Nie jest to aktywny dług P1.
+- **Zasada tworzenia pakietów:** pakiet powstaje przy pierwszym
+  rzeczywistym konsumencie / implementacji odpowiedniego systemu.
+  `entities`, `worldgen`, `causality`, `chronicle`, `persistence`, `ui`
+  są świadomie odroczone, a nie brakujące w M0. Nie tworzymy pustych
+  pakietów dla zgodności z diagramem. `causality` powstaje przy pierwszym
+  użyciu fact infrastructure (cross-cutting od M5), nie arbitralnie w M17;
+  kanoniczna architektura Causality Engine pozostaje bez zmian.
 - P2: brak jeszcze `electron-builder`/instalatora -- `pnpm build`
   produkuje uruchamialny `out/`, nie installer. Nie było to wymagane w
   M0.
 
 **Czy M1 jest odblokowane:** TAK. `pnpm typecheck`, `pnpm lint`,
 `pnpm format:check`, `pnpm test`, `pnpm build` i `pnpm test:e2e`
-przechodzą w czystym przebiegu.
+przechodzą lokalnie po M0.1. Zdalny GitHub Actions po tej zmianie nie
+został uruchomiony; lokalne wyniki nie są deklaracją PASS zdalnego CI.
+
+### M0.1 --- Audit Fixes (maintenance, 2026-09-15)
+
+**Status: DONE / audit fixes completed.** Nie jest nowym kanonicznym
+milestone'em; numeracja M0–M29 pozostaje bez zmian. **M1 = READY**,
+implementacja M1 nie została rozpoczęta.
+
+- M0-01: lifecycle bridge `running/failed/disposed`, timeout IPC 10 s,
+  reject i cleanup pending przy error/exit/dispose, idempotentny dispose,
+  oczekiwanie aplikacji na worker z limitem shutdown 5 s.
+- M0-02: Electron E2E na Ubuntu przez `xvfb-run --auto-servernum`.
+- M0-03: zsynchronizowane statusy, następny krok, zasada pakietów,
+  walidacja semantyczna i wyniki audytu dev w README/Roadmapie.
+- M0-04/M0-05: sklonowane i głęboko zamrożone definicje JSON,
+  jawny porządek ID niezależny od locale i kolejności wejścia.
+- Testy: 26 unit/component, w tym 9 lifecycle z kontrolowanym workerem
+  i fake timers; registry sprawdza referencje wejściowe/wyjściowe,
+  struktury zagnieżdżone oraz `a_a`, `aa`, `ab`.
+- Pozostałe P2: M0-06 runtime IPC validation przy rozszerzaniu protokołu,
+  M0-07 drobna lokalizacja; brak instalatora pozostaje poza M0.
 
 ------------------------------------------------------------------------
 
@@ -1988,8 +2008,8 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Tabela startowa (stan w momencie utworzenia tego dokumentu, przed
-rozpoczęciem `M0`). **Ten dokument jest żywy --- po ukończeniu każdego
+Aktualny stan po M0.1 (2026-09-15): M0 = DONE, maintenance M0.1 = DONE,
+M1 = READY (nierozpoczęte). **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już
 ukończonych pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -2058,9 +2078,9 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: rozpoczęcie **`M0 --- Repository Foundation`** zgodnie z
-`FIRST-CAUSE-Technology-Stack-Decision-v0.1.md`. `M1` i kolejne
-milestone'y nie są implementowane w ramach tego samego zadania co `M0`.
+Następny krok: **`M1 --- Deterministic Core`**, zgodnie z jego zakresem
+i Documentation Readiness w sekcji 10. M0.1 kończy się na poprawkach
+audytowych; M1 wymaga osobnego zadania implementacyjnego.
 
 ------------------------------------------------------------------------
 

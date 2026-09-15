@@ -5,6 +5,14 @@
  * State. A registry built here is read-only content, never mutated by the
  * running simulation.
  */
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object") {
+    for (const child of Object.values(value)) deepFreeze(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
 export class DefinitionRegistry<TDefinition extends { readonly id: string }> {
   private readonly byId: ReadonlyMap<string, TDefinition>;
 
@@ -25,7 +33,9 @@ export class DefinitionRegistry<TDefinition extends { readonly id: string }> {
       if (byId.has(definition.id)) {
         throw new Error(`Duplicate content ID: "${definition.id}"`);
       }
-      byId.set(definition.id, definition);
+      // Definitions are validated JSON data: detach caller references, then
+      // freeze objects and nested arrays before exposing any references.
+      byId.set(definition.id, deepFreeze(structuredClone(definition)));
     }
     return new DefinitionRegistry(byId);
   }
@@ -40,7 +50,9 @@ export class DefinitionRegistry<TDefinition extends { readonly id: string }> {
 
   /** Stable, deterministic order: sorted by ID (canonical ordering). */
   all(): readonly TDefinition[] {
-    return [...this.byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+    return [...this.byId.values()].sort((a, b) =>
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+    );
   }
 
   get size(): number {

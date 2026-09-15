@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DefinitionRegistry } from "./definition-registry.js";
 
 interface Fixture {
@@ -7,6 +7,49 @@ interface Fixture {
 }
 
 describe("DefinitionRegistry", () => {
+  it("detaches input and deeply freezes references from get and all", () => {
+    const input = { id: "iron_ore", nested: { tags: ["mineral"] } };
+    const registry = DefinitionRegistry.fromDefinitions([input]);
+    input.id = "changed";
+    input.nested.tags.push("changed");
+    const stored = registry.get("iron_ore")!;
+    expect(() => {
+      stored.id = "changed";
+    }).toThrow();
+    expect(() => {
+      stored.nested.tags.push("changed");
+    }).toThrow();
+    expect(() => {
+      registry.all()[0]!.nested.tags[0] = "changed";
+    }).toThrow();
+    expect(registry.get("iron_ore")).toEqual({
+      id: "iron_ore",
+      nested: { tags: ["mineral"] },
+    });
+    expect(registry.has("changed")).toBe(false);
+  });
+  it("orders technical IDs independently of locale and input order", () => {
+    const localeCompare = vi
+      .spyOn(String.prototype, "localeCompare")
+      .mockImplementation(() => {
+        throw new Error("Locale collation must not be used");
+      });
+    try {
+      for (const ids of [
+        ["aa", "ab", "a_a"],
+        ["ab", "a_a", "aa"],
+        ["a_a", "aa", "ab"],
+      ]) {
+        expect(
+          DefinitionRegistry.fromDefinitions(ids.map((id) => ({ id })))
+            .all()
+            .map((item) => item.id),
+        ).toEqual(["a_a", "aa", "ab"]);
+      }
+    } finally {
+      localeCompare.mockRestore();
+    }
+  });
   it("looks up definitions by id", () => {
     const registry = DefinitionRegistry.fromDefinitions<Fixture>([
       { id: "b", value: 2 },
