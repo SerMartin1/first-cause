@@ -10,6 +10,11 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.1.md`
 
 ## 2026-09-15
 
+- Configured `origin` (`https://github.com/SerMartin1/first-cause`,
+  private repo created via `gh repo create`) and pushed `main`
+  (required refreshing the `gh` auth token with the `workflow` scope
+  so `.github/workflows/ci.yml` could be pushed).
+
 - Created `docs/FIRST-CAUSE-Implementation-Roadmap-v0.1.md`: translated
   the existing canonical documentation (`Canonical Decisions`,
   `Master Audit`, `Technology Stack Decision`, `World Generation Spec`,
