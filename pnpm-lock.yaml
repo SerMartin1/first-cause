@@ -139,9 +139,6 @@ importers:
 
   packages/entities:
     devDependencies:
-      '@first-cause/simulation':
-        specifier: workspace:*
-        version: link:../simulation
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
@@ -170,6 +167,9 @@ importers:
 
   packages/simulation:
     dependencies:
+      '@first-cause/entities':
+        specifier: workspace:*
+        version: link:../entities
       '@first-cause/shared':
         specifier: workspace:*
         version: link:../shared
@@ -177,6 +177,22 @@ importers:
       '@types/node':
         specifier: ^22.10.1
         version: 22.20.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/worldgen:
+    dependencies:
+      '@first-cause/entities':
+        specifier: workspace:*
+        version: link:../entities
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@first-cause/simulation':
+        specifier: workspace:*
+        version: link:../simulation
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

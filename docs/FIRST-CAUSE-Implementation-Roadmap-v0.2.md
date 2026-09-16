@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1, M2 i M3 są ukończone (patrz "Wyniki wykonania" w sekcjach
-M1/M2/M3), bieżący etap to M4 (READY). Pełni rolę,
+M1, M2, M3 i M4 są ukończone (patrz "Wyniki wykonania" w sekcjach
+M1/M2/M3/M4), bieżący etap to M5 (READY). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -1103,6 +1103,88 @@ Reference VS (World Generation Spec §64: najpierw mały prototyp).
 
 **Źródła:** `FIRST-CAUSE-World-Generation-Spec-v0.1.md` (§16, §35--36,
 §53, §64), `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (IMPL-005).
+
+### M4 --- Wyniki wykonania (2026-09-16)
+
+**Status: DONE.**
+
+**Poprawka odkryta przy okazji M4 (koryguje M3, `Canonical Decisions`
+§200 "zasada końcowa" -- to *odkryty błąd*, nie retrospektywna zmiana
+zakresu):** M3 dodało `packages/entities` z `devDependency` na
+`@first-cause/simulation` (dla testu roundtrip checksum). M4 wymagało,
+żeby `packages/simulation` (Read Models) zależało *produkcyjnie* od
+`packages/entities` -- co razem tworzyło realny cykl w grafie pnpm
+workspace (`pnpm install` ostrzegał: "cyclic workspace dependencies").
+Naprawione: usunięto `devDependency` z `packages/entities`, a test
+roundtrip w `world-state.test.ts` przepisano na zwykły
+`JSON.stringify`/`JSON.parse` (WorldState nie używa nigdzie `Map`/`Set`,
+więc nie potrzebuje `canonicalStringify` z M1, żeby udowodnić tę samą
+własność). `packages/entities` pozostaje bez żadnej zależności
+produkcyjnej od `packages/simulation`; kierunek `simulation -> entities`
+(Read Models) jest teraz jedyny i bezpieczny.
+
+**Nowe pakiety:**
+
+-   `packages/worldgen` (utworzony przy pierwszym realnym konsumencie,
+    zgodnie z notatką z M0 -- "worldgen powstanie na starcie M4/M22").
+    `fixtures/fixture-schema.ts` (Zod, lustrzane odbicie pól
+    `Create*Input` z `@first-cause/entities`) + `fixtures/load-world-fixture.ts`
+    (`JSON -> Zod -> entity factories -> createWorldState`, generyczny
+    -- nie zna pojęcia żadnego konkretnego scenariusza referencyjnego).
+-   `packages/simulation/src/read-models/` -- pierwsza produkcyjna
+    zależność `simulation -> entities`. Cztery kontrakty z modułu UI
+    Foundation M4: `WorldSummaryReadModel`, `RegionSummaryReadModel`,
+    `AtlasRegionReadModel`, `ImportantNowReadModel`. Pola wymagające
+    jeszcze nieistniejącego systemu (trend/historia ticków -- M6+;
+    Important Now źródła -- Chronicle/shortages/discoveries/migration/
+    interventions, M8/M10/M13/M15/M16/M19) są świadomie pominięte
+    zamiast wymyślone; `buildImportantNowReadModel` zwraca `[]` z
+    udokumentowanym powodem (Read Model DoD §6A pkt 2: "typed Read
+    Model albo jawnie udokumentowany brak danych").
+
+**Dane fixture:** `tests/worldgen/fixtures/black_mountain_reference.json`
+-- 8 regionów, 1 kontynent, ~50 populacji, 4 osady, 3 złoża (iron_ore w
+Black Mountain jako hidden/UNKNOWN, grain w Green Valley, timber w
+Timberland -- wszystkie odwołują się do prawdziwych definicji contentu
+z M2), 7 połączeń (drzewo łączące wszystkie regiony), 1 firma (grain
+farm w Green Valley) + inventory, 1 market (Riverside -- "route do
+zewnętrznego rynku" dla Black Mountain), 4 TechnologyState. Zgodne z
+World Generation Spec §64 "Pierwszy prototyp" (8--12 regionów, ~50
+populacji, 3--5 osad).
+
+**Testy:** 21 nowych testów Vitest -- strukturalne odrzucenie złego
+JSON (`loadWorldFixture`), 7 testów na konkretnym fixture Black
+Mountain (liczba regionów/populacja, hidden Iron Ore + brak wymuszonej
+kopalni, route do rynku przez BFS po grafie połączeń, food-producing
+region, alternatywny region gospodarczy, realny transport cost),
+grep-based test że `packages/worldgen`/`packages/entities`/
+`packages/simulation` (poza plikami `.test.ts`) nie zawierają żadnego
+identyfikatora specyficznego dla Black Mountain, test pojedynczego
+pustego ticka (M1 `HeadlessRunner.step()` obok prawdziwego `WorldState`,
+bez błędu, `WorldState` niezmieniony), 9 testów kontraktowych Read
+Modeli.
+
+**Acceptance Gate -- zweryfikowane:** fixture przechodzi walidację
+World State (M3 `createWorldState`, w tym referencyjną integralność);
+świat przechodzi pojedynczy pusty tick bez błędu jako no-op.
+
+**Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test`
+(208/208 testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w
+czystym przebiegu. Reguła ESLint blokująca import React/Electron
+rozszerzona o `packages/worldgen/**`.
+
+**Dług techniczny / świadomie poza zakresem:** proceduralny generator
+(M22); pełny 32-regionowy Reference VS z 12 resources/20 goods (World
+Generation Spec §64 -- najpierw mały prototyp, zrobione tutaj);
+`resourceDefinitionId`/`archetypeId` w fixture nie są jeszcze
+walidowane krzyżowo względem rejestrów contentu z M2 (np.
+`grain_farm` jako `archetypeId` nie ma jeszcze odpowiadającej
+`CompanyArchetypeDefinition`) -- cross-package walidacja
+content<->worldgen nie jest wymagana przez M4 i zostaje otwarta do
+momentu, gdy realny konsument (M7+) tego zapotrzebuje.
+
+**Czy M5 jest odblokowane:** TAK.
 
 ------------------------------------------------------------------------
 
@@ -2410,7 +2492,7 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-16: M0, M0.1 Audit Fixes, M1, M2 i M3 ukończone; M4
+Stan na 2026-09-16: M0, M0.1 Audit Fixes, M1, M2, M3 i M4 ukończone; M5
 gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
@@ -2422,8 +2504,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M1          DONE      P0          M           MEDIUM        M0
   M2          DONE      P0          M           LOW-MEDIUM    M1
   M3          DONE      P0          M           MEDIUM        M1, M2
-  M4          READY     P0          S/M         MEDIUM        M3
-  M5          BACKLOG   P0          S           LOW           M4
+  M4          DONE      P0          S/M         MEDIUM        M3
+  M5          READY     P0          S           LOW           M4
   M6          BACKLOG   P0          M           MEDIUM        M4
   M7          BACKLOG   P0          M           MEDIUM        M5, M6
   M8          BACKLOG   P0          M           HIGH          M7
@@ -2480,9 +2562,10 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M4 — Black Mountain Reference Fixture** zgodnie z
-sekcją M4 i World Generation Spec. M0, M0.1, M1, M2 i M3 są DONE.
-Kolejne milestone’y rozpoczynają się po odbiorze ich zależności.
+Następny krok: **M5 — Resources** zgodnie z sekcją M5 i World
+Generation Spec / Production Economy Master. M0, M0.1, M1, M2, M3 i M4
+są DONE. Kolejne milestone’y rozpoczynają się po odbiorze ich
+zależności.
 
 ------------------------------------------------------------------------
 

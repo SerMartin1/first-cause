@@ -5,6 +5,7 @@
     { "path": "packages/content" },
     { "path": "packages/localization" },
     { "path": "packages/simulation" },
-    { "path": "packages/entities" }
+    { "path": "packages/entities" },
+    { "path": "packages/worldgen" }
   ]
 }

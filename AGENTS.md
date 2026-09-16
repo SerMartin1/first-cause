@@ -24,7 +24,7 @@ and `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`.
    go through explicit Commands; the renderer only ever reads Read
    Models.
 6. **Simulation Core never imports UI or Electron.** `packages/simulation`,
-   `packages/entities` (and future `packages/worldgen`,
+   `packages/entities`, `packages/worldgen` (and future
    `packages/causality`, `packages/chronicle`) must stay independent of
    React and Electron so they can run headless (`pnpm sim:run`).
 7. **Content is data-driven.** New resources, goods, company

@@ -1,5 +1,5 @@
 {
-  "name": "@first-cause/entities",
+  "name": "@first-cause/worldgen",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,12 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
+  "dependencies": {
+    "@first-cause/entities": "workspace:*",
+    "zod": "^3.23.8"
+  },
   "devDependencies": {
+    "@first-cause/simulation": "workspace:*",
     "typescript": "^5.7.2"
   }
 }

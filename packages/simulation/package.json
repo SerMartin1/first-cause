@@ -15,6 +15,7 @@
     "sim:run": "node dist/cli/sim-run.js"
   },
   "dependencies": {
+    "@first-cause/entities": "workspace:*",
     "@first-cause/shared": "workspace:*"
   },
   "devDependencies": {

@@ -10,6 +10,52 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-16
 
+- Implemented **M4 -- Black Mountain Reference Fixture** (new
+  `packages/worldgen` package): a generic
+  `JSON -> Zod -> entity factories -> createWorldState` fixture loader
+  (`fixtures/fixture-schema.ts` + `fixtures/load-world-fixture.ts`)
+  that knows nothing about any specific reference scenario (World
+  Generation Spec SS16/SS36), and the hand-written
+  `tests/worldgen/fixtures/black_mountain_reference.json`: 8 regions, 1
+  continent, ~50 population, 4 settlements, 3 resource deposits
+  (Black Mountain's Iron Ore starts hidden/UNKNOWN with no forced
+  mine, per SS16), 7 connections forming a route from Black Mountain to
+  an external market, 1 company + inventory, 1 market, 4
+  TechnologyStates -- matching World Generation Spec SS64's "first
+  prototype" scale. Added the first 4 typed UI Read Models
+  (`packages/simulation/src/read-models`): `WorldSummaryReadModel`,
+  `RegionSummaryReadModel`, `AtlasRegionReadModel`,
+  `ImportantNowReadModel` (the last always returns `[]` today, with a
+  documented reason -- none of its data sources, e.g. Chronicle or
+  shortages, exist yet).
+
+  **Correction to M3:** giving `packages/simulation` a production
+  dependency on `packages/entities` (for Read Models) exposed that
+  `packages/entities`' M3-era `devDependency` on `@first-cause/simulation`
+  (used only by one checksum-roundtrip test) made pnpm report a real
+  cyclic workspace dependency. Fixed by dropping that devDependency and
+  rewriting the test as a plain `JSON.stringify`/`JSON.parse` roundtrip
+  (`WorldState` never uses `Map`/`Set`, so it needed none of M1's
+  `canonicalStringify` Map/Set handling to prove the same property).
+  `packages/entities` now has zero dependency, dev or production, on
+  `packages/simulation`.
+
+  Added 21 new tests: structural fixture-rejection tests, 7 tests
+  against the real Black Mountain fixture (region/population counts,
+  hidden Iron Ore + no forced mine, BFS route-to-market, food-producing
+  region, alternative economic region, non-trivial transport cost), a
+  grep-based test that no non-test `.ts` source file under
+  `worldgen`/`entities`/`simulation` mentions the fixture's identity, a
+  single-empty-tick integration test (M1's `HeadlessRunner.step()`
+  alongside a real `WorldState`, proving the M4 Acceptance Gate's
+  "runs one empty tick without error, as a no-op"), and 9 Read Model
+  contract tests. `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+  `pnpm test` (208/208), `pnpm build` and `pnpm test:e2e` all pass.
+  Widened the ESLint Simulation-Core React/Electron import boundary to
+  include `packages/worldgen/**`. Updated the roadmap (M4 = DONE, M5 =
+  READY, "Wyniki wykonania" recorded, including the M3 correction),
+  README and AGENTS.md accordingly. No economic/demographic/AI logic or
+  procedural generation exists yet (M5/M22+), as scoped.
 - Implemented **M3 -- World State Foundation** (new `packages/entities`
   package): typed runtime entity shapes + `create*()` factories for all
   11 in-scope entities (`World`, `Continent`, `Region` incl.
