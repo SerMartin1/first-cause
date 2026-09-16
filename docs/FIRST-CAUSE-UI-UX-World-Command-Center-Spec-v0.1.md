@@ -10,10 +10,10 @@ WHY?, Butterfly Effect, Architect Panel oraz zasad prezentacji złożonej
 symulacji w sposób prosty, analityczny i „anti-AI".
 
 **Dokumenty powiązane:** -
-`FIRST-CAUSE-Koncepcja-i-Architektura-v0.6.md` -
+`FIRST-CAUSE-koncepcja-architektura-v0.6.md` -
 `FIRST-CAUSE-Simulation-Model-v0.1.md` -
-`FIRST-CAUSE-Production-Economy-Master-v0.1.md` -
-`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` -
+`FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` -
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (brak w repo; zob. Canonical Decisions §199) -
 `FIRST-CAUSE-Entity-Data-Model-v0.1.md` -
 `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` -
 `FIRST-CAUSE-Causality-Engine-Spec-v0.1.md` -
@@ -2160,17 +2160,15 @@ Te decyzje wymagają prototypów UI, nie zmian modelu symulacji.
 
 # 220. Następne dokumenty
 
-Po UI/UX & World Command Center Spec pozostają przede wszystkim
-dokumenty infrastrukturalne:
+Aktualizacja 2026-09-16: Save/Determinism/Performance Spec oraz
+Content/Localization Spec już istnieją. Warstwę wizualną i Living Atlas
+rozwijają `FIRST-CAUSE-UI-Visual-Design-System-v1.0.md` oraz
+`FIRST-CAUSE-UI-Implementation-Spec-v1.0.md`. Zastępują dawną propozycję
+osobnych dokumentów Design System i World Network Visualization.
+Ustalone tam kolory, typografia i reguły gęstości zamykają odpowiednie
+historyczne pytania z §219. Bieżący etap projektu to M1; tor UI podlega
+roadmapie v0.2.
 
-1.  **`FIRST-CAUSE-Save-Determinism-Performance-Spec-v0.1.md`**
-2.  **`FIRST-CAUSE-Content-Localization-Spec-v0.1.md`**
-
-Opcjonalnie warto później wydzielić: -
-`FIRST-CAUSE-UI-Design-System-v0.1.md` -
-`FIRST-CAUSE-World-Network-Visualization-Spec-v0.1.md`
-
-dopiero po wykonaniu pierwszych mockupów.
 
 ------------------------------------------------------------------------
 

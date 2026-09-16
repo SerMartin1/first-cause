@@ -1144,9 +1144,11 @@ Simulation Core nadal nie spełnia zaakceptowanych performance budgets.
 
 # 101. Co pozostaje otwarte
 
-Nie blokuje M0: - konkretna biblioteka chartów, - dokładny graph layout
-algorithm, - finalny save binary format, - Steamworks wrapper, - final
-font stack, - installer branding, - officialMaxRegions.
+Nie blokuje M1: konkretna biblioteka chartów, dokładny graph layout
+algorithm, docelowy save binary format, Steamworks wrapper, installer
+branding i officialMaxRegions. Fonty UI ustala już Design System v1.0;
+pokrycie locale/fallbacki wymagają weryfikacji przy wdrożeniu. Wybory
+deterministycznego rdzenia do zamknięcia w M1 wskazuje Canonical Decisions §201.
 
 ------------------------------------------------------------------------
 
@@ -1174,7 +1176,8 @@ milestone'ów bez danych z benchmarków**.
 
 # 104. Następny krok
 
-Po zatwierdzeniu dokumentu należy przejść do implementacji:
+Stan na 2026-09-16: M0 i M0.1 są ukończone. Następny etap to M1
+zgodnie z `FIRST-CAUSE-Implementation-Roadmap-v0.2.md`. Kolejność fundamentu:
 
 ``` text
 M0 Repository Foundation
@@ -1184,9 +1187,9 @@ M0 Repository Foundation
 → M4 Black Mountain Fixture
 ```
 
-Pierwszym praktycznym artefaktem powinien być prompt dla Claude
-Code/Codex tworzący **M0 Repository Foundation** dokładnie według tej
-specyfikacji i Canonical Decisions.
+Na początku M1 należy zapisać krótki ADR determinizmu obejmujący
+konkretne wybory wymagane przez Canonical Decisions §201, a następnie
+wdrożyć i zweryfikować wyłącznie zakres M1.
 
 ------------------------------------------------------------------------
 

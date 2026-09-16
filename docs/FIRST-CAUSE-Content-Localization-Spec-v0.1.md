@@ -12,7 +12,7 @@ i dat, fallbacki, testy oraz workflow produkcji contentu.
 `FIRST-CAUSE-koncepcja-architektura-v0.6.md` -
 `FIRST-CAUSE-Simulation-Model-v0.1.md` -
 `FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` -
-`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` -
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (brak w repo; zob. Canonical Decisions §199) -
 `FIRST-CAUSE-Entity-Data-Model-v0.1.md` -
 `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` -
 `FIRST-CAUSE-Causality-Engine-Spec-v0.1.md` -
@@ -2579,7 +2579,12 @@ Powinien posiadać:
 
 # 329. Następny krok dokumentacyjny
 
-Po tym dokumencie podstawowa seria specyfikacji FIRST CAUSE jest
+**Aktualizacja 2026-09-16:** poniższa rekomendacja została wykonana —
+Master Audit już istnieje i jest zapisem historycznym. Bieżący etap to
+M1 według roadmapy v0.2; aktualne decyzje i dostępność źródeł określa
+Canonical Decisions.
+
+Historyczna rekomendacja: po tym dokumencie podstawowa seria specyfikacji FIRST CAUSE jest
 wystarczająco kompletna, aby wykonać:
 
 **`FIRST-CAUSE-Master-Documentation-Consistency-Implementation-Readiness-Audit-v0.1.md`**

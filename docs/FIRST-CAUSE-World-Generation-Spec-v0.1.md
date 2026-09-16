@@ -698,9 +698,10 @@ Tuning: terrain weights, climate distributions, deposit rarity,
 population variance, settlement thresholds, inventory buffer, initial
 price variation, repair thresholds --- wszystko w data/config.
 
-Otwarte do stacku/prototypu: konkretny topology algorithm, spatial
-representation, money representation, final serialization, naming
-algorithm i officialMaxRegions.
+Otwarte do prototypu: konkretny topology algorithm, spatial
+representation i naming algorithm. Technology Stack Decision ustala
+integer/fixed-scale money i JSON + gzip save dla VS. Skala/rounding
+pieniędzy należy do M1; format docelowy i officialMaxRegions do benchmarków.
 
 ------------------------------------------------------------------------
 
@@ -749,11 +750,11 @@ na większe presety.
 
 # 68. Status po tej specyfikacji
 
-Po zatwierdzeniu tego dokumentu nie ma już dużego gameplayowego blockera
-dokumentacyjnego dla Vertical Slice. Następną decyzją powinien być
-krótki **FIRST CAUSE Technology Stack Decision**, a następnie
-implementacja:
-`M0 Repository Foundation → M1 Deterministic Core → M2 Data Foundation → M3 World State → M4 Black Mountain Fixture`.
+Specyfikacja zamyka brak kontraktu generowania świata. Technology Stack
+Decision już istnieje; M0/M0.1 są ukończone, a następny etap to M1.
+Potem M2 → M3 → M4 (ręczny fixture). Pełny proceduralny generator
+należy do M22. Aktualne statusy i braki źródeł określają roadmapa v0.2
+i Canonical Decisions §199; ta specyfikacja nie certyfikuje ich kompletności.
 
 ------------------------------------------------------------------------
 

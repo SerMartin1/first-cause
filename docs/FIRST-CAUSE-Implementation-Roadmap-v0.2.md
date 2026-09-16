@@ -1,13 +1,17 @@
-# FIRST CAUSE --- Implementation Roadmap v0.1
+# FIRST CAUSE --- Implementation Roadmap v0.2
 
 **Status:** dokument kanoniczny / żywy (living document)\
 **Projekt:** FIRST CAUSE\
-**Wersja:** 0.1\
+**Wersja:** 0.2\
 **Rola:** przełożenie istniejącej dokumentacji na wykonywalną kolejność
 implementacji Vertical Slice --- od pustego repozytorium do
 `VS Freeze`.\
 **Dokumenty nadrzędne:** `FIRST-CAUSE-Canonical-Decisions-v0.1.md`,
 `FIRST-CAUSE-Master-Documentation-Consistency-Implementation-Readiness-Audit-v0.1.md`
+
+**Dokumenty UI obowiązujące dla harmonogramu:**
+`FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`,
+`FIRST-CAUSE-UI-Implementation-Spec-v1.0.md`
 
 > **Ten dokument nie tworzy nowej koncepcji gry. Tłumaczy istniejące,
 > już zatwierdzone specyfikacje na kolejność, w jakiej powstanie kod.**
@@ -16,14 +20,16 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 # 0. Miejsce tego dokumentu w hierarchii
 
-Ten dokument powstaje **po** `Canonical Decisions v0.1` i **przed**
-rozpoczęciem implementacji `M0 --- Repository Foundation`. Pełni rolę,
-którą `Master Documentation Consistency & Implementation Readiness
-Audit v0.1` nazwał ostatnim krokiem przed kodowaniem: audyt ustalił
-kanon i kolejność na poziomie nazw milestone'ów (`IMPL-008`), a ten
-dokument rozwija tę kolejność do poziomu modułów, danych, testów,
-bramek akceptacyjnych i ryzyk, tak aby agent kodujący (Claude
-Code/Codex) nie musiał niczego zgadywać ani wymyślać.
+Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
+i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
+bieżący etap to M1 (READY). Pełni rolę,
+którą
+`Master Documentation Consistency & Implementation Readiness Audit v0.1`
+nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
+kolejność na poziomie nazw milestone'ów (`IMPL-008`), a ten dokument
+rozwija tę kolejność do poziomu modułów, danych, testów, bramek
+akceptacyjnych i ryzyk, tak aby agent kodujący (Claude Code/Codex) nie
+musiał niczego zgadywać ani wymyślać.
 
 Jeżeli ten dokument jest sprzeczny z `Canonical Decisions v0.1`,
 obowiązuje `Canonical Decisions v0.1`. Ten dokument nie rozstrzyga
@@ -36,7 +42,7 @@ konfliktów projektowych --- rozstrzyga **kolejność i zakres pracy**.
 Kolejność wdrażania wynika z zależności danych i mechanik, nie z
 kolejności rozdziałów w specyfikacjach:
 
-```text
+``` text
 fundament techniczny
 → determinism
 → dane
@@ -62,11 +68,20 @@ Fact infrastructure (Causality), checksum/save i lokalizacja są
 **cross-cutting** --- zaczynają się wcześnie i rosną razem z każdym
 systemem, zamiast czekać na własny późny milestone (patrz sekcja 9).
 
+Od v0.2 również **UI Foundation jest cross-cutting**. `M21` pozostaje
+kanonicznym milestone'em pełnej integracji UI Vertical Slice, ale nie
+oznacza rozpoczęcia UI od zera. Od `M4/M5` równolegle powstają Read
+Models, Design Tokens, `FC* Component Library`, AppShell i kontrakty
+rendererów. W `M14/M15` rozpoczyna się Region Visual Identity, w
+`M17/M18` komponenty Causality/WHY?, a w `M19` Chronicle UI. `M21` jest
+więc **UI Integration Milestone**, w którym wcześniejsze fundamenty
+zostają złożone w pełny UX Vertical Slice.
+
 ------------------------------------------------------------------------
 
 # 2. Poziomy planowania
 
-```text
+``` text
 PHASE       -- grupa milestone'ów o wspólnym celu (Foundation, Economy, AI, ...)
 MILESTONE   -- M0...M25 (+M26...M29 post-VS), jednostka z Definition of Done
 MODULE      -- podzadanie wewnątrz milestone'u, zwykle 1:1 z sekcją
@@ -80,25 +95,24 @@ Każdy milestone ma jednoznaczne Definition of Done (sekcja 10 poniżej)
 oraz --- tam, gdzie dokumentacja to definiuje --- listę modułów
 zaczerpniętą wprost z sekcji „Kolejność implementacji" właściwej
 specyfikacji systemowej. Dzięki temu granulacja `MODULE`/`TASK`
-odpowiada temu, czego oczekiwałby 55-punktowy harmonogram, bez
-mnożenia liczby milestone'ów ponad to, co jest już kanonicznie
-ustalone.
+odpowiada temu, czego oczekiwałby 55-punktowy harmonogram, bez mnożenia
+liczby milestone'ów ponad to, co jest już kanonicznie ustalone.
 
 ------------------------------------------------------------------------
 
 # 3. Dlaczego ten dokument NIE używa układu M0--M55 1:1
 
-Propozycja wyjściowa (Phase A--M, M0--M55) jest trafna koncepcyjnie,
-ale projekt **już ma** zatwierdzoną, kanoniczną kolejność
-implementacji: `IMPL-008` w `Canonical Decisions v0.1` (26 kroków,
-`M0`--`M25`), potwierdzoną też w `Master Audit` (sekcje 139--166) i w
+Propozycja wyjściowa (Phase A--M, M0--M55) jest trafna koncepcyjnie, ale
+projekt **już ma** zatwierdzoną, kanoniczną kolejność implementacji:
+`IMPL-008` w `Canonical Decisions v0.1` (26 kroków, `M0`--`M25`),
+potwierdzoną też w `Master Audit` (sekcje 139--166) i w
 `Technology Stack Decision` (sekcje 92--98). Zmiana numeracji
-milestone'ów bez technicznego powodu złamałaby zasadę z `Canonical
-Decisions` §200:
+milestone'ów bez technicznego powodu złamałaby zasadę z
+`Canonical Decisions` §200:
 
 > „Jeżeli dokumentacja opisuje dwie różne wersje tej samej decyzji,
-> agent nie wybiera tej, która jest łatwiejsza do implementacji.
-> Wybiera decyzję z niniejszego rejestru."
+> agent nie wybiera tej, która jest łatwiejsza do implementacji. Wybiera
+> decyzję z niniejszego rejestru."
 
 Dlatego ten dokument:
 
@@ -106,24 +120,24 @@ Dlatego ten dokument:
     (Vertical Slice).
 2.  **Nie spłaszcza granulacji** --- tam, gdzie propozycja 55-punktowa
     chciała osobnych milestone'ów (np. osobno Discovery/Adoption/Company
-    Dynamics albo osobno AI Decision Core/Opportunity
-    Scanner/Bounded Rationality), dokumentacja systemowa **już
-    definiuje** tę granulację jako `MODULE` wewnątrz jednego
-    milestone'u (np. `AI-01`...`AI-12` wewnątrz `M11`, `CE-01`...`CE-12`
-    wewnątrz `M17`, `CH-01`...`CH-14` wewnątrz `M19`, `UI-01`...`UI-14`
-    wewnątrz `M21`). Poziom szczegółowości jest więc identyczny ---
-    tylko przeniesiony z poziomu `MILESTONE` na poziom `MODULE`, co
-    jest zgodne z poziomami planowania z sekcji 2.
+    Dynamics albo osobno AI Decision Core/Opportunity Scanner/Bounded
+    Rationality), dokumentacja systemowa **już definiuje** tę granulację
+    jako `MODULE` wewnątrz jednego milestone'u (np. `AI-01`...`AI-12`
+    wewnątrz `M11`, `CE-01`...`CE-12` wewnątrz `M17`, `CH-01`...`CH-14`
+    wewnątrz `M19`, `UI-01`...`UI-14` wewnątrz `M21`). Poziom
+    szczegółowości jest więc identyczny --- tylko przeniesiony z poziomu
+    `MILESTONE` na poziom `MODULE`, co jest zgodne z poziomami
+    planowania z sekcji 2.
 3.  **Dodaje cztery milestone'y poza kanonicznym VS** (`M26`--`M29`),
     których propozycja wyjściowa domagała się jako Phase K (Scale) i
     części Phase L (Save & Long-Run). Nie są one częścią `IMPL-008`,
     ponieważ Vertical Slice jest zdefiniowany jako świat **24--40
     regionów** (`WORLD-005`), a certyfikacja 250/600/1200/2000/3000
-    regionów oraz testy 500/1000-letnie są jawnie opisane w `Save/
-    Determinism/Performance Spec` i `Simulation Test Spec` jako etap
-    **po** Vertical Slice, na drodze do MVP. Dodanie ich jako `M26`--
-    `M29` domyka zakres z propozycji wyjściowej bez fałszowania, że są
-    one wymagane do ukończenia VS.
+    regionów oraz testy 500/1000-letnie są jawnie opisane w
+    `Save/     Determinism/Performance Spec` i `Simulation Test Spec`
+    jako etap **po** Vertical Slice, na drodze do MVP. Dodanie ich jako
+    `M26`-- `M29` domyka zakres z propozycji wyjściowej bez fałszowania,
+    że są one wymagane do ukończenia VS.
 4.  **Nie tworzy** osobnych milestone'ów dla Phase J (World Generation
     proceduralny) rozbitego na M34--M37 z propozycji --- World
     Generation Spec v0.1 (już istnieje, status READY) definiuje
@@ -145,24 +159,24 @@ milestone'ów post-VS, które w propozycji były wymieszane z zakresem VS.
 
 # 4. Mapowanie faz z propozycji na kanoniczną numerację
 
-  Faza z propozycji                          Kanoniczne milestone'y   Uwaga
-  ------------------------------------------- ------------------------ ---------------------------------------------
-  A --- Foundation                            M0--M4                  bez zmian koncepcyjnych
-  B --- Minimum Living Economy                M5--M10                 Resources/Population rozdzielone równolegle
-  C --- Living World (Population/Migration/   M6, M13, M14, M5         Resources/Infrastructure jako moduły w M5/M9,
-  Settlements/Resources/Infrastructure)                                a nie osobne milestone'y
-  D --- Knowledge & Economic Evolution        M15, M12                Company Dynamics = M12 (Entrepreneurship)
-  E --- Autonomous Actors (AI Core/           M11                     AI-01...AI-12 jako moduły
-  Opportunity/Bounded Rationality)
-  F --- Causal World                          M17, M18 (start: M5+)   Fact infra zaczyna się w M5 (cross-cutting)
-  G --- History                               M19                     CH-01...CH-14 jako moduły
-  H --- Architect                             M16 (integracja: M17)   Butterfly wymaga M17/M18
-  I --- World Generation                      M22                     jeden 31-etapowy pipeline
-  J --- Player Experience                     M21                     UI-01...UI-14 jako moduły
-  K --- Scale                                 **M26** (post-VS)       250/600/1200/2000/3000
-  L --- Save & Long-Run                       cross-cutting od M1 +   pełna certyfikacja w **M27** (post-VS)
-                                               **M27**
-  M --- Vertical Slice Completion             M23--M25                Black Mountain 200 lat → tuning → freeze
+  Faza z propozycji K                         anoniczne milestone'y U   waga
+  ------------------------------------------- ------------------------- -----------------------------------------------
+  A --- Foundation                            M0--M4 b                  ez zmian koncepcyjnych
+  B --- Minimum Living Economy                M5--M10 R                 esources/Population rozdzielone równolegle
+  C --- Living World (Population/Migration/   M6, M13, M14, M5          Resources/Infrastructure jako moduły w M5/M9,
+  Settlements/Resources/Infrastructure)                                 a nie osobne milestone'y
+  D --- Knowledge & Economic Evolution        M15, M12 C                ompany Dynamics = M12 (Entrepreneurship)
+  E --- Autonomous Actors (AI Core/           M11 A                     I-01...AI-12 jako moduły
+  Opportunity/Bounded Rationality)                                      
+  F --- Causal World                          M17, M18 (start: M5+) F   act infra zaczyna się w M5 (cross-cutting)
+  G --- History                               M19 C                     H-01...CH-14 jako moduły
+  H --- Architect                             M16 (integracja: M17) B   utterfly wymaga M17/M18
+  I --- World Generation                      M22 j                     eden 31-etapowy pipeline
+  J --- Player Experience                     M21 U                     I-01...UI-14 jako moduły
+  K --- Scale                                 **M26** (post-VS) 2       50/600/1200/2000/3000
+  L --- Save & Long-Run                       cross-cutting od M1 + p   ełna certyfikacja w **M27** (post-VS)
+                                              **M27**                   
+  M --- Vertical Slice Completion             M23--M25 B                lack Mountain 200 lat → tuning → freeze
 
 ------------------------------------------------------------------------
 
@@ -170,7 +184,7 @@ milestone'ów post-VS, które w propozycji były wymieszane z zakresem VS.
 
 ## 5.1 Główny łańcuch (Critical Dependency Graph)
 
-```text
+``` text
 CORE (M0-M1)
  ↓
 DATA (M2)
@@ -226,7 +240,7 @@ SCALE CERTIFICATION (M26) ──→ LONG-RUN CERTIFICATION (M27) ──→ CONTE
 
 ## 5.2 Zależności boczne (cross-cutting)
 
-```text
+``` text
 Causality Fact Infrastructure (CE-01, CE-02)
   zaczyna się w M5, rośnie z każdym kolejnym systemem (M6...M19),
   a nie dopiero w M17.
@@ -246,10 +260,15 @@ discoveries)
   wyprzedzeniem względem systemu, który go konsumuje (np. dane PM
   metalurgii mogą powstać przed M15, jeśli schema z M2 jest gotowa).
 
-UI debug shell
-  może istnieć od M3 (surowe inspektory World State), rośnie
-  równolegle z backendem; pełny World Command Center powstaje w M21,
-  gdy read models są stabilne.
+UI Foundation Track
+  zaczyna się od M3/M4 jako surowy debug shell + fixture Read Models,
+  następnie od M5 rozwija Design Tokens, typografię, spacing,
+  podstawowe komponenty `FC*`, `FCAppShell`, `FCTopNavigation` i
+  `FCSimulationBar`. Każdy kolejny system dostarcza UI-ready Read
+  Models jako część swojego Definition of Done. W M14/M15 startuje
+  `RegionVisualProfile`/`FCRegionVignette`; M17/M18 dostarcza
+  komponenty Causality/WHY?, M19 Chronicle. Pełny World Command Center
+  i integracja Golden UI są domykane w M21.
 
 Validation (schema + invariants)
   towarzyszy każdej nowej encji/systemowi od M2 dalej (DATA-003,
@@ -265,7 +284,7 @@ Performance profiling
 
 # 6. Critical Path do grywalnego Vertical Slice
 
-```text
+``` text
 CRITICAL PATH (sekwencyjny, blokujący):
 M0 → M1 → M2 → M3 → M4 → M5/M6 → M7 → M8 → M9 → M10 → M11 → M12 →
 M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 →
@@ -274,16 +293,15 @@ M24 → M25
 
 Nie istnieje realna ścieżka skracająca ten łańcuch --- każdy system
 gospodarczy VS zależy fizycznie od poprzedniego (populacja potrzebuje
-zasobów i osad, rynek potrzebuje produkcji, AI potrzebuje rynku i
-pracy, migracja potrzebuje AI/zatrudnienia, technologia wpływa na
-produkcję i wymaga wiedzy zakorzenionej w populacji/osadach,
-Architect potrzebuje działającego świata do zmiany warunków,
-przyczynowość potrzebuje wszystkich powyższych do wyjaśniania,
-Chronicle potrzebuje przyczynowości). To jest właśnie powód, dla
-którego `Master Audit` odrzucił podejście „moduł po module bez
-pionowego testu" (§137).
+zasobów i osad, rynek potrzebuje produkcji, AI potrzebuje rynku i pracy,
+migracja potrzebuje AI/zatrudnienia, technologia wpływa na produkcję i
+wymaga wiedzy zakorzenionej w populacji/osadach, Architect potrzebuje
+działającego świata do zmiany warunków, przyczynowość potrzebuje
+wszystkich powyższych do wyjaśniania, Chronicle potrzebuje
+przyczynowości). To jest właśnie powód, dla którego `Master Audit`
+odrzucił podejście „moduł po module bez pionowego testu" (§137).
 
-```text
+``` text
 PARALLEL WORK (może iść równolegle do critical path, bez blokowania):
 - M5 (Resources) || wczesne prace nad M6 (Population) -- oba zależą
   tylko od M3/M4.
@@ -292,8 +310,11 @@ PARALLEL WORK (może iść równolegle do critical path, bez blokowania):
 - Fact infrastructure (CE-01/CE-02) równolegle z M5-M16, zamiast
   czekać na M17.
 - Save roundtrip + WorldChecksum rozbudowa równolegle z M3-M19.
-- UI debug shell (surowe widoki World State, bez stylizacji)
-  równolegle z M3-M20, poprzedzające właściwy UI-01...UI-14 z M21.
+- UI Foundation Track równolegle z M3-M20: debug shell i fixture
+  Read Models (M3/M4), Design Tokens + podstawowe `FC*` + AppShell
+  (M5-M10), data components (M11-M15), Region Visual Identity
+  (M14/M15), Causality/WHY? components (M17/M18), Chronicle components
+  (M19). M21 pozostaje finalnym integration gate `UI-01...UI-14`.
 - Worldgen module skeleton (RNG streams, topology szkic) można
   prototypować równolegle z M15-M19, ale PEŁNA implementacja M22
   (spawn firm/knowledge/inventories) musi czekać na stabilne
@@ -320,28 +341,85 @@ DEFERRED WORK (świadomie poza obecnym zakresem, patrz sekcja 8):
 
 ------------------------------------------------------------------------
 
+# 6A. Parallel UI Foundation Track (v0.2)
+
+Ten tor **nie zmienia numeracji M0--M25** i nie tworzy nowych
+milestone'ów gameplayowych. Określa, które elementy nowego
+`UI Visual Design System v1.0` i `UI Implementation Spec v1.0` powstają
+wcześniej, aby M21 nie stał się monolitycznym wdrożeniem.
+
+``` text
+M3/M4  → debug shell + fixture Read Models
+M5-M10 → UI-F0: tokens, typography, spacing, FC primitives,
+          FCAppShell, FCTopNavigation, FCSimulationBar
+M11-M15→ data components + domenowe Read Models
+M14/M15→ UI-F1: RegionVisualProfile + FCRegionVignette renderer
+M16    → Architect presentation primitives
+M17    → FCCausal* component foundation
+M18    → funkcjonalny WHY? na prawdziwych danych
+M19    → Chronicle components + funkcjonalny World Chronicle
+M20    → save/load UI presentation context, jeśli wspierany przez save spec
+M21    → pełna integracja Golden UI i UX Vertical Slice
+M22    → World Generation → RegionVisualProfile jako pochodna stanu
+M23    → 200-letni SIM+UI soak
+M24    → UI performance gate
+M25    → Golden UI / Anti-Drift conformance gate
+```
+
+## Read Model Definition of Done
+
+Od `M5` każdy system, który ma dane widoczne dla gracza, ma w swoim DoD:
+
+1.  domenowa logika pozostaje w Simulation Core;
+2.  istnieje typed Read Model/query albo jawnie udokumentowany brak
+    user-facing danych;
+3.  UI nie musi rekonstruować reguł domenowych z surowego World State;
+4.  fixture Read Model istnieje tam, gdzie ekran/komponent może być
+    rozwijany przed pełną integracją systemu;
+5.  zmiana Read Modelu ma test kontraktu.
+
+## Dostępność referencji UI
+
+Golden UI są opisane tekstowo, ale ich pliki/odnośniki nie są dostępne
+w repo (stan 2026-09-16). Należy je udostępnić przed review zgodności
+wizualnej ekranów oraz gate M25. Nie blokuje to M1 ani implementacji
+tekstowych kontraktów UI Foundation; odbiór wizualny pozostaje otwarty.
+
+## Anti-AI / Anti-Drift
+
+Wszystkie prace UI od pierwszego komponentu podlegają
+`FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`:
+
+-   whitespace przed panelami/kartami,
+-   ograniczona ikonografia,
+-   brak lokalnych HEX/font-size poza tokenami,
+-   brak nowych wzorców wizualnych bez uzasadnienia,
+-   `React` renderuje Read Models, `PixiJS` Living Atlas,
+-   świat może się poruszać; UI pozostaje spokojne.
+
 # 7. Checkpointy
 
-  Checkpoint   Nazwa                     Po milestone   Definicja
-  ------------ ------------------------- -------------- ------------------------------------------------------------
-  CP0          Technical Foundation      M3             Deterministyczny pusty świat z encjami, bez gospodarki.
-  CP1          First Living Economy      M10            Świat produkuje, konsumuje, handluje, reaguje na ceny.
-  CP2          Emergent Economy          M12            Firmy autonomicznie zakładają się, rosną, upadają.
-  CP3          Explainable World         M18            WHY? wyjaśnia dowolną istotną konsekwencję.
-  CP4          Historical World          M19            Chronicle wybiera i zapisuje znaczące procesy.
-  CP5          Architect Playable        M16+M17+M18    Interwencje gracza działają przez realny graf przyczynowy
-                                                          (wymaga interwencji z M16, propagacji z M17 i WHY z M18).
-  CP6          Procedural World          M22            Można wygenerować nowy 32-regionowy świat z dowolnego seeda.
-  CP7          Vertical Slice            M25            Black Mountain end-to-end, determinizm, save/load, 200 lat.
+  Checkpoint   Nazwa                  Po milestone   Definicja
+  ------------ ---------------------- -------------- --------------------------------------------------------------
+  CP0          Technical Foundation   M3             Deterministyczny pusty świat z encjami, bez gospodarki.
+  CP1          First Living Economy   M10            Świat produkuje, konsumuje, handluje, reaguje na ceny.
+  CP2          Emergent Economy       M12            Firmy autonomicznie zakładają się, rosną, upadają.
+  CP3          Explainable World      M18            WHY? wyjaśnia dowolną istotną konsekwencję.
+  CP4          Historical World       M19            Chronicle wybiera i zapisuje znaczące procesy.
+  CP5          Architect Playable     M16+M17+M18    Interwencje gracza działają przez realny graf przyczynowy
+                                                     (wymaga interwencji z M16, propagacji z M17 i WHY z M18).
+  CP6          Procedural World       M22            Można wygenerować nowy 32-regionowy świat z dowolnego seeda.
+  CP7          Vertical Slice         M25            Black Mountain end-to-end, determinizm, save/load, 200 lat.
 
 ------------------------------------------------------------------------
 
 # 8. Systemy i decyzje poza obecnym zakresem
 
-Zgodnie z `Canonical Decisions` (`DEFER-001`...`DEFER-012`) oraz `Master
-Audit` §127, następujące pozycje **nie powstają** w ramach `M0`--`M29`:
+Zgodnie z `Canonical Decisions` (`DEFER-001`...`DEFER-012`) oraz
+`Master Audit` §127, następujące pozycje **nie powstają** w ramach
+`M0`--`M29`:
 
-```text
+``` text
 Warfare Master Spec
 Diplomacy Master Spec
 Full Politics / State Formation Spec
@@ -369,16 +447,14 @@ Poniższe reguły obowiązują **każdy** milestone od `M0` do `M29` i nie są
 powtarzane w każdej sekcji milestone'u osobno:
 
 1.  **Determinism (`IMPL-012`, `SAVE-001`--`SAVE-005`):** każda nowa
-    mutacja World State przechodzi `READ → CALCULATE → VALIDATE →
-    COMMIT → EMIT FACTS`; brak `Math.random()`, brak systemowego
-    czasu, brak nondeterministic UUID.
-2.  **Causal hooks (`IMPL-012`):** każda znacząca mutacja od `M5` w
-    górę powinna przewidywać emisję `SimulationFact`/`CausalContext`,
-    nawet jeśli pełna integracja Causality Engine następuje dopiero w
-    `M17`.
-3.  **Persistence audit (`IMPL-013`):** każde nowe pole runtime ma
-    jawny status: canonical persistent / derived reconstructible /
-    transient.
+    mutacja World State przechodzi
+    `READ → CALCULATE → VALIDATE →     COMMIT → EMIT FACTS`; brak
+    `Math.random()`, brak systemowego czasu, brak nondeterministic UUID.
+2.  **Causal hooks (`IMPL-012`):** każda znacząca mutacja od `M5` w górę
+    powinna przewidywać emisję `SimulationFact`/`CausalContext`, nawet
+    jeśli pełna integracja Causality Engine następuje dopiero w `M17`.
+3.  **Persistence audit (`IMPL-013`):** każde nowe pole runtime ma jawny
+    status: canonical persistent / derived reconstructible / transient.
 4.  **Performance audit (`IMPL-014`, `PERF-003`):** żaden nowy system
     nie wprowadza wzorca `O(allActors × allRegions)` bez uzasadnienia.
 5.  **Localization (`CONTENT-007`, `IMPL-010`):** brak user-facing
@@ -421,9 +497,9 @@ narzędziowy.
 
 **Moduły:**
 
-```text
-pnpm workspace + packages/{simulation,content,localization,shared}
-pozostałe pakiety architektury docelowej przy pierwszym rzeczywistym użyciu
+``` text
+pnpm workspace + packages/{simulation,worldgen,entities,content,
+  causality,chronicle,persistence,localization,shared,ui}
 apps/desktop (Electron main + preload + renderer)
 TypeScript strict (noUncheckedIndexedAccess) w całym repo
 Vite dev server dla renderer
@@ -463,98 +539,79 @@ zwłaszcza §1, §10--13, §65--75, §92, §97).
 
 **Co faktycznie wdrożono:**
 
-- Git repo (`main`), pnpm monorepo (`apps/*`, `packages/*`), TypeScript
-  `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`
-  w całym repo.
-- `packages/shared` -- typed IPC contract (`SimulationRequest/
-  Response`, `FirstCauseApi`, `AppInfo`), współdzielony przez main,
-  preload i renderer.
-- `packages/content` -- Zod schema (`ResourceDefinitionSchema`),
-  `DefinitionRegistry`, loader z walidacją strukturalną Zod i
-  kontrolą duplicate IDs (obecny zakres walidacji semantycznej), jedna realna definicja
-  (`content/resources/iron_ore.json`), testy poprawnej i błędnej
-  definicji.
-- `packages/localization` -- `createI18n()` (i18next + react-i18next),
-  `locales/en/common.json` + `locales/pl/common.json`, test lokalizacji
-  niezależnej od reszty aplikacji.
-- `packages/simulation` -- czysty, testowalny `protocol-handler`
-  (PING/PONG, GET_CORE_STATUS), `worker.ts` na `worker_threads`, CLI
-  `pnpm sim:run` (headless, zweryfikowane realnym uruchomieniem).
-- `apps/desktop` -- Electron (`electron-vite`) + React + Vite; main
-  process z `SimulationBridge` (request/response correlation po
-  `requestId`), preload z wąskim `contextBridge` API
-  (`getAppInfo`/`pingSimulation`/`getSimulationCoreStatus`), React
-  shell (status workera, przełącznik PL/EN, Zustand tylko dla
-  `isDeveloperOverlayOpen`).
-- Testy: Vitest (15 testów: schema/registry/i18n/protocol-handler/UI),
-  Playwright Electron E2E (pełna ścieżka: start apki → okno →
-  "FIRST CAUSE" widoczne → Simulation Worker ONLINE).
-- ESLint (flat config) z regułą architektoniczną blokującą import
-  `react`/`react-dom`/`electron`/desktop w `packages/simulation`,
-  `packages/content`, `packages/shared`; Prettier; GitHub Actions CI
-  (`typecheck → lint → format:check → test → build`, osobny job E2E).
-- `README.md`, `AGENTS.md`.
+-   Git repo (`main`), pnpm monorepo (`apps/*`, `packages/*`),
+    TypeScript `strict` + `noUncheckedIndexedAccess` +
+    `exactOptionalPropertyTypes` w całym repo.
+-   `packages/shared` -- typed IPC contract
+    (`SimulationRequest/   Response`, `FirstCauseApi`, `AppInfo`),
+    współdzielony przez main, preload i renderer.
+-   `packages/content` -- Zod schema (`ResourceDefinitionSchema`),
+    `DefinitionRegistry`, loader z pełną walidacją strukturalną i
+    semantyczną (duplicate ID), jedna realna definicja
+    (`content/resources/iron_ore.json`), testy poprawnej i błędnej
+    definicji.
+-   `packages/localization` -- `createI18n()` (i18next + react-i18next),
+    `locales/en/common.json` + `locales/pl/common.json`, test
+    lokalizacji niezależnej od reszty aplikacji.
+-   `packages/simulation` -- czysty, testowalny `protocol-handler`
+    (PING/PONG, GET_CORE_STATUS), `worker.ts` na `worker_threads`, CLI
+    `pnpm sim:run` (headless, zweryfikowane realnym uruchomieniem).
+-   `apps/desktop` -- Electron (`electron-vite`) + React + Vite; main
+    process z `SimulationBridge` (request/response correlation po
+    `requestId`), preload z wąskim `contextBridge` API
+    (`getAppInfo`/`pingSimulation`/`getSimulationCoreStatus`), React
+    shell (status workera, przełącznik PL/EN, Zustand tylko dla
+    `isDeveloperOverlayOpen`).
+-   Testy: Vitest (15 testów: schema/registry/i18n/protocol-handler/UI),
+    Playwright Electron E2E (pełna ścieżka: start apki → okno → "FIRST
+    CAUSE" widoczne → Simulation Worker ONLINE).
+-   ESLint (flat config) z regułą architektoniczną blokującą import
+    `react`/`react-dom`/`electron`/desktop w `packages/simulation`,
+    `packages/content`, `packages/shared`; Prettier; GitHub Actions CI
+    (`typecheck → lint → format:check → test → build`, osobny job E2E).
+-   `README.md`, `AGENTS.md`.
 
 **Znalezione i naprawione problemy:**
 
-- **Realny bug, nie problem środowiska:** domyślna konfiguracja
-  `electron-vite`'owego `externalizeDepsPlugin()` zostawiała
-  `@first-cause/shared` (pakiet ESM: `"type": "module"`) jako
-  `require("@first-cause/shared")` w CJS-owym bundlu main/preload, co
-  powodowało `ERR_REQUIRE_ESM` i uniemożliwiało odpaleniu się aplikacji
-  (a w efekcie -- pierwszy przebieg E2E kończył się timeoutem, bo okno
-  nigdy się nie pokazywało). Naprawione przez `exclude:
-  ["@first-cause/shared"]` w `electron.vite.config.ts`, dzięki czemu
-  esbuild inline'uje ten pakiet w bundlu zamiast requirować go w
-  runtime. Zweryfikowane bezpośrednim uruchomieniem `electron
-  out/main/index.js` przed i po poprawce.
-- Domyślny root-level `pnpm -r run typecheck` failował dla pakietów
-  zależnych od innych workspace'owych pakietów, bo `--noEmit` nie
-  generuje `dist/*.d.ts` dla zależności. Naprawione: `typecheck`
-  najpierw uruchamia `build:packages`.
-- RTL nie czyściło DOM między testami w tym samym pliku (Vitest nie ma
-  automatycznego `afterEach(cleanup)` bez `globals: true`) --
-  naprawione jawnym `afterEach(cleanup)` w `vitest.setup.ts`.
+-   **Realny bug, nie problem środowiska:** domyślna konfiguracja
+    `electron-vite`'owego `externalizeDepsPlugin()` zostawiała
+    `@first-cause/shared` (pakiet ESM: `"type": "module"`) jako
+    `require("@first-cause/shared")` w CJS-owym bundlu main/preload, co
+    powodowało `ERR_REQUIRE_ESM` i uniemożliwiało odpaleniu się
+    aplikacji (a w efekcie -- pierwszy przebieg E2E kończył się
+    timeoutem, bo okno nigdy się nie pokazywało). Naprawione przez
+    `exclude:   ["@first-cause/shared"]` w `electron.vite.config.ts`,
+    dzięki czemu esbuild inline'uje ten pakiet w bundlu zamiast
+    requirować go w runtime. Zweryfikowane bezpośrednim uruchomieniem
+    `electron   out/main/index.js` przed i po poprawce.
+-   Domyślny root-level `pnpm -r run typecheck` failował dla pakietów
+    zależnych od innych workspace'owych pakietów, bo `--noEmit` nie
+    generuje `dist/*.d.ts` dla zależności. Naprawione: `typecheck`
+    najpierw uruchamia `build:packages`.
+-   RTL nie czyściło DOM między testami w tym samym pliku (Vitest nie ma
+    automatycznego `afterEach(cleanup)` bez `globals: true`) --
+    naprawione jawnym `afterEach(cleanup)` w `vitest.setup.ts`.
 
 **Dług techniczny (świadomie pozostawiony, nieblokujący M1):**
 
-- Audyt M0 potwierdził działanie `pnpm dev`; problem `server.fs.allow`
-  nie został odtworzony. Nie jest to aktywny dług P1.
-- **Zasada tworzenia pakietów:** pakiet powstaje przy pierwszym
-  rzeczywistym konsumencie / implementacji odpowiedniego systemu.
-  `entities`, `worldgen`, `causality`, `chronicle`, `persistence`, `ui`
-  są świadomie odroczone, a nie brakujące w M0. Nie tworzymy pustych
-  pakietów dla zgodności z diagramem. `causality` powstaje przy pierwszym
-  użyciu fact infrastructure (cross-cutting od M5), nie arbitralnie w M17;
-  kanoniczna architektura Causality Engine pozostaje bez zmian.
-- P2: brak jeszcze `electron-builder`/instalatora -- `pnpm build`
-  produkuje uruchamialny `out/`, nie installer. Nie było to wymagane w
-  M0.
+-   P1: `pnpm dev` (HMR) nie został zweryfikowany w tym środowisku (brak
+    możliwości interaktywnego zostawienia procesu deweloperskiego) --
+    zweryfikowano wyłącznie `pnpm build` + uruchomienie zbudowanej
+    aplikacji. Import lokalizacji (`../../../locales/...json` z
+    `apps/desktop/src`) może teoretycznie wymagać jawnego
+    `server.fs.allow` w trybie dev, jeśli Vite nie wykryje automatycznie
+    workspace roota -- do zweryfikowania przy pierwszym realnym
+    `pnpm dev`.
+-   P2: `packages/entities` i `packages/worldgen` świadomie nie zostały
+    utworzone w M0 (patrz sekcja 3 tego dokumentu) -- powstaną na
+    starcie odpowiednio M3 i M4/M22.
+-   P2: brak jeszcze `electron-builder`/instalatora -- `pnpm build`
+    produkuje uruchamialny `out/`, nie installer. Nie było to wymagane w
+    M0.
 
 **Czy M1 jest odblokowane:** TAK. `pnpm typecheck`, `pnpm lint`,
 `pnpm format:check`, `pnpm test`, `pnpm build` i `pnpm test:e2e`
-przechodzą lokalnie po M0.1. Zdalny GitHub Actions po tej zmianie nie
-został uruchomiony; lokalne wyniki nie są deklaracją PASS zdalnego CI.
-
-### M0.1 --- Audit Fixes (maintenance, 2026-09-15)
-
-**Status: DONE / audit fixes completed.** Nie jest nowym kanonicznym
-milestone'em; numeracja M0–M29 pozostaje bez zmian. **M1 = READY**,
-implementacja M1 nie została rozpoczęta.
-
-- M0-01: lifecycle bridge `running/failed/disposed`, timeout IPC 10 s,
-  reject i cleanup pending przy error/exit/dispose, idempotentny dispose,
-  oczekiwanie aplikacji na worker z limitem shutdown 5 s.
-- M0-02: Electron E2E na Ubuntu przez `xvfb-run --auto-servernum`.
-- M0-03: zsynchronizowane statusy, następny krok, zasada pakietów,
-  walidacja semantyczna i wyniki audytu dev w README/Roadmapie.
-- M0-04/M0-05: sklonowane i głęboko zamrożone definicje JSON,
-  jawny porządek ID niezależny od locale i kolejności wejścia.
-- Testy: 26 unit/component, w tym 9 lifecycle z kontrolowanym workerem
-  i fake timers; registry sprawdza referencje wejściowe/wyjściowe,
-  struktury zagnieżdżone oraz `a_a`, `aa`, `ab`.
-- Pozostałe P2: M0-06 runtime IPC validation przy rozszerzaniu protokołu,
-  M0-07 drobna lokalizacja; brak instalatora pozostaje poza M0.
+przechodzą w czystym przebiegu.
 
 ------------------------------------------------------------------------
 
@@ -568,6 +625,11 @@ na którym każdy późniejszy system będzie mógł polegać bez wyjątków.
 
 **Zależności:** M0.
 
+**Decyzje na początku M1:** krótki ADR obejmujący RNG/version/stream
+seeding, deterministic IDs, skalę pieniędzy i rounding/overflow,
+canonical serialization/checksum, kolejność Commands na ticku
+i zakres gwarancji między platformami (Canonical Decisions §201).
+
 **Implementowane systemy:** SimulationClock/Tick, Seed, deterministic
 RNG z nazwanymi streamami, deterministic IDs, canonical ordering,
 rounding policy, WorldChecksum, command boundary, minimalny headless
@@ -575,7 +637,7 @@ runner.
 
 **Moduły (`packages/simulation/src/core`):**
 
-```text
+``` text
 core/time    -- tick = integer (0,1,2...), data = f(startYear/Month, tick)
 core/rng     -- seeded RNG, rng.stream("migration"), rng.stream("company_ai")...
 core/ids     -- deterministic stable IDs (world-local numeric lub deterministic string)
@@ -585,12 +647,12 @@ core/checksum -- WorldChecksum (wersjonowany algorytm hashujący)
 ```
 
 **Dane:** brak contentu; wyłącznie konfiguracja RNG streams (§SAVE-003:
-`world_generation, demography, company_ai, entrepreneurship, migration,
-discovery, events, naming`).
+`world_generation, demography, company_ai, entrepreneurship, migration, discovery, events, naming`).
 
-**Testy:** RNG golden vectors, determinism smoke (`same seed = same
-checksum`), ×1 vs headless batch equality, stable iteration order test,
-brak `Math.random()` w Simulation Core (lint rule / grep check).
+**Testy:** RNG golden vectors, determinism smoke
+(`same seed = same checksum`), ×1 vs headless batch equality, stable
+iteration order test, brak `Math.random()` w Simulation Core (lint rule
+/ grep check).
 
 **Acceptance Gate (Technology Stack Decision §98):** 10 000 pustych
 ticków reprodukowalnych; RNG golden tests przechodzą; ×1 i headless
@@ -600,14 +662,15 @@ identyczny wynik.
 **Ryzyka:** floating-point divergence między platformami (mitygacja:
 centralna rounding policy, integer/fixed-point dla money od razu ---
 `Canonical Decisions` OPEN-008/§27 Technology Stack Decision); pokusa
-odłożenia determinizmu „na później" (świadomie odrzucona --- `Canonical
-Decisions` SAVE/§75 Master Audit: „Determinism P0 od pierwszego dnia").
+odłożenia determinizmu „na później" (świadomie odrzucona ---
+`Canonical Decisions` SAVE/§75 Master Audit: „Determinism P0 od
+pierwszego dnia").
 
 **Poza zakresem:** World State, encje domenowe, content.
 
 **Źródła:** `FIRST-CAUSE-Save-Determinism-Performance-Spec-v0.1.md`
 (§6--30), `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (SAVE-001--006,
-PERF-*), `FIRST-CAUSE-Technology-Stack-Decision-v0.1.md` (§29--35,
+PERF-\*), `FIRST-CAUSE-Technology-Stack-Decision-v0.1.md` (§29--35,
 §82--88, §93, §98).
 
 ------------------------------------------------------------------------
@@ -617,20 +680,21 @@ PERF-*), `FIRST-CAUSE-Technology-Stack-Decision-v0.1.md` (§29--35,
 **Faza:** A --- Foundation · **Priorytet:** P0 · **Złożoność:** M ·
 **Ryzyko:** LOW-MEDIUM · **Documentation Readiness:** READY
 
-**Cel:** pipeline `JSON → Zod → semantic validation → immutable
-Definition Registry`, gotowy na przyjęcie pierwszych definicji contentu
-i kluczy lokalizacyjnych.
+**Cel:** pipeline
+`JSON → Zod → semantic validation → immutable Definition Registry`,
+gotowy na przyjęcie pierwszych definicji contentu i kluczy
+lokalizacyjnych.
 
 **Zależności:** M1 (deterministic IDs/loading order).
 
-**Implementowane systemy:** Content Definitions, Zod schemas,
-Definition Registry, semantic validation (missing refs, duplicate IDs,
-cycles, phase violations), stable content IDs, localization key
-skeleton (i18next), Content Phase (`VS/MVP/FULL`).
+**Implementowane systemy:** Content Definitions, Zod schemas, Definition
+Registry, semantic validation (missing refs, duplicate IDs, cycles,
+phase violations), stable content IDs, localization key skeleton
+(i18next), Content Phase (`VS/MVP/FULL`).
 
 **Moduły (`packages/content`, `packages/localization`):**
 
-```text
+``` text
 content/definitions -- schema Zod per typ (Resource, Good, CompanyArchetype,
   ProductionMethod, Discovery, Service, TransportMode, Intervention,
   EventType, ChronicleTemplate)
@@ -646,8 +710,9 @@ pełny katalog VS (12 resources/20 goods/17 archetypów) rośnie
 przyrostowo w kolejnych milestone'ach.
 
 **Testy:** duplicate ID, missing ref, invalid range, dependency cycle,
-phase violation, missing EN/PL key --- każdy jako osobny test walidatora;
-content load determinism (ten sam zestaw plików = ten sam registry).
+phase violation, missing EN/PL key --- każdy jako osobny test
+walidatora; content load determinism (ten sam zestaw plików = ten sam
+registry).
 
 **Acceptance Gate:** loader odrzuca celowo błędny JSON z czytelnym
 błędem; poprawny JSON tworzy immutable registry; EN i PL nie zmieniają
@@ -685,7 +750,7 @@ indexes.
 
 **Moduły (`packages/entities`, `src/world`):**
 
-```text
+``` text
 world/world, world/geography, world/regions, world/connections,
   world/environment
 population/cohorts (struktura)
@@ -701,9 +766,9 @@ core/ indexes: companiesByRegion, cohortsByRegion, depositsByRegion,
 instancji (nie definicji) dla każdej encji.
 
 **Testy:** referential integrity (brak dangling refs), invariants
-globalne (`population >= 0`, `deposit >= 0`, `inventory >= 0`, `price >
-0`, brak NaN/Infinity), save/load roundtrip pustego świata z encjami,
-stable iteration order przy iteracji po encjach.
+globalne (`population >= 0`, `deposit >= 0`, `inventory >= 0`,
+`price > 0`, brak NaN/Infinity), save/load roundtrip pustego świata z
+encjami, stable iteration order przy iteracji po encjach.
 
 **Acceptance Gate:** można utworzyć świat z N regionami i podstawowymi
 encjami, zapisać i wczytać go z identycznym checksumem; indeksy są
@@ -731,26 +796,32 @@ milestone.
 **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
 
 **Cel:** ręcznie zdefiniowany, deterministyczny, kontrolowany mini-świat
-(8--12 regionów), zawierający Black Mountain i jego ekosystem, na
-którym rozwijane będą systemy gospodarcze --- zanim istnieje
-proceduralny generator.
+(8--12 regionów), zawierający Black Mountain i jego ekosystem, na którym
+rozwijane będą systemy gospodarcze --- zanim istnieje proceduralny
+generator.
 
 **Zależności:** M3.
 
 **Implementowane systemy:** brak nowych systemów --- wyłącznie dane
 fixture + loader fixture (osobny od proceduralnego World Generation).
 
+**UI Foundation (v0.2):** na bazie fixture powstają pierwsze typed
+fixture Read Models, co najmniej `WorldSummaryReadModel`,
+`RegionSummaryReadModel`, `ImportantNowReadModel` i
+`AtlasRegionReadModel`. Są to kontrakty prezentacyjne, nie kopie pełnego
+World State.
+
 **Moduły:**
 
-```text
+``` text
 tests/worldgen/fixtures/black_mountain_reference.json (lub równoważny)
 worldgen/fixtures loader -- generic, nie zna pojęcia "blackMountain"
 ```
 
 **Dane:** Black Mountain (hidden/unknown Iron Ore), food-producing
 region, trade-connected settlement, potencjalne źródło labor/migration,
-alternatywny region gospodarczy, realny transport cost/bottleneck
-(World Generation Spec §16, §35).
+alternatywny region gospodarczy, realny transport cost/bottleneck (World
+Generation Spec §16, §35).
 
 **Testy:** fixture ładuje się bez błędów walidacji; hidden Iron Ore
 istnieje fizycznie, ale mine nie jest wymuszone na starcie; istnieje
@@ -791,9 +862,16 @@ wyczerpywane; system zaczyna emitować podstawowe Simulation Facts
 yield), resource invariants, pierwsze `SimulationFact` (np.
 `RESOURCE_DISCOVERED`, `DEPOSIT_DEPLETED`).
 
+**UI Foundation Track:** start `UI-F0`: Design Tokens, role
+typograficzne, spacing scale oraz podstawowe `FC*` (`FCSection`,
+`FCPanel`, `FCTextButton`, `FCPrimaryAction`, `FCTabs`, `FCMetric`,
+`FCTrend`), następnie `FCAppShell`, `FCTopNavigation`,
+`FCSimulationBar`. System Resources wystawia UI-ready Read Model zamiast
+wymagać od Reacta interpretacji surowych depositów.
+
 **Moduły (`economy/resources`):**
 
-```text
+``` text
 resources/deposit-lifecycle
 resources/extraction
 resources/depletion
@@ -809,8 +887,8 @@ renewable resources respektują carrying capacity, discovery boundary
 (deposit istnieje przed discovery), conservation audit dla zasobów.
 
 **Acceptance Gate:** złoże można odkryć, wydobyć, wyczerpać;
-niewyczerpywalne (renewable) zasoby stabilizują się wokół
-sustainable yield przy stałym popycie; wszystkie invariants zielone.
+niewyczerpywalne (renewable) zasoby stabilizują się wokół sustainable
+yield przy stałym popycie; wszystkie invariants zielone.
 
 **Ryzyka:** niskie; główne ryzyko to przedwczesne sprzężenie z Market
 (M8), którego jeszcze nie ma --- mitygacja: M5 testuje wydobycie
@@ -819,30 +897,30 @@ izolowanie, bez cen.
 **Poza zakresem:** ceny, handel, AI decydujące o wydobyciu (to M7/M11).
 
 **Źródła:** `FIRST-CAUSE-World-Generation-Spec-v0.1.md` (§13--15),
-`FIRST-CAUSE-Canonical-Decisions-v0.1.md` (ECO-004, ECO-010,
-TECH-009), `FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` (§3--4,
-§19).
+`FIRST-CAUSE-Canonical-Decisions-v0.1.md` (ECO-004, ECO-010, TECH-009),
+`FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` (§3--4, §19).
 
 ------------------------------------------------------------------------
 
 ## M6 --- Minimal Population
 
 **Faza:** B --- Minimum Living Economy · **Priorytet:** P0 ·
-**Złożoność:** M · **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
+**Złożoność:** M · **Ryzyko:** MEDIUM · **Documentation Readiness:**
+READY
 
 **Cel:** kohorty ludności z miesięczną demografią, podstawowym
 szkieletem potrzeb i twardą zasadą zachowania populacji (conservation).
 
 **Zależności:** M4. *(Może iść równolegle z M5.)*
 
-**Implementowane systemy:** PopulationCohort (ageGroup ×
-economicClass × skill × profession × culture × location), miesięczna
-demografia (births/deaths), needs skeleton (bez pełnej satysfakcji ---
-to M9), population conservation.
+**Implementowane systemy:** PopulationCohort (ageGroup × economicClass ×
+skill × profession × culture × location), miesięczna demografia
+(births/deaths), needs skeleton (bez pełnej satysfakcji --- to M9),
+population conservation.
 
 **Moduły (`population/cohorts`, `population/needs`):**
 
-```text
+``` text
 population/cohorts -- age groups (0-14,15-24,25-44,45-64,65+),
   economic classes (Poor/Working/Middle/Wealthy/Elite),
   skills (Unskilled/Skilled/Specialist)
@@ -856,8 +934,8 @@ construction, transport, services, specialist) --- `POP-005`.
 
 **Testy:** population conservation audit (żadna osoba nie znika/nie
 pojawia się bez rejestrowanej przyczyny), age group transitions są
-spójne, brak ujemnych kohort, demografia jest miesięczna (nie
-kwartalna --- `SIM-002`).
+spójne, brak ujemnych kohort, demografia jest miesięczna (nie kwartalna
+--- `SIM-002`).
 
 **Acceptance Gate:** kohorta przechodzi przez N ticków z realistyczną
 dynamiką urodzeń/zgonów, bez naruszenia invariants; total population
@@ -881,7 +959,8 @@ SIM-002), `FIRST-CAUSE-Entity-Data-Model-v0.1.md` (§11),
 ## M7 --- Production
 
 **Faza:** B --- Minimum Living Economy · **Priorytet:** P0 ·
-**Złożoność:** M · **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
+**Złożoność:** M · **Ryzyko:** MEDIUM · **Documentation Readiness:**
+READY
 
 **Cel:** firmy fizycznie produkują i konsumują inputs/labor zgodnie z
 Production Methods; pierwsze działające łańcuchy gospodarcze.
@@ -893,27 +972,28 @@ Method (input→output, capacity, productivity), Inventory jako źródło
 prawdy fizycznych dóbr, pierwsze łańcuchy (Zboże→Mąka→Żywność,
 Livestock→Meat, Fish→Fish Food, Cotton→Fiber→Textiles→Clothing).
 
-**Moduły (`economy/companies`, `economy/production`, `economy/inventory`):**
+**Moduły (`economy/companies`, `economy/production`,
+`economy/inventory`):**
 
-```text
+``` text
 economy/production -- PM evaluation (bez AI decision jeszcze -- fixed
   initial PM per company z fixture), input consumption, output creation
 economy/inventory -- Inventory jako owner fizycznych goods (DATA-005)
 economy/companies -- Company struktura finansowa (minimalna: cash)
 ```
 
-**Dane:** pierwszy podzbiór 20 VS goods i minimalny zestaw archetypów
-z M4 fixture (np. Crop Farm, Mill, Fishing Company) + odpowiadające
+**Dane:** pierwszy podzbiór 20 VS goods i minimalny zestaw archetypów z
+M4 fixture (np. Crop Farm, Mill, Fishing Company) + odpowiadające
 Production Methods (Manual Farming, Manual Processing...).
 
 **Testy:** recipe conservation (input skonsumowany = zgodny z output),
-production capacity respektuje labor/inputs, brak produkcji z
-niczego (`no phantom goods`), production graph completeness dla
-aktywnego podzbioru.
+production capacity respektuje labor/inputs, brak produkcji z niczego
+(`no phantom goods`), production graph completeness dla aktywnego
+podzbioru.
 
 **Acceptance Gate:** firma z fixture produkuje dobro z prawdziwych
-inputs i widocznej pracy; inventory rośnie/maleje zgodnie z produkcją
-i konsumpcją; brak ujemnych zapasów.
+inputs i widocznej pracy; inventory rośnie/maleje zgodnie z produkcją i
+konsumpcją; brak ujemnych zapasów.
 
 **Ryzyka:** ryzyko przedwczesnego hardcodowania konkretnych firm
 (zakazane przez `ECO-009`) --- mitygacja: production musi czytać z
@@ -922,8 +1002,8 @@ Definition Registry, nie z `if company == X`.
 **Poza zakresem:** ceny/rynek (M8), AI decyzje produkcyjne (M11), pełne
 17 archetypów (rosną przyrostowo do M12).
 
-**Źródła:** `FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md`
-(§5--16), `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§11--14),
+**Źródła:** `FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` (§5--16),
+`FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§11--14),
 `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (ECO-007--009, ECO-011--012).
 
 ------------------------------------------------------------------------
@@ -940,12 +1020,12 @@ oscylacji.
 **Zależności:** M7.
 
 **Implementowane systemy:** regionalny Market (nie per-settlement ---
-`DATA-006`), price adjustment z smoothing, shortages/surpluses,
-demand aggregation.
+`DATA-006`), price adjustment z smoothing, shortages/surpluses, demand
+aggregation.
 
 **Moduły (`economy/markets`):**
 
-```text
+``` text
 markets/price-adjustment -- smoothing, hysteresis-ready (pełna
   hysteresis AI dopiero w M11, ale market-level smoothing jest tu)
 markets/demand-aggregation
@@ -963,10 +1043,10 @@ gwałtownych oscylacji przy stałym popycie/podaży), price bounds
 płynnie i stabilizuje się; przy nadwyżce cena spada i stabilizuje się;
 brak nieskończonej pętli oscylacji w 100-tickowym teście stresowym.
 
-**Ryzyka:** **HIGH** --- to jest ryzyko R1 z `Vertical Slice Spec`
-§73 („gospodarka oscyluje"); mitygacja: smoothing/hysteresis od
-pierwszej wersji (nie „dodane później"), dedykowany test stresowy w
-tym milestone, nie odkładany do M23.
+**Ryzyka:** **HIGH** --- to jest ryzyko R1 z `Vertical Slice Spec` §73
+(„gospodarka oscyluje"); mitygacja: smoothing/hysteresis od pierwszej
+wersji (nie „dodane później"), dedykowany test stresowy w tym milestone,
+nie odkładany do M23.
 
 **Poza zakresem:** handel międzyregionalny (M10), AI firm reagujące na
 ceny (M11), needs satisfaction pełne (M9).
@@ -980,7 +1060,8 @@ AI-005), `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§17--18, §73 R1),
 ## M9 --- Labor & Households
 
 **Faza:** B --- Minimum Living Economy · **Priorytet:** P0 ·
-**Złożoność:** M · **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
+**Złożoność:** M · **Ryzyko:** MEDIUM · **Documentation Readiness:**
+READY
 
 **Cel:** zatrudnienie, płace, dochód gospodarstw domowych i pełna
 satysfakcja potrzeb (spending order Survival→...→Savings).
@@ -992,7 +1073,7 @@ consumption, needs satisfaction (pełna, nie skeleton z M6).
 
 **Moduły (`population/needs`, `economy/labor`):**
 
-```text
+``` text
 labor/employment
 labor/wages
 population/consumption -- spending order (ECO-014)
@@ -1001,22 +1082,21 @@ population/needs-satisfaction
 
 **Dane:** brak nowego contentu poza tym, co istnieje.
 
-**Testy:** employment <= eligible working population, no money no
-purchase, consumption priority (spending order respektowany),
-wage response test, labor competition test szkielet (pełny w M11).
+**Testy:** employment \<= eligible working population, no money no
+purchase, consumption priority (spending order respektowany), wage
+response test, labor competition test szkielet (pełny w M11).
 
 **Acceptance Gate:** kohorta z pracą ma wyższą satysfakcję potrzeb niż
 bez pracy; brak zatrudnienia powyżej dostępnej siły roboczej; wydatki
-podążają za `Survival → Basic → Services → Comfort → Prosperity →
-Luxury → Savings`.
+podążają za
+`Survival → Basic → Services → Comfort → Prosperity → Luxury → Savings`.
 
-**Ryzyka:** sprzężenie zwrotne płace↔ceny↔popyt może wzmacniać
-oscylację z M8 (mitygacja: ten sam test stresowy z M8 uruchamiany
-ponownie po M9).
+**Ryzyka:** sprzężenie zwrotne płace↔ceny↔popyt może wzmacniać oscylację
+z M8 (mitygacja: ten sam test stresowy z M8 uruchamiany ponownie po M9).
 
 **Poza zakresem:** migracja jako reakcja na warunki pracy (M13), AI
-decyzje firm o zatrudnieniu (M11 --- tu zatrudnienie jest reaktywne,
-nie strategiczne).
+decyzje firm o zatrudnieniu (M11 --- tu zatrudnienie jest reaktywne, nie
+strategiczne).
 
 **Źródła:** `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (ECO-013--014),
 `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§22--23),
@@ -1027,7 +1107,8 @@ nie strategiczne).
 ## M10 --- Trade & Transport
 
 **Faza:** B --- Minimum Living Economy · **Priorytet:** P0 ·
-**Złożoność:** M · **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
+**Złożoność:** M · **Ryzyko:** MEDIUM · **Documentation Readiness:**
+READY
 
 **Cel:** fizyczny handel między regionami przez graf Connection, z
 Effective Distance, capacity i kosztem transportu.
@@ -1035,13 +1116,12 @@ Effective Distance, capacity i kosztem transportu.
 **Zależności:** M9.
 
 **Implementowane systemy:** trade flows, Effective Distance
-(`PhysicalDistance × TerrainModifier × InfrastructureModifier ×
-BorderModifier × SecurityModifier × SeasonalModifier`), route capacity,
-congestion, delivered cost.
+(`PhysicalDistance × TerrainModifier × InfrastructureModifier × BorderModifier × SecurityModifier × SeasonalModifier`),
+route capacity, congestion, delivered cost.
 
 **Moduły (`economy/trade`, `economy/transport`):**
 
-```text
+``` text
 trade/flows
 trade/effective-distance
 trade/capacity-congestion
@@ -1061,8 +1141,8 @@ bottleneck (ograniczona capacity) widocznie ogranicza przepływ.
 połączeń; w VS (32 regiony, 2--5 sąsiadów) ryzyko jest ograniczone.
 
 **Poza zakresem:** pełna infrastruktura jako inwestycja (rozwijana
-przyrostowo w M14/M22), państwa/granice (`BorderModifier` neutralny w
-VS --- `WORLD-008`).
+przyrostowo w M14/M22), państwa/granice (`BorderModifier` neutralny w VS
+--- `WORLD-008`).
 
 **Źródła:** `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (ECO-015--016),
 `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§16, §18),
@@ -1075,26 +1155,25 @@ milestone (świat produkuje, konsumuje, handluje i reaguje na ceny).
 
 ## M11 --- Company AI
 
-**Faza:** E --- Autonomous Actors · **Priorytet:** P0 · **Złożoność:**
-L · **Ryzyko:** HIGH · **Documentation Readiness:** READY
+**Faza:** E --- Autonomous Actors · **Priorytet:** P0 · **Złożoność:** L
+· **Ryzyko:** HIGH · **Documentation Readiness:** READY
 
 **Cel:** firmy autonomicznie planują produkcję, reagują na inventory,
 zatrudniają, ustalają wage offer, przechodzą przez
 expansion/contraction/closure i finansowe przetrwanie, zgodnie z
-`OBSERVE → FORECAST → GENERATE OPTIONS → SCORE → DECIDE → ACT →
-EVALUATE`.
+`OBSERVE → FORECAST → GENERATE OPTIONS → SCORE → DECIDE → ACT → EVALUATE`.
 
 **Zależności:** M10.
 
 **Implementowane systemy:** wspólny Decision Pipeline, Perceived World
-State (`AI-001`), bounded rationality, hysteresis + cooldown
-(`AI-005`), Company Financial Health, DecisionSnapshot + CausalContext
-dla decyzji firm.
+State (`AI-001`), bounded rationality, hysteresis + cooldown (`AI-005`),
+Company Financial Health, DecisionSnapshot + CausalContext dla decyzji
+firm.
 
 **Moduły (`AI-01`...`AI-11` z AI Decision Model §121, plus Black
 Mountain tuning w M23):**
 
-```text
+``` text
 AI-01 Common Decision Framework
 AI-02 Company Observation & Memory (Perceived State, nie World State)
 AI-03 Production decisions
@@ -1106,34 +1185,33 @@ AI-10 DecisionSnapshot + CausalContext
 AI-11 Debug Inspector
 ```
 
-*(`AI-07` Entrepreneurship i `AI-09` Migration integration przenoszą
-się do M12/M13, gdzie żyją koncepcyjnie; `AI-12` Black Mountain tuning
+*(`AI-07` Entrepreneurship i `AI-09` Migration integration przenoszą się
+do M12/M13, gdzie żyją koncepcyjnie; `AI-12` Black Mountain tuning
 przenosi się do M23, gdy cały świat działa end-to-end.)*
 
 **Dane:** brak nowego contentu; wykorzystuje istniejące PM i archetypy.
 
 **Testy:** production reaction test, no overreaction test, hysteresis
-test, cooldown test, financial survival test, closure test,
-bankruptcy test, PM adoption/rejection test, determinism test
-(te same warunki = te same decyzje), perceived state test (brak
-perfect foresight).
+test, cooldown test, financial survival test, closure test, bankruptcy
+test, PM adoption/rejection test, determinism test (te same warunki = te
+same decyzje), perceived state test (brak perfect foresight).
 
-**Acceptance Gate (AI Decision Model §122):** firma potrafi autonomicznie
-planować produkcję, reagować na inventory, zatrudniać, zmieniać wage
-offer, przechodzić przez expansion/contraction/closure i unikać
-oscylacji dzięki hysteresis/cooldown.
+**Acceptance Gate (AI Decision Model §122):** firma potrafi
+autonomicznie planować produkcję, reagować na inventory, zatrudniać,
+zmieniać wage offer, przechodzić przez expansion/contraction/closure i
+unikać oscylacji dzięki hysteresis/cooldown.
 
-**Ryzyka:** **HIGH** --- to największe ryzyko projektu wg `Master
-Audit` §271: „interakcja wielu poprawnych systemów prowadząca do
-niestabilnej lub nieczytelnej symulacji". Mitygacja: hysteresis i
-cooldown są P0 (nie opcjonalne), staggered evaluation od początku,
-dedykowane testy no-overreaction.
+**Ryzyka:** **HIGH** --- to największe ryzyko projektu wg `Master Audit`
+§271: „interakcja wielu poprawnych systemów prowadząca do niestabilnej
+lub nieczytelnej symulacji". Mitygacja: hysteresis i cooldown są P0 (nie
+opcjonalne), staggered evaluation od początku, dedykowane testy
+no-overreaction.
 
 **Poza zakresem:** entrepreneurship/nowe firmy (M12), pełna migracja
 jako input do decyzji (M13), State AI (`DEFERRED`).
 
 **Źródła:** `FIRST-CAUSE-AI-Decision-Model-v0.1.md` (całość, zwłaszcza
-§5--41, §121--124), `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (AI-*).
+§5--41, §121--124), `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (AI-\*).
 
 ------------------------------------------------------------------------
 
@@ -1149,15 +1227,15 @@ przez losowe spawnienie; konkurencja i nasycenie rynku są modelowane.
 **Zależności:** M11.
 
 **Implementowane systemy:** Regional Opportunity Scanner, Opportunity
-Score (`DemandGap + ExpectedMargin + ResourceAccess +
-LaborAvailability + SkillAvailability + MarketAccess - Competition -
-Risk - CapitalRequirement`), Founding Decision, Capital Formation,
-Competition, resource-based/market-gap/export entrepreneurship,
-company location decision.
+Score
+(`DemandGap + ExpectedMargin + ResourceAccess + LaborAvailability + SkillAvailability + MarketAccess - Competition - Risk - CapitalRequirement`),
+Founding Decision, Capital Formation, Competition,
+resource-based/market-gap/export entrepreneurship, company location
+decision.
 
 **Moduły (`AI-07` z AI Decision Model):**
 
-```text
+``` text
 AI-07 Entrepreneurship / founding
 economy/opportunity-scanner
 economy/competition
@@ -1172,21 +1250,21 @@ determinism test dla różnych firm.
 
 **Acceptance Gate:** w regionie z niezaspokojonym popytem i dostępnymi
 zasobami/pracą powstaje nowa firma w rozsądnym czasie; w regionie bez
-uzasadnienia ekonomicznego firma nie powstaje; nasycenie rynku
-ogranicza dalsze zakładanie firm tego samego typu.
+uzasadnienia ekonomicznego firma nie powstaje; nasycenie rynku ogranicza
+dalsze zakładanie firm tego samego typu.
 
-**Ryzyka:** ryzyko „eksplozji firm" lub odwrotnie --- świata bez
-żadnej nowej firmy (mitygacja: `Anti-Explosion Rules`, `Minimum
-Economic Scale`, `Company Explosion Detector` z AI Decision Model
-§84--88 i Save/Determinism/Performance §129--134).
+**Ryzyka:** ryzyko „eksplozji firm" lub odwrotnie --- świata bez żadnej
+nowej firmy (mitygacja: `Anti-Explosion Rules`,
+`Minimum Economic Scale`, `Company Explosion Detector` z AI Decision
+Model §84--88 i Save/Determinism/Performance §129--134).
 
 **Poza zakresem:** pełna 28-archetypowa gospodarka (to M28, post-VS).
 
 **Źródła:** `FIRST-CAUSE-AI-Decision-Model-v0.1.md` (§42--53, §84--89,
 §123), `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (AI-007--008).
 
-**Checkpoint:** **CP2 --- Emergent Economy** osiągnięty po tym
-milestone (firmy samodzielnie podejmują decyzje).
+**Checkpoint:** **CP2 --- Emergent Economy** osiągnięty po tym milestone
+(firmy samodzielnie podejmują decyzje).
 
 ------------------------------------------------------------------------
 
@@ -1203,12 +1281,12 @@ sygnałów pull/push).
 
 **Implementowane systemy:** migration attraction, migration candidate
 set (sąsiedzi, trade-connected regions, znane centra, cultural/family
-links --- `POP-007`), migration friction, housing constraint jako
-twardy limit.
+links --- `POP-007`), migration friction, housing constraint jako twardy
+limit.
 
 **Moduły (`AI-09` z AI Decision Model, `population/migration`):**
 
-```text
+``` text
 AI-09 Migration decision integration
 population/migration -- candidate set, friction, attraction/push-pull
 ```
@@ -1244,17 +1322,25 @@ migracyjne (DEFERRED).
 **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
 
 **Cel:** osady rosną/kurczą się przez `SettlementPressure` i warunki
-lokalne, przechodząc przez etapy `Camp → Hamlet → Village → Town →
-City → Metropolis`, nie przez rozkaz gracza.
+lokalne, przechodząc przez etapy
+`Camp → Hamlet → Village → Town → City → Metropolis`, nie przez rozkaz
+gracza.
 
 **Zależności:** M13.
 
 **Implementowane systemy:** SettlementPressure, settlement stages,
 housing (capacity/cost/pressure).
 
+**UI Foundation Track:** start
+`UI-F1 — Procedural Region Visual Identity`. Powstają
+`RegionVisualProfile` oraz deterministyczny renderer `FCRegionVignette`
+z warstwami terrain → vegetation → settlement → transport →
+infrastructure → industry → landmark. Renderer jest pochodną stanu
+symulacji; nie istnieje globalny skin epoki i nie używa `Math.random()`.
+
 **Moduły (`society/settlements`):**
 
-```text
+``` text
 society/settlements -- stage transitions, pressure calculation
 society/housing -- capacity, cost, pressure
 ```
@@ -1273,8 +1359,8 @@ wymagane jako osiągalny wynik VS (`SET-001`).
 **Ryzyka:** niskie-średnie; głównie tuning progów (jawnie oznaczony
 `OPEN`/tuning, nie blokuje implementacji).
 
-**Poza zakresem:** pełna infrastruktura miejska (rozwijana dalej w
-World Generation/economy), pełne miasta-państwa (DEFERRED).
+**Poza zakresem:** pełna infrastruktura miejska (rozwijana dalej w World
+Generation/economy), pełne miasta-państwa (DEFERRED).
 
 **Źródła:** `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (SET-001--003),
 `FIRST-CAUSE-Simulation-Test-Spec-v0.1.md` (§70--72),
@@ -1286,12 +1372,18 @@ World Generation/economy), pełne miasta-państwa (DEFERRED).
 
 **Faza:** D --- Knowledge & Economic Evolution · **Priorytet:** P0 ·
 **Złożoność:** L · **Ryzyko:** MEDIUM-HIGH · **Documentation
-Readiness:** READY
+Readiness:** PARTIAL — brak katalogu technologii w repo
 
-**Cel:** wiedza regionalna, stany technologii (`Unknown → Known →
-Available → Adopted`), Discovery Engine oddzielony od decyzji Company
-AI o wdrożeniu (Adoption), 20--30 aktywnych Discoveries w 5 głównych +
-4 wspierających domenach.
+**Warunek rozpoczęcia:** dostarczyć i zweryfikować przywoływany przez
+specyfikacje `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` albo
+jawnie uzgodnić zastąpienie go walidowanymi definicjami contentu VS.
+Zasady TECH-001–009 obowiązują; brak katalogu nie upoważnia do wymyślania
+20–30 odkryć. Nie blokuje to M1 ani schematów/pipeline M2.
+
+**Cel:** wiedza regionalna, stany technologii
+(`Unknown → Known → Available → Adopted`), Discovery Engine oddzielony
+od decyzji Company AI o wdrożeniu (Adoption), 20--30 aktywnych
+Discoveries w 5 głównych + 4 wspierających domenach.
 
 **Zależności:** M14 (populacja/osady jako baza wiedzy regionalnej).
 
@@ -1303,7 +1395,7 @@ Adoption.
 **Moduły (`technology/knowledge`, `technology/discoveries`,
 `technology/diffusion`, `technology/adoption`):**
 
-```text
+``` text
 technology/knowledge -- regional knowledge accumulation
 technology/discoveries -- eligibility, breakthrough triggers
 technology/diffusion -- Availability spread
@@ -1311,23 +1403,25 @@ technology/adoption -- Industry/Population/Institutional (AI-08 hook)
 ```
 
 **Dane:** 5 głównych domen VS (Agriculture, Construction, Metallurgy,
-Mining, Mechanics) + wspierające (Mathematics, Transportation,
-Medicine, Communication); 20--30 Discoveries (`TECH-008`).
+Mining, Mechanics) + wspierające (Mathematics, Transportation, Medicine,
+Communication); 20--30 Discoveries (`TECH-008`).
 
 **Testy:** discovery eligibility test, discovery ≠ availability test,
 availability ≠ adoption test, PM adoption/rejection test, technology
 diffusion test.
 
 **Acceptance Gate:** region bez wymaganej wiedzy nie może odkryć
-zaawansowanej technologii; odkrycie nie oznacza automatycznego
-wdrożenia (firma może odrzucić nieopłacalną technologię --- `AI Decision
-Model §39`); dyfuzja wiedzy jest widoczna między połączonymi regionami.
+zaawansowanej technologii; odkrycie nie oznacza automatycznego wdrożenia
+(firma może odrzucić nieopłacalną technologię ---
+`AI Decision Model §39`); dyfuzja wiedzy jest widoczna między
+połączonymi regionami.
 
-**Ryzyka:** złożoność stanu 4-poziomowego (`Unknown/Known/
-Available/Adopted` × Industry/Population/Institutional) przy 20--30
-discoveries --- mitygacja: brak klasycznego tech tree (`TECH-001`)
-upraszcza strukturę względem alternatyw; T0--T5 to complexity bands,
-nie epoki (`TECH-007`), co unika sztywnej progresji czasowej.
+**Ryzyka:** złożoność stanu 4-poziomowego
+(`Unknown/Known/ Available/Adopted` × Industry/Population/Institutional)
+przy 20--30 discoveries --- mitygacja: brak klasycznego tech tree
+(`TECH-001`) upraszcza strukturę względem alternatyw; T0--T5 to
+complexity bands, nie epoki (`TECH-007`), co unika sztywnej progresji
+czasowej.
 
 **Poza zakresem:** pełne 12 domen jednocześnie aktywne (VS aktywuje 5
 głównych + wsparcie), Administration jako 13. domena (nie jest domeną
@@ -1345,8 +1439,8 @@ głównych + wsparcie), Administration jako 13. domena (nie jest domeną
 **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
 
 **Cel:** gracz może zmienić **warunek** (nie wynik) świata przez
-pierwszą interwencję (`Reveal Resource Deposit`), z kosztem Influence
-i Root Fact jako punktem startowym dla przyszłej atrybucji.
+pierwszą interwencję (`Reveal Resource Deposit`), z kosztem Influence i
+Root Fact jako punktem startowym dla przyszłej atrybucji.
 
 **Zależności:** M15 (świat musi mieć pełną gospodarkę/technologię, aby
 interwencje miały sens ekonomiczny).
@@ -1358,7 +1452,7 @@ wyniku), Root Fact.
 
 **Moduły:**
 
-```text
+``` text
 architect/influence -- balance, regeneration (tuning OPEN --
   OPEN-002/003)
 architect/interventions -- Definition/Instance, status lifecycle
@@ -1397,12 +1491,18 @@ tylko Experiment Mode).
 
 ## M17 --- Causality (pełna integracja)
 
+**UI Foundation Track (v0.2):** równolegle z finalizacją Causality
+powstaje biblioteka `FCCausalGraph`, `FCCausalNode`, `FCCausalLink`,
+`FCFactor`, `FCFactorList`, `FCCausalTimeline`, `FCArchitectCause`.
+Komponenty konsumują Causality Read Models; nie rekonstruują grafu z
+surowych factów po stronie Reacta.
+
 **Faza:** F --- Causal World · **Priorytet:** P0 · **Złożoność:** L ·
 **Ryzyko:** HIGH · **Documentation Readiness:** READY
 
-**Cel:** wszystkie systemy z M5--M16 są w pełni zintegrowane z
-Causality Engine --- każda znacząca mutacja tworzy `SimulationFact` z
-poprawnymi `CausalEdge`, multi-causality i negative/limiting factors są
+**Cel:** wszystkie systemy z M5--M16 są w pełni zintegrowane z Causality
+Engine --- każda znacząca mutacja tworzy `SimulationFact` z poprawnymi
+`CausalEdge`, multi-causality i negative/limiting factors są
 rejestrowane, Architect Influence propaguje po realnych krawędziach.
 
 **Zależności:** M16. *(Fact infrastructure --- `CE-01`/`CE-02` --- już
@@ -1414,9 +1514,10 @@ DecisionSnapshot (już częściowo z M11), Historical/Architect Influence
 Propagation, Natural Decay, Hierarchical Causal Memory
 (HOT/WARM/PERMANENT), pruning z zachowaniem anchors.
 
-**Moduły (`CE-03`...`CE-09`, `CE-11`, `CE-12` z Causality Engine §101):**
+**Moduły (`CE-03`...`CE-09`, `CE-11`, `CE-12` z Causality Engine
+§101):**
 
-```text
+``` text
 CE-03 Edges -- creation, validation, incoming/outgoing indices
 CE-04 Economy Integration -- market, production, company, labor
 CE-05 Population Integration -- needs, migration, settlement
@@ -1429,15 +1530,14 @@ CE-12 Tests -- Black Mountain, resource bust, migration, technology,
 ```
 
 *(`CE-01`/`CE-02` Fact Infrastructure i Causal Context już istnieją z
-M5; `CE-08` WHY? przenosi się do M18; `CE-10` Chronicle handoff
-przenosi się do M19.)*
+M5; `CE-08` WHY? przenosi się do M18; `CE-10` Chronicle handoff przenosi
+się do M19.)*
 
 **Dane:** brak nowego contentu.
 
-**Testy:** no false causality test, multi-causality test, negative
-cause test, pruning integrity test, HOT/WARM/PERMANENT memory test,
-influence decay test, independent cause dilution test, save/load
-causal integrity.
+**Testy:** no false causality test, multi-causality test, negative cause
+test, pruning integrity test, HOT/WARM/PERMANENT memory test, influence
+decay test, independent cause dilution test, save/load causal integrity.
 
 **Acceptance Gate (Causality Engine §102--103):** każdy fact-producing
 system identyfikuje zmianę, zna wejściowe czynniki, przekazuje
@@ -1447,13 +1547,13 @@ Influence poprawnie zanika i rozcieńcza się przy niezależnych
 przyczynach.
 
 **Ryzyka:** **HIGH** --- integracja wsteczna z 12 wcześniejszymi
-milestone'ami jest z definicji ryzykowna; mitygacja: `IMPL-012`
-wymagał, by każdy milestone od M5 **już** przewidywał punkty emisji
-faktów, więc M17 głównie **domyka i weryfikuje** istniejące hooki,
-zamiast doszywać je retrospektywnie od zera.
+milestone'ami jest z definicji ryzykowna; mitygacja: `IMPL-012` wymagał,
+by każdy milestone od M5 **już** przewidywał punkty emisji faktów, więc
+M17 głównie **domyka i weryfikuje** istniejące hooki, zamiast doszywać
+je retrospektywnie od zera.
 
-**Poza zakresem:** WHY? UI/API (M18), Chronicle integration (M19),
-pełna Experiment Branching (post-VS, `SAVE-011` TARGET).
+**Poza zakresem:** WHY? UI/API (M18), Chronicle integration (M19), pełna
+Experiment Branching (post-VS, `SAVE-011` TARGET).
 
 **Źródła:** `FIRST-CAUSE-Causality-Engine-Spec-v0.1.md` (całość,
 zwłaszcza §1--60, §101--104), `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
@@ -1462,6 +1562,12 @@ zwłaszcza §1--60, §101--104), `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 ------------------------------------------------------------------------
 
 ## M18 --- WHY?
+
+**UI Foundation Track (v0.2):** ten milestone dostarcza również pierwszy
+funkcjonalny Golden UI `WHY? / Causal Explorer` na prawdziwych danych.
+M21 nadal odpowiada za pełną integrację nawigacji, layoutu i pozostałych
+ekranów. Każda znacząca zmiana musi mieć ścieżkę `Explain/WHY?`, choć
+nie każda liczba wymaga widocznego przycisku.
 
 **Faza:** F --- Causal World · **Priorytet:** P0 · **Złożoność:** M ·
 **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
@@ -1479,7 +1585,7 @@ Butterfly Query + Ranking, Anti-Butterfly Explosion, Counterfactual WHY
 
 **Moduły (`CE-08` z Causality Engine):**
 
-```text
+``` text
 CE-08 WHY? -- ranking, path traversal, explanation model
 architect/butterfly -- query, ranking, anti-explosion
 ```
@@ -1488,19 +1594,18 @@ architect/butterfly -- query, ranking, anti-explosion
 (IDs/enums/payload), lokalizacja renderuje język (`CONTENT-014`).
 
 **Testy:** WHY? immediate test, WHY? chain test, WHY NOT? test,
-butterfly query test, WHY? noise test (brak szumu trywialnych
-przyczyn), determinism (te same dane = te same przyczyny w tej samej
-kolejności).
+butterfly query test, WHY? noise test (brak szumu trywialnych przyczyn),
+determinism (te same dane = te same przyczyny w tej samej kolejności).
 
-**Acceptance Gate:** dla dowolnej istotnej zmiany w Black Mountain
-(np. wzrost ceny żelaza) WHY? zwraca 2--5 głównych przyczyn z
-poprawną siłą/confidence; dla interwencji Architekta Butterfly Query
-zwraca realną listę downstream consequences, nie wszystkie possible
-events.
+**Acceptance Gate:** dla dowolnej istotnej zmiany w Black Mountain (np.
+wzrost ceny żelaza) WHY? zwraca 2--5 głównych przyczyn z poprawną
+siłą/confidence; dla interwencji Architekta Butterfly Query zwraca
+realną listę downstream consequences, nie wszystkie possible events.
 
 **Ryzyka:** średnie --- ryzyko nadmiaru szumu w wynikach przy gęstym
-grafie przyczynowym (mitygacja: `WHY? Ranking`, `Duplicate Path
-Suppression`, `Causal Query Limits` już zdefiniowane w spec).
+grafie przyczynowym (mitygacja: `WHY? Ranking`,
+`Duplicate Path Suppression`, `Causal Query Limits` już zdefiniowane w
+spec).
 
 **Poza zakresem:** pełne UI (widoki WHY?/Butterfly to `M21`), Chronicle
 (M19).
@@ -1517,6 +1622,12 @@ Playable** (wraz z M16+M17) osiągnięte po tym milestone.
 
 ## M19 --- Chronicle
 
+**UI Foundation Track (v0.2):** powstają `FCChronicleEntry`,
+`FCSignificance`, `FCHistoricalThread`, `FCTurningPoint`,
+`FCWorldTimeline` oraz funkcjonalny World Chronicle na prawdziwych
+Chronicle Read Models. `Region History` pozostaje zakładką Region Detail
+i nie jest osobnym World Chronicle.
+
 **Faza:** G --- History · **Priorytet:** P0 · **Złożoność:** M/L ·
 **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
 
@@ -1527,16 +1638,16 @@ oceną Historical Significance (0--100), bez tworzenia własnej historii
 **Zależności:** M18.
 
 **Implementowane systemy:** Chronicle Candidate Pipeline, Historical
-Significance (Magnitude, Duration, PopulationAffected,
-GeographicScope, Novelty, CausalImpact), Aggregation, sensitivity
-filters (Concise/Standard/Detailed), Chronicle Entry storage,
+Significance (Magnitude, Duration, PopulationAffected, GeographicScope,
+Novelty, CausalImpact), Aggregation, sensitivity filters
+(Concise/Standard/Detailed), Chronicle Entry storage,
 Entity/Region/World Chronicle, template-first localization.
 
 **Moduły (`CH-01`...`CH-07`, `CH-13`, `CH-14` z Chronicle Spec §207;
 `CH-08`--`CH-12` jako P1 rozszerzenie w tym samym milestone, jeśli czas
 pozwala, ale nie blokują):**
 
-```text
+``` text
 CH-01 Event Type Definitions
 CH-02 Initial Significance
 CH-03 Candidate Pipeline
@@ -1557,24 +1668,23 @@ CH-12 Historical compression
 
 **Dane:** Chronicle Templates (EN/PL) dla VS event types.
 
-**Testy:** source integrity test (brak fabrykacji), no false
-aggregation test, sensitivity test, localization test, determinism
-test, Black Mountain chronicle test.
+**Testy:** source integrity test (brak fabrykacji), no false aggregation
+test, sensitivity test, localization test, determinism test, Black
+Mountain chronicle test.
 
 **Acceptance Gate (Chronicle Spec §208):** każdy candidate ma score
 wynikający z danych; lokalny kontekst jest uwzględniony; novelty i
 causal impact działają; Black Mountain generuje spójną, zrozumiałą
 kronikę bez wymuszonego dramatyzmu.
 
-**Ryzyka:** średnie --- ryzyko „spamu" nieistotnych wpisów lub
-odwrotnie ciszy tam, gdzie powinno być wydarzenie (mitygacja: `Spam
-Detection`, `Silence Detection`, `Category Balance` już zdefiniowane w
-spec; „silence is valid" jest jawnie dopuszczalnym stanem ---
-`CHRON-005`).
+**Ryzyka:** średnie --- ryzyko „spamu" nieistotnych wpisów lub odwrotnie
+ciszy tam, gdzie powinno być wydarzenie (mitygacja: `Spam Detection`,
+`Silence Detection`, `Category Balance` już zdefiniowane w spec;
+„silence is valid" jest jawnie dopuszczalnym stanem --- `CHRON-005`).
 
-**Poza zakresem:** Historical Threads/Retrospective
-Significance/Turning Points jako pełne P0 (P1, mogą wejść później bez
-blokowania VS Freeze), Era Detection (TARGET, nie VS).
+**Poza zakresem:** Historical Threads/Retrospective Significance/Turning
+Points jako pełne P0 (P1, mogą wejść później bez blokowania VS Freeze),
+Era Detection (TARGET, nie VS).
 
 **Źródła:** `FIRST-CAUSE-Chronicle-Historical-Significance-Spec-v0.1.md`
 (całość, zwłaszcza §1--30, §150--159, §207--210),
@@ -1587,6 +1697,13 @@ milestone.
 
 ## M20 --- Save/Load (pełna integracja)
 
+**UI integration (v0.2):** jeżeli `Save/Determinism/Performance Spec`
+dopuszcza zapis presentation state, save/load zachowuje go w osobnej
+warstwie (np. selected region, overlay, viewport/zoom, filtry), bez
+mieszania go z canonical World State. Brak wsparcia w specyfikacji nie
+może być uzupełniany lokalnym formatem zapisu bez decyzji
+dokumentacyjnej.
+
 **Faza:** L --- Save & Long-Run (cross-cutting) · **Priorytet:** P0 ·
 **Złożoność:** M · **Ryzyko:** MEDIUM-HIGH · **Documentation
 Readiness:** READY
@@ -1596,18 +1713,17 @@ milestone'ów M0--M19, z pełnymi wersjami, migracjami i kompaktacją
 historii przyczynowej --- podstawowy roundtrip istniał od M3, tu
 następuje pełna integracja i certyfikacja.
 
-**Zależności:** M19 (musi obejmować Chronicle/Causality state, nie
-tylko World State).
+**Zależności:** M19 (musi obejmować Chronicle/Causality state, nie tylko
+World State).
 
 **Implementowane systemy:** SaveGame envelope
-(`schemaVersion/contentVersion/engineVersion/generatorVersion/
-worldSeed/tick/rngState/worldState/architectState/causalState/
-chronicleState/metadata/checksum`), atomic save, save migrations
-(`vN → vN+1`), HOT/WARM/PERMANENT compaction, layer checksums.
+(`schemaVersion/contentVersion/engineVersion/generatorVersion/ worldSeed/tick/rngState/worldState/architectState/causalState/ chronicleState/metadata/checksum`),
+atomic save, save migrations (`vN → vN+1`), HOT/WARM/PERMANENT
+compaction, layer checksums.
 
 **Moduły (`packages/persistence`):**
 
-```text
+``` text
 persistence/envelope
 persistence/atomic-write -- serialize→validate→temp→flush→rename
 persistence/migrations
@@ -1618,17 +1734,17 @@ persistence/checksum -- world + layer checksums
 **Dane:** brak nowego contentu.
 
 **Testy:** save roundtrip (pełny World State), migration roundtrip,
-determinism test suite (save/load, speed independence ×1=×100,
-container order, RNG isolation), causal save integrity, HOT/WARM/
-PERMANENT memory test.
+determinism test suite (save/load, speed independence ×1=×100, container
+order, RNG isolation), causal save integrity, HOT/WARM/ PERMANENT memory
+test.
 
-**Acceptance Gate:** zapisany i wczytany świat ma identyczny
-checksum; ×1 i ×100 po tej samej liczbie ticków dają identyczny stan;
-uszkodzony zapis nie nadpisuje ostatniego poprawnego pliku; migracja
-`v1→v2` (jeśli wystąpi w trakcie developmentu) jest deterministyczna.
+**Acceptance Gate:** zapisany i wczytany świat ma identyczny checksum;
+×1 i ×100 po tej samej liczbie ticków dają identyczny stan; uszkodzony
+zapis nie nadpisuje ostatniego poprawnego pliku; migracja `v1→v2` (jeśli
+wystąpi w trakcie developmentu) jest deterministyczna.
 
-**Ryzyka:** największe ryzyko rozmiaru save to historia przyczynowa,
-nie same regiony (`PERF-007`) --- mitygacja: compaction jest częścią
+**Ryzyka:** największe ryzyko rozmiaru save to historia przyczynowa, nie
+same regiony (`PERF-007`) --- mitygacja: compaction jest częścią
 architektury od tego milestone'u, nie dodatkiem post-hoc.
 
 **Poza zakresem:** Experiment Branching pełne (TARGET/wczesny MVP),
@@ -1643,26 +1759,31 @@ benchmarkach, jeśli JSON+gzip nie wystarcza).
 
 ## M21 --- UI Vertical Slice
 
-**Faza:** J --- Player Experience · **Priorytet:** P0 · **Złożoność:**
-L · **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
+**Faza:** J --- Player Experience · **Priorytet:** P0 · **Złożoność:** L
+· **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
 
 **Cel:** pełny, spójny UI Vertical Slice na stabilnych Read Models ---
 World Command Center, Living Atlas, Region Detail, Economy/Market/
-Company, Technology, WHY?, Chronicle, Architect Panel, Butterfly
-Effect --- zbudowany na tym, co realnie istnieje w silniku (surowy UI
-debug shell mógł istnieć od M3 równolegle, ale to tutaj powstaje
-docelowy interfejs gracza).
+Company, Technology, WHY?, Chronicle, Architect Panel, Butterfly Effect
+--- zbudowany na tym, co realnie istnieje w silniku (surowy UI debug
+shell mógł istnieć od M3 równolegle, ale to tutaj powstaje docelowy
+interfejs gracza).
 
-**Zależności:** M20 (musi renderować stabilne, zapisane read models,
-nie tylko live state).
+**Zależności:** M20 (musi renderować stabilne, zapisane read models, nie
+tylko live state).
 
 **Implementowane systemy:** wszystkie 12 minimalnych ekranów VS
-(`VS-004`), main UX loop (`OBSERVE → NOTICE CHANGE → ASK WHY? →
-INTERVENE → RUN TIME → REVIEW CONSEQUENCES`).
+(`VS-004`), main UX loop
+(`OBSERVE → NOTICE CHANGE → ASK WHY? → INTERVENE → RUN TIME → REVIEW CONSEQUENCES`).
 
-**Moduły (`UI-01`...`UI-14` z UI/UX Spec §211):**
+**Stan wejściowy M21:** UI-01/UI-02 oraz część komponentów UI-05--UI-10
+mają już istnieć z Parallel UI Foundation Track. W M21 są audytowane,
+uzupełniane i integrowane, a nie bezwarunkowo przepisywane.
 
-```text
+**Moduły (`UI-01`...`UI-14`, zsynchronizowane z UI Implementation Spec
+v1.0):**
+
+``` text
 UI-01 Design tokens + layout shell
 UI-02 Simulation controls + top bar
 UI-03 World Command Center
@@ -1681,36 +1802,38 @@ UI-14 UX testing and iteration
 
 **Dane:** brak nowego contentu domenowego; ikonografia/design tokens.
 
-**Testy:** React Testing Library dla komponentów i read model
-rendering; Playwright E2E (`start gry → new world → run simulation →
-save → load → WHY? → Architect intervention → nawigacja`); UX testy
-jakościowe z Simulation Test Spec §198--206 (World Awareness, Region
-Understanding, WHY?, Intervention, Chronicle, Butterfly).
+**Testy:** React Testing Library dla komponentów i read model rendering;
+Playwright E2E
+(`start gry → new world → run simulation → save → load → WHY? → Architect intervention → nawigacja`);
+UX testy jakościowe z Simulation Test Spec §198--206 (World Awareness,
+Region Understanding, WHY?, Intervention, Chronicle, Butterfly).
 
 **Acceptance Gate (UI/UX Spec §212--217, per ekran):** Command Center
-pokazuje stan świata bez wymogu klasycznej mapy; Living Atlas
-nawiguje po 32 regionach z overlayami; WHY?/Chronicle/Architect
-działają end-to-end na prawdziwych danych z Black Mountain.
+pokazuje stan świata bez wymogu klasycznej mapy; Living Atlas nawiguje
+po 32 regionach z overlayami; WHY?/Chronicle/Architect działają
+end-to-end na prawdziwych danych z Black Mountain.
 
 **Ryzyka:** średnie --- duża powierzchnia UI (12 ekranów); mitygacja:
-kolejność `UI-01`...`UI-14` jest już ustalona i priorytetyzuje
-Command Center/Atlas/Region przed Butterfly/polish.
+kolejność `UI-01`...`UI-14` jest już ustalona i priorytetyzuje Command
+Center/Atlas/Region przed Butterfly/polish.
 
 **Poza zakresem:** pełna 3000-regionowa wirtualizacja (M26), pełny
 Design System jako osobny dokument (`Master Audit` §240 --- nie jest
 blockerem).
 
 **Źródła:** `FIRST-CAUSE-UI-UX-World-Command-Center-Spec-v0.1.md`
-(całość, zwłaszcza §1--50, §180--221), `FIRST-CAUSE-Canonical-
-Decisions-v0.1.md` (UI-001--013), `FIRST-CAUSE-Vertical-Slice-Spec-
-v0.1.md` (§41--45).
+(całość, zwłaszcza §1--50, §180--221),
+`FIRST-CAUSE-Canonical- Decisions-v0.1.md` (UI-001--013),
+`FIRST-CAUSE-Vertical-Slice-Spec- v0.1.md` (§41--45),
+`FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`,
+`FIRST-CAUSE-UI-Implementation-Spec-v1.0.md`.
 
 ------------------------------------------------------------------------
 
 ## M22 --- World Generation (proceduralny)
 
-**Faza:** I --- World Generation · **Priorytet:** P0 · **Złożoność:**
-L · **Ryzyko:** HIGH · **Documentation Readiness:** READY
+**Faza:** I --- World Generation · **Priorytet:** P0 · **Złożoność:** L
+· **Ryzyko:** HIGH · **Documentation Readiness:** READY
 
 **Cel:** proceduralny generator tworzy 32-regionowy Reference VS z
 dowolnego seeda, deterministycznie, przy użyciu tych samych evaluatorów
@@ -1720,19 +1843,23 @@ co runtime (nie osobnej logiki „balansowania" świata).
 viability, PM eligibility, settlement placement --- muszą być stabilne,
 bo generator ich używa --- World Generation Spec §25.)*
 
-**Implementowane systemy:** pełny 31-etapowy Generation Pipeline
-(config → seed/RNG → World → continents → topology → terrain → climate
-→ water → fertility → connections → EffectiveDistance → deposits →
-habitability → population → cohorts → settlements → cultures →
-knowledge → infrastructure → companies → inventories → services/
-housing → markets/prices → indexes → invariants → viability →
-deterministic repair → checksum → freeze Tick 0), GenerationReport,
-deterministic repair, World Quality Metrics, Validation Gates
-`WG-A`...`WG-K`.
+**UI/Visual dependency (v0.2):** po utworzeniu kanonicznego Tick 0
+generator dostarcza dane, z których deterministycznie wyprowadzany jest
+`RegionVisualProfile`. VisualProfile nie jest osobną losową dekoracją:
+`visual truth = simulation truth`.
+
+**Implementowane systemy:** pełny 31-etapowy Generation Pipeline (config
+→ seed/RNG → World → continents → topology → terrain → climate → water →
+fertility → connections → EffectiveDistance → deposits → habitability →
+population → cohorts → settlements → cultures → knowledge →
+infrastructure → companies → inventories → services/ housing →
+markets/prices → indexes → invariants → viability → deterministic repair
+→ checksum → freeze Tick 0), GenerationReport, deterministic repair,
+World Quality Metrics, Validation Gates `WG-A`...`WG-K`.
 
 **Moduły (`packages/worldgen`):**
 
-```text
+``` text
 worldgen/config, worldgen/rng, worldgen/topology, worldgen/geography,
 worldgen/climate, worldgen/water, worldgen/resources,
 worldgen/habitability, worldgen/population, worldgen/settlements,
@@ -1742,29 +1869,29 @@ worldgen/repair, worldgen/report, worldgen/checksum
 ```
 
 **Dane:** `WorldGenerationConfig` dla presetu `vertical_slice_reference`
-(32 regiony, 1 kontynent, ~200 populacji --- World Generation Spec §34).
-Najpierw prototyp 8--12 regionów (§64), potem pełny 32-regionowy VS.
+(32 regiony, 1 kontynent, \~200 populacji --- World Generation Spec
+§34). Najpierw prototyp 8--12 regionów (§64), potem pełny 32-regionowy
+VS.
 
 **Testy:** unit/stage/invariant/property-based/seed-sweep/scenario/
 determinism/performance testy z §51; layer checksums (topology,
 geography, resources, population, settlements, knowledge,
 infrastructure, economy, full world); Black Mountain generator test
-(§53): hidden Iron Ore istnieje, mine nie jest wymuszone, route do
-rynku istnieje.
+(§53): hidden Iron Ore istnieje, mine nie jest wymuszone, route do rynku
+istnieje.
 
-**Acceptance Gate (World Generation Spec §67, VS-scoped):** ten sam
-seed daje ten sam świat; powstaje 32-regionowy graf zróżnicowany
+**Acceptance Gate (World Generation Spec §67, VS-scoped):** ten sam seed
+daje ten sam świat; powstaje 32-regionowy graf zróżnicowany
 geograficznie/surowcowo; hidden deposits istnieją przed discovery;
 population/cohorts/settlements/kultury są spójne; GenerationReport i
 checksum działają; Tick 1 startuje bez ukrytej korekty; Black Mountain
 generuje się bez specjalnej logiki; można uruchomić test 200-letni.
 
-**Ryzyka:** **HIGH** --- generator musi współdzielić evaluatory z
-całym silnikiem (12+ wcześniejszych milestone'ów) bez tworzenia
-drugiej, sprzecznej definicji „viable"; mitygacja: `World Generation
-Spec §25` explicite tego wymaga, a seed-sweep testy (setki/tysiące
-seedów) wykrywają pathological cases przed uznaniem generatora za
-gotowy.
+**Ryzyka:** **HIGH** --- generator musi współdzielić evaluatory z całym
+silnikiem (12+ wcześniejszych milestone'ów) bez tworzenia drugiej,
+sprzecznej definicji „viable"; mitygacja: `World Generation Spec §25`
+explicite tego wymaga, a seed-sweep testy (setki/tysiące seedów)
+wykrywają pathological cases przed uznaniem generatora za gotowy.
 
 **Poza zakresem:** multi-continent, Small/Standard/Large/Huge presety
 (M29, post-VS), realistic Earth/history presets (DEFERRED).
@@ -1784,18 +1911,24 @@ milestone.
 
 **Cel:** pierwszy pełny integracyjny gate --- 2400 miesięcznych ticków
 (200 lat) na Black Mountain (fixture z M4 **oraz** proceduralnie
-wygenerowany odpowiednik z M22), bez naruszenia invariants, z
-sensownym, nie wymuszonym wynikiem.
+wygenerowany odpowiednik z M22), bez naruszenia invariants, z sensownym,
+nie wymuszonym wynikiem.
 
 **Zależności:** M22.
 
-**Implementowane systemy:** brak nowych systemów --- integracja i
-tuning wszystkich poprzednich (`AI-12 Black Mountain tuning` z AI
-Decision Model wraca tutaj).
+**Implementowane systemy:** brak nowych systemów --- integracja i tuning
+wszystkich poprzednich (`AI-12 Black Mountain tuning` z AI Decision
+Model wraca tutaj).
+
+**UI Soak Gate (v0.2):** 200-letni przebieg jest równocześnie testem
+Living Atlas evolution, Region Vignette evolution, Important Now, World
+Economy, WHY? chains, Chronicle oraz konsekwencji interwencji
+Architecta. UI ma pozostać czytelne także podczas ×100 i długiego
+przebiegu.
 
 **Moduły:**
 
-```text
+``` text
 AI-12 Black Mountain tuning
 tests/scenarios/black_mountain -- BM-01...BM-15 z Simulation Test Spec
 ```
@@ -1805,15 +1938,14 @@ mechanika --- `IMPL-011`).
 
 **Testy (Simulation Test Spec §100--116, BM-01...BM-15):** Discovery →
 Mine Founding/No Mine → Employment → Wage Pressure → Migration →
-Settlement Growth → Secondary Economy → Trade → Technology →
-Depletion → Post-Depletion Transition → Causal Chain (WHY? wyjaśnia
-cały łańcuch) → Architect Butterfly → No-Script Detection (brak `if
-region == black_mountain` w generic modules).
+Settlement Growth → Secondary Economy → Trade → Technology → Depletion →
+Post-Depletion Transition → Causal Chain (WHY? wyjaśnia cały łańcuch) →
+Architect Butterfly → No-Script Detection (brak
+`if region == black_mountain` w generic modules).
 
-**Acceptance Gate (`Canonical Decisions TEST-004/005`):** Black
-Mountain kończy jako jeden z dopuszczalnych wyników (`NO_DEVELOPMENT,
-RESOURCE_BOOM, INDUSTRIALIZATION, RESOURCE_BUST, DIVERSIFICATION,
-IMPORT_TRANSITION, TECHNOLOGICAL_EXTENSION, GHOST_SETTLEMENT`)
+**Acceptance Gate (`Canonical Decisions TEST-004/005`):** Black Mountain
+kończy jako jeden z dopuszczalnych wyników
+(`NO_DEVELOPMENT, RESOURCE_BOOM, INDUSTRIALIZATION, RESOURCE_BUST, DIVERSIFICATION, IMPORT_TRANSITION, TECHNOLOGICAL_EXTENSION, GHOST_SETTLEMENT`)
 wynikający z danych i mechaniki; 2400 ticków przechodzi bez naruszenia
 invariants; WHY? potrafi wyjaśnić cały łańcuch przyczynowy; Chronicle
 wybiera istotne wydarzenia z tego przebiegu.
@@ -1821,9 +1953,9 @@ wybiera istotne wydarzenia z tego przebiegu.
 **Ryzyka:** **HIGH** --- to pierwszy test, w którym wszystkie systemy
 działają jednocześnie przez długi czas; najbardziej prawdopodobne
 miejsce ujawnienia emergentnych błędów/oscylacji nagromadzonych z
-poprzednich milestone'ów. Mitygacja: to świadomy, wydzielony gate
-(§137 Master Audit: „nie wdrażać całej gry moduł po module bez
-pionowego testu" --- tu następuje pełny pionowy test).
+poprzednich milestone'ów. Mitygacja: to świadomy, wydzielony gate (§137
+Master Audit: „nie wdrażać całej gry moduł po module bez pionowego
+testu" --- tu następuje pełny pionowy test).
 
 **Poza zakresem:** 500/1000-letnie testy (M27, post-VS), inne
 scenariusze referencyjne (Food Valley itd. --- mogą być uruchamiane
@@ -1851,9 +1983,15 @@ potwierdzone (M23) --- teraz następuje optymalizacja, nie odwrotnie
 indexes/caches tuning, dirty flags, staggered reviews tam, gdzie
 profiling wykaże potrzebę.
 
+**UI Performance Gate (v0.2):** osobno profilowane są PixiJS Living
+Atlas, clustering/semantic zoom, label budget, flow aggregation,
+viewport culling, częstotliwość aktualizacji Read Models oraz React
+rerenders. Przy ×100 UI agreguje/redukuje animacje zamiast próbować
+wizualizować każdy tick.
+
 **Moduły:**
 
-```text
+``` text
 benchmarks/ -- pnpm bench:sim, pnpm bench:worldgen (preset 32 jako
   baseline; 250-3000 to M26)
 profiling/ -- ms/tick, ms/system/tick, memory, GC pressure
@@ -1861,29 +1999,28 @@ profiling/ -- ms/tick, ms/system/tick, memory, GC pressure
 
 **Dane:** brak nowego contentu.
 
-**Testy:** headless benchmark (`pnpm sim:run --fixture black_mountain
---years 200`), performance regression tests, slow tick detector,
-memory leak detector.
+**Testy:** headless benchmark
+(`pnpm sim:run --fixture black_mountain --years 200`), performance
+regression tests, slow tick detector, memory leak detector.
 
 **Acceptance Gate (`Save/Determinism/Performance Gate P0 --- VS`):**
-Reference VS (32 regiony) mieści się w uzgodnionym baseline
-ms/tick i pamięci (dokładne liczby --- `officialMaxRegions`/budgety ---
-pozostają `OPEN` do czasu zebrania pierwszych realnych pomiarów, zgodnie
-z `IMPL-011`: nie wymyślamy liczb, dopóki nie mamy danych).
+Reference VS (32 regiony) mieści się w uzgodnionym baseline ms/tick i
+pamięci (dokładne liczby --- `officialMaxRegions`/budgety --- pozostają
+`OPEN` do czasu zebrania pierwszych realnych pomiarów, zgodnie z
+`IMPL-011`: nie wymyślamy liczb, dopóki nie mamy danych).
 
 **Ryzyka:** średnie-wysokie --- ryzyko przedwczesnej mikro-
-optymalizacji kosztem czytelności (mitygacja: `PERF-006` wymaga
-najpierw correctness/determinism/profiling, dopiero potem
-optymalizacji --- ten porządek jest już zachowany, bo M24 następuje po
-M23).
+optymalizacji kosztem czytelności (mitygacja: `PERF-006` wymaga najpierw
+correctness/determinism/profiling, dopiero potem optymalizacji --- ten
+porządek jest już zachowany, bo M24 następuje po M23).
 
-**Poza zakresem:** benchmark ladder 250--3000 regionów (M26), Rust/
-WASM migration (tylko jeśli profiling **po** tym milestone wykaże
-realny bottleneck --- `Technology Stack Decision §100 Kill criteria`).
+**Poza zakresem:** benchmark ladder 250--3000 regionów (M26), Rust/ WASM
+migration (tylko jeśli profiling **po** tym milestone wykaże realny
+bottleneck --- `Technology Stack Decision §100 Kill criteria`).
 
 **Źródła:** `FIRST-CAUSE-Save-Determinism-Performance-Spec-v0.1.md`
-(§100--163, §401--168 Gate P0), `FIRST-CAUSE-Canonical-Decisions-
-v0.1.md` (PERF-001--007).
+(§100--163, §401--168 Gate P0),
+`FIRST-CAUSE-Canonical-Decisions- v0.1.md` (PERF-001--007).
 
 ------------------------------------------------------------------------
 
@@ -1901,21 +2038,26 @@ zakres jest zamrożony przed przejściem do MVP.
 **Implementowane systemy:** brak nowych --- weryfikacja i zamrożenie.
 
 **Moduły:** brak nowych modułów kodu; aktualizacja tego dokumentu
-(sekcja 12) i `Canonical Decisions` jeśli coś wymagało korekty w
-trakcie implementacji.
+(sekcja 12) i `Canonical Decisions` jeśli coś wymagało korekty w trakcie
+implementacji.
+
+**UI Design Conformance Gate (v0.2):** obowiązkowy Golden UI /
+Anti-Drift review dla WCC, Region Detail, Economy, WHY?, Chronicle,
+Architect i World Economy. Każdy ekran jest porównywany z intencją
+Golden UI oraz tekstowymi regułami `UI Visual Design System v1.0`;
+tekstowy Design System ma pierwszeństwo nad obrazem referencyjnym.
 
 **Dane:** brak nowego contentu.
 
-**Testy:** pełny przebieg wszystkich bramek `Gate A: Data` ... `Gate J:
-200-Year Stability` z Simulation Test Spec §212--221.
+**Testy:** pełny przebieg wszystkich bramek `Gate A: Data` ...
+`Gate J: 200-Year Stability` z Simulation Test Spec §212--221.
 
-**Acceptance Gate (Simulation Test Spec §222--223, „Kryterium
-przejścia VS → MVP"):** wszystkie Gates A--J zielone; Vertical Slice
-Definition of Tested spełniony; `Success Condition` z `Canonical
-Decisions VS-006` zademonstrowany: „Tworzę świat. Zmieniam jeden
-warunek. Uruchamiam czas. Świat sam reaguje. Po dekadach widzę
-konsekwencje, których nie wybierałem ręcznie, i mogę prześledzić ich
-rzeczywiste przyczyny."
+**Acceptance Gate (Simulation Test Spec §222--223, „Kryterium przejścia
+VS → MVP"):** wszystkie Gates A--J zielone; Vertical Slice Definition of
+Tested spełniony; `Success Condition` z `Canonical Decisions VS-006`
+zademonstrowany: „Tworzę świat. Zmieniam jeden warunek. Uruchamiam czas.
+Świat sam reaguje. Po dekadach widzę konsekwencje, których nie
+wybierałem ręcznie, i mogę prześledzić ich rzeczywiste przyczyny."
 
 **Ryzyka:** niskie --- to gate administracyjny, zakładający że M0--M24
 zostały rzetelnie ukończone.
@@ -1932,20 +2074,20 @@ M29 (post-VS).
 
 # 11. Milestone'y post-VS (droga do MVP) --- M26--M29
 
-Poniższe milestone'y **nie są wymagane do VS Freeze**. Odpowiadają
-Phase K (Scale) i części Phase L (Save & Long-Run) z propozycji
-wyjściowej oraz części Phase M dotyczącej rozszerzenia contentu.
-Wymieniono je dla kompletności harmonogramu, ale zgodnie z `IMPL-002`
-nie powinny się rozpoczynać przed `M25`.
+Poniższe milestone'y **nie są wymagane do VS Freeze**. Odpowiadają Phase
+K (Scale) i części Phase L (Save & Long-Run) z propozycji wyjściowej
+oraz części Phase M dotyczącej rozszerzenia contentu. Wymieniono je dla
+kompletności harmonogramu, ale zgodnie z `IMPL-002` nie powinny się
+rozpoczynać przed `M25`.
 
 ## M26 --- Scale Certification (250 → 3 000 regionów)
 
 **Priorytet:** P1 (poza VS) · **Złożoność:** L · **Ryzyko:** HIGH ·
 **Documentation Readiness:** READY
 
-**Cel:** certyfikacja presetów `Small (~250) → Standard (~600) → Large
-(~1200) → Huge (~2000) → Architecture Target (do 3000)` względem Gates
-P1--P4.
+**Cel:** certyfikacja presetów
+`Small (~250) → Standard (~600) → Large (~1200) → Huge (~2000) → Architecture Target (do 3000)`
+względem Gates P1--P4.
 
 **Zależności:** M25.
 
@@ -1961,8 +2103,8 @@ po tych benchmarkach (`OPEN-001`), nie zakładać z góry liczby.
 
 ## M27 --- Long-Run Certification (500 i 1000 lat)
 
-**Priorytet:** P1 (500 lat) / P2 (1000 lat, target) · **Złożoność:** M
-· **Ryzyko:** MEDIUM · **Documentation Readiness:** READY
+**Priorytet:** P1 (500 lat) / P2 (1000 lat, target) · **Złożoność:** M ·
+**Ryzyko:** MEDIUM · **Documentation Readiness:** READY
 
 **Cel:** rozszerzenie testu z M23 do 500 lat (P1) i docelowo 1000 lat
 (target), z monitoringiem runaway population/price detectors.
@@ -1979,8 +2121,8 @@ po tych benchmarkach (`OPEN-001`), nie zakładać z góry liczby.
 nie w pełni rozpisany co do treści poszczególnych pozycji poza VS)
 
 **Cel:** rozszerzenie z 12/20/17 (VS) do docelowego 38 resources/64
-goods/28 company archetypes (`ECO-001--003`), oraz z EN/PL do
-docelowych 14 języków (`CONTENT-004`).
+goods/28 company archetypes (`ECO-001--003`), oraz z EN/PL do docelowych
+14 języków (`CONTENT-004`).
 
 **Zależności:** M25.
 
@@ -2008,11 +2150,11 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Aktualny stan po M0.1 (2026-09-15): M0 = DONE, maintenance M0.1 = DONE,
-M1 = READY (nierozpoczęte). **Ten dokument jest żywy --- po ukończeniu każdego
+Stan na 2026-09-16: M0 i M0.1 Audit Fixes ukończone; M1 gotowy do
+rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
-Dependencies poniższych wierszy, nie zmieniając historii już
-ukończonych pozycji bez wyraźnego powodu (patrz sekcja 13).**
+Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
+pozycji bez wyraźnego powodu (patrz sekcja 13).**
 
   Milestone   Status    Priorytet   Złożoność   Ryzyko        Zależności
   ----------- --------- ----------- ----------- ------------- ------------
@@ -2063,8 +2205,8 @@ Po zakończeniu każdego milestone'u aktualizujemy w tym pliku:
 3.  `Dependency Graph` (sekcja 5), jeśli odkryto zależność boczną, o
     której dokumentacja nie wspominała wprost.
 
-Nie zmieniamy retrospektywnie opisu **już ukończonych** milestone'ów
-bez wyraźnego powodu (np. odkrytego błędu w tym dokumencie) --- historia
+Nie zmieniamy retrospektywnie opisu **już ukończonych** milestone'ów bez
+wyraźnego powodu (np. odkrytego błędu w tym dokumencie) --- historia
 decyzji ma pozostać czytelna. Jeśli w trakcie implementacji milestone'u
 okaże się, że dokumentacja systemowa nie rozstrzyga jakiejś wartości
 tuningowej, stosujemy `IMPL-011` (configurable placeholder + TODO
@@ -2078,10 +2220,34 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **`M1 --- Deterministic Core`**, zgodnie z jego zakresem
-i Documentation Readiness w sekcji 10. M0.1 kończy się na poprawkach
-audytowych; M1 wymaga osobnego zadania implementacyjnego.
+Następny krok: **M1 — Deterministic Core** zgodnie z sekcją M1
+i Technology Stack Decision. M0 i M0.1 są DONE. Kolejne milestone’y
+rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
 
-**KONIEC --- FIRST CAUSE Implementation Roadmap v0.1**
+**KONIEC --- FIRST CAUSE Implementation Roadmap v0.2**
+
+------------------------------------------------------------------------
+
+# 15. Changelog v0.2
+
+Zmiany względem v0.1 wynikające z zamrożenia warstwy UI/grafiki:
+
+1.  dodano `FIRST-CAUSE-UI-Visual-Design-System-v1.0.md` i
+    `FIRST-CAUSE-UI-Implementation-Spec-v1.0.md` do obowiązującej
+    dokumentacji harmonogramu;
+2.  UI Foundation stał się cross-cutting track od M3/M4;
+3.  typed Read Models są częścią Definition of Done systemów user-facing
+    od M5;
+4.  Design Tokens, FC primitives i AppShell rozpoczynają się w M5-M10;
+5.  Region Visual Identity rozpoczyna się w M14/M15;
+6.  komponenty Causality/WHY? rozpoczynają się w M17/M18;
+7.  Chronicle UI rozpoczyna się w M19;
+8.  M21 zreinterpretowano jako pełny **UI Integration Milestone**;
+9.  M22 wyprowadza `RegionVisualProfile` z prawdziwego stanu świata;
+10. M23 obejmuje 200-letni SIM+UI soak;
+11. M24 obejmuje UI Performance Gate;
+12. M25 obejmuje Golden UI / Anti-Drift Conformance Gate.
+
+Numeracja M0--M25 oraz M26--M29 pozostaje bez zmian.

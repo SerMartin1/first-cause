@@ -9,10 +9,10 @@ przyczynowych, odpowiadania na pytanie WHY?, śledzenia Butterfly Effect
 oraz kompresji wielowiekowej pamięci przyczynowej.
 
 **Dokumenty powiązane:** -
-`FIRST-CAUSE-Koncepcja-i-Architektura-v0.6.md` -
+`FIRST-CAUSE-koncepcja-architektura-v0.6.md` -
 `FIRST-CAUSE-Simulation-Model-v0.1.md` -
-`FIRST-CAUSE-Production-Economy-Master-v0.1.md` -
-`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` -
+`FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` -
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (brak w repo; zob. Canonical Decisions §199) -
 `FIRST-CAUSE-Entity-Data-Model-v0.1.md` -
 `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md`
 

@@ -6,10 +6,10 @@
 **Rola:** nadrzędna definicja encji symulacji, ich identyfikatorów, pól,
 relacji, stanów, własności danych, serializacji i reguł walidacji.\
 **Dokumenty nadrzędne:**\
-- `FIRST-CAUSE-Koncepcja-i-Architektura-v0.6.md` -
+- `FIRST-CAUSE-koncepcja-architektura-v0.6.md` -
 `FIRST-CAUSE-Simulation-Model-v0.1.md` -
-`FIRST-CAUSE-Production-Economy-Master-v0.1.md` -
-`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`
+`FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` -
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (brak w repo; zob. Canonical Decisions §199)
 
 ------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 # FIRST CAUSE --- Master Documentation Consistency & Implementation Readiness Audit v0.1
 
-**Status:** audyt przedimplementacyjny\
+**Status:** historyczny audyt przedimplementacyjny\
 **Projekt:** FIRST CAUSE\
 **Wersja:** 0.1\
 **Cel:** ustalenie jednego kanonu projektu, wykrycie sprzeczności między
@@ -9,6 +9,17 @@ architektonicznych oraz przygotowanie kolejności wdrożenia Vertical
 Slice.
 
 ------------------------------------------------------------------------
+
+# Aktualność audytu — 2026-09-16
+
+Poniższe wnioski i statusy są historycznym zapisem audytu, nie bieżącą
+listą blockerów. World Generation Spec i Technology Stack Decision już
+istnieją, M0/M0.1 są ukończone, a następnym etapem jest M1. Aktualne
+decyzje określa Canonical Decisions v0.1, a stan prac roadmapa v0.2.
+Przywołany w historycznej liście Technology Discovery Catalog oraz
+angielska wersja Economy Master nie są dostępne w repo. Kanonicznym
+źródłem ekonomii jest plik `-PL`; dostępność katalogu technologii
+wymaga domknięcia przed M15 (Canonical Decisions §199).
 
 # 1. Zakres audytu
 

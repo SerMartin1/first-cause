@@ -4,9 +4,24 @@ All notable changes to this repository are recorded here, newest first.
 
 Format: one entry per change/session, dated `YYYY-MM-DD`. This file
 tracks *what changed in the repo* (docs, roadmap, code); it is not a
-replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.1.md`
+replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
+
+## 2026-09-16
+
+- Reconciled documentation after M0/M0.1: current roadmap links now point
+  to v0.2 and the next milestone is M1. Synchronized canonical stack,
+  World Generation, VS save, money and UI decisions with existing specs;
+  retained genuinely open implementation choices for an M1 ADR.
+- Consolidated identical economy specs into the canonical `-PL` file,
+  retaining `-POLSKI` as a compatibility link. Removed stale UI version
+  metadata, clarified UI track timing and marked the master audit as
+  historical. Recorded missing Golden UI references and the unavailable
+  technology catalog; M15 documentation readiness is now PARTIAL.
+  Fixed obsolete architecture/economy source filenames and updated
+  completed next-document recommendations in the VS/UI specs.
+  No gameplay code or milestone completion status was changed.
 
 ## 2026-09-15
 

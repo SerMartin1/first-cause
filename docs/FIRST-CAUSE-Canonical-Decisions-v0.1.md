@@ -1739,8 +1739,9 @@ Vertical Slice ma udowodnić:
 
 **Status:** CANONICAL
 
-Dokumentacja jest wystarczająco kompletna, aby rozpocząć implementację
-fundamentu.
+Stan na 2026-09-16: **M0 = DONE; M0.1 Audit Fixes = DONE; M1 = READY
+(not started)**. Dokumentacja pozwala rozpocząć M1 — Deterministic Core.
+Bieżący zakres i statusy określa `FIRST-CAUSE-Implementation-Roadmap-v0.2.md`.
 
 ------------------------------------------------------------------------
 
@@ -1755,24 +1756,22 @@ implementacyjnego.
 
 # 164. IMPL-003 --- World Generation
 
-**Status:** P0 NEXT SPEC
+**Status:** CANONICAL
 
-Brakuje pełnej specyfikacji proceduralnego generowania świata.
-
-Następny rekomendowany duży dokument:
-
-`FIRST-CAUSE-World-Generation-Spec-v0.1.md`
+Specyfikacja istnieje: `FIRST-CAUSE-World-Generation-Spec-v0.1.md`.
+Określa kontrakt generowania świata; pełna implementacja należy do M22,
+a ręczny fixture do M4. Specyfikacja nie oznacza ukończenia generatora.
 
 ------------------------------------------------------------------------
 
 # 165. IMPL-004 --- World Generation scope
 
-**Status:** OPEN do następnej specyfikacji
+**Status:** CANONICAL
 
-Musi ustalić: - graph regions, - continents, - terrain, - climate, -
-fertility, - water, - resources, - deposits, - initial population, -
-settlements, - infrastructure, - knowledge, - companies, -
-inventories, - prices, - cultures, - connectivity.
+Zakres i pipeline określa World Generation Spec v0.1: graf regionów,
+kontynenty, teren, klimat, woda, zasoby, populacja, osady, kultura/wiedza,
+infrastruktura i początkowa gospodarka. Szczegóły algorytmów pozostawione
+do prototypowania są nadal otwarte (OPEN-011).
 
 ------------------------------------------------------------------------
 
@@ -1787,11 +1786,13 @@ ręcznie przygotowanego fixture do implementacji i testów.
 
 # 167. IMPL-006 --- Technology Stack
 
-**Status:** OPEN / P0 przed repo implementation
+**Status:** CANONICAL
 
-Należy osobno ustalić: - language/runtime, - UI framework, - test
-framework, - serialization approach, - data format, - localization
-library, - profiling tooling.
+Obowiązuje `FIRST-CAUSE-Technology-Stack-Decision-v0.1.md`: TypeScript,
+Electron, React/Vite, Simulation Worker, pnpm monorepo, JSON + Zod,
+i18next, Vitest/Playwright, Zustand dla UI state i PixiJS dla Living Atlas.
+VS save: wersjonowany JSON + gzip. Tick pipeline jest sekwencyjny
+i deterministyczny. Narzędzia profilowania określa §51 tego dokumentu.
 
 ------------------------------------------------------------------------
 
@@ -1843,7 +1844,9 @@ M25 VS Freeze
 ```
 
 Fact infrastructure i basic save/checksum rozwijane są cross-cutting
-wcześniej niż ich pełne milestone'y.
+wcześniej niż ich pełne milestone'y. UI Foundation także rozwija się
+przyrostowo zgodnie z roadmapą v0.2: debug shell/Read Models od M3/M4,
+tokens i komponenty od M5. M21 domyka integrację UI.
 
 ------------------------------------------------------------------------
 
@@ -2055,45 +2058,54 @@ Do benchmarków pamięci i explainability.
 
 # 194. OPEN-007 --- serialization format
 
-**Status:** OPEN
+**Status:** VS / CANONICAL; format docelowy OPEN
 
-VS może rozpocząć od formatu prostego/debugowalnego.
-
-Finalna decyzja po benchmarkach.
+VS używa wersjonowanego JSON + gzip (Technology Stack Decision §36–41).
+Format binarny/chunked pozostaje decyzją po benchmarkach. M1 implementuje
+minimalny core save/restore, M20 pełną integrację zapisu.
 
 ------------------------------------------------------------------------
 
 # 195. OPEN-008 --- money representation
 
-**Status:** OPEN
+**Status:** CANONICAL; szczegóły numeryczne OPEN dla M1
 
-Rozważyć integer/fixed-point.
+Pieniądze mają reprezentację integer/fixed-scale (Technology Stack
+Decision §27), bez float jako źródła prawdy. Skalę, zaokrąglanie
+i obsługę przepełnienia należy zapisać w krótkim ADR w M1.
 
 ------------------------------------------------------------------------
 
 # 196. OPEN-009 --- font stack
 
-**Status:** OPEN
+**Status:** VS / CANONICAL; rozszerzenia locale TARGET
 
-Musi obsłużyć docelowe locale.
+UI Visual Design System v1.0 ustala IBM Plex Sans dla UI/body, IBM Plex
+Mono dla danych i Source Serif 4 dla wybranej warstwy historycznej.
+Pokrycie EN/PL należy zweryfikować przy wdrożeniu fontów; fallbacki dla
+pozostałych locale wymagają weryfikacji przy ich aktywacji.
 
 ------------------------------------------------------------------------
 
 # 197. OPEN-010 --- exact World Network visual style
 
-**Status:** OPEN
+**Status:** VS / CANONICAL
 
-Do prototypowania UI.
-
-Nie wpływa na Simulation Model.
+Kierunek Living Scientific Atlas i reguły gęstości/semantic zoom określa
+`FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`; kontrakty wykonawcze określa
+`FIRST-CAUSE-UI-Implementation-Spec-v1.0.md`. Szczegóły layoutu podlegają
+prototypowaniu w tych granicach. Nie wpływa to na Simulation Model.
 
 ------------------------------------------------------------------------
 
 # 198. OPEN-011 --- World Generation algorithm
 
-**Status:** OPEN / NEXT
+**Status:** OPEN — szczegóły implementacyjne M22
 
-Do rozstrzygnięcia w World Generation Spec.
+World Generation Spec v0.1 istnieje i definiuje pipeline. Jego §63
+pozostawia konkretny topology algorithm, spatial representation
+i naming algorithm do prototypowania. Nie jest to brak całej specyfikacji
+ani blocker M1; officialMaxRegions pozostaje zależny od benchmarków.
 
 ------------------------------------------------------------------------
 
@@ -2109,6 +2121,25 @@ Przy implementacji systemu agent powinien czytać przede wszystkim:
 
 Dodatkowe dokumenty tylko, jeśli system ich dotyczy.
 
+Kanoniczna specyfikacja ekonomii to
+`FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md`; plik `-POLSKI` jest
+wyłącznie odsyłaczem. UI stosuje Design System v1.0 i Implementation
+Spec v1.0, z pierwszeństwem niniejszego rejestru.
+
+**Dostępność źródeł (2026-09-16):**
+
+- `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`, przywoływany
+  przez starsze specyfikacje, nie jest dostępny w repo. Odwołania nie
+  stanowią dowodu dostępności katalogu. Przed implementacją M15 należy
+  dostarczyć i zweryfikować katalog VS albo jawnie uzgodnić jego
+  zastąpienie walidowanymi definicjami contentu. Nie odtwarzać brakującej
+  treści przez zgadywanie. M2 może rozwijać schema/pipeline na minimalnych
+  danych zgodnie ze swoim zakresem; brak katalogu nie blokuje M1.
+- Dokumenty UI opisują zaakceptowane Golden UI, ale pliki referencyjne
+  lub trwałe odnośniki nie są dostępne w repo. Przed odbiorem zgodności
+  wizualnej trzeba je udostępnić. Do tego czasu można wdrażać tekstowe
+  kontrakty, lecz nie deklarować zgodności z nieobejrzanymi mockupami.
+
 ------------------------------------------------------------------------
 
 # 200. Reguła końcowa
@@ -2121,12 +2152,13 @@ Dodatkowe dokumenty tylko, jeśli system ich dotyczy.
 
 # 201. Następny krok
 
-Po utworzeniu tego rejestru rekomendowany następny duży dokument:
-
-**`FIRST-CAUSE-World-Generation-Spec-v0.1.md`**
-
-Po nim: - Technology Stack Decision, - repo foundation, - implementacja
-Vertical Slice.
+Następny etap: **M1 — Deterministic Core**, zgodnie z roadmapą v0.2.
+Na początku M1 zapisać krótki ADR: algorytm i wersja RNG, wyprowadzanie
+streamów, strategia ID, rounding/overflow, canonical serialization
+i checksum, kolejność Commands na ticku oraz gwarancje platformowe.
+Są to decyzje do podjęcia w M1, nie decyzje zamknięte tą aktualizacją.
+Po odbiorze M1: M2 → M3 → M4. Nie rozpoczynać kolejnej dużej specyfikacji
+bez konkretnego blockera implementacyjnego.
 
 ------------------------------------------------------------------------
 

@@ -1,5 +1,7 @@
 # FIRST CAUSE --- Production Economy Master v0.1
 
+**Język kanoniczny dokumentu:** polski
+
 **Status:** wersja robocza / kanoniczna specyfikacja projektowa\
 **Projekt:** FIRST CAUSE\
 **Wersja dokumentu:** 0.1\
