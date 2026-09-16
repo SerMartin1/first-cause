@@ -16,8 +16,8 @@ enabled it (`Butterfly Effect`).
 
 ## Current milestone
 
-**M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = DONE; M3 = READY
-(not started).**
+**M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = DONE; M3 = DONE;
+M4 = READY (not started).**
 M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
 M1 -- Deterministic Core added a real, headless-testable deterministic
 skeleton (`packages/simulation/src/core`): a tick-derived
@@ -33,10 +33,17 @@ CompanyArchetype, ProductionMethod, Discovery, Service, TransportMode,
 Intervention, EventType, ChronicleTemplate), with cross-type reference,
 dependency-cycle, phase-violation and localization-coverage validation
 -- see the roadmap's M2 "Wyniki wykonania" for what was verified.
-Next: **M3 -- World State Foundation**. It still intentionally
-implements **no gameplay systems** -- no World State, economy,
+M3 -- World State Foundation (`packages/entities/src`) added typed
+runtime entity shapes for World, Continent, Region, Connection,
+ResourceDeposit, Settlement, PopulationCohort, Company, Market,
+Inventory and TechnologyState, plus a `createWorldState` assembler
+that validates every forward reference and *reconstructs* every
+back-reference cache/index from canonical entity data (DATA-003/
+DATA-004) -- see the roadmap's M3 "Wyniki wykonania" for what was
+verified. Next: **M4 -- Black Mountain Reference Fixture**. It still
+intentionally implements **no gameplay systems** -- no economy,
 population simulation, AI, causality, Chronicle, Architect, or World
-Generation. Those begin at `M3` and onward; see the Implementation
+Generation. Those begin at `M5` and onward; see the Implementation
 Roadmap for the full milestone sequence.
 
 ## Requirements
@@ -70,7 +77,9 @@ pnpm sim:run
 
 This prints the same `CoreStatus` the app would fetch over IPC, then
 runs a 12-tick `HeadlessRunner` demo (deterministic clock/RNG/checksum
-from M1). No World State, entities, or content exist yet (M3 onward).
+from M1). World State entity shapes exist since M3
+(`packages/entities`), but nothing wires them into a running tick loop
+yet -- no economic/demographic/AI logic exists (M5 onward).
 
 ## Testing
 
@@ -102,6 +111,7 @@ first-cause/
 ├── packages/
 │   ├── shared/            -- typed IPC contracts, cross-package types
 │   ├── simulation/        -- Simulation Core (headless-capable, worker)
+│   ├── entities/           -- World State entity shapes (World, Region, Company, ...)
 │   ├── content/            -- Zod schemas, Definition Registry, loaders, validators
 │   └── localization/       -- i18next/react-i18next setup (EN source, PL P0)
 ├── content/                -- content definitions (JSON): resources/, goods/
@@ -111,13 +121,19 @@ first-cause/
 └── .github/workflows/        -- CI
 ```
 
-`packages/entities`, `packages/worldgen`, `packages/causality`,
-`packages/chronicle`, `packages/persistence` and `packages/ui` are part
-of the target architecture (see Technology Stack Decision SS10).
-A package is created at its first real consumer / system implementation,
-as documented in the roadmap's M0 results. Deferral is intentional,
-not missing M0 scope. In particular, `causality` begins with its first
-fact infrastructure consumer; it does not wait for full integration in M17.
+`packages/worldgen`, `packages/causality`, `packages/chronicle`,
+`packages/persistence` and `packages/ui` are part of the target
+architecture (see Technology Stack Decision SS10) but not created yet.
+A package is created at its first real consumer / system
+implementation, as documented in the roadmap's M0 results (`entities`
+was created at M3, its first consumer). Deferral is intentional, not
+missing scope. In particular, `causality` begins with its first fact
+infrastructure consumer; it does not wait for full integration in M17.
+`packages/entities` deliberately has no *production* dependency on
+`packages/simulation` (only a test-only one, for the checksum
+roundtrip test) to avoid a future import cycle once M5+ systems in
+`packages/simulation` need to operate on entity types -- see the doc
+comment in `packages/entities/src/core/validation.ts`.
 
 ## Architecture boundaries
 

@@ -23,8 +23,8 @@ and `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`.
 5. **The UI never mutates World State directly.** All player actions
    go through explicit Commands; the renderer only ever reads Read
    Models.
-6. **Simulation Core never imports UI or Electron.** `packages/simulation`
-   (and future `packages/entities`, `packages/worldgen`,
+6. **Simulation Core never imports UI or Electron.** `packages/simulation`,
+   `packages/entities` (and future `packages/worldgen`,
    `packages/causality`, `packages/chronicle`) must stay independent of
    React and Electron so they can run headless (`pnpm sim:run`).
 7. **Content is data-driven.** New resources, goods, company

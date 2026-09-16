@@ -137,6 +137,15 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/entities:
+    devDependencies:
+      '@first-cause/simulation':
+        specifier: workspace:*
+        version: link:../simulation
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/localization:
     dependencies:
       i18next:

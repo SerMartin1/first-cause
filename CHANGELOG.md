@@ -10,6 +10,40 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-16
 
+- Implemented **M3 -- World State Foundation** (new `packages/entities`
+  package): typed runtime entity shapes + `create*()` factories for all
+  11 in-scope entities (`World`, `Continent`, `Region` incl.
+  `geography`/`environment`, `Connection`, `ResourceDeposit`,
+  `Settlement`, `PopulationCohort`, `Company`, `Market`, `Inventory`,
+  `TechnologyState`), each enforcing Entity Data Model rule 9 ("no
+  negative stocks/NaN/dangling refs") at construction. Fields
+  referencing out-of-M3-scope entity types (Culture, Nation, State,
+  Infrastructure, ServiceCapacity) are intentionally omitted rather
+  than left dangling. `world-state.ts` (`createWorldState`) assembles
+  all 11 into one `WorldState`, validates every forward reference, and
+  *reconstructs* every back-reference cache (`Region.resources.depositIds`,
+  `World.regionIds`, `Region.population.totalPopulation`, ...) from
+  canonical entity data instead of trusting hand-maintained arrays
+  (DATA-003/DATA-004). `core/indexes.ts` + `indexes/world-indexes.ts`
+  add the 5 named runtime indexes from the roadmap's M3 module list
+  (`companiesByRegion`, `cohortsByRegion`, `depositsByRegion`,
+  `settlementsByRegion`, `connectionsByRegion`), rebuilt from canonical
+  state on every call. `packages/entities` deliberately has no
+  *production* dependency on `packages/simulation` (only a test-only
+  one, used solely for the checksum-roundtrip test) to avoid a future
+  import cycle once M5+ systems in `packages/simulation` need to
+  operate on entity types; `core/validation.ts` is accordingly a small
+  local copy, not a shared import -- see the doc comment there. Added
+  42 tests (188 total): per-entity invariant tests, referential-
+  integrity tests for 3 different dangling-reference cases,
+  input-order-independence, and a canonical-serialize/re-checksum
+  roundtrip via `@first-cause/simulation` (devDependency only). Widened
+  the ESLint Simulation-Core React/Electron import boundary to include
+  `packages/entities/**`. `pnpm typecheck`, `pnpm lint`, `pnpm
+  format:check`, `pnpm test` (188/188), `pnpm build` and `pnpm
+  test:e2e` all pass. Updated the roadmap (M3 = DONE, M4 = READY,
+  "Wyniki wykonania" recorded), README and AGENTS.md accordingly. No
+  economic/demographic/AI logic exists yet (M5+), as scoped.
 - Implemented **M2 -- Data Foundation** (`packages/content/src`): Zod
   schemas for all 10 in-scope content types (Resource, Good,
   CompanyArchetype, ProductionMethod, Discovery, Service, TransportMode,

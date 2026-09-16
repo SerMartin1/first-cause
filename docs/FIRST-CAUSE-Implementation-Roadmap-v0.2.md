@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1 i M2 są ukończone (patrz "Wyniki wykonania" w sekcjach M1/M2),
-bieżący etap to M3 (READY). Pełni rolę,
+M1, M2 i M3 są ukończone (patrz "Wyniki wykonania" w sekcjach
+M1/M2/M3), bieżący etap to M4 (READY). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -949,6 +949,104 @@ Black Mountain fixture (to M4).
 
 **Checkpoint:** **CP0 --- Technical Foundation** osiągnięty po tym
 milestone.
+
+### M3 --- Wyniki wykonania (2026-09-16)
+
+**Status: DONE.**
+
+**Nowy pakiet:** `packages/entities` (utworzony przy pierwszym realnym
+konsumencie, zgodnie z notatką z M0). Celowo **bez zależności
+produkcyjnej** od `packages/simulation` (tylko `devDependency` do testu
+roundtrip checksum) -- inaczej M5+, gdy systemy w `packages/simulation`
+zaczną operować na typach encji, powstałby cykl importów. Uzasadnienie
+w komentarzu `packages/entities/src/core/validation.ts`. Z tego samego
+powodu `core/validation.ts` w `entities` jest małą, samodzielną kopią
+odpowiednika z `packages/simulation` -- nie re-eksportem.
+
+**Co faktycznie wdrożono:**
+
+-   11 typów encji z listy "Implementowane systemy" M3 --- `World`,
+    `Continent`, `Region` (+ `geography`/`environment` jako osobne
+    moduły, zgodnie z listą "Moduły"), `Connection`,
+    `ResourceDeposit`, `Settlement`, `PopulationCohort`, `Company`,
+    `Market`, `Inventory`, `TechnologyState` --- każdy jako typowany
+    interfejs + `create*()` factory z asercjami niezmienników
+    (`core/validation.ts`: brak ujemnych zapasów/populacji, brak
+    self-loop connection, itd. -- reguła 9 Entity Data Model).
+-   Świadomie **pominięto** pola odwołujące się do typów encji spoza
+    zakresu M3 (`Culture`, `Nation`, `State`, `Infrastructure`,
+    `ServiceCapacity`, `HistoricalCharacter`, Architect/SimulationFact/
+    Chronicle) -- `Region.society`/`Region.politics`,
+    `PopulationCohort.identity`, `Company.ai`,
+    `Settlement.services`/`.infrastructure`/`.society` nie istnieją w
+    M3, żeby nie tworzyć "wiszących referencji" do typów, których
+    jeszcze nie ma (reguła 9). Udokumentowane w komentarzach przy
+    każdym typie.
+-   `world-state.ts` (`createWorldState`): scala 11 typów encji w jeden
+    `WorldState`, waliduje **każdą referencję w przód** (Region ->
+    Continent, Connection -> Region x2, Company -> Inventory, itd.,
+    rzuca `InvariantViolationError` przy wiszącej referencji), a
+    następnie **odtwarza** każdy cache odwołań-wstecz
+    (`World.regionIds`, `Continent.regionIds`,
+    `Region.resources.depositIds`, `Region.population.totalPopulation`
+    itd.) z encji kanonicznych -- referencje w przód (dziecko ->
+    rodzic) są jedynym źródłem prawdy; back-referencje nigdy nie są
+    ręcznie utrzymywane przez wywołującego. Bezpośrednio realizuje
+    DATA-003/DATA-004.
+-   `core/indexes.ts` (`groupIdsBy`, `toById`) + `indexes/world-indexes.ts`
+    (`buildWorldIndexes`) --- dokładnie 5 indeksów z listy modułów M3:
+    `companiesByRegion`, `cohortsByRegion`, `depositsByRegion`,
+    `settlementsByRegion`, `connectionsByRegion` (ten ostatni
+    dwukierunkowy -- connection należy do list obu swoich regionów).
+    Budowane od nowa z map kanonicznych przy każdym wywołaniu, nigdy
+    cache'owane -- rekonstruowalność jest własnością z definicji, nie
+    czymś testowanym osobno.
+-   `recomputeRegionTotalPopulation` -- jawna funkcja odtwarzająca
+    `Region.population.totalPopulation`/`Settlement.population.totalPopulation`
+    z sumy `PopulationCohort.population`, dowodząca DATA-004
+    ("`Region.totalPopulation` może być cache; canoniczna populacja
+    należy do `PopulationCohort`") działaniem, nie tylko deklaracją.
+-   42 nowe testy Vitest: po jednym module na typ encji (walidacja
+    happy-path + odrzucenie niezmiennika), `world-state.test.ts`
+    (referential integrity na 3 różne wiszące referencje, odtwarzanie
+    back-referencji niezależne od kolejności inputu -- SIM-005,
+    checksum roundtrip), `indexes/world-indexes.test.ts`
+    (rekonstruowalność, dwukierunkowość connections).
+
+**Save/load roundtrip (Testy M3):** zrealizowany przez
+`canonicalStringify`/`computeChecksum` z `packages/simulation`
+(`@first-cause/simulation` jako `devDependency`, użyty wyłącznie w
+`world-state.test.ts`): `computeChecksum(state)` ==
+`computeChecksum(JSON.parse(canonicalStringify(state)))`. To dowodzi
+struktury kanonicznej serializacji na `WorldState`; pełny plikowy
+save/load z `schemaVersion`/`contentVersion` pozostaje M20 (SAVE-007),
+zgodnie z notatką z M0/M1.
+
+**Acceptance Gate -- zweryfikowane:** można utworzyć świat z N
+regionami i podstawowymi encjami (fixture w `world-state.test.ts`: 2
+regiony, connection, deposit, settlement, 2 kohorty, company, market,
+technology state); zapis/odczyt (canonical roundtrip) daje identyczny
+checksum; indeksy (`WorldIndexes` i denormalizowane pola na
+encjach) są rekonstruowalne z canonical state.
+
+**Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test`
+(188/188 testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w
+czystym przebiegu. Reguła ESLint blokująca import React/Electron
+(SS6 AGENTS.md) rozszerzona o `packages/entities/**`.
+
+**Dług techniczny / świadomie poza zakresem:** ID encji są w M3
+dostarczane przez wywołującego (proste, niepuste stringi) --
+deterministyczne generowanie ID (`core/ids.ts` z M1) i faktyczne
+podłączenie `SimulationClock`/`WorldRng` do `World.currentTick`/`seed`
+zostaje dla M4 (fixture) i systemów, które realnie tickują świat (M5+);
+`World`/`Region` nie przechowują jeszcze `rngState`/`history`
+(facts/Chronicle) ani `schemaVersion`/`contentVersion` -- pola systemów,
+które jeszcze nie istnieją (M17/M19/M20). `Market`/`TechnologyState`
+zaczynają puste -- inwarianty `price > 0` stosują się dopiero, gdy M8
+zacznie wypełniać `goods`.
+
+**Czy M4 jest odblokowane:** TAK.
 
 ------------------------------------------------------------------------
 
@@ -2312,8 +2410,8 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-16: M0, M0.1 Audit Fixes, M1 i M2 ukończone; M3 gotowy
-do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
+Stan na 2026-09-16: M0, M0.1 Audit Fixes, M1, M2 i M3 ukończone; M4
+gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -2323,8 +2421,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M0          DONE      P0          S           LOW           ---
   M1          DONE      P0          M           MEDIUM        M0
   M2          DONE      P0          M           LOW-MEDIUM    M1
-  M3          READY     P0          M           MEDIUM        M1, M2
-  M4          BACKLOG   P0          S/M         MEDIUM        M3
+  M3          DONE      P0          M           MEDIUM        M1, M2
+  M4          READY     P0          S/M         MEDIUM        M3
   M5          BACKLOG   P0          S           LOW           M4
   M6          BACKLOG   P0          M           MEDIUM        M4
   M7          BACKLOG   P0          M           MEDIUM        M5, M6
@@ -2382,9 +2480,9 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M3 — World State Foundation** zgodnie z sekcją M3
-i Technology Stack Decision. M0, M0.1, M1 i M2 są DONE. Kolejne
-milestone’y rozpoczynają się po odbiorze ich zależności.
+Następny krok: **M4 — Black Mountain Reference Fixture** zgodnie z
+sekcją M4 i World Generation Spec. M0, M0.1, M1, M2 i M3 są DONE.
+Kolejne milestone’y rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
 
