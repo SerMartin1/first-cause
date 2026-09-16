@@ -1,0 +1,7 @@
+{
+  "id": "bread",
+  "nameKey": "content.good.bread.name",
+  "category": "food_final",
+  "householdNeed": "survival",
+  "implementationPhase": "VS"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "flour",
+  "nameKey": "content.good.flour.name",
+  "category": "food_intermediate",
+  "downstreamGoodIds": ["bread"],
+  "householdNeed": "survival",
+  "implementationPhase": "VS"
+}

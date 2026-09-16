@@ -5,5 +5,10 @@
   "worker.status.offline": "Simulation Worker: OFFLINE",
   "worker.status.connecting": "Simulation Worker: CONNECTING",
   "environment.label": "Environment: {{environment}}",
-  "language.label": "Language"
+  "language.label": "Language",
+  "content.resource.iron_ore.name": "Iron Ore",
+  "content.resource.grain.name": "Grain",
+  "content.resource.timber.name": "Timber",
+  "content.good.flour.name": "Flour",
+  "content.good.bread.name": "Bread"
 }

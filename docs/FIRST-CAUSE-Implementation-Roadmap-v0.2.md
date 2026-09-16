@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1 jest ukończone (patrz "Wyniki wykonania" w sekcji M1), bieżący etap
-to M2 (READY). Pełni rolę,
+M1 i M2 są ukończone (patrz "Wyniki wykonania" w sekcjach M1/M2),
+bieżący etap to M3 (READY). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -807,6 +807,89 @@ języki poza EN/PL.
 **Źródła:** `FIRST-CAUSE-Content-Localization-Spec-v0.1.md` (§27--60,
 §130--165), `FIRST-CAUSE-Technology-Stack-Decision-v0.1.md` (§19--25,
 §94), `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (DATA-*, CONTENT-*).
+
+### M2 --- Wyniki wykonania (2026-09-16)
+
+**Status: DONE.**
+
+**Co faktycznie wdrożono (`packages/content/src`):**
+
+-   `schema/` --- Zod schema dla wszystkich 10 typów z modułu M2
+    (`Resource, Good, CompanyArchetype, ProductionMethod, Discovery,
+    Service, TransportMode, Intervention, EventType,
+    ChronicleTemplate`), oparte wprost na polach "Minimalnie" z
+    `Content-Localization-Spec` §41--50, nie na głębszym modelu z
+    `Production-Economy-Master` (ten należy do M5/M7). Pola bez
+    ustalonej jeszcze mechaniki (`occurrenceRules`, `productivity`,
+    `workforceProfile`, ...) są otwartymi bagami danych ("configurable
+    placeholder + TODO tuning", `AGENTS.md`), nie wymyśloną strukturą.
+    `KnowledgeDomainDefinition` (§4) świadomie pominięty --- to zakres
+    M15; pola odwołujące się do domen wiedzy (`primaryDomainId`) są
+    poprawnymi `ContentId`ami, ale nie są jeszcze walidowane
+    krzyżowo.
+-   Ujednolicono nazwę pola fazy na `implementationPhase` (zgodnie z
+    CONTENT-008/§31) w miejsce placeholderowego `phase` z M0; naprawiono
+    też `ResourceDefinition.finite` -> `renewable` (§41). Zaktualizowano
+    istniejącą fixture `content/resources/iron_ore.json` i test M0 pod
+    nową nazwę pól -- świadoma, w zakresie M2 zmiana (M2 jest
+    milestone'em odpowiedzialnym za realne schematy, M0 był jawnie
+    "M0 scope only" placeholderem).
+-   `schema/reference-field.ts` --- deklaratywny opis pól-referencji
+    (`ReferenceFieldSpec`/`ContentTypeSpec`) per typ: który target type,
+    czy self-referencyjne pole jest sprawdzane pod kątem cykli. Napędza
+    generyczne walidatory zamiast pisania osobnej logiki per typ.
+-   `loaders/create-definition-loader.ts` --- generyczny
+    `JSON -> Zod -> duplicate ID -> DefinitionRegistry` (zastępuje
+    bespoke `loadResourceDefinitions` z M0, który stał się cienkim
+    wrapperem nad nim, z zachowanym publicznym API/testami).
+-   `loaders/content-pack.ts` --- `loadContentPack`: ładuje wszystkie 10
+    typów naraz, agreguje `registries`/`errors`/`warnings`/`stats`
+    (Content Statistics, §147), uruchamia walidację krzyżową.
+-   `validators/reference-validation.ts` --- missing reference,
+    dependency cycles (DFS three-color, deterministyczny start po
+    posortowanych ID), phase violations (CONTENT-009: wcześniejsza faza
+    nie może zależeć wyłącznie od późniejszej).
+-   `validators/localization-coverage.ts` --- brak klucza w `en` = FAIL
+    (§143), brak w innym locale = warning z fallbackiem (§144), nie
+    blokuje `ok`.
+-   Realne dane VS: `content/resources/{iron_ore,grain,timber}.json`,
+    `content/goods/{flour,bread}.json` (niewielki podzbiór, zgodnie z
+    "Dane" w tym dokumencie), z kompletnymi kluczami `content.*` w
+    `locales/en|pl/common.json`.
+-   62 nowe testy Vitest: po jednym osobnym teście na każdą pozycję z
+    CONTENT-010 (duplicate ID, cross-type ID collision, missing ref,
+    invalid range, dependency cycle, phase violation, missing EN key,
+    missing secondary-locale warning), test determinizmu ładowania
+    (shuffle kolejności plików -> identyczny wynik), 40 testów
+    schema-poziomu (walidacja struktury każdego z 10 typów) i
+    integracyjny test czytający prawdziwe pliki z `content/`/`locales/`
+    z dysku przez `node:fs`.
+
+**Acceptance Gate -- zweryfikowane:** loader odrzuca błędny JSON z
+czytelnym błędem (`[typeName] Definition at index N failed schema
+validation: ...`); poprawny JSON tworzy immutable registry
+(`DefinitionRegistry`, deep-frozen, jak w M0); EN/PL nigdy nie
+wpływają na `registries`/`stats` (locale wpływa wyłącznie na
+`errors`/`warnings` walidatora lokalizacji) -- pełne rozstrzygnięcie
+`contentVersion`/checksum jako osobnego, wersjonowanego pola zostaje
+w M20 (SAVE-007), zgodnie z notatką z M0.
+
+**Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint` (1
+warning na `any` w celowo poluzowanym typie Zod Input, patrz komentarz
+w `schema/reference-field.ts` -- nie error), `pnpm format:check`, `pnpm
+test` (146/146 testów), `pnpm build` i `pnpm test:e2e` -- wszystkie
+zielone w czystym przebiegu.
+
+**Dług techniczny / świadomie poza zakresem:** brak
+`KnowledgeDomainDefinition` (M15); pola polimorficzne (`Discovery.unlocks`)
+nie są walidowane krzyżowo, dopóki nie istnieją ich konsumenci (M7+);
+"invalid production chains" z Technology Stack Decision §22 pozostaje
+zakresem M7 (Production) -- nie da się sensownie zwalidować łańcuchów
+produkcji bez logiki produkcji; pełny katalog 12 resources/20
+goods/17 archetypów rośnie przyrostowo od M5 dalej, zgodnie z
+pierwotnym planem tego dokumentu.
+
+**Czy M3 jest odblokowane:** TAK.
 
 ------------------------------------------------------------------------
 
@@ -2229,8 +2312,8 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-16: M0, M0.1 Audit Fixes i M1 ukończone; M2 gotowy do
-rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
+Stan na 2026-09-16: M0, M0.1 Audit Fixes, M1 i M2 ukończone; M3 gotowy
+do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -2239,8 +2322,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   ----------- --------- ----------- ----------- ------------- ------------
   M0          DONE      P0          S           LOW           ---
   M1          DONE      P0          M           MEDIUM        M0
-  M2          READY     P0          M           LOW-MEDIUM    M1
-  M3          BACKLOG   P0          M           MEDIUM        M1, M2
+  M2          DONE      P0          M           LOW-MEDIUM    M1
+  M3          READY     P0          M           MEDIUM        M1, M2
   M4          BACKLOG   P0          S/M         MEDIUM        M3
   M5          BACKLOG   P0          S           LOW           M4
   M6          BACKLOG   P0          M           MEDIUM        M4
@@ -2299,9 +2382,9 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M2 — Data Foundation** zgodnie z sekcją M2
-i Technology Stack Decision. M0, M0.1 i M1 są DONE. Kolejne milestone’y
-rozpoczynają się po odbiorze ich zależności.
+Następny krok: **M3 — World State Foundation** zgodnie z sekcją M3
+i Technology Stack Decision. M0, M0.1, M1 i M2 są DONE. Kolejne
+milestone’y rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
 

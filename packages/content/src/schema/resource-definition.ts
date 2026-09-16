@@ -1,20 +1,42 @@
 import { z } from "zod";
 import { ContentIdSchema, ContentPhaseSchema } from "./content-id.js";
+import {
+  IdRefArraySchema,
+  LocalizationKeySchema,
+  OpenRecordSchema,
+  TagArraySchema,
+} from "./common.js";
+import type { ContentTypeSpec } from "./reference-field.js";
 
 /**
- * Minimal ResourceDefinition schema -- M0 scope only.
- *
- * This exists to prove the JSON -> Zod -> semantic validation -> immutable
- * Definition Registry pipeline described in the Technology Stack Decision
- * (SS 19-25). It is deliberately not the full economic catalog (that is
- * M5 / Production Economy Master v0.1 scope).
+ * ResourceDefinition (Content-Localization-Spec SS41): the minimal field
+ * set for M2. `occurrenceRules`/`discoveryRules` are open placeholder
+ * bags -- their real shape belongs to World Generation (M22) and
+ * Resources (M5).
  */
 export const ResourceDefinitionSchema = z.object({
   id: ContentIdSchema,
-  nameKey: z.string().min(1),
-  category: z.enum(["mineral", "agricultural", "forestry", "aquatic"]),
-  finite: z.boolean(),
-  phase: ContentPhaseSchema,
+  nameKey: LocalizationKeySchema,
+  category: z.string().min(1),
+  renewable: z.boolean(),
+  occurrenceRules: OpenRecordSchema,
+  discoveryRules: OpenRecordSchema,
+  extractionMethodIds: IdRefArraySchema,
+  useGoodIds: IdRefArraySchema,
+  substituteIds: IdRefArraySchema,
+  strategicTags: TagArraySchema,
+  implementationPhase: ContentPhaseSchema,
 });
 
 export type ResourceDefinition = z.infer<typeof ResourceDefinitionSchema>;
+
+export const resourceContentTypeSpec: ContentTypeSpec<ResourceDefinition> = {
+  name: "resource",
+  schema: ResourceDefinitionSchema,
+  referenceFields: [
+    { field: "extractionMethodIds", targetType: "productionMethod", cardinality: "many" },
+    { field: "useGoodIds", targetType: "good", cardinality: "many" },
+    { field: "substituteIds", targetType: "resource", cardinality: "many" },
+  ],
+  localizationKeyFields: ["nameKey"],
+};

@@ -10,6 +10,40 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-16
 
+- Implemented **M2 -- Data Foundation** (`packages/content/src`): Zod
+  schemas for all 10 in-scope content types (Resource, Good,
+  CompanyArchetype, ProductionMethod, Discovery, Service, TransportMode,
+  Intervention, EventType, ChronicleTemplate), built from
+  Content-Localization-Spec SS41-50's minimal field lists (deeper
+  economic modeling stays M5/M7 scope, not invented early).
+  `schema/reference-field.ts` declares each type's reference fields
+  declaratively, powering generic (not per-type) validators:
+  `validators/reference-validation.ts` (missing references, DFS
+  dependency-cycle detection, CONTENT-009 phase violations) and
+  `validators/localization-coverage.ts` (missing `en` key = error,
+  missing secondary-locale key = warning). `loaders/content-pack.ts`
+  (`loadContentPack`) ties everything together: per-type
+  `JSON -> Zod -> duplicate-ID check -> DefinitionRegistry`
+  (`create-definition-loader.ts`, generalized from M0's
+  `loadResourceDefinitions`, now a thin wrapper over it) plus cross-type
+  ID-collision checking and Content Statistics (SS147). Renamed the M0
+  placeholder field `phase` -> `implementationPhase` and
+  `finite` -> `renewable` on `ResourceDefinition` to match the canonical
+  spec (CONTENT-008), updating the existing fixture/tests accordingly.
+  Added real VS-subset content
+  (`content/resources/{iron_ore,grain,timber}.json`,
+  `content/goods/{flour,bread}.json`) with full EN/PL localization
+  keys. Added 62 new tests: one per CONTENT-010 checklist item
+  (duplicate ID, cross-type ID collision, missing ref, invalid range,
+  dependency cycle, phase violation, missing EN key, missing
+  secondary-locale warning), a content-load-determinism test, 40
+  schema-level structural tests across all 10 types, and an integration
+  test reading the real files from `content/`/`locales/` off disk.
+  `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`
+  (146/146), `pnpm build` and `pnpm test:e2e` all pass. Updated the
+  roadmap (M2 = DONE, M3 = READY, "Wyniki wykonania" recorded) and
+  README accordingly. No World State or gameplay systems exist yet
+  (M3+), as scoped.
 - Implemented **M1 -- Deterministic Core** (`packages/simulation/src/core`):
   `core/time` (tick-derived `SimulationClock`/`tickToDate`, 1 tick = 1
   month), `core/rng` (from-scratch `xoshiro128**` seeded via

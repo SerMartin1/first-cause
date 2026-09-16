@@ -1,0 +1,50 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+import { loadContentPack } from "./loaders/content-pack.js";
+
+/**
+ * Proves the real M2 pipeline end-to-end against the actual repository
+ * content and locale files on disk (not inline test fixtures): the same
+ * `content/resources/*.json`/`content/goods/*.json` a future real content
+ * loader would read, and the same `locales/en|pl/common.json` the app
+ * loads (`apps/desktop/src/main.tsx`).
+ */
+const REPO_ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
+
+function readJsonDir(relativeDir: string): unknown[] {
+  const dir = path.join(REPO_ROOT, relativeDir);
+  return readdirSync(dir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => JSON.parse(readFileSync(path.join(dir, file), "utf-8")) as unknown);
+}
+
+function readJson(relativePath: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(path.join(REPO_ROOT, relativePath), "utf-8")) as Record<
+    string,
+    unknown
+  >;
+}
+
+describe("content fixtures on disk (content/, locales/)", () => {
+  it("load and validate cleanly through the real M2 pipeline", () => {
+    const result = loadContentPack({
+      definitions: {
+        resource: readJsonDir("content/resources"),
+        good: readJsonDir("content/goods"),
+      },
+      locales: {
+        en: readJson("locales/en/common.json"),
+        pl: readJson("locales/pl/common.json"),
+      },
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(result.stats.resource).toBeGreaterThanOrEqual(3);
+    expect(result.stats.good).toBeGreaterThanOrEqual(2);
+    expect(result.registries.resource?.has("iron_ore")).toBe(true);
+  });
+});

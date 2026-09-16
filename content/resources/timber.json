@@ -1,0 +1,7 @@
+{
+  "id": "timber",
+  "nameKey": "content.resource.timber.name",
+  "category": "forestry",
+  "renewable": true,
+  "implementationPhase": "VS"
+}

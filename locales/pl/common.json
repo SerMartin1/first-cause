@@ -5,5 +5,10 @@
   "worker.status.offline": "Simulation Worker: OFFLINE",
   "worker.status.connecting": "Simulation Worker: ŁĄCZENIE",
   "environment.label": "Środowisko: {{environment}}",
-  "language.label": "Język"
+  "language.label": "Język",
+  "content.resource.iron_ore.name": "Ruda żelaza",
+  "content.resource.grain.name": "Zboże",
+  "content.resource.timber.name": "Drewno",
+  "content.good.flour.name": "Mąka",
+  "content.good.bread.name": "Chleb"
 }

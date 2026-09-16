@@ -16,7 +16,8 @@ enabled it (`Butterfly Effect`).
 
 ## Current milestone
 
-**M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = READY (not started).**
+**M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = DONE; M3 = READY
+(not started).**
 M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
 M1 -- Deterministic Core added a real, headless-testable deterministic
 skeleton (`packages/simulation/src/core`): a tick-derived
@@ -25,11 +26,18 @@ streams, deterministic IDs, canonical serialization + `WorldChecksum`,
 money rounding policy, and a generic tick-boundary `CommandBoundary` --
 see `docs/adr/ADR-001-m1-deterministic-core.md` for the numeric/algorithm
 decisions and the roadmap's M1 "Wyniki wykonania" for what was verified.
-Next: **M2 -- Data Foundation**. It still intentionally implements
-**no gameplay systems** -- no World State, economy, population
-simulation, AI, causality, Chronicle, Architect, or World Generation.
-Those begin at `M3` and onward; see the Implementation Roadmap for the
-full milestone sequence.
+M2 -- Data Foundation (`packages/content/src`) built the real
+`JSON -> Zod -> semantic validation -> immutable Definition Registry`
+pipeline for all 10 in-scope content types (Resource, Good,
+CompanyArchetype, ProductionMethod, Discovery, Service, TransportMode,
+Intervention, EventType, ChronicleTemplate), with cross-type reference,
+dependency-cycle, phase-violation and localization-coverage validation
+-- see the roadmap's M2 "Wyniki wykonania" for what was verified.
+Next: **M3 -- World State Foundation**. It still intentionally
+implements **no gameplay systems** -- no World State, economy,
+population simulation, AI, causality, Chronicle, Architect, or World
+Generation. Those begin at `M3` and onward; see the Implementation
+Roadmap for the full milestone sequence.
 
 ## Requirements
 
@@ -94,9 +102,9 @@ first-cause/
 ├── packages/
 │   ├── shared/            -- typed IPC contracts, cross-package types
 │   ├── simulation/        -- Simulation Core (headless-capable, worker)
-│   ├── content/            -- Zod schemas, Definition Registry, loaders
+│   ├── content/            -- Zod schemas, Definition Registry, loaders, validators
 │   └── localization/       -- i18next/react-i18next setup (EN source, PL P0)
-├── content/                -- content definitions (JSON), e.g. resources/
+├── content/                -- content definitions (JSON): resources/, goods/
 ├── locales/                -- en/, pl/ translation resources
 ├── tests/e2e/               -- Playwright specs
 ├── docs/                    -- canonical design & technical specifications

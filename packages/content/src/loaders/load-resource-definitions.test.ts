@@ -3,10 +3,10 @@ import { loadResourceDefinitions } from "./load-resource-definitions.js";
 
 const validDefinition = {
   id: "iron_ore",
-  nameKey: "resource.iron_ore.name",
+  nameKey: "content.resource.iron_ore.name",
   category: "mineral",
-  finite: true,
-  phase: "VS",
+  renewable: false,
+  implementationPhase: "VS",
 };
 
 describe("loadResourceDefinitions", () => {
@@ -17,6 +17,15 @@ describe("loadResourceDefinitions", () => {
     expect(result.errors).toHaveLength(0);
     expect(result.registry?.size).toBe(1);
     expect(result.registry?.get("iron_ore")?.category).toBe("mineral");
+  });
+
+  it("defaults open/array fields that were not provided", () => {
+    const result = loadResourceDefinitions([validDefinition]);
+
+    const definition = result.registry?.get("iron_ore");
+    expect(definition?.extractionMethodIds).toEqual([]);
+    expect(definition?.strategicTags).toEqual([]);
+    expect(definition?.occurrenceRules).toEqual({});
   });
 
   it("rejects a definition with an invalid content ID", () => {

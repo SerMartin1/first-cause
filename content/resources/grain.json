@@ -1,0 +1,8 @@
+{
+  "id": "grain",
+  "nameKey": "content.resource.grain.name",
+  "category": "agricultural",
+  "renewable": true,
+  "useGoodIds": ["flour"],
+  "implementationPhase": "VS"
+}
