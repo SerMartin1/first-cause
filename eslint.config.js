@@ -85,6 +85,44 @@ export default tseslint.config(
     ],
     rules: simulationCoreBoundaryRules,
   },
+  // Deterministic Core (M1, SAVE-004): no uncontrolled randomness or
+  // system time as a source of truth. Everything goes through the
+  // seeded, named-stream RNG (core/rng.ts) and the tick-derived clock
+  // (core/time.ts) instead.
+  {
+    files: ["packages/simulation/src/core/**/*.ts"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          object: "Math",
+          property: "random",
+          message:
+            "Simulation Core must not use Math.random() -- use a named RNG stream from core/rng.ts (SAVE-004).",
+        },
+        {
+          object: "Date",
+          property: "now",
+          message:
+            "Simulation Core must not read system time -- derive dates from the tick via core/time.ts (SAVE-004).",
+        },
+        {
+          object: "crypto",
+          property: "randomUUID",
+          message:
+            "Simulation Core must not use non-deterministic UUIDs -- use core/ids.ts::createIdGenerator (SAVE-004).",
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "NewExpression[callee.name='Date']",
+          message:
+            "Simulation Core must not read system time via `new Date()` -- derive dates from the tick via core/time.ts (SAVE-004).",
+        },
+      ],
+    },
+  },
   // Plain Node packages: Node globals, no browser globals.
   {
     files: ["packages/**/*.ts"],

@@ -22,7 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-bieżący etap to M1 (READY). Pełni rolę,
+M1 jest ukończone (patrz "Wyniki wykonania" w sekcji M1), bieżący etap
+to M2 (READY). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -672,6 +673,84 @@ pierwszego dnia").
 (§6--30), `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (SAVE-001--006,
 PERF-\*), `FIRST-CAUSE-Technology-Stack-Decision-v0.1.md` (§29--35,
 §82--88, §93, §98).
+
+### M1 --- Wyniki wykonania (2026-09-16)
+
+**Status: DONE.**
+
+**ADR:** `docs/adr/ADR-001-m1-deterministic-core.md` zapisuje decyzje
+otwarte przez `Canonical Decisions` §201/OPEN-008 (algorytm i wersja
+RNG, wyprowadzanie streamów, strategia ID, rounding/overflow, canonical
+serialization/checksum, kolejność Commands na ticku, gwarancje
+platformowe) -- zgodnie z wymogiem, że są to decyzje do podjęcia *w*
+M1, nie założenia sprzed niego.
+
+**Co faktycznie wdrożono (`packages/simulation/src/core`):**
+
+-   `core/time` -- `SimulationClock`/`tickToDate`: tick jako integer,
+    data = f(startYear/startMonth, tick), 1 tick = 1 miesiąc (SIM-001).
+-   `core/rng` -- własny `xoshiro128**` (128-bit state, wyłącznie
+    32-bit `Math.imul`/bitwise, bez BigInt/floatów w rdzeniu),
+    seedowany przez `splitmix32`; `WorldRng.stream(name, scopeId?)` z
+    ośmioma kanonicznymi streamami SAVE-003, deterministycznie
+    wyprowadzanymi (`fnv1a32(worldSeed:streamName:scopeId)`);
+    `nextUint32/nextFloat/nextInt` (ten ostatni przez unbiased Lemire
+    rejection sampling, nie `% n`).
+-   `core/ids` -- `IdGenerator`: monotoniczny licznik per-prefix
+    (`company_004281`-style), nigdy hash ani `crypto.randomUUID`.
+-   `core/validation` -- `assertFinite/assertNonNegative/
+    assertSafeInteger/assertInteger` + `InvariantViolationError`.
+-   `core/rounding` -- rozstrzyga OPEN-008: pieniądze jako integer
+    minor units (`MONEY_SCALE = 100`), `roundHalfEven` (banker's
+    rounding, uzasadnienie w ADR-001), overflow-guard przez
+    `Number.MAX_SAFE_INTEGER`.
+-   `core/serialization` -- `canonicalStringify`: sortowane klucze
+    obiektów, posortowane wpisy `Map`/wartości `Set`, pominięte pola
+    `undefined`, odrzucone NaN/Infinity zamiast cichej koercji do
+    `null`.
+-   `core/checksum` -- `computeChecksum` (`fnv1a32x2-v1`, dwa
+    niezależnie zaseedowane przebiegi FNV-1a-32 nad canonical
+    serialization) -- WorldChecksum do testów determinizmu (SAVE-010).
+-   `core/commands` -- `CommandBoundary`: `enqueue(scheduledForTick,
+    command)` z monotonicznym `sequence`, `drain(tick)` zwraca tylko
+    komendy na dany tick, posortowane po `sequence`; brak mid-tick
+    application (SAVE-006). Generyczny mechanizm -- bez konkretnych
+    typów Command (te powstają z systemami, które ich potrzebują, M3+).
+-   `core/runner` -- `HeadlessRunner`: minimalny headless runner
+    spinający zegar/RNG/command boundary; `step()`/`runTicks(n)`,
+    `getState()`/`HeadlessRunner.fromState()` (save/restore roundtrip),
+    `checksum()`. Brak World State/systemów gospodarczych (poza
+    zakresem M1) -- `step()` drenuje kolejkę komend i przesuwa zegar,
+    dowodząc kontraktu przed istnieniem realnych komend.
+-   ESLint: nowa reguła (`packages/simulation/src/core/**`) blokująca
+    `Math.random`, `Date.now`, `new Date()`, `crypto.randomUUID` (
+    SAVE-004), zweryfikowana pozytywnym testem wykrycia naruszenia.
+-   `pnpm sim:run` zaktualizowany: po statusie workera uruchamia
+    12-tickowe demo `HeadlessRunner` i drukuje tick/datę/checksum.
+-   62 nowe testy Vitest (RNG golden vectors, determinism/state
+    roundtrip, canonical serialization, checksum, command ordering,
+    rounding bias, oraz akceptacyjne testy runnera: 10 000 pustych
+    ticków reprodukowalnych, ×1 vs `runTicks` batch equality,
+    save/restore roundtrip mid-run).
+
+**Acceptance Gate (Technology Stack Decision §98) -- zweryfikowane:**
+10 000 pustych ticków reprodukowalnych (`runner.test.ts`); RNG golden
+tests przechodzą; ×1 (stepwise) i `runTicks` batch dają ten sam
+checksum; save/restore mid-run (w tym z dotkniętym streamem RNG) daje
+identyczny checksum jak nieprzerwany bieg.
+
+**Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint`, `pnpm
+format:check`, `pnpm test` (94/94 testów), `pnpm build` i `pnpm
+test:e2e` -- wszystkie zielone w czystym przebiegu.
+
+**Dług techniczny / świadomie poza zakresem:** brak konkretnych typów
+Command (M3+); `core/rounding` ustala politykę wyłącznie dla pieniędzy
+-- zaokrąglanie ilości dóbr/populacji należy do ich własnych domen,
+gdy powstaną; `RngStream.nextInt` i `canonicalStringify` nie mają
+jeszcze żadnego rzeczywistego konsumenta domenowego (M1 dowodzi
+mechanizmu, nie zużywa go jeszcze) -- to nie jest brakujący zakres M1.
+
+**Czy M2 jest odblokowane:** TAK.
 
 ------------------------------------------------------------------------
 
@@ -2150,7 +2229,7 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-16: M0 i M0.1 Audit Fixes ukończone; M1 gotowy do
+Stan na 2026-09-16: M0, M0.1 Audit Fixes i M1 ukończone; M2 gotowy do
 rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
@@ -2159,8 +2238,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   Milestone   Status    Priorytet   Złożoność   Ryzyko        Zależności
   ----------- --------- ----------- ----------- ------------- ------------
   M0          DONE      P0          S           LOW           ---
-  M1          READY     P0          M           MEDIUM        M0
-  M2          BACKLOG   P0          M           LOW-MEDIUM    M1
+  M1          DONE      P0          M           MEDIUM        M0
+  M2          READY     P0          M           LOW-MEDIUM    M1
   M3          BACKLOG   P0          M           MEDIUM        M1, M2
   M4          BACKLOG   P0          S/M         MEDIUM        M3
   M5          BACKLOG   P0          S           LOW           M4
@@ -2220,8 +2299,8 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M1 — Deterministic Core** zgodnie z sekcją M1
-i Technology Stack Decision. M0 i M0.1 są DONE. Kolejne milestone’y
+Następny krok: **M2 — Data Foundation** zgodnie z sekcją M2
+i Technology Stack Decision. M0, M0.1 i M1 są DONE. Kolejne milestone’y
 rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------

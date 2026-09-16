@@ -16,15 +16,20 @@ enabled it (`Butterfly Effect`).
 
 ## Current milestone
 
-**M0 = DONE; M0.1 Audit Fixes = DONE; M1 = READY (not started).**
+**M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = READY (not started).**
 M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
-Next: **M1 -- Deterministic Core**. The completed foundation establishes the
-monorepo, build tooling, Electron/React/Vite shell, a minimal typed IPC
-path to a real Simulation Worker, and the content/localization
-foundations. It intentionally implements **no gameplay systems** --
-no economy, population simulation, AI, causality, Chronicle, Architect,
-or World Generation. Those begin at `M1` and onward; see the
-Implementation Roadmap for the full milestone sequence.
+M1 -- Deterministic Core added a real, headless-testable deterministic
+skeleton (`packages/simulation/src/core`): a tick-derived
+`SimulationClock`, a from-scratch seeded `xoshiro128**` RNG with named
+streams, deterministic IDs, canonical serialization + `WorldChecksum`,
+money rounding policy, and a generic tick-boundary `CommandBoundary` --
+see `docs/adr/ADR-001-m1-deterministic-core.md` for the numeric/algorithm
+decisions and the roadmap's M1 "Wyniki wykonania" for what was verified.
+Next: **M2 -- Data Foundation**. It still intentionally implements
+**no gameplay systems** -- no World State, economy, population
+simulation, AI, causality, Chronicle, Architect, or World Generation.
+Those begin at `M3` and onward; see the Implementation Roadmap for the
+full milestone sequence.
 
 ## Requirements
 
@@ -55,9 +60,9 @@ HMR + Electron main/preload watch, launching the app window).
 pnpm sim:run
 ```
 
-M0 scope: this only proves the headless path exists and prints the same
-`CoreStatus` the app would fetch over IPC. No world/tick simulation
-exists yet.
+This prints the same `CoreStatus` the app would fetch over IPC, then
+runs a 12-tick `HeadlessRunner` demo (deterministic clock/RNG/checksum
+from M1). No World State, entities, or content exist yet (M3 onward).
 
 ## Testing
 

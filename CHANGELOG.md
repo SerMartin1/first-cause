@@ -10,6 +10,34 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-16
 
+- Implemented **M1 -- Deterministic Core** (`packages/simulation/src/core`):
+  `core/time` (tick-derived `SimulationClock`/`tickToDate`, 1 tick = 1
+  month), `core/rng` (from-scratch `xoshiro128**` seeded via
+  `splitmix32`, 8 SAVE-003 named streams derived via `fnv1a32`, unbiased
+  `nextInt` via Lemire rejection sampling), `core/ids` (deterministic
+  per-prefix `IdGenerator`), `core/validation`
+  (finite/non-negative/safe-integer assertions), `core/rounding`
+  (resolves OPEN-008: integer minor-unit money, `MONEY_SCALE = 100`,
+  round-half-to-even), `core/serialization` (`canonicalStringify` --
+  sorted object keys/Map entries/Set values), `core/checksum`
+  (`computeChecksum`, `fnv1a32x2-v1`), `core/commands`
+  (`CommandBoundary` with deterministic same-tick ordering, SAVE-006),
+  and `core/runner` (`HeadlessRunner` tying them together: `step`,
+  `runTicks`, `getState`/`fromState`, `checksum`). Added
+  `docs/adr/ADR-001-m1-deterministic-core.md` recording the numeric/
+  algorithm decisions `Canonical Decisions` SS201/OPEN-008 left open for
+  M1. Added an ESLint rule forbidding `Math.random`/`Date.now`/
+  `new Date()`/`crypto.randomUUID` under `packages/simulation/src/core`
+  (SAVE-004), verified with a probe file that it actually fires. Updated
+  `pnpm sim:run` to also run a 12-tick `HeadlessRunner` demo. Added 62
+  new Vitest tests, including the M1 Acceptance Gate itself (Technology
+  Stack Decision SS98): 10 000 empty ticks reproducible, RNG golden
+  vectors, x1-vs-batch checksum equality, and mid-run save/restore
+  roundtrip. `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm
+  test` (94/94), `pnpm build` and `pnpm test:e2e` all pass. Updated the
+  roadmap (M1 = DONE, M2 = READY, "Wyniki wykonania" recorded) and
+  README accordingly. No World State or gameplay systems exist yet
+  (M3+), as scoped.
 - Reconciled documentation after M0/M0.1: current roadmap links now point
   to v0.2 and the next milestone is M1. Synchronized canonical stack,
   World Generation, VS save, money and UI decisions with existing specs;
