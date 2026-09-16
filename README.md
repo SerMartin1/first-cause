@@ -17,7 +17,7 @@ enabled it (`Butterfly Effect`).
 ## Current milestone
 
 **M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = DONE; M3 = DONE;
-M4 = DONE; M5 = READY (not started).**
+M4 = DONE; M5 = DONE; M6 = READY (not started).**
 M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
 M1 -- Deterministic Core added a real, headless-testable deterministic
 skeleton (`packages/simulation/src/core`): a tick-derived
@@ -51,11 +51,20 @@ first four typed UI Read Models in `packages/simulation/src/read-models`
 M4 "Wyniki wykonania" for what was verified, including a correction to
 M3's `packages/entities` dependency that would otherwise have created a
 workspace dependency cycle once `packages/simulation` needed entity
-types. Next: **M5 -- Resources**. It still intentionally implements
-**no gameplay systems** -- no economy, population simulation, AI,
-causality, Chronicle, Architect, or a procedural World Generation
-algorithm. Those begin at `M5` and onward; see the Implementation
-Roadmap for the full milestone sequence.
+types. M5 -- Resources is the first milestone with real gameplay logic:
+`packages/simulation/src/systems/resources` (deposit discovery
+lifecycle, physically-conserving extraction, logistic-growth renewable
+regeneration) and the first real consumer of the new
+`packages/causality` fact infrastructure (CE-01: `FactStore`,
+deterministic `fact_<tick>_<sequence>` IDs, indices). UI-F0 also
+started: Design Tokens, 7 `FC*` primitives and
+`FCAppShell`/`FCTopNavigation`/`FCSimulationBar` now compose the
+desktop shell (see the roadmap's M5 "Wyniki wykonania" for what was
+verified). Next: **M6 -- Minimal Population**. Economy/population/AI/
+causality/Chronicle/Architect and a procedural World Generation
+algorithm still do not exist as *systems* driving a live world yet --
+M5 only proves the resource lifecycle in isolation, headless/under
+test. See the Implementation Roadmap for the full milestone sequence.
 
 ## Requirements
 
@@ -121,9 +130,10 @@ first-cause/
 │   └── desktop/          -- Electron main/preload + React renderer
 ├── packages/
 │   ├── shared/            -- typed IPC contracts, cross-package types
-│   ├── simulation/        -- Simulation Core (headless-capable, worker, Read Models)
+│   ├── simulation/        -- Simulation Core (headless-capable, worker, systems, Read Models)
 │   ├── entities/           -- World State entity shapes (World, Region, Company, ...)
 │   ├── worldgen/            -- generic JSON fixture loader -> WorldState (procedural gen: M22)
+│   ├── causality/           -- SimulationFact, FactStore, indices (CE-01)
 │   ├── content/            -- Zod schemas, Definition Registry, loaders, validators
 │   └── localization/       -- i18next/react-i18next setup (EN source, PL P0)
 ├── content/                -- content definitions (JSON): resources/, goods/
@@ -135,14 +145,16 @@ first-cause/
 └── .github/workflows/        -- CI
 ```
 
-`packages/causality`, `packages/chronicle`, `packages/persistence` and
-`packages/ui` are part of the target architecture (see Technology
-Stack Decision SS10) but not created yet. A package is created at its
-first real consumer / system implementation, as documented in the
-roadmap's M0 results (`entities` was created at M3, `worldgen` at M4).
-Deferral is intentional, not missing scope. In particular, `causality`
-begins with its first fact infrastructure consumer; it does not wait
-for full integration in M17.
+`packages/chronicle`, `packages/persistence` and `packages/ui` are
+part of the target architecture (see Technology Stack Decision SS10)
+but not created yet. A package is created at its first real consumer /
+system implementation, as documented in the roadmap's M0 results
+(`entities` was created at M3, `worldgen` at M4, `causality` at M5 --
+its first fact infrastructure consumer, per the plan, not waiting for
+full integration in M17). Deferral is intentional, not missing scope.
+`packages/causality` has zero dependencies on any other workspace
+package (`SimulationFact` is generic), so `packages/simulation`
+depending on it carries no cycle risk.
 
 `packages/entities` deliberately has no dependency (production or
 dev) on `packages/simulation`, to avoid an import cycle now that

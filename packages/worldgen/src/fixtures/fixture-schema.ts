@@ -103,6 +103,7 @@ const WorldFixtureSchema = z.object({
           .object({
             regenerationRate: z.number().nonnegative(),
             sustainableYield: z.number().nonnegative(),
+            carryingCapacity: z.number().nonnegative(),
           })
           .optional(),
       }),

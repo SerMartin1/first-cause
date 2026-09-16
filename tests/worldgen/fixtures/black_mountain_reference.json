@@ -206,7 +206,11 @@
       "regionId": "region_green_valley",
       "initialQuantity": 2000,
       "renewable": true,
-      "renewableState": { "regenerationRate": 0.05, "sustainableYield": 300 }
+      "renewableState": {
+        "regenerationRate": 0.05,
+        "sustainableYield": 300,
+        "carryingCapacity": 2500
+      }
     },
     {
       "id": "deposit_timberland_timber",
@@ -214,7 +218,11 @@
       "regionId": "region_timberland",
       "initialQuantity": 3000,
       "renewable": true,
-      "renewableState": { "regenerationRate": 0.03, "sustainableYield": 150 }
+      "renewableState": {
+        "regenerationRate": 0.03,
+        "sustainableYield": 150,
+        "carryingCapacity": 3500
+      }
     }
   ],
   "settlements": [

@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1, M2, M3 i M4 są ukończone (patrz "Wyniki wykonania" w sekcjach
-M1/M2/M3/M4), bieżący etap to M5 (READY). Pełni rolę,
+M1, M2, M3, M4 i M5 są ukończone (patrz "Wyniki wykonania" w sekcjach
+M1/M2/M3/M4/M5), bieżący etap to M6 (READY). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -1241,6 +1241,103 @@ izolowanie, bez cen.
 **Źródła:** `FIRST-CAUSE-World-Generation-Spec-v0.1.md` (§13--15),
 `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (ECO-004, ECO-010, TECH-009),
 `FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` (§3--4, §19).
+
+### M5 --- Wyniki wykonania (2026-09-16)
+
+**Status: DONE.**
+
+**Nowy pakiet `packages/causality`** (CE-01 "Fact Infrastructure": IDs,
+Fact store, indices, emission API) -- pierwszy realny konsument fact
+infrastructure, zgodnie z notatką z M0 ("causality zaczyna się z
+pierwszym konsumentem, nie czeka na M17"). Bez żadnej zależności od
+innych pakietów (`SimulationFact`/`FactSubject` są generyczne --
+`entityType` to zwykły string, nie odwołanie do konkretnego typu z
+`packages/entities`), więc `packages/simulation` mógł dodać na niego
+zależność produkcyjną bez ryzyka cyklu. `SimulationFact` celowo nie ma
+jeszcze pól `causes`/`architect`/`significance`/`retention` -- należą
+do systemów, które jeszcze nie istnieją (CE-02/CE-03 to M17, Architect
+to M16, Chronicle scoring to M19) -- ta sama zasada "brak pola dla
+systemu, którego jeszcze nie ma", co w `packages/entities`.
+
+**Logika ekonomiczna (`packages/simulation/src/systems/resources`):**
+
+-   `deposit-lifecycle.ts` (`discoverDeposit`) -- cykl odkrycia
+    `UNKNOWN -> SUSPECTED -> DISCOVERED -> ASSESSED` (Entity Data Model
+    §9), nigdy nie cofa statusu, emituje `resource_discovered`/
+    `resource_assessed` tylko przy realnych przejściach. Odkrycie samo w
+    sobie nigdy nie wymusza wydobycia (test wprost sprawdza, że
+    `extraction.currentExtraction` zostaje 0 po odkryciu).
+-   `extraction.ts` (`extractFromDeposit`) -- `extracted = min(amount,
+    dostępna ilość)`: wydobycie fizycznie nie może stworzyć zasobu
+    (reguła 9 / ECO-010). Emituje `extraction_started`/`_increased`/
+    `_decreased` przez porównanie tempa wydobycia przed/po oraz
+    `resource_depleted` przy wyczerpaniu złoża nieodnawialnego.
+-   `renewable.ts` (`regenerateDeposit`) -- wzrost logistyczny do
+    `carryingCapacity` (`growth = regenerationRate * quantity * (1 -
+    quantity/carryingCapacity)`) -- standardowy model sustainable-yield
+    dla tych trzech pól, a nie wymyślona formuła. Dodano pole
+    `carryingCapacity` do `DepositRenewableState` w `packages/entities`
+    (M3 świadomie zostawiło ten typ niekompletny -- "struktura, bez
+    pełnej logiki M5").
+-   Wszystkie funkcje są czyste (Technology Stack Decision §33): zwracają
+    `{deposit, facts}` (listę *fact input* do emisji), nie wywołują
+    `FactStore` same -- rozdzielenie CALCULATE od EMIT FACTS (SIM-004).
+
+**Read Model:** `ResourceDepositReadModel` (`packages/simulation/src/read-models`)
+respektuje TECH-009 -- dokładna `quantity` jest ukryta, dopóki złoże nie
+osiągnie `DISCOVERED`/`ASSESSED`; `discoveryStatus` jest widoczny zawsze
+(sam stan częściowej wiedzy jest informacyjny).
+
+**UI Foundation -- start UI-F0:** design tokens (`apps/desktop/src/design/tokens.css`,
+dokładne wartości z `UI Visual Design System v1.0` §3.2/§53-55: paleta
+kolorów, role typograficzne `FC_DISPLAY...FC_MICRO`, spacing 4/8px),
+siedem komponentów `FC*` (`FCSection`, `FCPanel`, `FCTextButton`,
+`FCPrimaryAction`, `FCTabs`, `FCMetric`, `FCTrend`) oraz
+`FCAppShell`/`FCTopNavigation`/`FCSimulationBar`, które zastąpiły
+surowy shell z M0 w `App.tsx`. `FCSimulationBar` pokazuje wyłącznie
+realne dane (status workera, wersja silnika) -- świadomie bez
+kontrolek tick/data/prędkości, bo żadna pętla ticków jeszcze nie działa
+w aplikacji desktopowej (M1's `HeadlessRunner` pozostaje headless/pod
+testami) -- dodanie takich kontrolek teraz wyglądałoby funkcjonalnie,
+nie będąc funkcjonalnym (SS2.1 "Information before decoration").
+Ładowanie fontów (IBM Plex Sans/Mono, Source Serif 4) pozostaje
+otwarte -- istniejące CSP (`style-src 'self'`, brak `font-src`)
+świadomie nie zostało poluzowane tylko po to, by wczytać zdalne fonty;
+strona spada na deklarowane stacki systemowe.
+
+**Testy:** 55 nowych testów Vitest -- CE-01 (`FactStore`/indices),
+cykl odkrycia (w tym "discovery boundary" i "nie wymusza wydobycia"),
+inwarianty ekstrakcji (brak ujemnych zapasów, "wydobycie nie tworzy
+zasobu", conservation audit: `cumulativeExtraction + quantity ===
+initialQuantity` na każdym kroku), fakty trendu wydobycia, carrying
+capacity dla zasobów odnawialnych, oraz test stabilizacji wokół
+sustainable yield (500 ticków stałego popytu poniżej maksymalnego
+sustainable yield -- powyżej niego równowaga logistycznego wzrostu
+jest niestabilna, co zweryfikowano numerycznie przed napisaniem testu).
+Read Model i shell UI mają własne testy kontraktowe/RTL.
+
+**Acceptance Gate -- zweryfikowane:** złoże można odkryć (`discoverDeposit`),
+wydobyć (`extractFromDeposit`) i wyczerpać (`resource_depleted` +
+`depleted: true`); zasoby odnawialne stabilizują się wokół
+sustainable yield przy stałym popycie (test 500-tickowy); wszystkie
+inwarianty (brak ujemnych zapasów, conservation) zielone.
+
+**Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test`
+(240/240 testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w
+czystym przebiegu. Reguła ESLint blokująca import React/Electron
+rozszerzona o `packages/causality/**`.
+
+**Dług techniczny / świadomie poza zakresem:** ceny, handel, AI
+decydujące o wydobyciu (M7/M11 -- M5 testuje wydobycie izolowanie, bez
+cen, zgodnie z ryzykiem opisanym wyżej); `economicallyExhausted`
+pozostaje polem strukturalnym bez automatycznego obliczania (wymaga
+cen/rynku, M7/M8); brak jeszcze realnej pętli ticków łączącej
+`HeadlessRunner` z `WorldState`/systemami zasobów (to zadanie
+przyszłych milestone'ów, które faktycznie tickują świat); self-hosted
+fonty IBM Plex/Source Serif pozostają otwarte.
+
+**Czy M6 jest odblokowane:** TAK.
 
 ------------------------------------------------------------------------
 
@@ -2492,8 +2589,8 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-16: M0, M0.1 Audit Fixes, M1, M2, M3 i M4 ukończone; M5
-gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
+Stan na 2026-09-16: M0, M0.1 Audit Fixes, M1, M2, M3, M4 i M5
+ukończone; M6 gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -2505,8 +2602,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M2          DONE      P0          M           LOW-MEDIUM    M1
   M3          DONE      P0          M           MEDIUM        M1, M2
   M4          DONE      P0          S/M         MEDIUM        M3
-  M5          READY     P0          S           LOW           M4
-  M6          BACKLOG   P0          M           MEDIUM        M4
+  M5          DONE      P0          S           LOW           M4
+  M6          READY     P0          M           MEDIUM        M4
   M7          BACKLOG   P0          M           MEDIUM        M5, M6
   M8          BACKLOG   P0          M           HIGH          M7
   M9          BACKLOG   P0          M           MEDIUM        M8
@@ -2562,10 +2659,9 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M5 — Resources** zgodnie z sekcją M5 i World
-Generation Spec / Production Economy Master. M0, M0.1, M1, M2, M3 i M4
-są DONE. Kolejne milestone’y rozpoczynają się po odbiorze ich
-zależności.
+Następny krok: **M6 — Minimal Population** zgodnie z sekcją M6.
+M0, M0.1, M1, M2, M3, M4 i M5 są DONE. Kolejne milestone’y
+rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
 

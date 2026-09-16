@@ -1,33 +1,26 @@
+@import "./design/tokens.css";
+@import "./design/typography.css";
+@import "./components/fc/fc-components.css";
+@import "./shell/fc-shell.css";
+
+/**
+ * Font asset loading is a follow-up: the CSP (`style-src 'self'`, no
+ * `font-src`) intentionally does not allow remote font stylesheets, so
+ * IBM Plex Sans/Mono and Source Serif 4 (OPEN-009) fall back to their
+ * declared system stacks in `design/tokens.css` until those fonts are
+ * self-hosted within the existing security boundary.
+ */
 :root {
-  color-scheme: light dark;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  background: #111418;
-  color: #e6e8eb;
+  background: var(--fc-bg);
+  color: var(--fc-text-primary);
+  font-family: var(--fc-font-ui);
 }
 
-.app-shell {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.app-shell h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  letter-spacing: 0.02em;
-}
-
-.app-shell button {
-  cursor: pointer;
+button {
+  font-family: inherit;
 }

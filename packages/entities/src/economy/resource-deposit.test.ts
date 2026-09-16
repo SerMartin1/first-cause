@@ -49,11 +49,16 @@ describe("createResourceDeposit", () => {
       regionId: "region_001",
       initialQuantity: 500,
       renewable: true,
-      renewableState: { regenerationRate: 0.1, sustainableYield: 50 },
+      renewableState: {
+        regenerationRate: 0.1,
+        sustainableYield: 50,
+        carryingCapacity: 800,
+      },
     });
     expect(deposit.renewableState).toEqual({
       regenerationRate: 0.1,
       sustainableYield: 50,
+      carryingCapacity: 800,
     });
   });
 });

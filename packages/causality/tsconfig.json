@@ -6,10 +6,5 @@
     "composite": true,
     "types": ["node"]
   },
-  "include": ["src"],
-  "references": [
-    { "path": "../shared" },
-    { "path": "../entities" },
-    { "path": "../causality" }
-  ]
+  "include": ["src"]
 }

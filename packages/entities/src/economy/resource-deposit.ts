@@ -24,6 +24,8 @@ export interface DepositStock {
 export interface DepositRenewableState {
   readonly regenerationRate: number;
   readonly sustainableYield: number;
+  /** World Generation Spec SS14: the ceiling `stock.quantity` regenerates toward. */
+  readonly carryingCapacity: number;
 }
 
 export interface DepositExtractionState {

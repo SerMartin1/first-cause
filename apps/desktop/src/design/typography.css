@@ -1,0 +1,80 @@
+/**
+ * Typography Role Contract (UI Visual Design System v1.0 SS54):
+ * "Implementacja nie powinna wprowadzać przypadkowych rozmiarów fontu
+ * per komponent." Every text element picks one of these roles instead
+ * of a one-off font-size.
+ */
+.fc-display {
+  font-family: var(--fc-font-history);
+  font-size: var(--fc-text-display);
+  line-height: 1.15;
+  font-weight: 500;
+  color: var(--fc-text-primary);
+}
+
+.fc-page-title {
+  font-family: var(--fc-font-ui);
+  font-size: var(--fc-text-page-title);
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--fc-text-primary);
+}
+
+.fc-section-title {
+  font-family: var(--fc-font-ui);
+  font-size: var(--fc-text-section-title);
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--fc-text-primary);
+}
+
+.fc-subsection {
+  font-family: var(--fc-font-ui);
+  font-size: var(--fc-text-subsection);
+  line-height: 1.35;
+  font-weight: 500;
+  color: var(--fc-text-primary);
+}
+
+.fc-body {
+  font-family: var(--fc-font-ui);
+  font-size: var(--fc-text-body);
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--fc-text-primary);
+}
+
+.fc-data {
+  font-family: var(--fc-font-data);
+  font-size: var(--fc-text-data);
+  line-height: 1.4;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--fc-text-primary);
+}
+
+.fc-label {
+  font-family: var(--fc-font-ui);
+  font-size: var(--fc-text-label);
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--fc-text-secondary);
+}
+
+.fc-caption {
+  font-family: var(--fc-font-ui);
+  font-size: var(--fc-text-caption);
+  line-height: 1.3;
+  font-weight: 400;
+  color: var(--fc-text-secondary);
+}
+
+.fc-micro {
+  font-family: var(--fc-font-ui);
+  font-size: var(--fc-text-micro);
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fc-text-muted);
+}

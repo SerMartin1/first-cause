@@ -10,6 +10,47 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-16
 
+- Wdrożono **M5 -- Resources** (pierwszy milestone z realną logiką
+  gospodarczą). Nowy pakiet `packages/causality` (CE-01 "Fact
+  Infrastructure": `SimulationFact`, `FactStore` z deterministycznymi
+  ID `fact_<tick>_<sequence>`, indeksy po ticku/typie/encji/regionie,
+  emission API) -- bez zależności od żadnego innego pakietu, więc
+  `packages/simulation` mógł dodać na niego zależność produkcyjną bez
+  ryzyka cyklu. `packages/simulation/src/systems/resources`: cykl
+  odkrycia złoża `UNKNOWN -> SUSPECTED -> DISCOVERED -> ASSESSED`
+  (nigdy się nie cofa, nie wymusza wydobycia), ekstrakcja respektująca
+  fizyczną zasadę "wydobycie nie może stworzyć zasobu" (`extracted =
+  min(amount, dostępna ilość)`) z emisją faktów trendu
+  (`extraction_started/_increased/_decreased`) i `resource_depleted`,
+  oraz regeneracja zasobów odnawialnych modelem wzrostu logistycznego
+  do `carryingCapacity` (dodano to pole do `DepositRenewableState` w
+  `packages/entities`, świadomie zostawione niekompletne w M3). Nowy
+  `ResourceDepositReadModel` respektuje TECH-009 -- dokładna ilość
+  złoża jest ukryta, dopóki nie zostanie odkryte.
+
+  Start UI-F0: design tokens (`apps/desktop/src/design/tokens.css`,
+  dokładne wartości z `UI Visual Design System v1.0`), siedem
+  komponentów `FC*` (`FCSection`, `FCPanel`, `FCTextButton`,
+  `FCPrimaryAction`, `FCTabs`, `FCMetric`, `FCTrend`) oraz
+  `FCAppShell`/`FCTopNavigation`/`FCSimulationBar`, które zastąpiły
+  surowy shell z M0 w `apps/desktop/src/App.tsx`. `FCSimulationBar`
+  pokazuje tylko realne dane (status workera, wersja silnika) --
+  świadomie bez kontrolek tick/prędkości, bo żadna pętla ticków
+  jeszcze nie działa w aplikacji desktopowej.
+
+  Dodano 55 nowych testów (240 łącznie), w tym test stabilizacji
+  zasobu odnawialnego wokół sustainable yield (500 ticków stałego
+  popytu, zweryfikowany numerycznie przed napisaniem testu, żeby
+  uniknąć niestabilnej równowagi przy zbyt wysokim popycie) oraz test
+  conservation audit (`cumulativeExtraction + quantity ===
+  initialQuantity` na każdym kroku). `pnpm typecheck`, `pnpm lint`,
+  `pnpm format:check`, `pnpm test` (240/240), `pnpm build` i `pnpm
+  test:e2e` przechodzą. Zaktualizowano roadmapę (M5 = DONE, M6 =
+  READY, sekcja "Wyniki wykonania") oraz README. Weryfikacja wizualna
+  nowego UI w przeglądarce nie była możliwa (rozszerzenie Claude in
+  Chrome niepodłączone w tym środowisku) -- poprawność potwierdzają
+  testy RTL (`App.test.tsx`) i e2e Playwright, które przechodzą bez
+  zmian w asercjach poza zaktualizowanym tekstem milestone'u.
 - Implemented **M4 -- Black Mountain Reference Fixture** (new
   `packages/worldgen` package): a generic
   `JSON -> Zod -> entity factories -> createWorldState` fixture loader

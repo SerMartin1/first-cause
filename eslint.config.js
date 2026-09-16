@@ -76,13 +76,14 @@ export default tseslint.config(
       ],
     },
   },
-  // Simulation Core / content / entities / worldgen / shared: never import UI or Electron.
+  // Simulation Core / content / entities / worldgen / causality / shared: never import UI or Electron.
   {
     files: [
       "packages/simulation/**/*.ts",
       "packages/content/**/*.ts",
       "packages/entities/**/*.ts",
       "packages/worldgen/**/*.ts",
+      "packages/causality/**/*.ts",
       "packages/shared/**/*.ts",
     ],
     rules: simulationCoreBoundaryRules,

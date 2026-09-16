@@ -1,0 +1,66 @@
+/* FCAppShell / FCTopNavigation / FCSimulationBar (UI Visual Design System v1.0 SS49.2). */
+
+.fc-app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.fc-app-shell__top-navigation {
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+  background: var(--fc-bg-elevated);
+}
+
+.fc-app-shell__simulation-bar {
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+  background: var(--fc-surface-muted);
+}
+
+.fc-app-shell__content {
+  flex: 1;
+  padding: var(--fc-space-6) var(--fc-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fc-space-8);
+}
+
+.fc-top-navigation {
+  display: flex;
+  align-items: center;
+  gap: var(--fc-space-8);
+  padding: var(--fc-space-3) var(--fc-space-8);
+}
+
+.fc-top-navigation__title {
+  white-space: nowrap;
+}
+
+.fc-top-navigation__controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--fc-space-2);
+}
+
+.fc-simulation-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--fc-space-3);
+  padding: var(--fc-space-2) var(--fc-space-8);
+}
+
+.fc-simulation-bar--online .fc-simulation-bar__status {
+  color: var(--fc-positive);
+}
+
+.fc-simulation-bar--offline .fc-simulation-bar__status {
+  color: var(--fc-negative);
+}
+
+.fc-simulation-bar--connecting .fc-simulation-bar__status {
+  color: var(--fc-text-muted);
+}
+
+.fc-simulation-bar__version {
+  color: var(--fc-text-muted);
+}

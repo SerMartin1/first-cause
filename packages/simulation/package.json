@@ -15,6 +15,7 @@
     "sim:run": "node dist/cli/sim-run.js"
   },
   "dependencies": {
+    "@first-cause/causality": "workspace:*",
     "@first-cause/entities": "workspace:*",
     "@first-cause/shared": "workspace:*"
   },

@@ -127,6 +127,12 @@ importers:
         specifier: ^2.1.6
         version: 2.1.9(@types/node@22.20.2)(jsdom@25.0.1)
 
+  packages/causality:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/content:
     dependencies:
       zod:
@@ -167,6 +173,9 @@ importers:
 
   packages/simulation:
     dependencies:
+      '@first-cause/causality':
+        specifier: workspace:*
+        version: link:../causality
       '@first-cause/entities':
         specifier: workspace:*
         version: link:../entities

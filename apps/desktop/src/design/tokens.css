@@ -1,0 +1,70 @@
+/**
+ * FIRST CAUSE Design Tokens (UI Visual Design System v1.0 SS3, SS53-55).
+ * The only place color/typography/spacing values are allowed to be
+ * defined as literals -- every FC* component and screen must reference
+ * these custom properties, never a local hex/px value (SS53 "Design
+ * Tokens Contract": "Komponent nie może definiować własnej palety poza
+ * tokenami Design Systemu").
+ *
+ * Light theme only for v1.0 (SS3.1): "FIRST CAUSE używa jasnego
+ * interfejsu jako głównego i kanonicznego motywu... Dark Mode może
+ * zostać dodany później."
+ */
+:root {
+  /* Color (SS3.2 palette, SS53 canonical token names) */
+  --fc-bg: #f3f1e9;
+  --fc-bg-elevated: #faf9f5;
+  --fc-surface: #ffffff;
+  --fc-surface-muted: #ece9df;
+
+  --fc-text-primary: #20231f;
+  --fc-text-secondary: #65675f;
+  --fc-text-muted: #8a8b83;
+
+  --fc-border: #c9c6ba;
+  --fc-border-strong: #88887e;
+
+  --fc-accent: #75683e;
+  --fc-accent-soft: #e3ddc7;
+  --fc-selection: #e3ddc7;
+
+  --fc-positive: #4f7153;
+  --fc-warning: #9a722e;
+  --fc-negative: #984f43;
+  --fc-info: #536d78;
+
+  /* Typography (SS5, SS54 role contract) */
+  --fc-font-ui: "IBM Plex Sans", system-ui, sans-serif;
+  --fc-font-data: "IBM Plex Mono", ui-monospace, monospace;
+  --fc-font-history: "Source Serif 4", Georgia, serif;
+
+  --fc-text-display: 32px;
+  --fc-text-page-title: 24px;
+  --fc-text-section-title: 18px;
+  --fc-text-subsection: 15px;
+  --fc-text-body: 14px;
+  --fc-text-data: 13px;
+  --fc-text-label: 12px;
+  --fc-text-caption: 11px;
+  --fc-text-micro: 10px;
+
+  /* Spacing (SS6, SS55 -- 4px base grid) */
+  --fc-space-1: 4px;
+  --fc-space-2: 8px;
+  --fc-space-3: 12px;
+  --fc-space-4: 16px;
+  --fc-space-6: 24px;
+  --fc-space-8: 32px;
+  --fc-space-12: 48px;
+
+  /* Geometry (SS7): 0 for panels/sections/tables; 2-4px only for small interactive controls. */
+  --fc-radius-none: 0px;
+  --fc-radius-control: 2px;
+  --fc-radius-control-lg: 4px;
+
+  --fc-border-width: 1px;
+  --fc-border-width-strong: 1px;
+  --fc-border-width-accent: 2px;
+
+  color-scheme: light;
+}
