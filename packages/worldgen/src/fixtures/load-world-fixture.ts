@@ -71,6 +71,8 @@ export function loadWorldFixture(raw: unknown): LoadWorldFixtureResult {
         regionAId: c.regionAId,
         regionBId: c.regionBId,
         geography: c.geography,
+        ...(c.infrastructure !== undefined ? { infrastructure: c.infrastructure } : {}),
+        ...(c.friction !== undefined ? { friction: c.friction } : {}),
       }),
     );
 

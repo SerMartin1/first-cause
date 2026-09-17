@@ -84,6 +84,19 @@ const WorldFixtureSchema = z.object({
           terrainDifficulty: z.number().nonnegative(),
           seasonalModifier: z.number().nonnegative(),
         }),
+        infrastructure: z
+          .object({
+            level: z.number().nonnegative(),
+            transportModes: z.array(z.string()).default([]),
+            capacity: z.number().nonnegative(),
+          })
+          .optional(),
+        friction: z
+          .object({
+            security: z.number().nonnegative(),
+            borderFriction: z.number().nonnegative(),
+          })
+          .optional(),
       }),
     )
     .default([]),

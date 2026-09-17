@@ -1,6 +1,6 @@
 {
   "app.title": "FIRST CAUSE",
-  "app.milestone": "M9 -- Labor & Households",
+  "app.milestone": "M10 -- Trade & Transport",
   "nav.world": "World",
   "worker.status.online": "Simulation Worker: ONLINE",
   "worker.status.offline": "Simulation Worker: OFFLINE",
@@ -17,5 +17,9 @@
   "content.companyArchetype.grain_farm.name": "Grain Farm",
   "content.companyArchetype.bakery.name": "Bakery",
   "content.productionMethod.manual_farming.name": "Manual Farming",
-  "content.productionMethod.manual_food_processing.name": "Manual Food Processing"
+  "content.productionMethod.manual_food_processing.name": "Manual Food Processing",
+  "content.transport_mode.foot_porter.name": "Foot / Porter",
+  "content.transport_mode.pack_animal.name": "Pack Animal",
+  "content.transport_mode.cart.name": "Cart",
+  "content.transport_mode.river.name": "River Transport"
 }

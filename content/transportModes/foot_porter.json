@@ -1,0 +1,6 @@
+{
+  "id": "foot_porter",
+  "nameKey": "content.transport_mode.foot_porter.name",
+  "terrainCompatibility": ["plains", "hills", "mountains", "forest"],
+  "implementationPhase": "VS"
+}

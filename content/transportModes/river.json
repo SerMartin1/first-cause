@@ -1,0 +1,6 @@
+{
+  "id": "river",
+  "nameKey": "content.transport_mode.river.name",
+  "terrainCompatibility": ["plains", "wetland"],
+  "implementationPhase": "VS"
+}

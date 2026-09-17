@@ -1,0 +1,6 @@
+{
+  "id": "pack_animal",
+  "nameKey": "content.transport_mode.pack_animal.name",
+  "terrainCompatibility": ["plains", "hills", "mountains"],
+  "implementationPhase": "VS"
+}

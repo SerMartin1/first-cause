@@ -1,0 +1,6 @@
+{
+  "id": "cart",
+  "nameKey": "content.transport_mode.cart.name",
+  "terrainCompatibility": ["plains", "hills"],
+  "implementationPhase": "VS"
+}

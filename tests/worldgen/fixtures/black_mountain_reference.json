@@ -129,6 +129,15 @@
         "physicalDistance": 40,
         "terrainDifficulty": 0.8,
         "seasonalModifier": 1.3
+      },
+      "infrastructure": {
+        "level": 1,
+        "transportModes": ["cart"],
+        "capacity": 20
+      },
+      "friction": {
+        "security": 0,
+        "borderFriction": 0
       }
     },
     {
@@ -139,6 +148,15 @@
         "physicalDistance": 30,
         "terrainDifficulty": 0.5,
         "seasonalModifier": 1.1
+      },
+      "infrastructure": {
+        "level": 1,
+        "transportModes": ["cart"],
+        "capacity": 40
+      },
+      "friction": {
+        "security": 0,
+        "borderFriction": 0
       }
     },
     {
@@ -149,6 +167,15 @@
         "physicalDistance": 15,
         "terrainDifficulty": 0.1,
         "seasonalModifier": 1.0
+      },
+      "infrastructure": {
+        "level": 2,
+        "transportModes": ["cart", "river"],
+        "capacity": 100
+      },
+      "friction": {
+        "security": 0,
+        "borderFriction": 0
       }
     },
     {
@@ -159,6 +186,15 @@
         "physicalDistance": 25,
         "terrainDifficulty": 0.3,
         "seasonalModifier": 1.0
+      },
+      "infrastructure": {
+        "level": 1,
+        "transportModes": ["cart"],
+        "capacity": 60
+      },
+      "friction": {
+        "security": 0,
+        "borderFriction": 0
       }
     },
     {
@@ -169,6 +205,15 @@
         "physicalDistance": 20,
         "terrainDifficulty": 0.2,
         "seasonalModifier": 1.0
+      },
+      "infrastructure": {
+        "level": 2,
+        "transportModes": ["cart", "river"],
+        "capacity": 80
+      },
+      "friction": {
+        "security": 0,
+        "borderFriction": 0
       }
     },
     {
@@ -179,6 +224,15 @@
         "physicalDistance": 22,
         "terrainDifficulty": 0.4,
         "seasonalModifier": 1.0
+      },
+      "infrastructure": {
+        "level": 1,
+        "transportModes": ["cart"],
+        "capacity": 50
+      },
+      "friction": {
+        "security": 0,
+        "borderFriction": 0
       }
     },
     {
@@ -189,6 +243,15 @@
         "physicalDistance": 18,
         "terrainDifficulty": 0.3,
         "seasonalModifier": 1.0
+      },
+      "infrastructure": {
+        "level": 1,
+        "transportModes": ["cart"],
+        "capacity": 60
+      },
+      "friction": {
+        "security": 0,
+        "borderFriction": 0
       }
     }
   ],

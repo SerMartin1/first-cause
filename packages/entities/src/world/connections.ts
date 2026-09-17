@@ -56,6 +56,10 @@ export interface CreateConnectionInput {
   readonly regionAId: string;
   readonly regionBId: string;
   readonly geography: ConnectionGeography;
+  /** Defaults to no infrastructure (level 0, no capacity) when omitted, same as before M10. */
+  readonly infrastructure?: ConnectionInfrastructure;
+  /** Defaults to frictionless (0, 0) when omitted -- VS keeps both near-neutral anyway (WORLD-008, VS Spec SS18). */
+  readonly friction?: ConnectionFriction;
 }
 
 export function createConnection(input: CreateConnectionInput): Connection {
@@ -71,14 +75,21 @@ export function createConnection(input: CreateConnectionInput): Connection {
     input.geography.physicalDistance,
     "Connection.geography.physicalDistance",
   );
+  if (input.infrastructure) {
+    assertNonNegative(input.infrastructure.level, "Connection.infrastructure.level");
+    assertNonNegative(
+      input.infrastructure.capacity,
+      "Connection.infrastructure.capacity",
+    );
+  }
 
   return {
     id: input.id,
     regionAId: input.regionAId,
     regionBId: input.regionBId,
     geography: input.geography,
-    infrastructure: { level: 0, transportModes: [], capacity: 0 },
-    friction: { security: 0, borderFriction: 0 },
+    infrastructure: input.infrastructure ?? { level: 0, transportModes: [], capacity: 0 },
+    friction: input.friction ?? { security: 0, borderFriction: 0 },
     currentState: { utilization: 0, congestion: 0, disrupted: false },
     cached: {
       effectiveDistance: input.geography.physicalDistance,

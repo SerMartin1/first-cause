@@ -10,6 +10,35 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-17
 
+- Wdrożono **M10 -- Trade & Transport**. Nowe moduły
+  `packages/simulation/src/systems/economy/trade`:
+  `effective-distance.ts` (`updateEffectiveDistance` -- pierwsza
+  implementacja pełnego `EffectiveDistance = PhysicalDistance x
+  TerrainModifier x InfrastructureModifier x BorderModifier x
+  SecurityModifier x SeasonalModifier`, ECO-016; infrastruktura=0 to
+  neutralny modyfikator, nie kara), `capacity-congestion.ts`
+  (`evaluateCapacityCongestion` -- trasa bez capacity jest
+  nieprzejezdna, nie NaN/Infinity) i `flows.ts` (`evaluateTradeFlow` --
+  `ImportedCost = ForeignPrice + TransportCost + Tariff(0) + RiskCost`,
+  VS §18; handel powstaje tylko gdy ekonomicznie uzasadniony lub przy
+  krytycznym shortage, FC-TRADE-002; ilość ograniczona przez capacity
+  I fizyczną nadwyżkę eksportera). Nowy moduł
+  `economy/transport/modes.ts` (`DEFAULT_TRANSPORT_MODE_PROFILES` --
+  4 aktywne tryby VS: Foot/Porter, Pack Animal, Cart, River). `Connection`
+  (`packages/entities`) zyskuje opcjonalne `infrastructure`/`friction`
+  w `createConnection`; fixture Black Mountain dostaje realne dane
+  infrastruktury na wszystkich 7 połączeniach (bez tego handel byłby
+  fizycznie niemożliwy przez domyślne `capacity=0`). Nowy content
+  `content/transportModes/*.json` (4 pliki). 25 nowych testów (372
+  łącznie), w tym FC-CORE-001, FC-TRADE-001/002/003/004 i Acceptance
+  Gate (region z niedoborem importuje z sąsiada z nadwyżką po realnym
+  koszcie transportu; wąskie gardło widocznie ogranicza przepływ).
+  Etykieta `app.milestone` zaktualizowana na "M10 -- Trade & Transport"/
+  "M10 -- Handel i Transport". **Checkpoint CP1 -- First Living Economy
+  osiągnięty.** Świadomie poza zakresem: infrastruktura jako inwestycja
+  (M14/M22), państwa/granice (BorderModifier neutralny w VS), realna
+  pętla ticków (przyszły milestone).
+
 - Wdrożono **M9 -- Labor & Households**. Nowe moduły
   `packages/simulation/src/systems/economy/labor`: `employment.ts`
   (`matchEmployment` -- zatrudnienie reaktywne, nie strategiczne;

@@ -1,6 +1,6 @@
 {
   "app.title": "FIRST CAUSE",
-  "app.milestone": "M9 -- Praca i Gospodarstwa Domowe",
+  "app.milestone": "M10 -- Handel i Transport",
   "nav.world": "Świat",
   "worker.status.online": "Simulation Worker: ONLINE",
   "worker.status.offline": "Simulation Worker: OFFLINE",
@@ -17,5 +17,9 @@
   "content.companyArchetype.grain_farm.name": "Gospodarstwo zbożowe",
   "content.companyArchetype.bakery.name": "Piekarnia",
   "content.productionMethod.manual_farming.name": "Ręczna uprawa",
-  "content.productionMethod.manual_food_processing.name": "Ręczne przetwórstwo żywności"
+  "content.productionMethod.manual_food_processing.name": "Ręczne przetwórstwo żywności",
+  "content.transport_mode.foot_porter.name": "Pieszo / Tragarz",
+  "content.transport_mode.pack_animal.name": "Zwierzę juczne",
+  "content.transport_mode.cart.name": "Wóz",
+  "content.transport_mode.river.name": "Transport rzeczny"
 }

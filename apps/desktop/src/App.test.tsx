@@ -81,7 +81,7 @@ describe("App", () => {
     screen.getByRole("button", { name: "PL" }).click();
 
     await waitFor(() => {
-      expect(screen.getByText("M9 -- Praca i Gospodarstwa Domowe")).toBeInTheDocument();
+      expect(screen.getByText("M10 -- Handel i Transport")).toBeInTheDocument();
     });
   });
 });

@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1--M9 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M9),
-bieżący etap to M10 (BACKLOG). Pełni rolę,
+M1--M10 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M10),
+bieżący etap to M11 (BACKLOG). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -1975,6 +1975,103 @@ przyrostowo w M14/M22), państwa/granice (`BorderModifier` neutralny w VS
 **Checkpoint:** **CP1 --- First Living Economy** osiągnięty po tym
 milestone (świat produkuje, konsumuje, handluje i reaguje na ceny).
 
+### M10 --- Wyniki wykonania (2026-09-17)
+
+**Status: DONE.**
+
+**Rozszerzenie encji (`packages/entities/src/world/connections.ts`):**
+`CreateConnectionInput` zyskuje opcjonalne `infrastructure`/`friction`
+(domyślnie zero jak dotychczas) -- ten sam "seed przed tickowaniem"
+wzorzec co `initialWageOffer` (M9)/`initializeMarketGood` (M8), tyle że
+tu seed jest opcjonalny (brak infrastruktury to legalny, trwały stan
+"trasa nieprzejezdna", nie błąd wywołującego). `fixture-schema.ts`
+(`packages/worldgen`) i `load-world-fixture.ts` przekazują te pola
+dalej; fixture Black Mountain (`tests/worldgen/fixtures/
+black_mountain_reference.json`) dostaje realne `infrastructure.level/
+capacity/transportModes` i `friction` (security/borderFriction = 0,
+zgodnie z VS §18) na wszystkich 7 połączeniach -- bez tego handel byłby
+fizycznie niemożliwy (capacity=0 domyślnie), ten sam powód, dla którego
+M7 wzbogaciło fixture M4 o realne dane Production Method.
+
+**Nowe moduły (`packages/simulation/src/systems/economy/trade`,
+`packages/simulation/src/systems/economy/transport`):**
+
+-   `transport/modes.ts` (`TransportModeProfile`,
+    `DEFAULT_TRANSPORT_MODE_PROFILES`) -- nadaje konkretny kształt
+    `TransportModeDefinition.cost` (M2 "open bag"), ten sam wzorzec co
+    `ProductionRecipe` (M7) dla `ProductionMethodDefinition.inputs/
+    outputs`. 4 aktywne tryby VS §16 (Foot/Porter, Pack Animal, Cart,
+    River), malejący koszt na jednostkę EffectiveDistance zgodnie z
+    kolejnością rozwoju z Simulation Model §28.
+-   `trade/effective-distance.ts` (`updateEffectiveDistance`) --
+    `EffectiveDistance = PhysicalDistance x TerrainModifier x
+    InfrastructureModifier x BorderModifier x SecurityModifier x
+    SeasonalModifier` (ECO-016). Pierwsza implementacja modyfikatorów
+    poza `terrainDifficulty`/`seasonalModifier` -- `Connection.cached.
+    effectiveDistance` domyślnie równał się `physicalDistance` od M3
+    właśnie dlatego, że tych modyfikatorów jeszcze nie było.
+    Infrastruktura=0 to neutralny modyfikator (1), nie kara -- rośnie
+    tylko realna inwestycja; brak infrastruktury i tak blokuje handel
+    przez `capacity=0` w `capacity-congestion.ts`, więc nie trzeba tego
+    duplikować karą w samym dystansie.
+-   `trade/capacity-congestion.ts` (`evaluateCapacityCongestion`) --
+    `TradeDemand > RouteCapacity -> Congestion -> TransportCost up`
+    (Simulation Model §28). Trasa z `capacity=0` jest nieprzejezdna
+    (`cappedFlow=0`), nie ma nieskończonego/NaN wykorzystania (Finite
+    Numbers, Simulation Test Spec §18) -- ten sam standard co dzielenie
+    przez zero w `markets/price-adjustment.ts` (M8).
+-   `trade/flows.ts` (`evaluateTradeFlow`) -- `ImportedCost =
+    ForeignPrice + TransportCost + Tariff(=0 w VS) + RiskCost` (VS §18).
+    Handel powstaje tylko, gdy jest ekonomicznie uzasadniony (`importedCost
+    < importingGood.localPrice`) LUB istnieje krytyczny shortage
+    (`shortageSeverity >= CRITICAL_SHORTAGE_THRESHOLD`) -- dokładnie
+    warunek z FC-TRADE-002. Faktyczna ilość jest ograniczona jednocześnie
+    przez capacity połączenia i fizyczną nadwyżkę eksportera
+    (`supply - demand`, Entity Data Model §15 "eksport nie może
+    przekraczać fizycznej podaży") -- Market nadal nie jest właścicielem
+    fizycznego zapasu (DATA-005/DATA-006), więc `flows.ts` czyta
+    `MarketGoodState` obserwacyjnie, tak jak `markets/price-adjustment.ts`
+    czyta Inventory.
+
+**Nowa treść:** `content/transportModes/{foot_porter,pack_animal,cart,
+river}.json` (4 pliki, subset VS §16) + klucze `en`/`pl` w
+`locales/*/common.json`; `content-fixtures.integration.test.ts`
+rozszerzony o `transportMode`.
+
+**Testy:** 25 nowych (372 łącznie): `effective-distance.test.ts` (FC-CORE-
+001 kierunek każdego modyfikatora, dopasowanie ręcznie policzonej
+wartości dla prawdziwego połączenia Black Mountain "highland pass"),
+`capacity-congestion.test.ts` (FC-TRADE-003/004, trasa o capacity=0 nie
+daje NaN/Infinity), `flows.test.ts` (Acceptance Gate, FC-TRADE-001/002/
+003, eksport nigdy nie przekracza fizycznej nadwyżki), plus rozszerzenie
+`connections.test.ts` o opcjonalne `infrastructure`/`friction`.
+
+**Acceptance Gate -- zweryfikowane:** region z niedoborem dobra
+importuje je z sąsiedniego regionu z nadwyżką po realnym koszcie
+transportu (`ForeignPrice + TransportCost`, tańszym niż cena domowa --
+stąd ekonomiczne uzasadnienie); wąskie gardło (niska capacity połączenia)
+widocznie ogranicza przepływ poniżej tego, na co pozwoliłyby same
+podaż/popyt.
+
+**Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2/M5/M7/M8/M9, bez zmian), `pnpm format:check`, `pnpm test`
+(372/372) i `pnpm build` -- wszystkie zielone w czystym przebiegu.
+Etykieta `app.milestone` zaktualizowana na "M10 -- Trade & Transport"/
+"M10 -- Handel i Transport".
+
+**Dług techniczny / świadomie poza zakresem:** pełna infrastruktura jako
+inwestycja gracza/AI (M14/M22 -- M10 tylko czyta `infrastructure.level`,
+nikt jeszcze go nie podnosi); państwa/granice (`BorderModifier`
+strukturalnie neutralny w VS, WORLD-008); `cargoFactor` to placeholder
+(domyślnie 1) zamiast realnego `GoodDefinition.transportProperties`,
+który pozostaje otwartym `OpenRecordSchema` -- formalizacja tego pola to
+przyszły milestone, gdy faktycznie go potrzebuje; brak realnej pętli
+ticków łączącej `HeadlessRunner`/`WorldState` z systemami gospodarki --
+ten sam stan co M5-M9, `evaluateTradeFlow` jest czystą, testowaną w
+izolacji funkcją, nie wołaną per-tick przez orkiestrator.
+
+**Czy M11 jest odblokowane:** TAK.
+
 ------------------------------------------------------------------------
 
 ## M11 --- Company AI
@@ -2992,8 +3089,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M7          DONE      P0          M           MEDIUM        M5, M6
   M8          DONE      P0          M           HIGH          M7
   M9          DONE      P0          M           MEDIUM        M8
-  M10         READY     P0          M           MEDIUM        M9
-  M11         BACKLOG   P0          L           HIGH          M10
+  M10         DONE      P0          M           MEDIUM        M9
+  M11         READY     P0          L           HIGH          M10
   M12         BACKLOG   P0          M           MEDIUM-HIGH   M11
   M13         BACKLOG   P0          M           MEDIUM        M12
   M14         BACKLOG   P0          S/M         MEDIUM        M13

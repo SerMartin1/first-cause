@@ -35,6 +35,7 @@ describe("content fixtures on disk (content/, locales/)", () => {
         good: readJsonDir("content/goods"),
         companyArchetype: readJsonDir("content/companyArchetypes"),
         productionMethod: readJsonDir("content/productionMethods"),
+        transportMode: readJsonDir("content/transportModes"),
       },
       locales: {
         en: readJson("locales/en/common.json"),
@@ -49,8 +50,10 @@ describe("content fixtures on disk (content/, locales/)", () => {
     expect(result.stats.good).toBeGreaterThanOrEqual(2);
     expect(result.stats.companyArchetype).toBeGreaterThanOrEqual(2);
     expect(result.stats.productionMethod).toBeGreaterThanOrEqual(2);
+    expect(result.stats.transportMode).toBeGreaterThanOrEqual(4);
     expect(result.registries.resource?.has("iron_ore")).toBe(true);
     expect(result.registries.companyArchetype?.has("grain_farm")).toBe(true);
     expect(result.registries.productionMethod?.has("manual_farming")).toBe(true);
+    expect(result.registries.transportMode?.has("cart")).toBe(true);
   });
 });
