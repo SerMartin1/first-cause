@@ -3,5 +3,6 @@
   "nameKey": "content.resource.iron_ore.name",
   "category": "mineral",
   "renewable": false,
+  "basePrice": 6,
   "implementationPhase": "VS"
 }

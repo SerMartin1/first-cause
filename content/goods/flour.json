@@ -6,5 +6,6 @@
   "productionMethodIds": ["manual_farming"],
   "downstreamGoodIds": ["bread"],
   "householdNeed": "survival",
+  "basePrice": 4,
   "implementationPhase": "VS"
 }

@@ -31,6 +31,14 @@ export function assertNonNegative(value: number, label: string): number {
   return value;
 }
 
+export function assertPositive(value: number, label: string): number {
+  assertFinite(value, label);
+  if (value <= 0) {
+    throw new InvariantViolationError(`${label} must be > 0, got ${String(value)}`);
+  }
+  return value;
+}
+
 export function assertSafeInteger(value: number, label: string): number {
   if (!Number.isSafeInteger(value)) {
     throw new InvariantViolationError(

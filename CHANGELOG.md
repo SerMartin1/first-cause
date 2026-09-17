@@ -10,6 +10,61 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-17
 
+- Wdrożono **M9 -- Labor & Households**. Nowe moduły
+  `packages/simulation/src/systems/economy/labor`: `employment.ts`
+  (`matchEmployment` -- zatrudnienie reaktywne, nie strategiczne;
+  ogranicza się do min(vacancies, skillDemand, dostępni pracownicy) --
+  `employment <= eligible working population` zachodzi konstrukcyjnie)
+  i `wages.ts` (`adjustWageOffer` -- ponownie wykorzystuje M8
+  `classifyShortageSurplus` i dokładnie ten sam kształt capped+smoothed
+  pressure co `price-adjustment.ts`, żeby rynek pracy dostał te same
+  zabezpieczenia przed oscylacją od pierwszej wersji). Nowe moduły
+  `packages/simulation/src/systems/population`: `consumption.ts`
+  (`allocateSpending` -- ECO-014 spending order Survival->Basic->
+  Services->Comfort->Prosperity->Luxury->Savings, ściśle w kolejności,
+  "no money no purchase") i `needs-satisfaction.ts`
+  (`computeNeedsSatisfaction` -- pełna implementacja `CohortNeeds`,
+  skeleton z M6). `Company` (`packages/entities`) zyskuje opcjonalne
+  `initialWageOffer` w `createCompany`, seedujące `workforce.wageOffer`
+  (ten sam kontrakt co M8 `initializeMarketGood`). 38 nowych testów (347
+  łącznie), w tym FC-LABOR-001/003, FC-POP-001/002, Acceptance Gate
+  (zatrudniona kohorta ma wyższą satysfakcję potrzeb) i
+  `labor-wage-price-feedback.test.ts` -- 100-tickowy test regresyjny
+  łączący M9 z M8, dowodzący, że sprzężenie płace<->dochód<->popyt<->cena
+  nie reintrodukuje oscylacji (ryzyko M9 zmitygowane). Etykieta
+  `app.milestone` zaktualizowana na "M9 -- Labor & Households"/"M9 --
+  Praca i Gospodarstwa Domowe". Świadomie poza zakresem: migracja jako
+  reakcja na warunki pracy (M13), AI decyzje firm o zatrudnieniu (M11),
+  rzeczywista wypłata wynagrodzeń nie rusza `Company.finance.cash`
+  (wymaga okablowania firma<->gospodarstwo, którego żaden milestone
+  jeszcze nie ma), usługi (ECO-012) jako osobna kategoria nie istnieją.
+
+- Wdrożono **M8 -- Market**. Nowe moduły
+  `packages/simulation/src/systems/economy/markets`:
+  `demand-aggregation.ts` (`aggregateDemand` -- suma nazwanych źródeł
+  popytu, source-agnostic, bo M8 ma dziś tylko jedno realne źródło:
+  zużycie pośrednie firm z M7), `shortage-surplus.ts`
+  (`classifyShortageSurplus` -- inventory buffer dampuje, nie maskuje,
+  surowy niedobór podaży) i `price-adjustment.ts`
+  (`initializeMarketGood`/`updateMarketGood` -- `PricePressure =
+  Sensitivity * ((Demand - EffectiveSupply) / NormalSupply)`, VS §17,
+  ze wszystkimi czterema obowiązkowymi zabezpieczeniami -- price floor,
+  miesięczny limit zmiany, smoothing, inventory buffer -- od pierwszej
+  wersji, zgodnie z mitygacją ryzyka R1 "gospodarka oscyluje" (VS §73)).
+  `Market` (`packages/entities`) zyskuje pole `history` (rolling
+  supply/demand/price per dobro) jako referencję dla `NormalSupply`.
+  Nowe opcjonalne pole `basePrice` (BaseContentPrice) w
+  `ResourceDefinition`/`GoodDefinition` (M2 schema) i w
+  `content/resources/{grain,iron_ore,timber}.json`/
+  `content/goods/{flour,bread}.json` seeduje pierwszy `localPrice`.
+  31 nowych testów (309 łącznie), w tym FC-MARKET-001/002/003, price
+  bounds i dwa 100-tickowe testy stresowe (zbalansowany i trwale
+  niedoborowy rynek -- brak nieskończonej pętli oscylacji). Etykieta
+  `app.milestone` zaktualizowana na "M8 -- Market"/"M8 -- Rynek".
+  Świadomie poza zakresem: `Company.finance.revenue/costs` (wymaga
+  strony popytowej z M9 i AI firm z M11), handel międzyregionalny (M10),
+  realna pętla ticków (przyszły milestone).
+
 - Wdrożono **M7 -- Production**. Nowe moduły
   `packages/simulation/src/systems/economy`: `inventory.ts`
   (`addToInventory`/`removeFromInventory` -- fizyczny rejestr dóbr,

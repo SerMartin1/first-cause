@@ -17,7 +17,24 @@ describe("createCompany", () => {
     expect(company.status).toEqual({ active: true, distressed: false, bankrupt: false });
     expect(company.finance.cash).toBe(0);
     expect(company.production.capacity).toBe(0);
+    expect(company.workforce.wageOffer).toBe(0);
     expect(company.closedTick).toBeUndefined();
+  });
+
+  it("seeds workforce.wageOffer from initialWageOffer (M9 labor/wages precondition)", () => {
+    const company = createCompany({
+      id: "company_001",
+      archetypeId: "crop_farm",
+      name: "Black Mountain Farm",
+      foundedTick: 0,
+      regionId: "region_001",
+      ownerType: "individual",
+      ownerEntityId: "cohort_001",
+      inventoryId: "inventory_001",
+      initialWageOffer: 12,
+    });
+
+    expect(company.workforce.wageOffer).toBe(12);
   });
 
   it("rejects a negative foundedTick", () => {

@@ -7,4 +7,13 @@ describe("createMarket", () => {
     expect(market.goods).toEqual({});
     expect(market.services).toEqual({});
   });
+
+  it("starts with an empty rolling history (M8 price-adjustment reference window)", () => {
+    const market = createMarket({ id: "market_001", regionId: "region_001" });
+    expect(market.history).toEqual({
+      rollingSupply: {},
+      rollingDemand: {},
+      rollingPrice: {},
+    });
+  });
 });

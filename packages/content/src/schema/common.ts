@@ -32,3 +32,14 @@ export const OpenRecordSchema = z.record(z.string(), z.unknown()).default({});
 
 export const NonNegativeNumberSchema = z.number().finite().nonnegative();
 export const NonNegativeIntSchema = z.number().int().nonnegative();
+
+/**
+ * BaseContentPrice (Implementation Roadmap M8 "Dane"): the seed value
+ * `markets/price-adjustment.initializeMarketGood` (M8) uses as a good's
+ * or resource's starting `Market.goods[x].localPrice`. Optional because
+ * most content-pipeline tests (loader mechanics, referential integrity,
+ * cycle detection) build minimal fixtures unrelated to Market and must
+ * keep parsing; `price > 0` (Entity Data Model SS15) still applies to
+ * whatever value is actually provided.
+ */
+export const PositiveNumberSchema = z.number().finite().positive();

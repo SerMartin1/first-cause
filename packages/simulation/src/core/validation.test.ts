@@ -4,6 +4,7 @@ import {
   assertFinite,
   assertInteger,
   assertNonNegative,
+  assertPositive,
   assertSafeInteger,
 } from "./validation.js";
 
@@ -18,6 +19,12 @@ describe("validation", () => {
   it("assertNonNegative rejects negative numbers", () => {
     expect(assertNonNegative(0, "x")).toBe(0);
     expect(() => assertNonNegative(-1, "x")).toThrow(InvariantViolationError);
+  });
+
+  it("assertPositive rejects zero and negative numbers", () => {
+    expect(assertPositive(0.01, "x")).toBe(0.01);
+    expect(() => assertPositive(0, "x")).toThrow(InvariantViolationError);
+    expect(() => assertPositive(-1, "x")).toThrow(InvariantViolationError);
   });
 
   it("assertSafeInteger rejects non-integers and unsafe magnitudes", () => {

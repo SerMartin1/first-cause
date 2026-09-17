@@ -81,6 +81,8 @@ export interface CreateCompanyInput {
   readonly ownerEntityId: string;
   readonly inventoryId: string;
   readonly initialCash?: number;
+  /** Seeds `workforce.wageOffer` (M9 `labor/wages.adjustWageOffer` requires a positive starting wage, the same "seed before ticking" contract `markets/price-adjustment.initializeMarketGood` uses for `localPrice`). */
+  readonly initialWageOffer?: number;
 }
 
 export function createCompany(input: CreateCompanyInput): Company {
@@ -123,7 +125,12 @@ export function createCompany(input: CreateCompanyInput): Company {
       inputRequirements: {},
       energyDemand: 0,
     },
-    workforce: { employees: 0, vacancies: 0, wageOffer: 0, skillDemand: {} },
+    workforce: {
+      employees: 0,
+      vacancies: 0,
+      wageOffer: input.initialWageOffer ?? 0,
+      skillDemand: {},
+    },
     inventoryId: input.inventoryId,
     market: { marketShare: 0, expectedPrices: {}, expectedDemand: {} },
     status: { active: true, distressed: false, bankrupt: false },

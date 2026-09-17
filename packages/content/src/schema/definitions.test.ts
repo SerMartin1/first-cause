@@ -25,6 +25,7 @@ const CASES = [
       nameKey: "content.resource.iron_ore.name",
       category: "mineral",
       renewable: false,
+      basePrice: 6,
       implementationPhase: "VS",
     },
     requiredFieldToOmit: "renewable",
@@ -36,6 +37,7 @@ const CASES = [
       id: "flour",
       nameKey: "content.good.flour.name",
       category: "food_intermediate",
+      basePrice: 4,
       implementationPhase: "VS",
     },
     requiredFieldToOmit: "category",
@@ -162,4 +164,28 @@ describe("content definition schemas", () => {
       });
     });
   }
+
+  /**
+   * `basePrice` (M8 "Dane"/BaseContentPrice) is optional -- most content
+   * loading tests never set it -- but must respect `price > 0` (Entity
+   * Data Model SS15) whenever a definition does provide one.
+   */
+  describe("basePrice (Resource/Good only)", () => {
+    for (const testCase of [CASES[0], CASES[1]]) {
+      it(`${testCase.name} accepts omitting basePrice`, () => {
+        const withoutPrice = { ...testCase.valid };
+        delete (withoutPrice as Record<string, unknown>).basePrice;
+        expect(testCase.schema.safeParse(withoutPrice).success).toBe(true);
+      });
+
+      it(`${testCase.name} rejects a zero or negative basePrice`, () => {
+        expect(
+          testCase.schema.safeParse({ ...testCase.valid, basePrice: 0 }).success,
+        ).toBe(false);
+        expect(
+          testCase.schema.safeParse({ ...testCase.valid, basePrice: -1 }).success,
+        ).toBe(false);
+      });
+    }
+  });
 });

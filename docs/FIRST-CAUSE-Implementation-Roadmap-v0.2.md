@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1, M2, M3, M4, M5, M6 i M7 są ukończone (patrz "Wyniki wykonania" w
-sekcjach M1/M2/M3/M4/M5/M6/M7), bieżący etap to M8 (BACKLOG). Pełni rolę,
+M1--M9 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M9),
+bieżący etap to M10 (BACKLOG). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -1677,6 +1677,103 @@ ceny (M11), needs satisfaction pełne (M9).
 AI-005), `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§17--18, §73 R1),
 `FIRST-CAUSE-Simulation-Test-Spec-v0.1.md` (§30--33).
 
+### M8 --- Wyniki wykonania (2026-09-17)
+
+**Status: DONE.**
+
+**Rozszerzenie encji (`packages/entities/src/economy/market.ts`):**
+`Market` zyskuje pole `history` (`MarketHistory`:
+`rollingSupply`/`rollingDemand`/`rollingPrice`, per-good, okno przycinane
+przez `price-adjustment.ts`) -- pole było celowo pominięte w M3
+("omitted until M8 needs it"), bo wymagało realnego okna tickowego,
+którego M3 jeszcze nie miało. `createMarket` inicjalizuje je pustymi
+mapami; jedyne miejsce budujące `Market` ręcznie poza `createMarket`
+(`world-state.test.ts`) już korzystało z fabryki, więc zmiana nie
+wymagała dotykania żadnego innego fixture'u.
+
+**Nowe moduły (`packages/simulation/src/systems/economy/markets`):**
+
+-   `demand-aggregation.ts` (`aggregateDemand`) -- czysta suma
+    nazwanych źródeł popytu (Production-Economy-Master §5: gospodarstwa
+    domowe, zużycie pośrednie firm, eksport, ...). M8 ma dokładnie
+    jedno realne, podłączone źródło (zużycie pośrednie firm z M7
+    `production.ts`) -- reszta (M9 gospodarstwa domowe, M10 eksport)
+    jeszcze nie istnieje, więc funkcja została source-agnostic: później
+    milestone'y dodają nowy klucz do `demandSources`, nie zmieniają
+    tego modułu.
+-   `shortage-surplus.ts` (`classifyShortageSurplus`) -- realizuje
+    zabezpieczenie "inventory buffer" z Vertical Slice Spec §17: fizyczny
+    zapas (obserwowany, nie posiadany przez Market -- DATA-005/DATA-006)
+    dampuje surowy niedobór podaży zamiast go maskować,
+    `shortageSeverity` w [0, 1] to 0 dla każdej nadwyżki.
+-   `price-adjustment.ts` (`initializeMarketGood`, `updateMarketGood`) --
+    `PricePressure = Sensitivity * ((Demand - EffectiveSupply) /
+    NormalSupply)` (VS §17), gdzie `NormalSupply` to średnia krocząca z
+    `Market.history.rollingSupply` (poprzednich, nie bieżącego ticka --
+    żeby jeden tick nie przesuwał własnego punktu odniesienia). Wszystkie
+    cztery obowiązkowe zabezpieczenia z VS §17 (price floor, miesięczny
+    limit zmiany, smoothing, inventory buffer) działają od pierwszej
+    wersji, zgodnie z mitygacją ryzyka R1 z VS §73 -- nie zostały
+    odłożone. `initializeMarketGood` zamyka pętlę z `BaseContentPrice`
+    (nowe opcjonalne pole `basePrice` w `ResourceDefinition`/
+    `GoodDefinition`, M2 schema): seeduje pierwszy `localPrice` z
+    contentu. `updateMarketGood` rzuca głośno, jeśli dobro nie ma
+    jeszcze `MarketGoodState` (wywołujący zapomniał zainicjalizować) --
+    ten sam standard fail-loud co brakujący `ResourceDeposit` w M7.
+    Emituje `price_changed` (gdy cena faktycznie się zmienia) i
+    `shortage_started` (edge-triggered 0 -> dodatnia) fakty (Entity Data
+    Model §32 przykładowe typy faktów).
+
+**Nowe dane contentu:** opcjonalne pole `basePrice` (BaseContentPrice)
+dodane do `content/resources/{grain,iron_ore,timber}.json` i
+`content/goods/{flour,bread}.json` -- opcjonalne w schemacie Zod (nie
+wymagane), bo większość testów loadera (mechanika ładowania, integralność
+referencyjna, wykrywanie cykli) buduje minimalne fixture'y niezwiązane z
+Market i musiały dalej się parsować bez zmian. `price > 0` nadal
+obowiązuje dla każdej podanej wartości (test w `definitions.test.ts`).
+
+**Testy:** 31 nowych (309 łącznie) -- `demand-aggregation.test.ts` (suma,
+pusty zbiór, fail-loud na ujemnym źródle), `shortage-surplus.test.ts`
+(FC-MARKET-001/002 setupy, tłumienie przez bufor magazynowy, cap na 1,
+fail-loud), `price-adjustment.test.ts` (FC-MARKET-001 shortage,
+FC-MARKET-002 surplus, FC-MARKET-003 smoothing/cap na ekstremalnym szoku,
+price bounds pod trwałą ekstremalną nadwyżką, import cost placeholder
+-- `importDemand`/`exportSupply` nietknięte, emisja/brak faktów, 100-
+tickowy stress test dla zbalansowanego i trwale niedoborowego rynku --
+"brak nieskończonej pętli oscylacji" zweryfikowane jako monotoniczny,
+ograniczony na tick dryf, nie cykliczne odbicia -- oraz Acceptance Gate
+na jednorazowym szoku niedoboru/nadwyżki, który stabilizuje się po
+powrocie równowagi), plus `assertPositive` w `validation.test.ts` i
+rozszerzenie `market.test.ts`/`definitions.test.ts`.
+
+**Acceptance Gate -- zweryfikowane:** przy sztucznie wywołanym
+niedoborze cena rośnie płynnie (ograniczona miesięcznym capem i
+smoothingiem) i stabilizuje się, gdy podaż/popyt wracają do równowagi;
+przy nadwyżce cena spada płynnie i tak samo się stabilizuje; 100-tickowy
+test stresowy nie wykazuje nieskończonej pętli oscylacji ani przy stałym
+zbalansowanym, ani przy stałym niedoborowym popycie/podaży.
+
+**Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2/M5/M7, bez zmian), `pnpm format:check`, `pnpm test`
+(309/309) i `pnpm build` -- wszystkie zielone w czystym przebiegu.
+Etykieta `app.milestone` zaktualizowana na "M8 -- Market"/"M8 -- Rynek"
+w `locales/*/common.json` (i odpowiadający test w `App.test.tsx`).
+
+**Dług techniczny / świadomie poza zakresem:** `Company.finance.revenue/
+costs` nietknięte -- rzeczywista transakcja (firma sprzedaje po cenie
+rynkowej, gospodarstwo domowe kupuje) wymaga strony popytowej, która
+jeszcze nie istnieje (M9 households) i AI firm decydujących o sprzedaży
+(M11) -- M8 dostarcza silnik cenowy, nie portfel transakcji; handel
+międzyregionalny (`importDemand`/`exportSupply`) to M10; `demand-
+aggregation` ma dziś tylko jedno realne źródło (zużycie pośrednie firm),
+bo gospodarstwa domowe (M9) i eksport (M10) jeszcze nie istnieją; brak
+realnej pętli ticków łączącej `HeadlessRunner`/`WorldState` z systemami
+gospodarki -- ten sam stan co M5/M6/M7, `updateMarketGood` jest czystą,
+testowaną w izolacji funkcją, nie jest jeszcze wołana per-tick dla
+każdego dobra/regionu przez orkiestrator (przyszły milestone).
+
+**Czy M9 jest odblokowane:** TAK.
+
 ------------------------------------------------------------------------
 
 ## M9 --- Labor & Households
@@ -1723,6 +1820,111 @@ strategiczne).
 **Źródła:** `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (ECO-013--014),
 `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§22--23),
 `FIRST-CAUSE-Simulation-Test-Spec-v0.1.md` (§59--64).
+
+### M9 --- Wyniki wykonania (2026-09-17)
+
+**Status: DONE.**
+
+**Rozszerzenie encji (`packages/entities/src/economy/company.ts`):**
+`CreateCompanyInput` zyskuje opcjonalne `initialWageOffer` (domyślnie 0,
+jak dotychczas), które seeduje `workforce.wageOffer` -- ten sam kontrakt
+"seed przed tickowaniem", co `initializeMarketGood(basePrice)` w M8 dla
+`localPrice`: mnożnikowa korekta nigdy nie ruszy się z zera.
+
+**Nowe moduły (`packages/simulation/src/systems/economy/labor`):**
+
+-   `employment.ts` (`eligibleLaborForce`, `availableWorkers`,
+    `matchEmployment`) -- zatrudnienie jest reaktywne, nie strategiczne
+    (roadmap: "AI decyzje firm o zatrudnieniu to M11"): `vacancies`/
+    `skillDemand` firmy są przyjmowane jako gotowy stan, ten sam wzorzec
+    co `capacity`/`utilization` w `production.ts` (M7).
+    `LABOR_FORCE_PARTICIPATION_RATE` (TODO tuning) oddziela
+    "non-participating" od "unemployed" (Simulation Test Spec §23).
+    `matchEmployment` zatrudnia z dokładnie jednej kohorty do dokładnie
+    jednej firmy, ograniczone minimum z (vacancies, skillDemand danego
+    skilla, dostępni pracownicy) -- `employment <= eligible working
+    population` zachodzi konstrukcyjnie. Zmienia tylko `workforce.
+    employees`/`vacancies` (firma) i `employment`/`averageIncome`
+    (kohorta, ważona średnia stawek) -- `skillDemand` jest czytany jako
+    pułap, nigdy dekrementowany (to pożądany miks umiejętności, własność
+    AI z M11, nie licznik wolnych miejsc).
+-   `wages.ts` (`adjustWageOffer`) -- ponownie wykorzystuje
+    `classifyShortageSurplus` z M8 (`inventory: 0`, bo praca nie ma
+    bufora magazynowego) i dokładnie ten sam kształt "capped + smoothed
+    pressure" co `markets/price-adjustment.ts`, żeby rynek pracy dostał
+    te same zabezpieczenia przed oscylacją od pierwszej wersji (roadmap:
+    "sprzężenie zwrotne płace<->ceny<->popyt może wzmacniać oscylację z
+    M8").
+
+**Nowe moduły (`packages/simulation/src/systems/population`):**
+
+-   `consumption.ts` (`SPENDING_ORDER`, `allocateSpending`,
+    `computeHouseholdIncome`, `applyHouseholdConsumption`) --
+    `computeHouseholdIncome` to Wages (`employment * averageIncome`);
+    Transfers/Property Income (State, M17+) i Taxes (`taxBurden`
+    nietknięty, brak systemu podatkowego) zostają strukturalnie 0, ten
+    sam standard co `Company.finance.taxes` w M7. `allocateSpending`
+    przechodzi `SPENDING_ORDER` (ECO-014: Survival->Basic->Services->
+    Comfort->Prosperity->Luxury->Savings) w ścisłej kolejności, finansując
+    każdą kategorię tylko do wysokości pozostałego budżetu -- FC-POP-001/
+    FC-POP-002.
+-   `needs-satisfaction.ts` (`computeNeedsSatisfaction`,
+    `applyNeedsSatisfaction`) -- każdy poziom potrzeb to `spent/cost` z
+    `consumption.ts`, ograniczone do 1; poziom z `cost === 0` (żadne
+    dobro nie jest jeszcze do niego przypisane w contencie) czyta się
+    jako w pełni zaspokojony, nie jako niedobór -- zgodnie z VS Spec §22
+    ("Modern... pozostanie nieaktywne"). `CohortNeeds.modern` czyta
+    kategorię wydatków `luxury`: ECO-013 (hierarchia potrzeb, kończy się
+    na "Modern") i ECO-014 (kolejność wydatków, kończy się na "Luxury ->
+    Savings") zgadzają się co do każdego wcześniejszego kroku i różnią
+    się dokładnie jedną etykietą po "Prosperity" -- ta sama pozycja w obu
+    hierarchiach, inna nazwa w każdym dokumencie.
+
+**Testy:** 38 nowych (347 łącznie), w tym: `employment.test.ts`
+(eligibility/participation rate, dopasowanie min z trzech ograniczeń,
+fail-loud na brak wageOffer i na zatrudnianie między regionami,
+FC-LABOR-003 szkielet -- dwie firmy konkurujące o tę samą kohortę nigdy
+nie zatrudniają tego samego pracownika dwa razy), `wages.test.ts`
+(FC-LABOR-001 wage response, spadek przy nadwyżce, price floor, 100-
+tickowy stress test bez oscylacji), `consumption.test.ts` (FC-POP-001/
+002), `needs-satisfaction.test.ts` (w tym Acceptance Gate: kohorta z
+pracą ma wyższą `totalSatisfaction`), oraz
+`labor-wage-price-feedback.test.ts` -- 100-tickowy test regresyjny
+łączący M9 (płace/zatrudnienie/konsumpcja) z M8 (rynek): trwały
+niedobór pracy podbija płace -> dochód -> popyt -> cenę bez utraty
+ograniczenia zmiany na tick po żadnej stronie, zgodnie z mitygacją
+ryzyka z sekcji M9 powyżej.
+
+**Acceptance Gate -- zweryfikowane:** kohorta z zatrudnieniem ma wyższą
+`needs.totalSatisfaction` niż analogiczna kohorta bez pracy; zatrudnienie
+nigdy nie przekracza dostępnej siły roboczej; wydatki podążają za
+`Survival → Basic → Services → Comfort → Prosperity → Luxury → Savings`.
+
+**Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2/M5/M7/M8, bez zmian), `pnpm format:check`, `pnpm test`
+(347/347) i `pnpm build` -- wszystkie zielone w czystym przebiegu.
+Etykieta `app.milestone` zaktualizowana na "M9 -- Labor & Households"/
+"M9 -- Praca i Gospodarstwa Domowe" w `locales/*/common.json`.
+
+**Dług techniczny / świadomie poza zakresem:** migracja jako reakcja na
+warunki pracy (M13); AI decyzje firm o zatrudnieniu/`skillDemand`/
+wielkości `vacancies` (M11 -- M9 przyjmuje je jako dany stan); płatność
+wynagrodzeń nie zmienia `Company.finance.cash` -- "Company Cash
+Accounting" (`- Wages`) to test już opisany w Simulation Test Spec §24,
+ale jego wykonanie wymaga rzeczywistego przepływu gotówki firma<->
+gospodarstwo, którego żaden dotychczasowy milestone jeszcze nie
+okablował (ten sam stan co `Company.finance.revenue/costs` nietknięte w
+M7/M8); usługi (ECO-012 Service jako osobna kategoria z capacity/
+accessibility/quality) nie istnieją jako encja ani content, więc
+kategoria wydatków `services` w praktyce zostaje przy `cost === 0`
+(w pełni "zaspokojona") dopóki jakiś przyszły milestone nie doda
+prawdziwych usług; brak realnej pętli ticków łączącej `HeadlessRunner`/
+`WorldState` z systemami gospodarki/populacji -- ten sam stan co
+M5-M8, każda funkcja tu jest czysta i testowana w izolacji (lub w
+kombinacji, jak `labor-wage-price-feedback.test.ts`), nie wołana
+per-tick przez orkiestrator.
+
+**Czy M10 jest odblokowane:** TAK.
 
 ------------------------------------------------------------------------
 
@@ -2787,10 +2989,10 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M4          DONE      P0          S/M         MEDIUM        M3
   M5          DONE      P0          S           LOW           M4
   M6          DONE      P0          M           MEDIUM        M4
-  M7          READY     P0          M           MEDIUM        M5, M6
-  M8          BACKLOG   P0          M           HIGH          M7
-  M9          BACKLOG   P0          M           MEDIUM        M8
-  M10         BACKLOG   P0          M           MEDIUM        M9
+  M7          DONE      P0          M           MEDIUM        M5, M6
+  M8          DONE      P0          M           HIGH          M7
+  M9          DONE      P0          M           MEDIUM        M8
+  M10         READY     P0          M           MEDIUM        M9
   M11         BACKLOG   P0          L           HIGH          M10
   M12         BACKLOG   P0          M           MEDIUM-HIGH   M11
   M13         BACKLOG   P0          M           MEDIUM        M12

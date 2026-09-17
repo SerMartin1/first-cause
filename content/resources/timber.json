@@ -3,5 +3,6 @@
   "nameKey": "content.resource.timber.name",
   "category": "forestry",
   "renewable": true,
+  "basePrice": 3,
   "implementationPhase": "VS"
 }

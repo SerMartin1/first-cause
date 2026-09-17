@@ -3,6 +3,7 @@
   "nameKey": "content.resource.grain.name",
   "category": "agricultural",
   "renewable": true,
+  "basePrice": 2,
   "extractionMethodIds": ["manual_farming"],
   "useGoodIds": ["flour"],
   "implementationPhase": "VS"

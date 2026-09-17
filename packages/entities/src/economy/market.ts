@@ -20,21 +20,31 @@ export interface MarketServiceState {
 }
 
 /**
+ * Rolling per-good windows (Entity Data Model SS15 `history.rolling*Data`)
+ * that `markets/price-adjustment` (M8) reads as the "NormalSupply"
+ * reference for `PricePressure = Sensitivity * ((Demand - Supply) /
+ * NormalSupply)` (Vertical Slice Spec SS17). Keyed by good id, oldest
+ * entry first; `price-adjustment.ts` owns trimming the window length.
+ */
+export interface MarketHistory {
+  readonly rollingSupply: Readonly<Record<string, readonly number[]>>;
+  readonly rollingDemand: Readonly<Record<string, readonly number[]>>;
+  readonly rollingPrice: Readonly<Record<string, readonly number[]>>;
+}
+
+/**
  * Market (Entity Data Model SS15, DATA-006): one market per region --
  * not per settlement. A pure data holder in M3; price adjustment,
  * shortages/surpluses are M8. `price > 0`/`inventory >= 0` invariants
  * apply once M8 starts writing entries into `goods`; an empty market is
  * trivially valid.
- *
- * `history` (rolling price/supply/demand data for smoothing) is
- * omitted until M8 needs it -- it requires a real per-tick window,
- * which M3 does not wire up.
  */
 export interface Market {
   readonly id: string;
   readonly regionId: string;
   readonly goods: Readonly<Record<string, MarketGoodState>>;
   readonly services: Readonly<Record<string, MarketServiceState>>;
+  readonly history: MarketHistory;
 }
 
 export interface CreateMarketInput {
@@ -51,5 +61,6 @@ export function createMarket(input: CreateMarketInput): Market {
     regionId: input.regionId,
     goods: {},
     services: {},
+    history: { rollingSupply: {}, rollingDemand: {}, rollingPrice: {} },
   };
 }

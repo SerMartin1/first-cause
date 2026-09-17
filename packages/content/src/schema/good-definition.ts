@@ -4,6 +4,7 @@ import {
   IdRefArraySchema,
   LocalizationKeySchema,
   OpenRecordSchema,
+  PositiveNumberSchema,
   TagArraySchema,
 } from "./common.js";
 import type { ContentTypeSpec } from "./reference-field.js";
@@ -14,6 +15,8 @@ import type { ContentTypeSpec } from "./reference-field.js";
  * proxy for "technology"; KnowledgeDomain does not exist as a type until
  * M15). `householdNeed` is kept an open string rather than an enum: the
  * Survival->...->Modern tier taxonomy is M9 (Labor & Households) scope.
+ * `basePrice` (BaseContentPrice, M8 "Dane") seeds `Market.goods[x].localPrice`
+ * -- see `PositiveNumberSchema`.
  */
 export const GoodDefinitionSchema = z.object({
   id: ContentIdSchema,
@@ -24,6 +27,7 @@ export const GoodDefinitionSchema = z.object({
   productionMethodIds: IdRefArraySchema,
   downstreamGoodIds: IdRefArraySchema,
   householdNeed: z.string().min(1).optional(),
+  basePrice: PositiveNumberSchema.optional(),
   demandSources: OpenRecordSchema,
   storageProperties: OpenRecordSchema,
   transportProperties: OpenRecordSchema,
