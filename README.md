@@ -17,7 +17,7 @@ enabled it (`Butterfly Effect`).
 ## Current milestone
 
 **M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = DONE; M3 = DONE;
-M4 = DONE; M5 = DONE; M6 = READY (not started).**
+M4 = DONE; M5 = DONE; M6 = DONE; M7 = READY (not started).**
 M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
 M1 -- Deterministic Core added a real, headless-testable deterministic
 skeleton (`packages/simulation/src/core`): a tick-derived
@@ -60,11 +60,20 @@ deterministic `fact_<tick>_<sequence>` IDs, indices). UI-F0 also
 started: Design Tokens, 7 `FC*` primitives and
 `FCAppShell`/`FCTopNavigation`/`FCSimulationBar` now compose the
 desktop shell (see the roadmap's M5 "Wyniki wykonania" for what was
-verified). Next: **M6 -- Minimal Population**. Economy/population/AI/
-causality/Chronicle/Architect and a procedural World Generation
+verified). M6 -- Minimal Population added
+`packages/simulation/src/systems/population` (`buildCohortFamily`: a
+validated "cohort family" of one `PopulationCohort` per age group
+sharing the same location/socioeconomic identity; `applyMonthlyDemography`:
+monthly births/deaths/aging-transfer, annual rates compounded to a
+monthly probability, tuned so a 200-year/2400-tick run stays within
+roughly +-10% of its start) and the second real `population_increased`/
+`population_declined` facts -- see the roadmap's M6 "Wyniki wykonania"
+for what was verified. Next: **M7 -- Production**. Market/Labor/Trade/
+AI/causality/Chronicle/Architect and a procedural World Generation
 algorithm still do not exist as *systems* driving a live world yet --
-M5 only proves the resource lifecycle in isolation, headless/under
-test. See the Implementation Roadmap for the full milestone sequence.
+resources and population are each only proven in isolation,
+headless/under test, with no tick loop wiring them into `WorldState`
+yet. See the Implementation Roadmap for the full milestone sequence.
 
 ## Requirements
 
@@ -98,8 +107,11 @@ pnpm sim:run
 This prints the same `CoreStatus` the app would fetch over IPC, then
 runs a 12-tick `HeadlessRunner` demo (deterministic clock/RNG/checksum
 from M1). World State entity shapes exist since M3
-(`packages/entities`), but nothing wires them into a running tick loop
-yet -- no economic/demographic/AI logic exists (M5 onward).
+(`packages/entities`), and resource (M5) and population (M6) system
+logic exists and is tested in isolation, but nothing wires either of
+them (or `WorldState`) into a running tick loop yet -- that is left to
+later milestones. AI/market/labor/trade logic does not exist yet
+(M7 onward).
 
 ## Testing
 

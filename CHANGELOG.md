@@ -8,6 +8,40 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-09-17
+
+- Wdrożono **M6 -- Minimal Population**. Nowe moduły
+  `packages/simulation/src/systems/population`: `cohorts.ts`
+  (`buildCohortFamily` -- waliduje i indeksuje dokładnie pięć
+  `PopulationCohort`, jedną na `AgeGroup`, dzielących tę samą tożsamość
+  lokalizacyjno-socjoekonomiczną; rzuca fail-loud przy niekompletnym
+  lub niespójnym zestawie) i `demography.ts` (`applyMonthlyDemography`
+  -- miesięczne urodzenia/zgony/aging transfer między kohortami, 1 tick
+  = 1 miesiąc zgodnie z SIM-001). Współczynniki roczne konwertowane na
+  miesięczne przez składanie (`1 - (1-roczny)^(1/12)`), nie dzielenie
+  przez 12. Domyślne stawki dobrane tak, by zbliżać się do
+  zastępowalności pokoleń -- zweryfikowano numerycznie przed napisaniem
+  testu (ta sama dyscyplina co przy M5 sustainable yield), że przebieg
+  200-letni/2400-tickowy zostaje w granicach ok. ±10% populacji
+  startowej. Emitowane fakty CE-01: `population_increased`/
+  `population_declined`.
+
+  Needs skeleton bez nowego kodu -- `CohortNeeds` z M3 zostaje
+  wyzerowane i nietknięte przez demografię, gotowe pod M9. Profesje VS
+  (POP-005) pozostają dokumentacyjne -- `profession` wciąż
+  nieprzypisywane, bo zatrudnienie to M9/M11.
+
+  Dodano 13 nowych testów (253 łącznie): kompletność/spójność
+  `buildCohortFamily`, ręcznie zweryfikowany dokładny transfer aging,
+  terminalność `AGE_65_PLUS`, izolacja urodzeń do `AGE_0_14`, brak
+  ujemnej populacji nawet przy 100% rocznej śmiertelności, conservation
+  audit (suma zmian populacji === suma delt faktów na każdym z 50
+  ticków) oraz test smoke 200-letni. `pnpm typecheck`, `pnpm lint`
+  (ten sam 1 warning z M2/M5, bez zmian), `pnpm format:check`, `pnpm
+  test` (253/253), `pnpm build` i `pnpm test:e2e` przechodzą.
+  Zaktualizowano roadmapę (M6 = DONE, M7 = READY, sekcja "Wyniki
+  wykonania") oraz README.
+
 ## 2026-09-16
 
 - Wdrożono **M5 -- Resources** (pierwszy milestone z realną logiką

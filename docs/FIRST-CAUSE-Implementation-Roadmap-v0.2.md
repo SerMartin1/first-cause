@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1, M2, M3, M4 i M5 są ukończone (patrz "Wyniki wykonania" w sekcjach
-M1/M2/M3/M4/M5), bieżący etap to M6 (READY). Pełni rolę,
+M1, M2, M3, M4, M5 i M6 są ukończone (patrz "Wyniki wykonania" w
+sekcjach M1/M2/M3/M4/M5/M6), bieżący etap to M7 (BACKLOG). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -1393,6 +1393,96 @@ zatrudnienie (M9/M11).
 SIM-002), `FIRST-CAUSE-Entity-Data-Model-v0.1.md` (§11),
 `FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` (§8).
 
+### M6 --- Wyniki wykonania (2026-09-17)
+
+**Status: DONE.**
+
+**Nowe moduły (`packages/simulation/src/systems/population`):**
+
+-   `cohorts.ts` (`buildCohortFamily`) -- wprowadza pojęcie "cohort
+    family": dokładnie pięć `PopulationCohort` (jeden na `AgeGroup`),
+    dzielących tę samą tożsamość lokalizacyjno-socjoekonomiczną
+    (`regionId`, `settlementId`, `economicClass`, `skillLevel`,
+    `profession`). M6 nigdy nie zmienia tych pól tożsamości -- mobilność
+    społeczna (M9) i zmiana kwalifikacji (M15) jeszcze nie istnieją --
+    więc pięć rekordów rodziny jest kompletną, stabilną jednostką, po
+    której miesięczna demografia redystrybuuje populację. Waliduje
+    fail-loud (rzuca `InvariantViolationError`, nie ucina/naprawia po
+    cichu): dokładnie 5 kohort, brak duplikatu `ageGroup`, spójna
+    tożsamość -- każde naruszenie oznaczałoby populację znikającą lub
+    pojawiającą się bez zarejestrowanej przyczyny.
+-   `demography.ts` (`applyMonthlyDemography`) -- awansuje jedną
+    cohort family o dokładnie jeden miesiąc (1 tick = 1 miesiąc,
+    SIM-001, więc nie ma osobnego sprawdzania granicy miesiąca).
+    Zgony i aging-out liczone są z populacji na początek miesiąca;
+    urodzenia trafiają wyłącznie do `AGE_0_14`, liczone z populacji
+    `AGE_25_44` sprzed tego miesiąca (kolejność "zgony przed czy po
+    urodzeniach" nie ma kanonicznej odpowiedzi na tym poziomie
+    abstrakcji, więc funkcja jest celowo order-independent). Wszystkie
+    współczynniki są roczne (SIM-002: "współczynniki pozostają
+    parametrami tuningowymi") i konwertowane na miesięczne przez
+    składanie (`1 - (1-roczny)^(1/12)`), nie dzielenie przez 12 -- ten
+    sam standard co model wzrostu logistycznego z M5. `DEFAULT_
+    DEMOGRAPHY_RATES` (śmiertelność per `AgeGroup`, jeden `birthRate`
+    dla `AGE_25_44` jako modelowanej głównej kohorty rozrodczej, rozpiętość
+    w latach każdego nieterminalnego przedziału wieku) została dobrana
+    tak, by zbliżać się do zastępowalności pokoleń -- zweryfikowano
+    numerycznie *przed* napisaniem testu (ta sama dyscyplina co przy
+    M5 sustainable yield), że przebieg 200-letni/2400-tickowy zostaje w
+    granicach około ±10% populacji startowej dla kilku różnych
+    rozkładów startowych. Populacja nie ma odpowiednika
+    `carryingCapacity` tak jak zasoby odnawialne z M5 -- `birthRate`
+    względem stawek zgonów/aging jest jedyną dostępną dźwignią.
+    Funkcja jest czysta (zwraca `{cohorts, facts}`, nie woła
+    `FactStore`), emituje `population_increased`/`population_declined`
+    (jedyne fakty CE-01 dotyczące populacji w tym zakresie) tylko przy
+    realnej zmianie netto per kohorta.
+
+**Needs skeleton:** bez nowego kodu -- `CohortNeeds` (struktura z sześcioma
+poziomami hierarchii, `totalSatisfaction`) dostarczyła już M3 z myślą
+właśnie o M6/M9; demografia w M6 nigdy nie dotyka pola `needs`, więc
+zostaje wyzerowane i gotowe pod realne obliczanie satysfakcji w M9 --
+ta sama zasada "brak logiki dla systemu, którego jeszcze nie ma", co w
+`packages/causality` przy M5.
+
+**Profesje VS (POP-005):** świadomie bez nowej infrastruktury contentowej
+w M6 -- `PopulationCohort.profession` pozostaje `string | undefined`,
+nieprzypisywane (tak jak ustawił M3), bo przypisanie zawodu wymaga
+zatrudnienia, które jest poza zakresem M6 (M9/M11). Lista siedmiu
+profesji VS z POP-005 zostaje więc dokumentacyjna, do czasu M9/M11.
+
+**Testy:** 13 nowych testów Vitest (253 łącznie) -- kompletność i
+spójność tożsamości `buildCohortFamily`, dokładny (ręcznie zweryfikowany)
+transfer aging między kohortami przy zerowej śmiertelności/urodzeniach,
+terminalność `AGE_65_PLUS` (nigdy nie starzeje się dalej), izolacja
+urodzeń (trafiają wyłącznie do `AGE_0_14`, żadna inna kohorta -- w tym
+sama płodna -- się nie zmienia), brak ujemnej populacji nawet przy
+100% rocznej śmiertelności, conservation audit (`suma(after) -
+suma(before) === suma(delta faktów)` na każdym z 50 kolejnych ticków) i
+test smoke 200-letni/2400-tickowy (bez ujemnych kohort, całkowita
+populacja w granicach 0.5x--2x startu).
+
+**Acceptance Gate -- zweryfikowane:** kohorta przechodzi przez N ticków z
+realistyczną dynamiką urodzeń/zgonów bez naruszenia invariants (test
+200-letni); `Region.totalPopulation` pozostaje cache -- M6 nie zmienia
+`packages/entities`, sumowanie po `cohortIds` istnieje od M3
+(DATA-004).
+
+**Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2/M5, bez zmian), `pnpm format:check`, `pnpm test`
+(253/253), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w czystym
+przebiegu.
+
+**Dług techniczny / świadomie poza zakresem:** migracja (M13), pełna
+satysfakcja potrzeb (M9), zatrudnienie i przypisanie profesji (M9/M11);
+brak jeszcze realnej pętli ticków łączącej `HeadlessRunner`/`WorldState`
+z systemami populacji -- ten sam stan co M5's "resources" (przyszłe
+milestone'y, które faktycznie tickują świat); `crisis mortality`
+(wojna/epidemie) pozostaje niezaimplementowane, bo te systemy jeszcze
+nie istnieją.
+
+**Czy M7 jest odblokowane:** TAK.
+
 ------------------------------------------------------------------------
 
 ## M7 --- Production
@@ -2589,8 +2679,8 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-16: M0, M0.1 Audit Fixes, M1, M2, M3, M4 i M5
-ukończone; M6 gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
+Stan na 2026-09-17: M0, M0.1 Audit Fixes, M1, M2, M3, M4, M5 i M6
+ukończone; M7 gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -2603,8 +2693,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M3          DONE      P0          M           MEDIUM        M1, M2
   M4          DONE      P0          S/M         MEDIUM        M3
   M5          DONE      P0          S           LOW           M4
-  M6          READY     P0          M           MEDIUM        M4
-  M7          BACKLOG   P0          M           MEDIUM        M5, M6
+  M6          DONE      P0          M           MEDIUM        M4
+  M7          READY     P0          M           MEDIUM        M5, M6
   M8          BACKLOG   P0          M           HIGH          M7
   M9          BACKLOG   P0          M           MEDIUM        M8
   M10         BACKLOG   P0          M           MEDIUM        M9
@@ -2659,8 +2749,8 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M6 — Minimal Population** zgodnie z sekcją M6.
-M0, M0.1, M1, M2, M3, M4 i M5 są DONE. Kolejne milestone’y
+Następny krok: **M7 — Production** zgodnie z sekcją M7.
+M0, M0.1, M1, M2, M3, M4, M5 i M6 są DONE. Kolejne milestone’y
 rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
