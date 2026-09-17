@@ -12,9 +12,31 @@ import {
   createTechnologyState,
   createWorld,
   createWorldState,
+  type MarketGoodState,
   type WorldState,
 } from "@first-cause/entities";
 import { parseWorldFixtureDocument } from "./fixture-schema.js";
+
+/**
+ * Seeds one good's `MarketGoodState` from a fixture's `basePrice` -- the
+ * same shape `markets/price-adjustment.initializeMarketGood` (Simulation
+ * Core) builds, duplicated here rather than imported: `@first-cause/worldgen`
+ * depends only on `@first-cause/entities` (Technology Stack layering --
+ * Simulation Core builds *on* a loaded WorldState, not the other way
+ * around), so this loader cannot reach into Simulation Core for it.
+ */
+function seedMarketGood(basePrice: number): MarketGoodState {
+  return {
+    supply: 0,
+    demand: 0,
+    inventory: 0,
+    localPrice: basePrice,
+    importDemand: 0,
+    exportSupply: 0,
+    shortageSeverity: 0,
+    pricePressure: 0,
+  };
+}
 
 export interface LoadWorldFixtureResult {
   readonly ok: boolean;
@@ -122,8 +144,8 @@ export function loadWorldFixture(raw: unknown): LoadWorldFixtureResult {
       }),
     );
 
-    const companies = doc.companies.map((c) =>
-      createCompany({
+    const companies = doc.companies.map((c) => {
+      const company = createCompany({
         id: c.id,
         archetypeId: c.archetypeId,
         name: c.name,
@@ -134,12 +156,26 @@ export function loadWorldFixture(raw: unknown): LoadWorldFixtureResult {
         inventoryId: c.inventoryId,
         ...(c.settlementId !== undefined ? { settlementId: c.settlementId } : {}),
         ...(c.initialCash !== undefined ? { initialCash: c.initialCash } : {}),
-      }),
-    );
+        ...(c.initialWageOffer !== undefined
+          ? { initialWageOffer: c.initialWageOffer }
+          : {}),
+      });
+      return c.production === undefined
+        ? company
+        : { ...company, production: { ...company.production, ...c.production } };
+    });
 
-    const markets = doc.markets.map((m) =>
-      createMarket({ id: m.id, regionId: m.regionId }),
-    );
+    const markets = doc.markets.map((m) => {
+      const market = createMarket({ id: m.id, regionId: m.regionId });
+      if (m.goods === undefined) return market;
+      const goods = Object.fromEntries(
+        Object.entries(m.goods).map(([goodId, basePrice]) => [
+          goodId,
+          seedMarketGood(basePrice),
+        ]),
+      );
+      return { ...market, goods };
+    });
 
     const technologyStates = doc.technologyStates.map((t) =>
       createTechnologyState({ id: t.id, regionId: t.regionId }),

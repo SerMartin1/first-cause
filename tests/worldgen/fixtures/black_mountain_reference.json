@@ -267,12 +267,12 @@
       "id": "deposit_green_valley_grain",
       "resourceDefinitionId": "grain",
       "regionId": "region_green_valley",
-      "initialQuantity": 2000,
+      "initialQuantity": 50000,
       "renewable": true,
       "renewableState": {
         "regenerationRate": 0.05,
-        "sustainableYield": 300,
-        "carryingCapacity": 2500
+        "sustainableYield": 1000,
+        "carryingCapacity": 50000
       }
     },
     {
@@ -398,6 +398,12 @@
       "ownerType": "company",
       "ownerId": "company_green_valley_farm",
       "locationRegionId": "region_green_valley"
+    },
+    {
+      "id": "inventory_region_green_valley",
+      "ownerType": "region",
+      "ownerId": "region_green_valley",
+      "locationRegionId": "region_green_valley"
     }
   ],
   "companies": [
@@ -411,10 +417,23 @@
       "ownerType": "individual",
       "ownerEntityId": "cohort_green_valley_farmers",
       "inventoryId": "inventory_green_valley_farm",
-      "initialCash": 500
+      "initialCash": 500,
+      "initialWageOffer": 10,
+      "production": {
+        "productionMethodId": "manual_farming",
+        "capacity": 10,
+        "utilization": 0.5
+      }
     }
   ],
-  "markets": [{ "id": "market_riverside", "regionId": "region_riverside" }],
+  "markets": [
+    { "id": "market_riverside", "regionId": "region_riverside" },
+    {
+      "id": "market_green_valley",
+      "regionId": "region_green_valley",
+      "goods": { "grain": 1, "flour": 2 }
+    }
+  ],
   "technologyStates": [
     { "id": "technology_black_mountain", "regionId": "region_black_mountain" },
     { "id": "technology_green_valley", "regionId": "region_green_valley" },

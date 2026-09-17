@@ -159,15 +159,38 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
       `Company "${company.id}".inventoryId`,
     );
   }
+  const marketIdByRegion = new Map<string, string>();
   for (const market of markets) {
     requireExists(regionsById, market.regionId, `Market "${market.id}".regionId`);
+    // DATA-006 "one Market per region, never per settlement": a second
+    // market for the same region would make `Region.economy.marketId`
+    // ambiguous, so it is rejected here rather than silently keeping
+    // whichever one happened to appear last in the input array.
+    if (marketIdByRegion.has(market.regionId)) {
+      throw new InvariantViolationError(
+        `Region "${market.regionId}" has more than one Market ("${marketIdByRegion.get(market.regionId)}" and "${market.id}") -- DATA-006 allows exactly one`,
+      );
+    }
+    marketIdByRegion.set(market.regionId, market.id);
   }
+  const regionInventoryIdByRegion = new Map<string, string>();
   for (const inventory of inventories) {
     requireExists(
       regionsById,
       inventory.locationRegionId,
       `Inventory "${inventory.id}".locationRegionId`,
     );
+    if (inventory.ownerType !== "region") continue;
+    // Same one-per-region rule as Market above, for the same reason: a
+    // region's own (non-company, non-settlement) Inventory is what M8/M9
+    // settlement (Etap 1) sells into and buys from -- a second one would
+    // make `Region.economy.regionalInventoryId` ambiguous.
+    if (regionInventoryIdByRegion.has(inventory.locationRegionId)) {
+      throw new InvariantViolationError(
+        `Region "${inventory.locationRegionId}" has more than one region-owned Inventory ("${regionInventoryIdByRegion.get(inventory.locationRegionId)}" and "${inventory.id}")`,
+      );
+    }
+    regionInventoryIdByRegion.set(inventory.locationRegionId, inventory.id);
   }
   for (const technologyState of technologyStates) {
     requireExists(
@@ -228,6 +251,8 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
       economy: {
         ...region.economy,
         companyIds: companiesByRegionId.get(region.id) ?? [],
+        marketId: marketIdByRegion.get(region.id),
+        regionalInventoryId: regionInventoryIdByRegion.get(region.id),
       },
       connections: { connectionIds: connectionsByRegionId.get(region.id) ?? [] },
     };

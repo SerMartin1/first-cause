@@ -7,5 +7,5 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "references": [{ "path": "../entities" }]
+  "references": [{ "path": "../entities" }, { "path": "../simulation" }]
 }

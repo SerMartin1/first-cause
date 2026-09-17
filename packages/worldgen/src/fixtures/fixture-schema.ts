@@ -189,11 +189,30 @@ const WorldFixtureSchema = z.object({
         ownerEntityId: IdSchema,
         inventoryId: IdSchema,
         initialCash: z.number().nonnegative().optional(),
+        /** Etap 1 tick-loop integration: seeds `workforce.wageOffer` (required positive before `labor/employment.matchEmployment` can hire, see that module's doc comment). */
+        initialWageOffer: z.number().positive().optional(),
+        /** Etap 1 tick-loop integration: seeds `Company.production` -- a fixture is otherwise indistinguishable from a company producing nothing (`createCompany` defaults capacity/utilization to 0). */
+        production: z
+          .object({
+            productionMethodId: IdSchema,
+            capacity: z.number().nonnegative(),
+            utilization: z.number().min(0).max(1),
+          })
+          .optional(),
       }),
     )
     .default([]),
 
-  markets: z.array(z.object({ id: IdSchema, regionId: IdSchema })).default([]),
+  markets: z
+    .array(
+      z.object({
+        id: IdSchema,
+        regionId: IdSchema,
+        /** Etap 1 tick-loop integration: good id -> BaseContentPrice, seeded via `markets/price-adjustment.initializeMarketGood` (a fixture market otherwise has no `goods` entries at all, so `updateMarketGood` has nothing to advance). */
+        goods: z.record(z.number().positive()).optional(),
+      }),
+    )
+    .default([]),
 
   technologyStates: z.array(z.object({ id: IdSchema, regionId: IdSchema })).default([]),
 });
