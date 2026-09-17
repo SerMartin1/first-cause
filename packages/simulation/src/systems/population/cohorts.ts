@@ -1,4 +1,8 @@
-import type { AgeGroup, PopulationCohort } from "@first-cause/entities";
+import {
+  createPopulationCohort,
+  type AgeGroup,
+  type PopulationCohort,
+} from "@first-cause/entities";
 import { InvariantViolationError } from "../../core/validation.js";
 
 /**
@@ -21,6 +25,15 @@ export const NEXT_AGE_GROUP: Readonly<Partial<Record<AgeGroup, AgeGroup>>> = {
   AGE_25_44: "AGE_45_64",
   AGE_45_64: "AGE_65_PLUS",
 };
+
+/**
+ * Grupy wieku, z których można się jeszcze zestarzeć dalej (wszystkie
+ * poza AGE_65_PLUS). Używane, żeby `agingSpanYears` w demografii nie
+ * dało się w ogóle skonfigurować dla grupy terminalnej -- literalnie
+ * nie ma dokąd z niej "zestarzeć", więc taki wpis tylko usuwałby ludzi
+ * bez żadnego adresata (naprawiony przegląd P2).
+ */
+export type NonTerminalAgeGroup = Exclude<AgeGroup, "AGE_65_PLUS">;
 
 /**
  * A "cohort family": exactly one `PopulationCohort` per age group,
@@ -80,4 +93,69 @@ export function buildCohortFamily(cohorts: readonly PopulationCohort[]): CohortF
   // loop above would have thrown), and there are exactly that many
   // possible AgeGroup values, so byAgeGroup is necessarily complete here.
   return byAgeGroup as CohortFamily;
+}
+
+function createSyntheticZeroCohort(
+  template: PopulationCohort,
+  ageGroup: AgeGroup,
+): PopulationCohort {
+  // `createPopulationCohort` nie przyjmuje `profession` jako argumentu
+  // (zawsze ustawia undefined) -- doklejamy je ręcznie z template, żeby
+  // syntetyczna kohorta trafiła do tej samej rodziny tożsamości co
+  // kohorty, z których ją wyprowadzono (identityKey uwzględnia profession).
+  return {
+    ...createPopulationCohort({
+      id: `${template.id}__synthetic_${ageGroup}`,
+      regionId: template.regionId,
+      ...(template.settlementId !== undefined
+        ? { settlementId: template.settlementId }
+        : {}),
+      ageGroup,
+      population: 0,
+      economicClass: template.economicClass,
+      skillLevel: template.skillLevel,
+    }),
+    profession: template.profession,
+  };
+}
+
+/**
+ * Grupuje dowolną, niekoniecznie kompletną wiekowo listę kohort (np.
+ * surowe dane świata, gdzie każdy rekord to jedna grupa wieku dla danej
+ * tożsamości lokalizacyjno-społeczno-ekonomicznej, a nie gotowa
+ * pięcioelementowa rodzina) po tożsamości i dopełnia brakujące grupy
+ * wieku syntetyczną kohortą o populacji 0.
+ *
+ * Pozwala to podać `applyMonthlyDemography` per-rodzina ręcznie
+ * przygotowanemu fixture'owi świata (M4), który nigdy nie był budowany
+ * z myślą o kompletnych pięcioelementowych rodzinach --
+ * `buildCohortFamily` zostaje przy tym równie rygorystyczne (fail-loud,
+ * POP-002) jako kontrakt dla wywołujących, którzy już mają kompletną
+ * rodzinę.
+ */
+export function groupCohortsIntoFamilies(
+  cohorts: readonly PopulationCohort[],
+): readonly CohortFamily[] {
+  const groups = new Map<string, PopulationCohort[]>();
+  for (const cohort of cohorts) {
+    const key = identityKey(cohort);
+    const group = groups.get(key);
+    if (group) {
+      group.push(cohort);
+    } else {
+      groups.set(key, [cohort]);
+    }
+  }
+
+  const families: CohortFamily[] = [];
+  for (const group of groups.values()) {
+    const present = new Set(group.map((cohort) => cohort.ageGroup));
+    const complete = [...group];
+    for (const ageGroup of AGE_GROUP_ORDER) {
+      if (present.has(ageGroup)) continue;
+      complete.push(createSyntheticZeroCohort(group[0]!, ageGroup));
+    }
+    families.push(buildCohortFamily(complete));
+  }
+  return families;
 }

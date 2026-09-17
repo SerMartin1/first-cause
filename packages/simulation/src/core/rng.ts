@@ -132,9 +132,16 @@ export class RngStream {
    * does not evenly divide 2^32.
    */
   nextInt(maxExclusive: number): number {
-    if (!Number.isInteger(maxExclusive) || maxExclusive <= 0) {
+    if (
+      !Number.isInteger(maxExclusive) ||
+      maxExclusive <= 0 ||
+      maxExclusive > 0xffffffff
+    ) {
+      // Above 2**32 - 1, `maxExclusive >>> 0` below wraps (2**32 itself
+      // wraps to 0), silently turning the modulo into a division by
+      // zero (NaN) instead of throwing -- reject it here first.
       throw new RangeError(
-        `nextInt: maxExclusive must be a positive integer, got ${String(maxExclusive)}`,
+        `nextInt: maxExclusive must be an integer in (0, 2**32 - 1], got ${String(maxExclusive)}`,
       );
     }
     const range = maxExclusive >>> 0;

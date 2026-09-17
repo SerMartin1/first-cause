@@ -104,6 +104,14 @@ describe("RngStream.nextInt", () => {
     expect(() => stream.nextInt(1.5)).toThrow(RangeError);
   });
 
+  it("rejects a bound above 2**32 - 1 instead of silently returning NaN", () => {
+    // Regression: `maxExclusive >>> 0` wraps at 2**32, so 2**32 itself
+    // wrapped to a `range` of 0 and produced `r % 0 === NaN` with no error.
+    const stream = createWorldRng("seed-overflow").stream("naming");
+    expect(() => stream.nextInt(4294967296)).toThrow(RangeError);
+    expect(Number.isNaN(stream.nextInt(4294967295))).toBe(false);
+  });
+
   it("stays within [0, maxExclusive) over many draws", () => {
     const stream = createWorldRng("seed-bounds").stream("naming");
     for (let i = 0; i < 1000; i++) {

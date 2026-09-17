@@ -1739,9 +1739,14 @@ Vertical Slice ma udowodnić:
 
 **Status:** CANONICAL
 
-Stan na 2026-09-16: **M0 = DONE; M0.1 Audit Fixes = DONE; M1 = READY
-(not started)**. Dokumentacja pozwala rozpocząć M1 — Deterministic Core.
-Bieżący zakres i statusy określa `FIRST-CAUSE-Implementation-Roadmap-v0.2.md`.
+Stan na 2026-09-17: **M0 = DONE; M0.1 Audit Fixes = DONE; M1–M6 =
+DONE; M7 = READY (not started)**. Bieżący zakres i statusy określa
+`FIRST-CAUSE-Implementation-Roadmap-v0.2.md` (sekcje "Wyniki
+wykonania" per milestone) -- ten wpis nie był aktualizowany od M1 i
+przez to błędnie wskazywał M1 jako kolejny krok mimo ukończonych
+commitów M1–M6; poprawiono przy okazji przeglądu naprawczego M6 (RNG
+`nextInt` boundary, `applyMonthlyDemography` stochastic rounding,
+`groupCohortsIntoFamilies` -- patrz CHANGELOG 2026-09-17).
 
 ------------------------------------------------------------------------
 
@@ -2152,13 +2157,34 @@ Spec v1.0, z pierwszeństwem niniejszego rejestru.
 
 # 201. Następny krok
 
-Następny etap: **M1 — Deterministic Core**, zgodnie z roadmapą v0.2.
-Na początku M1 zapisać krótki ADR: algorytm i wersja RNG, wyprowadzanie
-streamów, strategia ID, rounding/overflow, canonical serialization
-i checksum, kolejność Commands na ticku oraz gwarancje platformowe.
-Są to decyzje do podjęcia w M1, nie decyzje zamknięte tą aktualizacją.
-Po odbiorze M1: M2 → M3 → M4. Nie rozpoczynać kolejnej dużej specyfikacji
-bez konkretnego blockera implementacyjnego.
+**Status na 2026-09-17 (zaktualizowano przy przeglądzie naprawczym
+M6):** M1 — Deterministic Core jest ukończone (ADR-001 rozstrzyga
+algorytm/wersję RNG, wyprowadzanie streamów, strategię ID,
+rounding/overflow, canonical serialization i checksum, kolejność
+Commands na ticku oraz gwarancje platformowe -- patrz ta decyzja
+poniżej dla treści, która pierwotnie tu stała jako "do podjęcia w M1").
+Po odbiorze M1 → M2 → M3 → M4 → M5 → M6, wszystkie DONE (roadmapa v0.2,
+sekcje "Wyniki wykonania"). Następny etap: **M7 — Production**.
+
+Przed rozpoczęciem M7 poprawiono w ramach przeglądu M6 (patrz
+CHANGELOG 2026-09-17): `RngStream.nextInt` przyjmował `maxExclusive`
+do 2**32 włącznie, co przez zawijanie `>>> 0` dawało `NaN` zamiast
+rzucić; `applyMonthlyDemography` zaokrąglał deterministycznie
+(round-half-even), co dla małych populacji trwale zerowało
+urodziny/zgony/aging (nigdy nie osiągały progu 0.5) -- zastąpiono
+losowym zaokrąglaniem przez dotąd nieużywany strumień RNG
+"demography" (SAVE-003); `agingSpanYears` mogło przyjąć wpis dla
+terminalnej `AGE_65_PLUS`, usuwając populację bez grupy docelowej --
+zablokowano to typem `NonTerminalAgeGroup` i sprawdzeniem
+strukturalnym; dodano `groupCohortsIntoFamilies`, żeby ręcznie
+przygotowany fixture świata (M4, z jedną kohortą na tożsamość) dało
+się podać demografii (M6) bez osobnego przygotowania. Zielone testy
+same w sobie nie wystarczały do wykrycia tych usterek -- żaden z nich
+nie uruchamiał wystarczająco długiego przebiegu na małych populacjach
+ani nie testował błędnej konfiguracji `agingSpanYears`.
+
+Nie rozpoczynać kolejnej dużej specyfikacji bez konkretnego blockera
+implementacyjnego.
 
 ------------------------------------------------------------------------
 

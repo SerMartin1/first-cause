@@ -1,0 +1,9 @@
+{
+  "id": "manual_farming",
+  "nameKey": "content.productionMethod.manual_farming.name",
+  "companyArchetypeIds": ["grain_farm"],
+  "outputs": ["flour"],
+  "inputs": [],
+  "resourceRequirements": ["grain"],
+  "implementationPhase": "VS"
+}

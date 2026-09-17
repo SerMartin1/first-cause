@@ -2,6 +2,8 @@
   "id": "flour",
   "nameKey": "content.good.flour.name",
   "category": "food_intermediate",
+  "producerArchetypeIds": ["grain_farm"],
+  "productionMethodIds": ["manual_farming"],
   "downstreamGoodIds": ["bread"],
   "householdNeed": "survival",
   "implementationPhase": "VS"

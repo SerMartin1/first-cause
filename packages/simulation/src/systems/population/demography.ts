@@ -1,8 +1,13 @@
 import type { AgeGroup, PopulationCohort } from "@first-cause/entities";
 import type { FactInput, FactLocation } from "@first-cause/causality";
 import { assertNonNegative } from "../../core/validation.js";
-import { roundHalfEven } from "../../core/rounding.js";
-import { AGE_GROUP_ORDER, NEXT_AGE_GROUP, buildCohortFamily } from "./cohorts.js";
+import type { RngStream } from "../../core/rng.js";
+import {
+  AGE_GROUP_ORDER,
+  NEXT_AGE_GROUP,
+  buildCohortFamily,
+  type NonTerminalAgeGroup,
+} from "./cohorts.js";
 
 /**
  * Monthly demography (Simulation Model SS4.5, SIM-002): births, natural
@@ -29,8 +34,13 @@ export interface DemographyRates {
    * tuning parameters"), not something M6's skeleton needs to settle.
    */
   readonly birthRate: number;
-  /** Years spent in each non-terminal age bracket before aging into the next one. */
-  readonly agingSpanYears: Readonly<Partial<Record<AgeGroup, number>>>;
+  /**
+   * Years spent in each non-terminal age bracket before aging into the
+   * next one. Typed over `NonTerminalAgeGroup`, not `AgeGroup` -- AGE_65_PLUS
+   * has no next bracket to age into, so a span configured for it would
+   * only delete population with no destination (przegląd: naprawiony P2).
+   */
+  readonly agingSpanYears: Readonly<Partial<Record<NonTerminalAgeGroup, number>>>;
 }
 
 /**
@@ -64,8 +74,29 @@ function monthlyRateFromAnnual(annualRate: number): number {
   return 1 - Math.pow(1 - annualRate, 1 / 12);
 }
 
+/**
+ * Losowe zaokrąglanie w górę/w dół, ważone częścią ułamkową (bezstronne
+ * w oczekiwaniu: E[stochasticRound(x)] = x). Naprawia przegląd P1 --
+ * `roundHalfEven` zawsze zaokrąglał ułamek < 0.5 w dół do zera, co dla
+ * małych populacji (np. 5 kohort po 10 osób) zamrażało urodzenia/zgony/
+ * starzenie *na stałe*, bo miesięczny oczekiwany przyrost nigdy nie
+ * osiągał 0.5. Tutaj każdy miesiąc ma niezerowe prawdopodobieństwo
+ * zdarzenia równe części ułamkowej, więc po dostatecznie wielu
+ * miesiącach zdarzenie w końcu zajdzie (P(nigdy) = (1-frac)^N -> 0).
+ * Korzysta z dedykowanego, wcześniej zarezerwowanego a nieużywanego
+ * strumienia RNG "demography" (SAVE-003).
+ */
+function stochasticRound(value: number, rng: RngStream): number {
+  const floor = Math.floor(value);
+  const fraction = value - floor;
+  if (fraction === 0) return floor;
+  return rng.nextFloat() < fraction ? floor + 1 : floor;
+}
+
 export interface ApplyMonthlyDemographyInput {
   readonly tick: number;
+  /** Strumień RNG "demography" (SAVE-003), zwykle scope'owany per rodzina kohort. */
+  readonly rng: RngStream;
   readonly rates?: DemographyRates;
 }
 
@@ -115,26 +146,33 @@ export function applyMonthlyDemography(
 ): ApplyMonthlyDemographyResult {
   const family = buildCohortFamily(familyCohorts);
   const rates = input.rates ?? DEFAULT_DEMOGRAPHY_RATES;
+  const { rng } = input;
 
   const deaths: Partial<Record<AgeGroup, number>> = {};
   for (const ageGroup of AGE_GROUP_ORDER) {
     const population = family[ageGroup].population;
     const rate = monthlyRateFromAnnual(rates.deathRateByAgeGroup[ageGroup]);
-    deaths[ageGroup] = Math.min(population, roundHalfEven(population * rate));
+    deaths[ageGroup] = Math.min(population, stochasticRound(population * rate, rng));
   }
 
-  const births = roundHalfEven(
+  const births = stochasticRound(
     family.AGE_25_44.population * monthlyRateFromAnnual(rates.birthRate),
+    rng,
   );
 
   const agingOut: Partial<Record<AgeGroup, number>> = {};
   for (const ageGroup of AGE_GROUP_ORDER) {
-    const span = rates.agingSpanYears[ageGroup];
-    if (span === undefined) continue; // terminal bracket (AGE_65_PLUS): no next group to age into
+    // Terminalność bierze się ze struktury (brak wpisu w NEXT_AGE_GROUP),
+    // nie z tego, czy `rates.agingSpanYears` akurat coś dla niej ustawia
+    // -- inaczej błędnie skonfigurowany `agingSpanYears.AGE_65_PLUS`
+    // usuwałby ludzi bez żadnej grupy docelowej (naprawiony przegląd P2).
+    if (NEXT_AGE_GROUP[ageGroup] === undefined) continue;
+    const span = rates.agingSpanYears[ageGroup as NonTerminalAgeGroup];
+    if (span === undefined) continue;
     const remaining = family[ageGroup].population - deaths[ageGroup]!;
     agingOut[ageGroup] = Math.min(
       remaining,
-      roundHalfEven(remaining * (1 / (span * 12))),
+      stochasticRound(remaining * (1 / (span * 12)), rng),
     );
   }
 

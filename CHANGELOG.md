@@ -10,6 +10,95 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-17
 
+- Wdrożono **M7 -- Production**. Nowe moduły
+  `packages/simulation/src/systems/economy`: `inventory.ts`
+  (`addToInventory`/`removeFromInventory` -- fizyczny rejestr dóbr,
+  DATA-005, fail-loud przy usunięciu więcej niż jest dostępne, ten sam
+  standard co `buildCohortFamily` z M6 i `extractFromDeposit` z M5),
+  `companies.ts` (`applyProductionToCompany` -- czysta aktualizacja
+  `Company.production` po jednym ticku) i `production.ts`
+  (`runProduction` -- jedna firma awansuje o jeden tick, licząc tyle
+  batchy Production Method, na ile pozwalają jednocześnie capacity/
+  utilization, zasób wydobywany na żywo z `ResourceDeposit` (M5) i
+  dobra z własnego Inventory). `ProductionRecipe` (ile dokładnie na
+  batch) to osobny typ warstwy symulacji, analogicznie do
+  `DemographyRates` z M6 -- `ProductionMethodDefinition.inputs/
+  outputs/resourceRequirements` (M2) to tylko topologia grafu, a
+  "productivity" to pole jawnie oznaczone w M2 jako należące do M7.
+
+  Dodano realne dane contentu: `content/companyArchetypes/{grain_farm,
+  bakery}.json`, `content/productionMethods/{manual_farming,
+  manual_food_processing}.json`, plus wzajemne referencje w
+  `content/resources/grain.json` i `content/goods/{flour,bread}.json`
+  -- dowodzą łańcucha Zboże->Mąka->Żywność (Production-Economy-Master
+  §13) na dwóch archetypach. `grain_farm` w fixture'cie M4 pełni rolę
+  połączonych farmy i młyna (jedna Production Method), bo fixture ma
+  tylko jedną firmę; osobny "Mill" zostaje do rozszerzenia, gdy
+  faktycznie pojawi się w świecie. Dodano klucze `en`/`pl` w
+  `locales/*/common.json` i zaktualizowano etykietę
+  `app.milestone` na "M7 -- Production"/"M7 -- Produkcja".
+
+  Dodano 19 nowych testów (278 łącznie), w tym Acceptance Gate na
+  realnych wartościach z `tests/worldgen/fixtures/
+  black_mountain_reference.json` (Green Valley Grain Farm produkuje
+  mąkę z prawdziwego zboża przez 12 ticków, zapas nigdy ujemny) i test
+  łańcucha dwóch firm przez ręczne przeniesienie Inventory (Market to
+  M8, więc na razie brak automatycznego handlu). `pnpm typecheck`,
+  `pnpm lint` (ten sam 1 warning z M2/M5, bez zmian), `pnpm
+  format:check`, `pnpm test` (278/278) i `pnpm build` przechodzą.
+  Zaktualizowano roadmapę (M7 = DONE, M8 = READY, sekcja "Wyniki
+  wykonania") oraz README.
+
+- Przegląd naprawczy M1-M6 (przed M7): naprawiono cztery usterki, żadna
+  niewykryta przez wcześniej zielony `pnpm test`.
+
+  1. **P1** -- `RngStream.nextInt` (`packages/simulation/src/core/rng.ts`)
+     przyjmował `maxExclusive` do 2**32 włącznie; `maxExclusive >>> 0`
+     zawija 2**32 do 0, więc `nextInt(4294967296)` zwracał `NaN`
+     zamiast rzucić. Dodano górną granicę `0xffffffff` do walidacji.
+  2. **P1** -- `applyMonthlyDemography`
+     (`packages/simulation/src/systems/population/demography.ts`)
+     zaokrąglał deterministycznie (`round-half-even`), co dla małych
+     populacji (np. 5 kohort po 10 osób) trwale zerowało miesięczne
+     urodziny/zgony/aging -- oczekiwana wartość nigdy nie osiągała progu
+     0.5, więc po 2400 miesiącach populacja zostawała dokładnie taka
+     sama jak na starcie. Zastąpiono losowym zaokrąglaniem (`floor` +
+     rzut monetą ważony częścią ułamkową, bezstronne w oczekiwaniu)
+     przez dotąd zarezerwowany a nieużywany strumień RNG "demography"
+     (SAVE-003) -- `applyMonthlyDemography` przyjmuje teraz wymagany
+     parametr `rng: RngStream`.
+  3. **P2** -- `agingSpanYears` mogło przyjąć wpis dla terminalnej
+     grupy `AGE_65_PLUS`, która nie ma następnej grupy do zestarzenia
+     się -- taki wpis po cichu usuwał populację bez żadnego adresata.
+     Dodano typ `NonTerminalAgeGroup`
+     (`packages/simulation/src/systems/population/cohorts.ts`,
+     wyklucza `AGE_65_PLUS` na poziomie typów) oraz sprawdzenie
+     strukturalne w pętli aging (`NEXT_AGE_GROUP[ageGroup] ===
+     undefined`, niezależne od tego, co akurat ustawia config).
+  4. **P1** -- M6 nie dało się podać fixture'owi M4
+     (`tests/worldgen/fixtures/black_mountain_reference.json`) bez
+     ręcznego przygotowania: `buildCohortFamily` wymaga dokładnie
+     pięciu kohort tej samej tożsamości, a fixture ma po jednej kohorcie
+     na inną tożsamość (różne `economicClass`/`skillLevel`) na region --
+     wywołanie rzucało "expected exactly 5 cohorts, got 2". Dodano
+     `groupCohortsIntoFamilies` (`cohorts.ts`): grupuje dowolną listę
+     kohort po tożsamości i dopełnia brakujące grupy wieku syntetyczną
+     kohortą o populacji 0, nie naruszając sumy populacji;
+     `buildCohortFamily` zostaje przy tym równie rygorystyczne
+     (fail-loud) dla wywołujących, którzy mają już kompletną rodzinę.
+
+  Dodatkowo zaktualizowano `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
+  (sekcje 162 "IMPL-001" i 201 "Następny krok"), które od M1 błędnie
+  wskazywały M1 jako kolejny krok mimo ukończonych commitów M1-M6.
+
+  Dodano 2 nowe testy regresyjne w `demography.test.ts` (zamrożenie
+  małych populacji, misconfiguration `agingSpanYears.AGE_65_PLUS`), 3
+  w `cohorts.test.ts` (`groupCohortsIntoFamilies` na kształcie
+  fixture'u M4, zachowanie sumy populacji, brak zmian dla już
+  kompletnej rodziny) i 1 w `rng.test.ts`. `pnpm typecheck`, `pnpm
+  lint` (ten sam 1 warning sprzed zmian, bez związku), `pnpm test`
+  (259/259) i `pnpm build` przechodzą.
+
 - Wdrożono **M6 -- Minimal Population**. Nowe moduły
   `packages/simulation/src/systems/population`: `cohorts.ts`
   (`buildCohortFamily` -- waliduje i indeksuje dokładnie pięć

@@ -1,6 +1,6 @@
 {
   "app.title": "FIRST CAUSE",
-  "app.milestone": "M5 -- Zasoby",
+  "app.milestone": "M7 -- Produkcja",
   "nav.world": "Świat",
   "worker.status.online": "Simulation Worker: ONLINE",
   "worker.status.offline": "Simulation Worker: OFFLINE",
@@ -13,5 +13,9 @@
   "content.resource.grain.name": "Zboże",
   "content.resource.timber.name": "Drewno",
   "content.good.flour.name": "Mąka",
-  "content.good.bread.name": "Chleb"
+  "content.good.bread.name": "Chleb",
+  "content.companyArchetype.grain_farm.name": "Gospodarstwo zbożowe",
+  "content.companyArchetype.bakery.name": "Piekarnia",
+  "content.productionMethod.manual_farming.name": "Ręczna uprawa",
+  "content.productionMethod.manual_food_processing.name": "Ręczne przetwórstwo żywności"
 }

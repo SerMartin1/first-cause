@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1, M2, M3, M4, M5 i M6 są ukończone (patrz "Wyniki wykonania" w
-sekcjach M1/M2/M3/M4/M5/M6), bieżący etap to M7 (BACKLOG). Pełni rolę,
+M1, M2, M3, M4, M5, M6 i M7 są ukończone (patrz "Wyniki wykonania" w
+sekcjach M1/M2/M3/M4/M5/M6/M7), bieżący etap to M8 (BACKLOG). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -1483,6 +1483,18 @@ nie istnieją.
 
 **Czy M7 jest odblokowane:** TAK.
 
+**Poprawki naprawcze przed M7 (przegląd, 2026-09-17):** zielone testy
+powyżej nie wykryły czterech usterek -- małe populacje (np. 5 kohort po
+10 osób) zamrażały się na stałe przez zaokrąglanie round-half-even
+(zastąpione losowym zaokrąglaniem przez strumień RNG "demography"),
+`agingSpanYears.AGE_65_PLUS` mogło po cichu usuwać populację bez grupy
+docelowej (zablokowane typem `NonTerminalAgeGroup`), `applyMonthlyDemography`
+nie dało się podać fixture'owi M4 bez ręcznego przygotowania (dodano
+`groupCohortsIntoFamilies`), a `RngStream.nextInt` zwracał `NaN` dla
+`maxExclusive` powyżej 2**32 - 1. Szczegóły: CHANGELOG 2026-09-17.
+`applyMonthlyDemography` przyjmuje teraz wymagany parametr `rng:
+RngStream` -- każdy przyszły wywołujący (M7+) musi go przekazać.
+
 ------------------------------------------------------------------------
 
 ## M7 --- Production
@@ -1534,6 +1546,87 @@ Definition Registry, nie z `if company == X`.
 **Źródła:** `FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md` (§5--16),
 `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§11--14),
 `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (ECO-007--009, ECO-011--012).
+
+### M7 --- Wyniki wykonania (2026-09-17)
+
+**Status: DONE.**
+
+**Nowe moduły (`packages/simulation/src/systems/economy`):**
+
+-   `inventory.ts` (`addToInventory`/`removeFromInventory`) --
+    fizyczny rejestr dóbr (DATA-005): czyste, fail-loud operacje na
+    `Inventory.items` -- usunięcie więcej niż jest dostępne rzuca
+    `InvariantViolationError`, ten sam standard co `buildCohortFamily`
+    (M6) i `extractFromDeposit` (M5), zamiast po cichu ściąć do zera.
+-   `companies.ts` (`applyProductionToCompany`) -- czysta aktualizacja
+    `Company.production` (`productionMethodId`, `outputLastTick`,
+    `inputRequirements`) po jednym ticku produkcji; finanse (M8 ceny) i
+    AI (M11) pozostają nietknięte, bo jeszcze nie istnieją.
+-   `production.ts` (`runProduction`) -- awansuje jedną firmę o
+    dokładnie jeden tick: liczba batchy Production Method to minimum z
+    `capacity * utilization` (przydzielone poza M7 -- AI produkcyjne to
+    M11) i dostępności każdego wejścia -- zasobu wydobywanego na żywo z
+    `ResourceDeposit` przez `extractFromDeposit` (M5, ta sama fizyczna
+    zasada "wydobycie nie może stworzyć zasobu") oraz dobra z własnego
+    Inventory firmy. `ProductionRecipe` (ile dokładnie na batch) to
+    osobny typ warstwy symulacji -- jak `DemographyRates` w M6 -- nie
+    część schematu contentu: `ProductionMethodDefinition.inputs/
+    outputs/resourceRequirements` (M2) to tylko topologia grafu (które
+    dobra/zasoby, do walidacji referencji), a "productivity" to pole
+    jawnie oznaczone w M2 jako otwarte i należące do M7, więc M7 nadaje
+    mu konkretny kształt bez zmiany schematu M2. Brak depozytu, którego
+    przepis wymaga, rzuca głośno (pomyłka wywołującego), w
+    przeciwieństwie do depozytu obecnego, ale pustego (0 batchy,
+    legalny stan wyczerpania -- ECO-010).
+
+**Nowe definicje contentu** (`content/companyArchetypes/`,
+`content/productionMethods/`, plus aktualizacja `content/resources/
+grain.json` i `content/goods/{flour,bread}.json` o wzajemne referencje):
+`grain_farm` + `manual_farming` (zboże, zasób, wydobywane na żywo ->
+mąka, dobro) i `bakery` + `manual_food_processing` (mąka -> chleb),
+dowodząc łańcucha Zboże->Mąka->Żywność (Production-Economy-Master
+§13) na dwóch archetypach. `grain_farm` w fixture'cie M4 pełni rolę
+połączonych farmy i młyna (jedna Production Method) -- fixture ma tylko
+jedną firmę, więc osobny archetyp "Mill" zostaje do rozszerzenia, gdy
+faktycznie pojawi się w świecie, zamiast dodawać go teraz bez
+uzasadnienia w danych. Dodano odpowiednie klucze `en`/`pl` w
+`locales/*/common.json` i rozszerzono
+`content-fixtures.integration.test.ts` o te dwa typy contentu.
+
+**Testy:** 19 nowych (278 łącznie): `inventory.ts` (dodawanie/
+usuwanie, tworzenie i kasowanie pozycji przy zejściu do zera, fail-loud
+przy niewystarczającym zapasie), `companies.ts` (aktualizacja stanu
+produkcji, reszta pól nietknięta), `production.ts` (batch capacity-
+limited, floor(capacity*utilization), ograniczenie przez dostępność
+zasobu i dobra wejściowego, zero batchy przy capacity=0, fail-loud przy
+brakującym depozycie, łańcuch dwóch firm przez ręczne przeniesienie
+Inventory -- Market to M8 -- oraz Acceptance Gate na realnych wartościach
+z fixture'u M4: `company_green_valley_farm`/`deposit_green_valley_grain`/
+`inventory_green_valley_farm`, 12 ticków, zapas nigdy ujemny).
+
+**Acceptance Gate -- zweryfikowane:** firma z fixture'u (Green Valley
+Grain Farm) produkuje mąkę z prawdziwego zboża wydobywanego z jej
+prawdziwego depozytu; inventory rośnie zgodnie z produkcją, depozyt
+maleje zgodnie z ekstrakcją; zapas nigdy nie schodzi poniżej zera.
+
+**Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2/M5, bez zmian), `pnpm format:check`, `pnpm test`
+(278/278) i `pnpm build` -- wszystkie zielone w czystym przebiegu.
+
+**Dług techniczny / świadomie poza zakresem:** brak Market (M8) --
+dobra przenoszą się między firmami wyłącznie ręcznie (test/przyszły
+orkiestrator), nie automatycznie; brak cen/finansów (`finance.revenue/
+costs` nietknięte -- to M8); brak AI decydującego o `capacity`/
+`utilization`/wyborze Production Method (M11) -- `runProduction`
+przyjmuje je jako gotowy stan; brak realnej pętli ticków łączącej
+`HeadlessRunner`/`WorldState` z systemami gospodarki -- ten sam stan co
+M5 (resources) i M6 (population); tylko 2 z 17 archetypów VS i 2 z 20
+dóbr VS mają realne dane contentu -- reszta łańcuchów (Livestock->Meat,
+Fish->Fish Food, Cotton->Fiber->Textiles->Clothing z pierwotnego
+zakresu M7) rośnie przyrostowo, gdy pojawią się archetypy/firmy, które
+ich faktycznie potrzebują.
+
+**Czy M8 jest odblokowane:** TAK.
 
 ------------------------------------------------------------------------
 

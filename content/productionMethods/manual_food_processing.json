@@ -1,0 +1,9 @@
+{
+  "id": "manual_food_processing",
+  "nameKey": "content.productionMethod.manual_food_processing.name",
+  "companyArchetypeIds": ["bakery"],
+  "outputs": ["bread"],
+  "inputs": ["flour"],
+  "resourceRequirements": [],
+  "implementationPhase": "VS"
+}

@@ -81,7 +81,7 @@ describe("App", () => {
     screen.getByRole("button", { name: "PL" }).click();
 
     await waitFor(() => {
-      expect(screen.getByText("M5 -- Zasoby")).toBeInTheDocument();
+      expect(screen.getByText("M7 -- Produkcja")).toBeInTheDocument();
     });
   });
 });

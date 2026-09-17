@@ -4,3 +4,4 @@ export * from "./core/index.js";
 export * from "./read-models/index.js";
 export * from "./systems/resources/index.js";
 export * from "./systems/population/index.js";
+export * from "./systems/economy/index.js";

@@ -1,0 +1,10 @@
+{
+  "id": "bakery",
+  "nameKey": "content.companyArchetype.bakery.name",
+  "sector": "food_processing",
+  "allowedInputs": ["flour"],
+  "allowedOutputs": ["bread"],
+  "productionMethodIds": ["manual_food_processing"],
+  "capitalRequirement": 0,
+  "implementationPhase": "VS"
+}

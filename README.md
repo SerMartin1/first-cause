@@ -17,7 +17,7 @@ enabled it (`Butterfly Effect`).
 ## Current milestone
 
 **M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = DONE; M3 = DONE;
-M4 = DONE; M5 = DONE; M6 = DONE; M7 = READY (not started).**
+M4 = DONE; M5 = DONE; M6 = DONE; M7 = DONE; M8 = READY (not started).**
 M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
 M1 -- Deterministic Core added a real, headless-testable deterministic
 skeleton (`packages/simulation/src/core`): a tick-derived
@@ -68,12 +68,30 @@ monthly births/deaths/aging-transfer, annual rates compounded to a
 monthly probability, tuned so a 200-year/2400-tick run stays within
 roughly +-10% of its start) and the second real `population_increased`/
 `population_declined` facts -- see the roadmap's M6 "Wyniki wykonania"
-for what was verified. Next: **M7 -- Production**. Market/Labor/Trade/
-AI/causality/Chronicle/Architect and a procedural World Generation
-algorithm still do not exist as *systems* driving a live world yet --
-resources and population are each only proven in isolation,
-headless/under test, with no tick loop wiring them into `WorldState`
-yet. See the Implementation Roadmap for the full milestone sequence.
+for what was verified. A follow-up review before M7 fixed four bugs in
+M1-M6 that green tests alone had not caught (small populations frozen
+forever by deterministic rounding, `RngStream.nextInt` returning `NaN`
+above 2**32 - 1, a terminal-age-bracket population leak, and M6 not
+running against the M4 fixture without manual prep) -- see the
+2026-09-17 CHANGELOG entry. M7 -- Production added
+`packages/simulation/src/systems/economy` (`runProduction`: one
+company advances one tick, running as many Production Method "batches"
+as its capacity/utilization and the availability of both live-extracted
+resources (M5 `ResourceDeposit`) and its own `Inventory` goods allow;
+`addToInventory`/`removeFromInventory`: the fail-loud physical ledger;
+`applyProductionToCompany`: the resulting `Company.production` state
+update) plus two real content definitions
+(`content/companyArchetypes`, `content/productionMethods`) proving the
+Zboże->Mąka->Żywność chain end to end -- see the roadmap's M7 "Wyniki
+wykonania" for what was verified, including what is deliberately still
+missing (no Market yet, so goods move between companies only by a
+test/caller hand-carrying them). Next: **M8 -- Market**.
+Labor/Trade/AI/causality/Chronicle/Architect and a procedural World
+Generation algorithm still do not exist as *systems* driving a live
+world yet -- resources, population and production are each only
+proven in isolation, headless/under test, with no tick loop wiring
+them into `WorldState` yet. See the Implementation Roadmap for the
+full milestone sequence.
 
 ## Requirements
 

@@ -1,6 +1,6 @@
 {
   "app.title": "FIRST CAUSE",
-  "app.milestone": "M5 -- Resources",
+  "app.milestone": "M7 -- Production",
   "nav.world": "World",
   "worker.status.online": "Simulation Worker: ONLINE",
   "worker.status.offline": "Simulation Worker: OFFLINE",
@@ -13,5 +13,9 @@
   "content.resource.grain.name": "Grain",
   "content.resource.timber.name": "Timber",
   "content.good.flour.name": "Flour",
-  "content.good.bread.name": "Bread"
+  "content.good.bread.name": "Bread",
+  "content.companyArchetype.grain_farm.name": "Grain Farm",
+  "content.companyArchetype.bakery.name": "Bakery",
+  "content.productionMethod.manual_farming.name": "Manual Farming",
+  "content.productionMethod.manual_food_processing.name": "Manual Food Processing"
 }

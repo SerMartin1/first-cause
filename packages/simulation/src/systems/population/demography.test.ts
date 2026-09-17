@@ -4,6 +4,7 @@ import {
   type AgeGroup,
   type PopulationCohort,
 } from "@first-cause/entities";
+import { createWorldRng, type RngStream } from "../../core/rng.js";
 import { AGE_GROUP_ORDER } from "./cohorts.js";
 import {
   applyMonthlyDemography,
@@ -22,6 +23,12 @@ function buildFamily(populationByAgeGroup: Readonly<Record<AgeGroup, number>>) {
       skillLevel: "UNSKILLED",
     }),
   );
+}
+
+// Świeży strumień RNG "demography" na test -- każdy test dostaje własny,
+// żeby wyniki jednego testu nie zależały od kolejności wywołań w innym.
+function testRng(seed: string): RngStream {
+  return createWorldRng(seed).stream("demography");
 }
 
 const EVEN_FAMILY: Readonly<Record<AgeGroup, number>> = {
@@ -51,7 +58,11 @@ describe("applyMonthlyDemography -- age group transitions (POP-002, Simulation M
       agingSpanYears: { AGE_0_14: 1, AGE_15_24: 1, AGE_25_44: 1, AGE_45_64: 1 },
     };
 
-    const result = applyMonthlyDemography(buildFamily(EVEN_FAMILY), { tick: 0, rates });
+    const result = applyMonthlyDemography(buildFamily(EVEN_FAMILY), {
+      tick: 0,
+      rng: testRng("aging-exact"),
+      rates,
+    });
     const byAgeGroup = Object.fromEntries(
       result.cohorts.map((c) => [c.ageGroup, c.population]),
     );
@@ -90,7 +101,40 @@ describe("applyMonthlyDemography -- age group transitions (POP-002, Simulation M
       birthRate: 0,
       agingSpanYears: {},
     };
-    const result = applyMonthlyDemography(buildFamily(EVEN_FAMILY), { tick: 0, rates });
+    const result = applyMonthlyDemography(buildFamily(EVEN_FAMILY), {
+      tick: 0,
+      rng: testRng("terminal-no-aging"),
+      rates,
+    });
+    const elderly = result.cohorts.find((c) => c.ageGroup === "AGE_65_PLUS")!;
+    expect(elderly.population).toBe(120);
+  });
+
+  it("ignores a misconfigured agingSpanYears.AGE_65_PLUS instead of deleting population with no destination bracket (regression, przegląd P2)", () => {
+    // AGE_65_PLUS jest terminalne wyłącznie ze struktury (NEXT_AGE_GROUP),
+    // więc nawet gdyby jakiś (np. zdeserializowany z configu) obiekt
+    // rates przemycił dla niej span -- co typ `NonTerminalAgeGroup` już
+    // blokuje w normalnym kodzie -- silnik ma to zignorować, a nie
+    // zmniejszyć kohortę bez żadnej grupy docelowej.
+    const misconfigured: DemographyRates = {
+      deathRateByAgeGroup: {
+        AGE_0_14: 0,
+        AGE_15_24: 0,
+        AGE_25_44: 0,
+        AGE_45_64: 0,
+        AGE_65_PLUS: 0,
+      },
+      birthRate: 0,
+      agingSpanYears: { AGE_65_PLUS: 1 } as unknown as DemographyRates["agingSpanYears"],
+    };
+
+    const result = applyMonthlyDemography(buildFamily(EVEN_FAMILY), {
+      tick: 0,
+      rng: testRng("terminal-misconfigured"),
+      rates: misconfigured,
+    });
+
+    expect(sumPopulation(result.cohorts)).toBe(sumPopulation(buildFamily(EVEN_FAMILY)));
     const elderly = result.cohorts.find((c) => c.ageGroup === "AGE_65_PLUS")!;
     expect(elderly.population).toBe(120);
   });
@@ -98,6 +142,11 @@ describe("applyMonthlyDemography -- age group transitions (POP-002, Simulation M
 
 describe("applyMonthlyDemography -- births (SIM-002)", () => {
   it("adds births only to AGE_0_14, leaving every other bracket (including the childbearing one) untouched", () => {
+    // AGE_25_44 podbite do 2000, żeby floor(oczekiwanych urodzin) był
+    // zagwarantowany >= 1 niezależnie od losowego dobicia ostatniej
+    // ułamkowej osoby -- test ma sprawdzać *które* kohorty rosną, a nie
+    // zależeć od konkretnego ziarna RNG.
+    const family = { ...EVEN_FAMILY, AGE_25_44: 2000 };
     const rates: DemographyRates = {
       deathRateByAgeGroup: {
         AGE_0_14: 0,
@@ -110,14 +159,18 @@ describe("applyMonthlyDemography -- births (SIM-002)", () => {
       agingSpanYears: {}, // isolate births from aging transfer
     };
 
-    const result = applyMonthlyDemography(buildFamily(EVEN_FAMILY), { tick: 0, rates });
+    const result = applyMonthlyDemography(buildFamily(family), {
+      tick: 0,
+      rng: testRng("births"),
+      rates,
+    });
     const byAgeGroup = Object.fromEntries(
       result.cohorts.map((c) => [c.ageGroup, c.population]),
     );
 
     expect(byAgeGroup.AGE_0_14).toBeGreaterThan(120);
     expect(byAgeGroup.AGE_15_24).toBe(120);
-    expect(byAgeGroup.AGE_25_44).toBe(120); // the childbearing bracket itself is not depleted by births
+    expect(byAgeGroup.AGE_25_44).toBe(2000); // the childbearing bracket itself is not depleted by births
     expect(byAgeGroup.AGE_45_64).toBe(120);
     expect(byAgeGroup.AGE_65_PLUS).toBe(120);
     expect(result.facts).toEqual([
@@ -134,9 +187,9 @@ describe("applyMonthlyDemography -- births (SIM-002)", () => {
 describe("applyMonthlyDemography -- invariants", () => {
   it("delegates family validation to buildCohortFamily (throws on an incomplete family)", () => {
     const incomplete = buildFamily(EVEN_FAMILY).slice(0, 4);
-    expect(() => applyMonthlyDemography(incomplete, { tick: 0 })).toThrow(
-      /expected exactly 5/,
-    );
+    expect(() =>
+      applyMonthlyDemography(incomplete, { tick: 0, rng: testRng("incomplete-family") }),
+    ).toThrow(/expected exactly 5/);
   });
 
   it("never produces a negative cohort population, even at a 100% annual death rate", () => {
@@ -151,7 +204,11 @@ describe("applyMonthlyDemography -- invariants", () => {
       birthRate: 0,
       agingSpanYears: { AGE_0_14: 1, AGE_15_24: 1, AGE_25_44: 1, AGE_45_64: 1 },
     };
-    const result = applyMonthlyDemography(buildFamily(EVEN_FAMILY), { tick: 0, rates });
+    const result = applyMonthlyDemography(buildFamily(EVEN_FAMILY), {
+      tick: 0,
+      rng: testRng("no-negative"),
+      rates,
+    });
     for (const cohort of result.cohorts) {
       expect(cohort.population).toBe(0);
     }
@@ -165,10 +222,14 @@ describe("applyMonthlyDemography -- invariants", () => {
       AGE_45_64: 2200,
       AGE_65_PLUS: 1200,
     });
+    // Jeden, ciągle zużywany strumień RNG na całą pętlę -- tak jak
+    // wyglądałoby to w realnym wywołaniu tick po ticku (stan strumienia
+    // przenosi się między miesiącami, tak samo jak `family`).
+    const rng = testRng("conservation");
 
     for (let tick = 0; tick < 50; tick++) {
       const before = sumPopulation(family);
-      const result = applyMonthlyDemography(family, { tick });
+      const result = applyMonthlyDemography(family, { tick, rng });
       const after = sumPopulation(result.cohorts);
       const sumOfFactDeltas = result.facts.reduce(
         (sum, f) => sum + (f.values.delta ?? 0),
@@ -196,10 +257,12 @@ describe("applyMonthlyDemography -- 200-year smoke test (M6 Acceptance Gate)", (
       AGE_65_PLUS: 1200,
     });
     const startTotal = sumPopulation(family);
+    const rng = testRng("smoke-test");
 
     for (let tick = 0; tick < 2400; tick++) {
       const result = applyMonthlyDemography(family, {
         tick,
+        rng,
         rates: DEFAULT_DEMOGRAPHY_RATES,
       });
       for (const cohort of result.cohorts) {
@@ -211,5 +274,33 @@ describe("applyMonthlyDemography -- 200-year smoke test (M6 Acceptance Gate)", (
     const endTotal = sumPopulation(family);
     expect(endTotal).toBeGreaterThan(startTotal * 0.5);
     expect(endTotal).toBeLessThan(startTotal * 2);
+  });
+
+  it("does not permanently freeze small populations (regression, przegląd P1 #1: 5 kohort po 10 osób zamrożonych po 2400 miesiącach round-half-even)", () => {
+    let family: readonly PopulationCohort[] = buildFamily({
+      AGE_0_14: 10,
+      AGE_15_24: 10,
+      AGE_25_44: 10,
+      AGE_45_64: 10,
+      AGE_65_PLUS: 10,
+    });
+    const initial = family.map((c) => c.population);
+    const rng = testRng("small-population-unfreeze");
+
+    let everChanged = false;
+    for (let tick = 0; tick < 2400; tick++) {
+      const result = applyMonthlyDemography(family, {
+        tick,
+        rng,
+        rates: DEFAULT_DEMOGRAPHY_RATES,
+      });
+      family = result.cohorts;
+      if (family.some((c, i) => c.population !== initial[i])) {
+        everChanged = true;
+        break;
+      }
+    }
+
+    expect(everChanged).toBe(true);
   });
 });

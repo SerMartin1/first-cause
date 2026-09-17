@@ -1,0 +1,10 @@
+{
+  "id": "grain_farm",
+  "nameKey": "content.companyArchetype.grain_farm.name",
+  "sector": "agriculture",
+  "allowedInputs": [],
+  "allowedOutputs": ["flour"],
+  "productionMethodIds": ["manual_farming"],
+  "capitalRequirement": 0,
+  "implementationPhase": "VS"
+}
