@@ -138,3 +138,63 @@ export function matchEmployment(input: MatchEmploymentInput): MatchEmploymentRes
 
   return { company: nextCompany, cohort: nextCohort, hired, facts };
 }
+
+export interface LayoffWorkersInput {
+  readonly company: Company;
+  readonly cohort: PopulationCohort;
+  /** How many of this specific cohort's jobs at this specific company to end. */
+  readonly count: number;
+}
+
+export interface LayoffWorkersResult {
+  readonly company: Company;
+  readonly cohort: PopulationCohort;
+  readonly facts: readonly FactInput<number>[];
+}
+
+/**
+ * Layoff (AI Decision Model SS31, M11 `company-ai/labor-decision.ts`):
+ * the mechanical mirror of `matchEmployment` -- ends `count` jobs this
+ * cohort holds at this company, symmetric fail-loud precondition
+ * (`count` cannot exceed what this specific pairing actually employs;
+ * Company only stores an aggregate `employees` headcount, not a
+ * per-cohort breakdown, so the caller must know which cohort to return
+ * the workers to). `averageIncome` is left untouched -- it is a blended
+ * rate across every employer this cohort has, and a layoff from one
+ * employer does not retroactively change what the remaining jobs pay.
+ */
+export function layoffWorkers(input: LayoffWorkersInput): LayoffWorkersResult {
+  const { company, cohort } = input;
+  const count = assertNonNegative(input.count, "layoffWorkers().count");
+  if (count === 0) return { company, cohort, facts: [] };
+
+  if (count > company.workforce.employees) {
+    throw new InvariantViolationError(
+      `layoffWorkers: Company "${company.id}" only has ${company.workforce.employees} employees, cannot lay off ${count}`,
+    );
+  }
+  if (count > cohort.employment) {
+    throw new InvariantViolationError(
+      `layoffWorkers: Cohort "${cohort.id}" only has ${cohort.employment} employed, cannot lay off ${count}`,
+    );
+  }
+
+  const nextCompany: Company = {
+    ...company,
+    workforce: { ...company.workforce, employees: company.workforce.employees - count },
+  };
+  const priorEmployment = cohort.employment;
+  const nextEmployment = priorEmployment - count;
+  const nextCohort: PopulationCohort = { ...cohort, employment: nextEmployment };
+
+  const facts: FactInput<number>[] = [
+    {
+      type: "employment_changed",
+      subject: { entityType: "populationCohort", entityId: cohort.id },
+      location: cohortLocation(cohort),
+      values: { before: priorEmployment, after: nextEmployment, delta: -count },
+    },
+  ];
+
+  return { company: nextCompany, cohort: nextCohort, facts };
+}

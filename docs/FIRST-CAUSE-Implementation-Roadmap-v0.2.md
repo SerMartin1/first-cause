@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1--M10 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M10),
-bieżący etap to M11 (BACKLOG). Pełni rolę,
+M1--M11 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M11),
+bieżący etap to M12 (BACKLOG). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -2134,6 +2134,116 @@ jako input do decyzji (M13), State AI (`DEFERRED`).
 **Źródła:** `FIRST-CAUSE-AI-Decision-Model-v0.1.md` (całość, zwłaszcza
 §5--41, §121--124), `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (AI-\*).
 
+### M11 --- Wyniki wykonania (2026-09-17)
+
+**Status: DONE.**
+
+**Rozszerzenie encji (`packages/entities/src/economy/company.ts`):**
+`Company` zyskuje pole `ai` (Entity Data Model SS19 `ai: {state,
+expectations, lastDecision, lastEvaluation}` -- dokładnie to, czego M3
+świadomie nie dotknęło). `expectations` NIE jest zdublowane -- M11
+zapisuje je do już istniejącego `CompanyMarketState.expectedPrices/
+expectedDemand` (M3), pierwszy raz od jego wprowadzenia. `state` staje
+się `memory` (AI-02: krótka pamięć trendów, bounded rolling window jak
+`Market.history` z M8) + `activeStates`/`opportunityStreak` (AI-01
+hysteresis/persistence); `lastDecision` to bramka cooldownu, kluczowana
+per typ decyzji.
+
+**Nowe moduły (`packages/simulation/src/systems/economy/company-ai`):**
+
+-   `decision-framework.ts` (AI-01) -- `evaluateHysteresisGate` (próg
+    aktywacji wyższy niż dezaktywacji, SS19), `isOnCooldown`/
+    `recordDecision` (SS20), `updateOpportunityStreak`/
+    `persistenceSatisfied` (SS21), `updateMemory` (AI-02),
+    `updateExpectations` (SS10 EMA -- do `Company.market.
+    expectedPrices/expectedDemand`). Wspólna infrastruktura, z której
+    korzystają wszystkie poniższe moduły -- roadmapowe ryzyko HIGH
+    ("interakcja wielu poprawnych systemów prowadząca do niestabilnej
+    symulacji", Master Audit §271) jest mitygowane raz, nie osobno w
+    każdej decyzji.
+-   `financial-health.ts` (AI-05) -- `assessFinancialHealth`
+    (profitMargin, cashRunwayMonths, `distressed`). Każdy inny moduł
+    decyzyjny sprawdza `distressed` przed wzrostem (SS23 "Priorytet
+    przetrwania firmy").
+-   `production-decision.ts` (AI-03, SS25-28) -- domyka dług z M7:
+    `Company.production.utilization` jest teraz naprawdę sterowane przez
+    AI, tym samym wzorcem capped+smoothed pressure co `markets/
+    price-adjustment.ts` (M8) i `labor/wages.ts` (M9) -- SS26 "nie
+    skacze natychmiast z 10% do 100%". Zdystresowana firma nigdy nie
+    dostaje sygnału INCREASE z marginesu (SS23), ale wciąż może REDUCE
+    przy realnej stracie.
+-   `labor-decision.ts` (AI-04, SS29/31) -- decyduje tylko *cel*
+    zatrudnienia (`vacancies` albo `layoffTarget`); wykonanie na
+    konkretnej kohorcie zostaje `matchEmployment`/`layoffWorkers`
+    (`labor/employment.ts`, M9+M11) -- `Company` przechowuje tylko
+    zagregowany `employees`, nie rozbicie per-kohorta. Wspólny cooldown
+    dla HIRE/LAYOFF wymusza SS31 ("nie powinna zwalniać i zatrudniać
+    tych samych pracowników co tick") silniej niż dosłowne brzmienie --
+    nie mogą się przełączać nawet w oknie cooldownu.
+-   `lifecycle-decision.ts` (AI-06, SS32-35) -- Expansion/Contraction/
+    Closure, jedyne miejsce, gdzie hysteresis+cooldown+persistence
+    działają razem (długie okna, SS20 "expansion -- długi"). `ExpansionScore`
+    liczy realne sygnały, które M11 ma (DemandPersistence, Margin,
+    CapacityPressure, CapitalCost) i świadomie zeruje resztę
+    (MarketGrowth/InputRisk/LaborRisk/MarketRisk) zamiast zgadywać --
+    strukturalnie wierne, nie w pełni wypełnione, ten sam standard co
+    `Tariff` w M10. Closure z zerową/ujemną gotówką w momencie zamknięcia
+    ustawia też `status.bankrupt` (SS35: "w prostym VS bankructwo może
+    wynikać z utraty płynności") -- bez osobnego systemu długu.
+-   `pm-adoption.ts` (AI-08, SS36-41) -- `PMScore` jako delta marginesu
+    na batch między `ProductionRecipe` (M7) obecnym a kandydatem, cenione
+    z Perceived World State wywołującego (brakująca cena = 0, nie rzut
+    wyjątku -- AI-004 ograniczona racjonalność). `innovationPreference`
+    obniża wymaganą przewagę (SS40 Early Adopters).
+-   `decision-snapshot.ts` (AI-10) -- `DecisionSnapshot`/`CausalContext`
+    jako czyste dane; realne wpięcie w graf Causality Engine to M17.
+    AI-11 Debug Inspector jest spełnione przez to, że `DecisionSnapshot`
+    jest prawdziwą, inspekcjonowalną wartością zwracaną przez
+    `lifecycle-decision.ts`/`pm-adoption.ts` -- Simulation Core nic nie
+    renderuje (DATA-007), więc nie ma tu osobnego UI/read-modelu.
+
+**Rozszerzenie M9 (`labor/employment.ts`):** nowa `layoffWorkers` --
+mechaniczne lustrzane odbicie `matchEmployment`, fail-loud jak reszta
+modułu.
+
+**Dane:** brak nowego contentu -- `pm-adoption.ts` testowany na
+syntetycznych `ProductionRecipe` w testach, zgodnie z "wykorzystuje
+istniejące PM i archetypy".
+
+**Testy:** 68 nowych (430 łącznie): production reaction/no overreaction,
+hysteresis (aktywacja/dezaktywacja niezależne progi), cooldown (blokuje,
+potem zwalnia), financial survival, closure (z DecisionSnapshot),
+bankruptcy (zero cash przy zamknięciu), PM adoption/rejection (w tym
+"technologia może być nieopłacalna" i Early Adopters), determinism
+(identyczne wejście -> identyczny wynik, dwa moduły).
+
+**Acceptance Gate -- zweryfikowane:** firma autonomicznie planuje
+produkcję (utilization reaguje na margines/inventory/input), reaguje na
+inventory (wysoki inventory -> REDUCE), zatrudnia (HIRE otwiera
+vacancies), zmienia wage offer (M9, ponownie użyte), przechodzi przez
+expansion/contraction/closure (hysteresis+cooldown+persistence), unika
+oscylacji (100-tickowe testy stresowe w `production-decision.test.ts`
+nie wykazują odbić).
+
+**Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
+1 warning z M2/M5/M7/M8/M9/M10, bez zmian), `pnpm format:check`,
+`pnpm test` (430/430) i `pnpm build` -- wszystkie zielone w czystym
+przebiegu. Etykieta `app.milestone` zaktualizowana na "M11 -- Company
+AI"/"M11 -- AI Firm".
+
+**Dług techniczny / świadomie poza zakresem:** entrepreneurship/nowe
+firmy (M12), pełna migracja jako input do decyzji (M13), State AI
+(`DEFERRED`); `DecisionSnapshot.causalContext` nie jest jeszcze wpięty w
+realny graf `CausalEdge` (M17); `ExpansionScore` pomija
+MarketGrowth/InputRisk/LaborRisk/MarketRisk (brak jeszcze realnych
+sygnałów -- kolejne milestone'y je dodadzą, nie trzeba zmieniać
+`lifecycle-decision.ts`, tylko rozszerzyć wejście); brak realnej pętli
+ticków łączącej `HeadlessRunner`/`WorldState` z systemami gospodarki --
+ten sam stan co M5-M10, każda funkcja decyzyjna jest czysta i testowana
+w izolacji, nie wołana per-tick przez orkiestrator.
+
+**Czy M12 jest odblokowane:** TAK.
+
 ------------------------------------------------------------------------
 
 ## M12 --- Entrepreneurship
@@ -3090,8 +3200,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M8          DONE      P0          M           HIGH          M7
   M9          DONE      P0          M           MEDIUM        M8
   M10         DONE      P0          M           MEDIUM        M9
-  M11         READY     P0          L           HIGH          M10
-  M12         BACKLOG   P0          M           MEDIUM-HIGH   M11
+  M11         DONE      P0          L           HIGH          M10
+  M12         READY     P0          M           MEDIUM-HIGH   M11
   M13         BACKLOG   P0          M           MEDIUM        M12
   M14         BACKLOG   P0          S/M         MEDIUM        M13
   M15         BACKLOG   P0          L           MEDIUM-HIGH   M14

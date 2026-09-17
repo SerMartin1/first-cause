@@ -5,7 +5,12 @@ import {
 } from "@first-cause/entities";
 import { describe, expect, it } from "vitest";
 import { InvariantViolationError } from "../../../core/validation.js";
-import { availableWorkers, eligibleLaborForce, matchEmployment } from "./employment.js";
+import {
+  availableWorkers,
+  eligibleLaborForce,
+  layoffWorkers,
+  matchEmployment,
+} from "./employment.js";
 
 function company(overrides: {
   readonly vacancies: number;
@@ -218,5 +223,74 @@ describe("matchEmployment", () => {
     expect(resultA.hired + resultB.hired).toBe(65);
     expect(sharedCohort.employment).toBe(65);
     expect(sharedCohort.employment).toBeLessThanOrEqual(eligibleLaborForce(cohort(100)));
+  });
+});
+
+describe("layoffWorkers", () => {
+  it("is the mechanical mirror of matchEmployment: reduces both sides by count", () => {
+    const hired = matchEmployment({
+      company: company({ vacancies: 50, skillDemand: { UNSKILLED: 50 } }),
+      cohort: cohort(1000),
+    });
+
+    const laidOff = layoffWorkers({
+      company: hired.company,
+      cohort: hired.cohort,
+      count: 20,
+    });
+    expect(laidOff.company.workforce.employees).toBe(30);
+    expect(laidOff.cohort.employment).toBe(30);
+  });
+
+  it("leaves averageIncome untouched (blended rate across every employer)", () => {
+    const hired = matchEmployment({
+      company: company({ vacancies: 50, skillDemand: { UNSKILLED: 50 }, wageOffer: 10 }),
+      cohort: cohort(1000),
+    });
+    const laidOff = layoffWorkers({
+      company: hired.company,
+      cohort: hired.cohort,
+      count: 10,
+    });
+    expect(laidOff.cohort.averageIncome).toBe(hired.cohort.averageIncome);
+  });
+
+  it("no-ops (0 facts, same references) when count is 0", () => {
+    const hired = matchEmployment({
+      company: company({ vacancies: 50, skillDemand: { UNSKILLED: 50 } }),
+      cohort: cohort(1000),
+    });
+    const result = layoffWorkers({
+      company: hired.company,
+      cohort: hired.cohort,
+      count: 0,
+    });
+    expect(result.company).toBe(hired.company);
+    expect(result.cohort).toBe(hired.cohort);
+    expect(result.facts).toEqual([]);
+  });
+
+  it("fails loud when laying off more than the company actually employs", () => {
+    const hired = matchEmployment({
+      company: company({ vacancies: 50, skillDemand: { UNSKILLED: 50 } }),
+      cohort: cohort(1000),
+    });
+    expect(() =>
+      layoffWorkers({ company: hired.company, cohort: hired.cohort, count: 999 }),
+    ).toThrow(InvariantViolationError);
+  });
+
+  it("emits an employment_changed fact with a negative delta", () => {
+    const hired = matchEmployment({
+      company: company({ vacancies: 50, skillDemand: { UNSKILLED: 50 } }),
+      cohort: cohort(1000),
+    });
+    const result = layoffWorkers({
+      company: hired.company,
+      cohort: hired.cohort,
+      count: 10,
+    });
+    const fact = result.facts.find((f) => f.type === "employment_changed");
+    expect(fact?.values.delta).toBe(-10);
   });
 });

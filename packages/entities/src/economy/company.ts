@@ -41,13 +41,36 @@ export interface CompanyStatus {
   readonly bankrupt: boolean;
 }
 
+/** Short rolling trends (AI Decision Model SS9 "Memory": "krótka pamięć trendów", not full world history). */
+export interface CompanyAiMemory {
+  readonly profitHistory: readonly number[];
+  readonly demandHistory: readonly number[];
+  readonly shortageHistory: readonly number[];
+}
+
+/**
+ * `ai` (Entity Data Model SS19 `ai: {state, expectations, lastDecision,
+ * lastEvaluation}`, M11). `expectations` is deliberately NOT duplicated
+ * here -- it already exists as `CompanyMarketState.expectedPrices/
+ * expectedDemand` (M3), so M11 writes into that instead of adding a
+ * second copy. `state` becomes `memory` (AI-02 Observation & Memory) +
+ * `activeStates`/`opportunityStreak` (AI-01 hysteresis/persistence,
+ * `company-ai/decision-framework.ts`); `lastDecision` is the cooldown
+ * gate (AI-005/SS20), keyed by decision type.
+ */
+export interface CompanyAiState {
+  readonly memory: CompanyAiMemory;
+  readonly activeStates: Readonly<Record<string, boolean>>;
+  readonly opportunityStreak: Readonly<Record<string, number>>;
+  readonly lastDecision: Readonly<Record<string, number>>;
+}
+
 /**
  * Company (Entity Data Model SS19). A pure data container in M3 -- the
  * `OBSERVE -> FORECAST -> DECIDE -> ACT -> EVALUATE` AI cycle that
  * mutates it belongs to AI Decision Model / M11 ("Entity Data Model
- * stores state; decision detail belongs to AI Decision Model"), so no
- * `ai` field is stored here yet -- M3's own scope explicitly excludes
- * AI.
+ * stores state; decision detail belongs to AI Decision Model"); M11
+ * adds the `ai` field this comment used to say M3 deliberately left out.
  */
 export interface Company {
   readonly id: string;
@@ -68,6 +91,7 @@ export interface Company {
   readonly inventoryId: string;
   readonly market: CompanyMarketState;
   readonly status: CompanyStatus;
+  readonly ai: CompanyAiState;
 }
 
 export interface CreateCompanyInput {
@@ -134,5 +158,11 @@ export function createCompany(input: CreateCompanyInput): Company {
     inventoryId: input.inventoryId,
     market: { marketShare: 0, expectedPrices: {}, expectedDemand: {} },
     status: { active: true, distressed: false, bankrupt: false },
+    ai: {
+      memory: { profitHistory: [], demandHistory: [], shortageHistory: [] },
+      activeStates: {},
+      opportunityStreak: {},
+      lastDecision: {},
+    },
   };
 }

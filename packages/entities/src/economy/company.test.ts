@@ -37,6 +37,26 @@ describe("createCompany", () => {
     expect(company.workforce.wageOffer).toBe(12);
   });
 
+  it("starts with empty AI state (M11: memory, hysteresis, cooldown)", () => {
+    const company = createCompany({
+      id: "company_001",
+      archetypeId: "crop_farm",
+      name: "Black Mountain Farm",
+      foundedTick: 0,
+      regionId: "region_001",
+      ownerType: "individual",
+      ownerEntityId: "cohort_001",
+      inventoryId: "inventory_001",
+    });
+
+    expect(company.ai).toEqual({
+      memory: { profitHistory: [], demandHistory: [], shortageHistory: [] },
+      activeStates: {},
+      opportunityStreak: {},
+      lastDecision: {},
+    });
+  });
+
   it("rejects a negative foundedTick", () => {
     expect(() =>
       createCompany({

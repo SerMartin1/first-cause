@@ -10,6 +10,34 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-17
 
+- Wdrożono **M11 -- Company AI** (największy dotąd milestone, L
+  złożoność, HIGH ryzyko). Nowe moduły
+  `packages/simulation/src/systems/economy/company-ai`:
+  `decision-framework.ts` (AI-01 -- hysteresis, cooldown, persistence,
+  memory, expectations -- wspólna infrastruktura anty-oscylacyjna dla
+  wszystkich poniższych decyzji), `financial-health.ts` (AI-05 --
+  profitMargin/cashRunway/distressed), `production-decision.ts` (AI-03
+  -- domyka dług M7: `Company.production.utilization` jest teraz
+  sterowane przez AI, tym samym wzorcem capped+smoothed pressure co
+  Market/Wages), `labor-decision.ts` (AI-04 -- decyduje cel zatrudnienia,
+  wykonanie zostaje `matchEmployment`/nowej `layoffWorkers`),
+  `lifecycle-decision.ts` (AI-06 -- Expansion/Contraction/Closure z
+  pełnym hysteresis+cooldown+persistence; closure przy zerowej gotówce
+  ustawia też `status.bankrupt`), `pm-adoption.ts` (AI-08 -- PMScore z
+  `ProductionRecipe`, M7), `decision-snapshot.ts` (AI-10 --
+  DecisionSnapshot/CausalContext jako czyste dane). `Company`
+  (`packages/entities`) zyskuje pole `ai` (Entity Data Model SS19 --
+  dokładnie to, czego M3 świadomie nie dotknęło); `expectations` pisze
+  do już istniejącego `market.expectedPrices/expectedDemand`, nie do
+  duplikatu. 68 nowych testów (430 łącznie): production reaction/no
+  overreaction, hysteresis, cooldown, financial survival, closure,
+  bankruptcy, PM adoption/rejection, determinism. Etykieta
+  `app.milestone` zaktualizowana na "M11 -- Company AI"/"M11 -- AI
+  Firm". Świadomie poza zakresem: entrepreneurship (M12), pełna
+  migracja jako input (M13), State AI (DEFERRED), pełne wpięcie
+  CausalContext w graf Causality Engine (M17), realna pętla ticków
+  (przyszły milestone).
+
 - Wdrożono **M10 -- Trade & Transport**. Nowe moduły
   `packages/simulation/src/systems/economy/trade`:
   `effective-distance.ts` (`updateEffectiveDistance` -- pierwsza
