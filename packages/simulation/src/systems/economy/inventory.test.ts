@@ -38,6 +38,11 @@ describe("addToInventory", () => {
   it("rejects a negative quantity", () => {
     expect(() => addToInventory(buildInventory(), "flour", -1)).toThrow();
   });
+
+  it("fails loud instead of silently overflowing to Infinity (regression guard, audit P0-05)", () => {
+    const nearMax = addToInventory(buildInventory(), "flour", Number.MAX_VALUE).inventory;
+    expect(() => addToInventory(nearMax, "flour", Number.MAX_VALUE)).toThrow(/result/);
+  });
 });
 
 describe("removeFromInventory", () => {

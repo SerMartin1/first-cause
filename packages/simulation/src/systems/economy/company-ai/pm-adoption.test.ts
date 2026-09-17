@@ -164,6 +164,51 @@ describe("evaluatePmAdoption", () => {
     expect(result.adopted).toBe(false);
   });
 
+  it("Test Determinism (regression guard, audit P0-03): a recipe with the same goods in a different key order gives the exact same pmScore/adoption outcome", () => {
+    const currentRecipeSingleGood: ProductionRecipe = {
+      productionMethodId: "manual_farming",
+      resourceInputsPerBatch: {},
+      goodInputsPerBatch: {},
+      goodOutputsPerBatch: { flour: 0.55 },
+    };
+    const candidateInsertedAscending: ProductionRecipe = {
+      productionMethodId: "improved_farming",
+      resourceInputsPerBatch: {},
+      goodInputsPerBatch: {},
+      goodOutputsPerBatch: { a: 0.1, b: 0.2, c: 0.3 },
+    };
+    const candidateInsertedDescending: ProductionRecipe = {
+      productionMethodId: "improved_farming",
+      resourceInputsPerBatch: {},
+      goodInputsPerBatch: {},
+      goodOutputsPerBatch: { c: 0.3, b: 0.2, a: 0.1 },
+    };
+    const flatPrices = { flour: 1, a: 1, b: 1, c: 1 };
+
+    function runThreeTicks(candidateRecipe: ProductionRecipe) {
+      let c = company();
+      let result;
+      for (let tick = 1; tick <= 3; tick++) {
+        result = evaluatePmAdoption({
+          company: c,
+          tick,
+          currentRecipe: currentRecipeSingleGood,
+          candidateRecipe,
+          prices: flatPrices,
+          conversionCost: 0,
+        });
+        c = result.company;
+      }
+      return result!;
+    }
+
+    const ascending = runThreeTicks(candidateInsertedAscending);
+    const descending = runThreeTicks(candidateInsertedDescending);
+
+    expect(descending.pmScore).toBe(ascending.pmScore);
+    expect(descending.adopted).toBe(ascending.adopted);
+  });
+
   it("Test Determinism: identical inputs always produce an identical result", () => {
     const input = {
       company: company(),

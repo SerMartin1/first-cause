@@ -1,7 +1,7 @@
 import type { Market, MarketGoodState, MarketHistory } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
+import { roundMoney } from "../../../core/rounding.js";
 import {
-  assertFinite,
   assertNonNegative,
   assertPositive,
   InvariantViolationError,
@@ -47,7 +47,7 @@ export function initializeMarketGood(basePrice: number): MarketGoodState {
     supply: 0,
     demand: 0,
     inventory: 0,
-    localPrice: basePrice,
+    localPrice: roundMoney(basePrice),
     importDemand: 0, // M10 (handel międzyregionalny) -- placeholder untouched by M8
     exportSupply: 0, // M10 -- placeholder untouched by M8
     shortageSeverity: 0,
@@ -152,10 +152,7 @@ export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGood
   const pricePressure = cappedPressure * PRICE_SMOOTHING_FACTOR;
 
   const rawNewPrice = existing.localPrice * (1 + pricePressure);
-  const localPrice = assertFinite(
-    Math.max(MIN_PRICE, rawNewPrice),
-    `updateMarketGood(${goodId}).localPrice`,
-  );
+  const localPrice = roundMoney(Math.max(MIN_PRICE, rawNewPrice));
 
   const nextGoodState: MarketGoodState = {
     ...existing,

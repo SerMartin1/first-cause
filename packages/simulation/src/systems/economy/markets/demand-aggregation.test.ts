@@ -16,4 +16,14 @@ describe("aggregateDemand", () => {
       InvariantViolationError,
     );
   });
+
+  it("gives the exact same result for the same sources regardless of insertion order (regression guard, audit P0-03)", () => {
+    // Values chosen so a naive Object.entries insertion-order sum is
+    // genuinely associativity-sensitive in IEEE754 -- this is not a
+    // hypothetical: (0.1+0.2)+0.3 !== (0.3+0.2)+0.1 in plain JS.
+    const insertedAscending = aggregateDemand({ a: 0.1, b: 0.2, c: 0.3 });
+    const insertedDescending = aggregateDemand({ c: 0.3, b: 0.2, a: 0.1 });
+
+    expect(insertedDescending).toBe(insertedAscending);
+  });
 });

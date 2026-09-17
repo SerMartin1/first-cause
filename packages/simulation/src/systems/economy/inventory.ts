@@ -1,6 +1,10 @@
 import type { Inventory, InventoryItem } from "@first-cause/entities";
 import type { FactInput, FactLocation } from "@first-cause/causality";
-import { assertNonNegative, InvariantViolationError } from "../../core/validation.js";
+import {
+  assertFinite,
+  assertNonNegative,
+  InvariantViolationError,
+} from "../../core/validation.js";
 
 /**
  * Inventory jako fizyczny rejestr dóbr (Entity Data Model SS16,
@@ -49,7 +53,7 @@ export function addToInventory(
   if (quantity === 0) return { inventory, fact: undefined };
 
   const before = inventory.items[itemId]?.quantity ?? 0;
-  const after = before + quantity;
+  const after = assertFinite(before + quantity, `addToInventory(${itemId}).result`);
   const existing = inventory.items[itemId];
   const item: InventoryItem = existing
     ? { ...existing, quantity: after }

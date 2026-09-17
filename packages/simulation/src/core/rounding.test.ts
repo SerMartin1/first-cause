@@ -4,6 +4,7 @@ import {
   MONEY_SCALE,
   fromMoneyMinorUnits,
   roundHalfEven,
+  roundMoney,
   toMoneyMinorUnits,
 } from "./index.js";
 
@@ -56,5 +57,19 @@ describe("money minor units", () => {
     expect(() => toMoneyMinorUnits(Number.MAX_SAFE_INTEGER)).toThrow(
       InvariantViolationError,
     );
+  });
+});
+
+describe("roundMoney", () => {
+  it("snaps a money value to the nearest cent (regression guard: 999.916 must become 999.92)", () => {
+    expect(roundMoney(999.916)).toBe(999.92);
+  });
+
+  it("is idempotent -- rounding an already cent-aligned value changes nothing", () => {
+    expect(roundMoney(roundMoney(12.34))).toBe(12.34);
+  });
+
+  it("rejects non-finite input the same way toMoneyMinorUnits does", () => {
+    expect(() => roundMoney(NaN)).toThrow(InvariantViolationError);
   });
 });

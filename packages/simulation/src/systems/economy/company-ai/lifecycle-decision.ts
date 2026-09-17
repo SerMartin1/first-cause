@@ -1,4 +1,6 @@
 import type { Company } from "@first-cause/entities";
+import { roundMoney } from "../../../core/rounding.js";
+import { assertNonNegative } from "../../../core/validation.js";
 import {
   clamp,
   evaluateHysteresisGate,
@@ -72,6 +74,10 @@ export interface DecideLifecycleResult {
 
 export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleResult {
   const { tick } = input;
+  const capitalCost = assertNonNegative(
+    input.capitalCost,
+    "decideLifecycle().capitalCost",
+  );
   let company = input.company;
 
   const closureEligible =
@@ -122,7 +128,7 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
     0.4 * clamp(input.demandPersistenceScore, 0, 1) +
       0.3 * Math.max(0, input.expectedMargin) +
       0.3 * company.production.utilization -
-      0.3 * (input.capitalCost / Math.max(1, company.finance.cash)),
+      0.3 * (capitalCost / Math.max(1, company.finance.cash)),
     0,
     1,
   );
@@ -136,7 +142,7 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
   company = setActive(company, EXPANSION_DECISION_TYPE, nowExpanding);
   company = updateOpportunityStreak(company, EXPANSION_DECISION_TYPE, nowExpanding);
 
-  const canAffordExpansion = company.finance.cash >= input.capitalCost;
+  const canAffordExpansion = company.finance.cash >= capitalCost;
   if (
     nowExpanding &&
     !input.financialHealth.distressed &&
@@ -152,7 +158,10 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
     const expanded: Company = {
       ...recordDecision(company, EXPANSION_DECISION_TYPE, tick),
       production: { ...company.production, capacity: nextCapacity },
-      finance: { ...company.finance, cash: company.finance.cash - input.capitalCost },
+      finance: {
+        ...company.finance,
+        cash: roundMoney(company.finance.cash - capitalCost),
+      },
     };
     return {
       company: expanded,

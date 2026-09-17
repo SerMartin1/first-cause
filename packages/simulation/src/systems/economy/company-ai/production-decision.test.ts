@@ -144,4 +144,16 @@ describe("decideProduction", () => {
     expect(second.action).toBe(first.action);
     expect(second.bottleneck).toBe(first.bottleneck);
   });
+
+  it("fails loud on a non-finite expectedMargin instead of letting NaN reach Company.production.utilization (regression guard, audit P0-05)", () => {
+    expect(() =>
+      decideProduction({
+        company: company(0.3),
+        expectedMargin: NaN,
+        inputAvailability: 1,
+        inventoryLevel: 1,
+        financialHealth: healthy,
+      }),
+    ).toThrow(/expectedMargin/);
+  });
 });

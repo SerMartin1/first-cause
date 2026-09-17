@@ -40,3 +40,18 @@ export function fromMoneyMinorUnits(minorAmount: number): number {
   assertSafeInteger(minorAmount, "fromMoneyMinorUnits(minorAmount)");
   return minorAmount / MONEY_SCALE;
 }
+
+/**
+ * Rounding-discipline guard (audit P0-07): every money mutation across
+ * M7-M11 (`Company.finance.*`, `MarketGoodState.localPrice`,
+ * `CompanyWorkforce.wageOffer`) must land on this function before being
+ * stored, so the value is always safe-integer and cent-aligned --
+ * `roundHalfEven(999.9187...) !== 999.92` on its own; only round-tripping
+ * through minor units guarantees that. Storage stays major-unit `number`
+ * (a full migration to integer-minor-units-as-storage is a separate,
+ * larger decision -- ADR-001 SS4 requires the *representation discipline*
+ * here, not a field-width change to every entity in the same pass).
+ */
+export function roundMoney(majorAmount: number): number {
+  return fromMoneyMinorUnits(toMoneyMinorUnits(majorAmount));
+}

@@ -9,6 +9,7 @@ import {
   type WorldState,
 } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
+import { sortedEntries } from "./determinism.js";
 import type { RngStream } from "./rng.js";
 import { groupCohortsIntoFamilies } from "../systems/population/cohorts.js";
 import { applyMonthlyDemography } from "../systems/population/demography.js";
@@ -49,10 +50,15 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
  * Etap 1 tick-loop integration (audytowe P0-01): pierwsze miejsce, które
  * faktycznie woła M7-M11 przeciw prawdziwemu `WorldState`, zamiast tylko
  * przeciw ręcznie złożonym danym testowym. Świadomie NIE naprawia
- * pozostałych błędów z audytu (determinizm kolejności kluczy P0-03,
- * integer minor units P0-07, ograniczenie produkcji pracą P0-02,
- * uzgodnienie zatrudnienia z demografią P0-04, JSON-owe receptury P0-06)
- * -- używa istniejących funkcji systemowych dokładnie tak, jak są dziś.
+ * ograniczenia produkcji pracą (P0-02), uzgodnienia zatrudnienia z
+ * demografią (P0-04) ani JSON-owych receptur (P0-06) -- używa
+ * istniejących funkcji systemowych dokładnie tak, jak są dziś.
+ *
+ * Etap 2 (audytowe P0-03/P0-05/P0-07) dodał tu: sortowanie kluczy przed
+ * sumowaniem (`sortedEntries`, ten sam most co
+ * `company-ai/pm-adoption.ts`/`markets/demand-aggregation.ts`) i
+ * rozliczenie pieniędzy wyłącznie przez `applyCompanyFinances`
+ * (`settlement.ts`), które samo zaokrągla przez `roundMoney`.
  *
  * Kilka drobnych mostów nie istniało wcześniej nigdzie w silniku (żaden
  * system tego nie potrzebował, bo nic ich dotąd nie wołało w pętli) i są
@@ -86,10 +92,10 @@ function recipeCost(
   prices: Readonly<Record<string, number>>,
 ): number {
   let cost = 0;
-  for (const [resourceId, quantity] of Object.entries(recipe.resourceInputsPerBatch)) {
+  for (const [resourceId, quantity] of sortedEntries(recipe.resourceInputsPerBatch)) {
     cost += quantity * (prices[resourceId] ?? 0);
   }
-  for (const [goodId, quantity] of Object.entries(recipe.goodInputsPerBatch)) {
+  for (const [goodId, quantity] of sortedEntries(recipe.goodInputsPerBatch)) {
     cost += quantity * (prices[goodId] ?? 0);
   }
   return cost;
@@ -100,7 +106,7 @@ function recipeRevenuePerBatch(
   prices: Readonly<Record<string, number>>,
 ): number {
   let revenue = 0;
-  for (const [goodId, quantity] of Object.entries(recipe.goodOutputsPerBatch)) {
+  for (const [goodId, quantity] of sortedEntries(recipe.goodOutputsPerBatch)) {
     revenue += quantity * (prices[goodId] ?? 0);
   }
   return revenue;

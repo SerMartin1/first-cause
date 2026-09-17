@@ -1,5 +1,7 @@
 import type { Company } from "@first-cause/entities";
-import { assertNonNegative } from "../../../core/validation.js";
+import { sortedEntries } from "../../../core/determinism.js";
+import { roundMoney } from "../../../core/rounding.js";
+import { assertFinite, assertNonNegative } from "../../../core/validation.js";
 import type { ProductionRecipe } from "../production.js";
 import {
   clamp,
@@ -38,13 +40,13 @@ function marginPerBatch(
   prices: Readonly<Record<string, number>>,
 ): number {
   let margin = 0;
-  for (const [goodId, quantity] of Object.entries(recipe.goodOutputsPerBatch)) {
+  for (const [goodId, quantity] of sortedEntries(recipe.goodOutputsPerBatch)) {
     margin += quantity * (prices[goodId] ?? 0);
   }
-  for (const [resourceId, quantity] of Object.entries(recipe.resourceInputsPerBatch)) {
+  for (const [resourceId, quantity] of sortedEntries(recipe.resourceInputsPerBatch)) {
     margin -= quantity * (prices[resourceId] ?? 0);
   }
-  for (const [goodId, quantity] of Object.entries(recipe.goodInputsPerBatch)) {
+  for (const [goodId, quantity] of sortedEntries(recipe.goodInputsPerBatch)) {
     margin -= quantity * (prices[goodId] ?? 0);
   }
   return margin;
@@ -84,7 +86,10 @@ export function evaluatePmAdoption(
 
   const currentMargin = marginPerBatch(input.currentRecipe, input.prices);
   const candidateMargin = marginPerBatch(input.candidateRecipe, input.prices);
-  const pmScore = candidateMargin - currentMargin - conversionCost;
+  const pmScore = assertFinite(
+    candidateMargin - currentMargin - conversionCost,
+    "evaluatePmAdoption().pmScore",
+  );
 
   const innovationPreference = clamp(input.innovationPreference ?? 0, 0, 1);
   const requiredAdvantage = PM_ADOPTION_MIN_ADVANTAGE * (1 - innovationPreference);
@@ -106,7 +111,7 @@ export function evaluatePmAdoption(
       },
       finance: {
         ...nextCompany.finance,
-        cash: nextCompany.finance.cash - conversionCost,
+        cash: roundMoney(nextCompany.finance.cash - conversionCost),
       },
     };
     return {

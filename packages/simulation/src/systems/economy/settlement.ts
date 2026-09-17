@@ -1,6 +1,7 @@
 import type { Company, Inventory } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
-import { assertFinite, assertNonNegative } from "../../core/validation.js";
+import { roundMoney } from "../../core/rounding.js";
+import { assertNonNegative } from "../../core/validation.js";
 import { addToInventory, removeFromInventory } from "./inventory.js";
 
 /**
@@ -104,9 +105,13 @@ export interface ApplyCompanyFinancesResult {
 export function applyCompanyFinances(
   input: ApplyCompanyFinancesInput,
 ): ApplyCompanyFinancesResult {
-  const revenue = assertNonNegative(input.revenue, "applyCompanyFinances().revenue");
-  const costs = assertNonNegative(input.costs, "applyCompanyFinances().costs");
-  const profit = revenue - costs;
+  const revenue = roundMoney(
+    assertNonNegative(input.revenue, "applyCompanyFinances().revenue"),
+  );
+  const costs = roundMoney(
+    assertNonNegative(input.costs, "applyCompanyFinances().costs"),
+  );
+  const profit = roundMoney(revenue - costs);
   const { company } = input;
 
   const nextCompany: Company = {
@@ -116,10 +121,7 @@ export function applyCompanyFinances(
       revenue,
       costs,
       profit,
-      cash: assertFinite(
-        company.finance.cash + profit,
-        `applyCompanyFinances(${company.id}).finance.cash`,
-      ),
+      cash: roundMoney(company.finance.cash + profit),
     },
   };
 

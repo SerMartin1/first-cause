@@ -1,4 +1,5 @@
 export * from "./validation.js";
+export * from "./determinism.js";
 export * from "./hash.js";
 export * from "./rng.js";
 export * from "./ids.js";

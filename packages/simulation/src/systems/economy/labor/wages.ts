@@ -1,10 +1,7 @@
 import type { Company } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
-import {
-  assertFinite,
-  assertNonNegative,
-  assertPositive,
-} from "../../../core/validation.js";
+import { roundMoney } from "../../../core/rounding.js";
+import { assertNonNegative, assertPositive } from "../../../core/validation.js";
 import { classifyShortageSurplus } from "../markets/shortage-surplus.js";
 
 /**
@@ -79,10 +76,7 @@ export function adjustWageOffer(input: AdjustWageOfferInput): AdjustWageOfferRes
   const wagePressure = cappedPressure * WAGE_SMOOTHING_FACTOR;
 
   const rawWageOffer = wageOffer * (1 + wagePressure);
-  const nextWageOffer = assertFinite(
-    Math.max(MIN_WAGE, rawWageOffer),
-    `adjustWageOffer: Company "${company.id}".workforce.wageOffer`,
-  );
+  const nextWageOffer = roundMoney(Math.max(MIN_WAGE, rawWageOffer));
 
   const nextCompany: Company = {
     ...company,

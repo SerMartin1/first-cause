@@ -1,3 +1,4 @@
+import { sortedEntries } from "../../../core/determinism.js";
 import { assertNonNegative } from "../../../core/validation.js";
 
 /**
@@ -18,7 +19,7 @@ import { assertNonNegative } from "../../../core/validation.js";
  */
 export function aggregateDemand(sources: Readonly<Record<string, number>>): number {
   let total = 0;
-  for (const [sourceId, quantity] of Object.entries(sources)) {
+  for (const [sourceId, quantity] of sortedEntries(sources)) {
     total += assertNonNegative(quantity, `aggregateDemand().sources.${sourceId}`);
   }
   return total;

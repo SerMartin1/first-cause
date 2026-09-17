@@ -1,6 +1,6 @@
 import type { Company } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
-import { assertNonNegative } from "../../../core/validation.js";
+import { assertFinite, assertNonNegative } from "../../../core/validation.js";
 import { clamp } from "./decision-framework.js";
 import type { CompanyFinancialHealth } from "./financial-health.js";
 
@@ -48,6 +48,10 @@ export interface DecideProductionResult {
 
 export function decideProduction(input: DecideProductionInput): DecideProductionResult {
   const { company } = input;
+  const expectedMargin = assertFinite(
+    input.expectedMargin,
+    "decideProduction().expectedMargin",
+  );
   const inputAvailability = clamp(
     assertNonNegative(input.inputAvailability, "decideProduction().inputAvailability"),
     0,
@@ -59,8 +63,8 @@ export function decideProduction(input: DecideProductionInput): DecideProduction
   );
 
   const marginPressureSource = input.financialHealth.distressed
-    ? Math.min(0, input.expectedMargin) // SS23: distressed companies never get an INCREASE signal from margin
-    : input.expectedMargin;
+    ? Math.min(0, expectedMargin) // SS23: distressed companies never get an INCREASE signal from margin
+    : expectedMargin;
 
   const rawPressure =
     UTILIZATION_SENSITIVITY * marginPressureSource -

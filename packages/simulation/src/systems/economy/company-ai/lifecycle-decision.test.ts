@@ -214,4 +214,17 @@ describe("decideLifecycle", () => {
     expect(result.action).toBe("HOLD");
     expect(result.company.status.active).toBe(true);
   });
+
+  it("fails loud on a negative capitalCost instead of letting expansion mint cash (regression guard, audit P0-05)", () => {
+    expect(() =>
+      decideLifecycle({
+        company: company({ utilization: 1 }),
+        tick: 1,
+        financialHealth: healthy,
+        demandPersistenceScore: 1,
+        expectedMargin: 1,
+        capitalCost: -100,
+      }),
+    ).toThrow(/capitalCost/);
+  });
 });
