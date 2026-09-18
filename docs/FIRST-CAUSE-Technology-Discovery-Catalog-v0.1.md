@@ -1,0 +1,308 @@
+# FIRST CAUSE --- TECHNOLOGY DISCOVERY CATALOG v0.1
+
+**Status:** DRAFT --- propozycja do przeglądu, NIE jest jeszcze
+CANONICAL. Rozstrzyga formalny "Warunek rozpoczęcia" M15 w
+`FIRST-CAUSE-Implementation-Roadmap-v0.2.md`, ale dopóki użytkownik go
+nie zatwierdzi (lub nie poprawi), M15 pozostaje BLOCKED.
+
+**Data:** 2026-09-18 (druga wersja -- zastępuje pierwszą iterację z tej
+samej sesji, która miała 9 wąskich domen + osobne rozszerzenie
+astronautyczne; **usunięte na wyraźną prośbę użytkownika**).
+
+**Struktura:** **5 domen po 25 odkryć = 125 łącznie.** Bez lotu
+kosmicznego -- pułap domeny to zorganizowane społeczeństwo przemysłowe
+(mechanizacja, medycyna, administracja), nie era kosmiczna.
+
+**Zależy formalnie od:** `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
+(TECH-001--009), `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§28--31),
+`FIRST-CAUSE-AI-Decision-Model-v0.1.md` (§36--41, §62),
+`packages/content/src/schema/discovery-definition.ts` (istniejący od M2
+schemat, którego pola ten katalog wypełnia treścią).
+
+------------------------------------------------------------------------
+
+# 1. Cel i zakres
+
+Ten dokument nie jest kodem ani contentem JSON -- jest źródłem prozy, z
+którego content-autor (człowiek albo przyszła sesja) przepisze każdą
+pozycję do `content/discoveries/*.json`, zgodnie z istniejącym
+`DiscoveryDefinitionSchema`. Ustala jakie odkrycia istnieją (id, nazwa,
+domena), w jakiej kolejności (tier T0--T6, prerequisites) i co
+mechanicznie odblokowują.
+
+**Świadomie NIE ustala** dokładnych wartości liczbowych
+(`knowledgeRequirements`, `pressureModifiers`, `diffusion`, `adoption`)
+-- to parametry tuningowe (`TODO tuning`, ten sam wzorzec co reszta
+silnika), których kalibracja wymaga uruchomienia symulacji.
+
+## 1.1 Zmiana względem pierwszej wersji (ta sama sesja)
+
+Po analizie porównawczej gatunku (gry strukturalnie bliskie First Cause
+-- Dwarf Fortress, Anno, Songs of Syx -- **w ogóle nie mają formalnego
+drzewka z domenami**, dostęp do nowych rzeczy wynika ze stanu symulacji)
+i po audycie pierwszej wersji (9 domen × 8 + 5 domen × 24 = 192 pozycje),
+gdzie **spora część odkryć nie robiła niczego konkretnego** -- zwłaszcza
+w rozszerzeniu astronautycznym, gdzie ~85% pozycji istniało wyłącznie
+jako ogniwo łańcucha prowadzącego do jednego efektownego zakończenia --
+przechodzę na **5 szerokich domen, 25 odkryć każda, bez lotu kosmicznego**.
+Dążę tu do **wyraźnie wyższego odsetka odkryć z konkretnym, samodzielnym
+efektem** niż w pierwszej wersji (tam ~72% w Części 1, ~15% w Części 2).
+Nie osiągam 100% -- kilka pozycji w każdej domenie to świadomie czyste
+prerequisites albo hooki do systemów, które jeszcze nie istnieją (patrz
+sekcja 6) -- ale każda taka pozycja jest w tabeli niżej **jawnie
+opisana jako taka**, nie ukryta.
+
+------------------------------------------------------------------------
+
+# 2. Metodologia
+
+## 2.1 Domeny (nowy podział, 5 zamiast 9+5)
+
+| Domena | Prefiks | Łączy (z pierwotnego podziału VS) |
+|---|---|---|
+| Rolnictwo i Żywność | `AGR` | Agriculture + żywnościowa część Medicine |
+| Górnictwo i Metalurgia | `MIN` | Mining + Metallurgy |
+| Budownictwo i Mechanika | `MEC` | Construction + Mechanics |
+| Transport i Komunikacja | `TRA` | Transportation + Communication |
+| Nauka i Społeczeństwo | `NAU` | Mathematics + reszta Medicine + administracja |
+
+To formalnie proponuje **zmianę TECH-004** (12 kanonicznych domen →
+5 szerokich, zamiast dotychczasowego podziału) -- zaznaczam to jawnie,
+nie przemycam cicho. TECH-007 (T0--T5) rozszerzam do **T0--T6** (jeden
+dodatkowy stopień, nie dziesięć jak w usuniętej wersji astronautycznej).
+
+## 2.2 Tier
+
+T0 = odkrycia startowe. T1--T5 = rosnąca złożoność. T6 = szczyt domeny w
+tym katalogu -- zorganizowane społeczeństwo przemysłowe (huty, medycyna
+zapobiegawcza, uniwersytety, zintegrowany transport), nie dalej.
+
+## 2.3 "Odblokowuje" -- trzy kategorie, jawnie oznaczone
+
+- **Realne od razu** -- wiąże się z mechanizmem, który JUŻ ISTNIEJE w
+  silniku (produkcja, `TransportMode`, `deposit-lifecycle.ts`,
+  `deathRateByAgeGroup`, `effectiveDistance`, `HOUSING_CONSTRUCTION_RATE`,
+  `SettlementStage`, `Connection.infrastructure.level`) -- działa, gdy
+  tylko powstanie odpowiedni content JSON.
+- **(nowy content PM)** -- wymaga nowej receptury/archetypu w
+  `content/productionMethods`/`content/companyArchetypes` (dziś tylko 2+2
+  istnieją) -- mechanizm produkcji już istnieje, tylko dana receptura
+  jeszcze nie.
+- **hook** -- wskazuje na system, którego dziś W OGÓLE NIE MA w kodzie
+  (Administration, Events/kryzysy, State AI, Read Models rozszerzone) --
+  jawnie oznaczone, żeby nie sugerować gotowości, której nie ma.
+
+------------------------------------------------------------------------
+
+# 3. Tabela zbiorcza
+
+| Domena | Odkryć | Zakres tier | Z tego "realne od razu" lub "(nowy content PM)" | Z tego "hook" lub czysty prerequisite |
+|---|---|---|---|---|
+| Rolnictwo i Żywność | 25 | T0--T6 | 20 | 5 |
+| Górnictwo i Metalurgia | 25 | T0--T6 | 22 | 3 |
+| Budownictwo i Mechanika | 25 | T0--T6 | 19 | 6 |
+| Transport i Komunikacja | 25 | T0--T6 | 17 | 8 |
+| Nauka i Społeczeństwo | 25 | T0--T6 | 14 | 11 |
+| **Razem** | **125** | T0--T6 | **92 (74%)** | **33 (26%)** |
+
+(Nauka i Społeczeństwo ma naturalnie najwięcej "hooków" -- to domena
+instytucjonalna/wspierająca, tak jak w pierwszej wersji Mathematics była
+najbardziej "pusta"; reszta trzyma się wyraźnie bliżej 80--90% realnych
+efektów.)
+
+------------------------------------------------------------------------
+
+# 4. Katalog per domena
+
+## 4.1 Rolnictwo i Żywność (AGR)
+
+| ID | Nazwa | Tier | Prerekwizyty | Odblokowuje |
+|---|---|---|---|---|
+| AGR-001 | Selekcja i planowanie upraw | T0 | brak | Realne: `manual_farming` (istniejąca receptura) |
+| AGR-002 | Udomowienie zwierząt gospodarskich | T0 | brak | Nowy Good "inwentarz żywy" -- prerequisite |
+| AGR-003 | Płodozmian | T1 | AGR-001 | Realne: mniejsza degradacja `fertility` (World Gen) |
+| AGR-004 | Rolnictwo z siłą zwierząt | T1 | AGR-001, AGR-002 | Realne: wyższa capacity/batch `manual_farming` |
+| AGR-005 | Nawadnianie i melioracja | T1 | AGR-001 | Realne: uprawa w regionach o niskim `waterAccess` |
+| AGR-006 | Narzędzia rolnicze | T1 | AGR-001 | Realne: +capacity batch `manual_farming` |
+| AGR-007 | Hodowla trzody i drobiu | T1 | AGR-002 | **(nowy content PM)** -- Good mięso |
+| AGR-008 | Nawożenie organiczne | T2 | AGR-003 | **(nowy content PM)** "intensywne rolnictwo" |
+| AGR-009 | Sadownictwo i uprawy trwałe | T2 | AGR-001 | **(nowy content PM+archetyp)** "sad" -- Good owoce |
+| AGR-010 | Selektywna hodowla zwierząt | T2 | AGR-007 | Realne: wyższa jakość/output receptury hodowli |
+| AGR-011 | Przechowywanie i konserwacja żywności | T2 | AGR-006 | **hook** -- nowy mechanizm "spoilage" zapasów (dziś nie istnieje, wymaga też zmiany w `Inventory`) |
+| AGR-012 | Pszczelarstwo | T2 | AGR-009 | **(nowy content PM)** Good miód + modyfikator plonu sadów |
+| AGR-013 | Uprawa roślin oleistych i włóknistych | T3 | AGR-008 | Nowy Good "len/konopie" -- surowiec dla przyszłego PM tekstylnego |
+| AGR-014 | Winiarstwo i piwowarstwo | T3 | AGR-009, AGR-011 | **(nowy content PM+archetyp)** Good alkohol |
+| AGR-015 | Agronomia systemowa | T3 | AGR-005, AGR-008 | **(nowy content PM)** "rolnictwo przemysłowe" -- najwyższy plon |
+| AGR-016 | Chów rybny i akwakultura | T3 | AGR-002 | **(nowy content PM+archetyp)**, tylko w regionach `coastal`/`waterAccess` |
+| AGR-017 | Mechanizacja rolnictwa | T4 | AGR-006, MEC-012 | Realne: dalszy wzrost capacity `manual_farming` |
+| AGR-018 | Chłodnictwo pierwotne (piwnice lodowe) | T4 | AGR-011 | Realne: dalej zmniejsza spoilage (rozszerza AGR-011) |
+| AGR-019 | Standaryzacja jakości płodów rolnych | T4 | AGR-015 | **hook** -- dokładniejsza wycena na Market (system cenowy nie rozróżnia dziś jakości) |
+| AGR-020 | Silosy i magazynowanie zboża na skalę | T4 | AGR-011, MIN-019 | Realne: dalsze zmniejszenie spoilage zboża |
+| AGR-021 | Genetyka selekcyjna roślin | T5 | AGR-015, NAU-010 | Realne: dalszy wzrost plonu (mnożnik do AGR-015) |
+| AGR-022 | Przemysłowe przetwórstwo spożywcze | T5 | AGR-015, AGR-014 | **(nowy content PM)** -- wyższy tier Good "żywność przetworzona" |
+| AGR-023 | Rolnictwo precyzyjne | T5 | AGR-017, NAU-010 | Realne: dalszy wzrost plonu (mnożnik) |
+| AGR-024 | Bioinżynieria roślin użytkowych | T6 | AGR-021, AGR-022 | Realne: najwyższy tier plonu w domenie |
+| AGR-025 | Zrównoważone rolnictwo regeneracyjne | T6 | AGR-024, AGR-003 | Realne: eliminuje degradację `fertility` |
+
+## 4.2 Górnictwo i Metalurgia (MIN)
+
+| ID | Nazwa | Tier | Prerekwizyty | Odblokowuje |
+|---|---|---|---|---|
+| MIN-001 | Rozpoznawanie złóż powierzchniowych | T0 | brak | **Realne**: przesuwa `discovery.status` UNKNOWN→SUSPECTED/DISCOVERED (`deposit-lifecycle.ts`) |
+| MIN-002 | Obróbka kamienia | T0 | brak | **(nowy content PM)** materiał "kamień ciosany" |
+| MIN-003 | Organizacja kopalni | T1 | MIN-001 | **(nowy content PM)** wyższa capacity ekstrakcji |
+| MIN-004 | Podstawowy wytop żelaza | T1 | MIN-001 | **(nowy content PM)** z Iron Ore -- Black Mountain scenario |
+| MIN-005 | Stopy miedzi (brąz) | T1 | MIN-001 | **(nowy content PM)** tańsza wczesna alternatywa metalu |
+| MIN-006 | Kontrola temperatury pieca | T1 | MIN-004 | Realne: wyższa jakość/wydajność wytopu |
+| MIN-007 | Odwadnianie kopalń | T1 | MIN-003 | Realne: wydobycie przy wysokim `waterAccess`/nisko położonych złożach |
+| MIN-008 | Prospekcja geologiczna | T2 | MIN-001 | Realne: przyspiesza UNKNOWN→SUSPECTED w całym regionie |
+| MIN-009 | Wentylacja podziemna | T2 | MIN-003 | Realne: warunek konieczny dla MIN-011 |
+| MIN-010 | Ulepszony piec hutniczy | T2 | MIN-006 | Realne: wyższa capacity wytopu |
+| MIN-011 | Głębokie górnictwo | T2 | MIN-007, MIN-009 | Realne: przesuwa `discovery.status` na ASSESSED dla głębokich złóż |
+| MIN-012 | Kruszenie i wzbogacanie rudy | T2 | MIN-003 | Realne: podnosi `quality` wydobywanej rudy |
+| MIN-013 | Odlewnictwo | T3 | MIN-006 | **(nowy content PM)** alternatywna ścieżka narzędzi |
+| MIN-014 | Produkcja stali | T3 | MIN-010 | **(nowy content PM)** najwyższy tier metalu |
+| MIN-015 | Kucie i obróbka precyzyjna metalu | T3 | MIN-004, MEC-005 | Realne: wyższy tier narzędzi dla receptur wymagających "narzędzi" |
+| MIN-016 | Zaprawy wapienne | T3 | MIN-002 | **(nowy content PM)** materiał "zaprawa" |
+| MIN-017 | Wydobycie soli i minerałów przemysłowych | T4 | MIN-001 | **(nowy content PM)** Good "sól" -- surowiec dla AGR-011 |
+| MIN-018 | Górnictwo mechaniczne | T4 | MIN-011, MEC-021 | Realne: najwyższa capacity ekstrakcji |
+| MIN-019 | Produkcja cementu | T4 | MIN-016, MIN-010 | **(nowy content PM)** materiał "cement" -- wymagany dla `housing.capacity` powyżej progu |
+| MIN-020 | Metalurgia stopów specjalnych | T4 | MIN-014 | Realne: mnożnik jakości narzędzi/maszyn |
+| MIN-021 | Rafinacja metali szlachetnych | T5 | MIN-012 | **(nowy content PM)** Good "metale szlachetne" -- handel prestiżowy |
+| MIN-022 | Standaryzacja miar wydobycia | T5 | MIN-008, NAU-005 | **hook** -- dokładniejsza wycena surowców na Market |
+| MIN-023 | Bezpieczeństwo górnicze | T5 | MIN-011 | **hook** -- zmniejsza ryzyko strat populacji przy wypadkach (Events nie istnieje) |
+| MIN-024 | Metalurgia przemysłowa (wielki piec) | T6 | MIN-014, MEC-012 | **(nowy content PM)** "produkcja masowa metalu" -- szczyt domeny |
+| MIN-025 | Recykling i odzysk metali | T6 | MIN-024 | Realne: zmniejsza zużycie surowca na batch najwyższego tieru |
+
+## 4.3 Budownictwo i Mechanika (MEC)
+
+| ID | Nazwa | Tier | Prerekwizyty | Odblokowuje |
+|---|---|---|---|---|
+| MEC-001 | Proste maszyny | T0 | brak | Prerequisite bazowy dla większości pozostałych MEC |
+| MEC-002 | Konstrukcje szkieletowe (drewniane) | T0 | brak | Realne: szybszy `HOUSING_CONSTRUCTION_RATE` we wczesnych osadach |
+| MEC-003 | Koło i przekładnie | T1 | MEC-001 | Realne: prerequisite dla `TransportMode` "wóz" (TRA), narzędzi |
+| MEC-004 | Energia wodna i wiatrowa | T1 | MEC-003 | **(nowy content PM)** "młyn" |
+| MEC-005 | Precyzyjne narzędzia | T1 | MEC-003 | Realne: wyższa jakość narzędzi (mnożnik dla MIN-015) |
+| MEC-006 | Sklepienia i łuki kamienne | T1 | MIN-002, NAU-003 | Realne: podnosi maksymalny osiągalny `SettlementStage` |
+| MEC-007 | Systemy przekładni złożonych | T1 | MEC-003 | Prerequisite dla wyższych tierów MEC |
+| MEC-008 | Zegary i mechanizmy pomiaru czasu | T2 | MEC-003, NAU-001 | **hook** -- koordynacja pracy zmianowej (Labor nie ma dziś zmian) |
+| MEC-009 | Fortyfikacje i budowle publiczne | T2 | MIN-019, MEC-006 | Realne: zdolność wymagana dla CITY/METROPOLIS |
+| MEC-010 | Mosty i przeprawy | T2 | MEC-002, MIN-002 | Realne: usuwa karę `effectiveDistance` za przeszkody wodne |
+| MEC-011 | Wieże i budowle wysokościowe | T2 | MEC-006 | Realne: dalszy wzrost maksymalnego `SettlementStage` |
+| MEC-012 | Mechanizacja produkcji | T2 | MEC-004, MEC-005 | Realne: ogólny mnożnik capacity dla "mechanizowalnych" receptur |
+| MEC-013 | Kanalizacja i wodociągi | T3 | MIN-019, MEC-010 | Realne: zmniejsza Urban Crisis (FC-SETTLEMENT-003) przy wysokim zagęszczeniu |
+| MEC-014 | Silniki cieplne (para) | T3 | MEC-012, MIN-014 | Realne: wyższa capacity dla "mechanizowalnych" receptur |
+| MEC-015 | Architektura monumentalna | T3 | MEC-009, MEC-011 | Realne: dalszy wzrost `SettlementStage` |
+| MEC-016 | Systemy irygacyjne wielkoskalowe | T3 | MEC-010, AGR-005 | Realne: rozszerza AGR-005's efekt na cały region |
+| MEC-017 | Prefabrykacja elementów budowlanych | T4 | MEC-003, MIN-019 | Realne: szybszy `HOUSING_CONSTRUCTION_RATE` |
+| MEC-018 | Standaryzowane części zamienne | T4 | MEC-005, NAU-014 | Realne: mnożnik jakości dla "mechanizowalnych" receptur |
+| MEC-019 | Dźwigi i urządzenia dźwigowe | T4 | MEC-004 | Realne: dalszy wzrost `HOUSING_CONSTRUCTION_RATE` |
+| MEC-020 | Wentylacja i klimatyzacja budynków | T4 | MEC-013 | Realne: dalsze zmniejszenie Urban Crisis |
+| MEC-021 | Napędy mechaniczne do maszyn górniczych | T5 | MEC-012 | Realne: prerequisite dla MIN-018 |
+| MEC-022 | Konstrukcje stalowe | T5 | MIN-014, MEC-015 | Realne: najwyższy tier budowli (`SettlementStage`, capacity) |
+| MEC-023 | Produkcja masowa (linie montażowe) | T5 | MEC-012, MEC-018 | Realne: najwyższy ogólny mnożnik capacity produkcji |
+| MEC-024 | Automatyzacja podstawowa | T6 | MEC-023, NAU-014 | **hook** -- zmniejszenie `employeesPerBatch` (wymaga zmiany w `production.ts`, dziś recepturowo stałe) |
+| MEC-025 | Inżynieria systemowa | T6 | MEC-022, MEC-023 | Realne: szczyt domeny -- odblokowuje METROPOLIS bez ograniczeń infrastrukturalnych |
+
+## 4.4 Transport i Komunikacja (TRA)
+
+| ID | Nazwa | Tier | Prerekwizyty | Odblokowuje |
+|---|---|---|---|---|
+| TRA-001 | Transport juczny | T0 | brak | Realne: bazowy `TransportMode` (istnieje, podobny do `pack_animal`) |
+| TRA-002 | Pismo i zapis | T0 | brak | Prerequisite instytucjonalny dla wielu innych domen |
+| TRA-003 | Wozy kołowe | T1 | TRA-001, MEC-003 | Realne: nowy `TransportMode` "wóz" |
+| TRA-004 | Transport rzeczny | T1 | TRA-001 | Realne: nowy `TransportMode` "rzeczny" (istnieje jako `river`) |
+| TRA-005 | Nawigacja przybrzeżna | T1 | TRA-004 | Prerequisite dla żeglugi |
+| TRA-006 | Kompas magnetyczny | T1 | MIN-001 | Prerequisite dla nawigacji morskiej |
+| TRA-007 | Organizacja dróg | T1 | TRA-003 | Realne: podnosi `Connection.infrastructure.level` szybciej (audyt M12-M14 P2#6) |
+| TRA-008 | Archiwizacja i biblioteki | T1 | TRA-002 | Prerequisite dla druku/administracji |
+| TRA-009 | Żegluga przybrzeżna | T2 | TRA-005 | Realne: nowy `TransportMode` "morski", niska friction na długich dystansach |
+| TRA-010 | Kartografia morska | T2 | TRA-006, NAU-003 | Realne: dokładniejsze `effectiveDistance` |
+| TRA-011 | Sieć posłańców | T2 | TRA-002, TRA-001 | Realne: szybszy przepływ Knowledge między regionami (Diffusion) |
+| TRA-012 | Standaryzacja miar i wag | T2 | TRA-002, NAU-001 | **hook** -- dokładniejszy handel między regionami (Trade nie rozróżnia dziś jednostek) |
+| TRA-013 | Chronometr (pomiar czasu podróży) | T3 | MEC-008 | Realne: dokładniejsze `effectiveDistance` dla żeglugi |
+| TRA-014 | Sekstant i nawigacja gwiezdna | T3 | TRA-005, NAU-007 | Realne: dalsze zmniejszenie friction na trasach morskich |
+| TRA-015 | Żegluga oceaniczna | T3 | TRA-009, TRA-014 | Realne: najniższa friction na bardzo długich trasach |
+| TRA-016 | Kanały żeglowne | T3 | TRA-009, MIN-019 | Realne: nowy `Connection` sztuczny (kanał) |
+| TRA-017 | Sygnalizacja dalekosiężna (ognie, semafory) | T4 | TRA-002 | Realne: natychmiastowy sygnał między sąsiadującymi regionami |
+| TRA-018 | Systemy przekaźnikowe (stacje pocztowe) | T4 | TRA-007, TRA-017 | **hook** -- szybszy przepływ informacji (Migration/State AI nie istnieje) |
+| TRA-019 | Druk (wczesny, odbitki) | T4 | TRA-008 | Realne: przyspiesza Diffusion globalnie (mnożnik `diffusion`) |
+| TRA-020 | Kodeks prawny i administracja pisemna | T4 | TRA-008 | **hook** -- Administration (TECH-005) nie ma dziś reprezentacji w kodzie |
+| TRA-021 | Telegraf (sygnalizacja elektryczna, prosta) | T5 | TRA-017, MIN-014 | **hook** -- natychmiastowa komunikacja (wymaga infrastruktury elektrycznej, poza zakresem tego katalogu) |
+| TRA-022 | Systemy pocztowe zorganizowane | T5 | TRA-018, TRA-019 | **hook** -- łączy druk i sieć przekaźnikową (dziedziczy hook z TRA-018) |
+| TRA-023 | Kartografia globalna | T5 | TRA-015, TRA-010 | Realne: najdokładniejsze `effectiveDistance` w całej domenie |
+| TRA-024 | Standaryzacja infrastruktury transportowej | T6 | TRA-007, MEC-022 | Realne: dalszy wzrost `Connection.infrastructure.level` |
+| TRA-025 | Zintegrowana sieć handlowo-transportowa | T6 | TRA-022, TRA-023, TRA-024 | Realne: szczyt domeny -- maksymalna capacity/minimalna friction na wszystkich `Connection` regionu |
+
+## 4.5 Nauka i Społeczeństwo (NAU)
+
+| ID | Nazwa | Tier | Prerekwizyty | Odblokowuje |
+|---|---|---|---|---|
+| NAU-001 | Systematyczny pomiar | T0 | brak | Prerequisite wspierający -- sam nie ma bezpośredniego efektu |
+| NAU-002 | Podstawowa higiena | T0 | brak | **Realne**: zmniejsza `deathRateByAgeGroup` (demografia, M6) |
+| NAU-003 | Geometria praktyczna | T1 | NAU-001 | Prerequisite dla MEC-006, TRA-010 |
+| NAU-004 | Zielarstwo i farmakologia ludowa | T1 | NAU-002 | Realne: dalsze zmniejszenie `deathRateByAgeGroup`, nowy Good "leki ziołowe" |
+| NAU-005 | Arytmetyka handlowa i rachunkowość | T1 | NAU-001 | **hook** -- dokładniejsza wycena/handel (Market nie modeluje dziś księgowości) |
+| NAU-006 | Chirurgia polowa | T1 | NAU-002 | **hook** -- zmniejsza śmiertelność w kryzysach (Events nie istnieje) |
+| NAU-007 | Trygonometria i triangulacja | T1 | NAU-003 | Prerequisite dla TRA-014 |
+| NAU-008 | Kwarantanna i kontrola epidemii | T2 | NAU-002 | **hook** -- ogranicza rozprzestrzenianie epidemii (Events nie istnieje) |
+| NAU-009 | Algebra podstawowa | T2 | NAU-003 | Prerequisite dla NAU-014 |
+| NAU-010 | Statystyka opisowa i szacowanie zapasów | T2 | NAU-005 | **hook** -- dokładniejsza widoczność zapasów (rozszerzenie Read Models, dziś nieistniejące) |
+| NAU-011 | Anatomia systematyczna | T2 | NAU-006 | Prerequisite dla NAU-015 |
+| NAU-012 | Kartografia matematyczna | T2 | NAU-007 | Realne: dokładniejsze `effectiveDistance` na `Connection` |
+| NAU-013 | Sanitacja miejska (wodociągi/kanalizacja) | T3 | NAU-008, MEC-013 | Realne: dalsze zmniejszenie Urban Crisis |
+| NAU-014 | Mechanika teoretyczna | T3 | NAU-009, MEC-005 | Realne: mnożnik jakości dla "mechanizowalnych" receptur MEC |
+| NAU-015 | Szpitalnictwo zorganizowane | T3 | NAU-011, NAU-013 | Realne: zdolność wymagana dla najwyższych `SettlementStage` |
+| NAU-016 | Edukacja formalna (szkoły) | T3 | NAU-005, TRA-008 | **Realne**: przyspiesza akumulację Knowledge regionu -- bezpośredni hook do Discovery Engine samego M15 |
+| NAU-017 | Prawo i sądownictwo lokalne | T4 | TRA-020 | **hook** -- stabilność społeczna/redukcja `declinePressure` osady (wymaga rozszerzenia `computeSettlementPressure`) |
+| NAU-018 | Szczepienia wczesne | T4 | NAU-011, NAU-004 | Realne: dalsze zmniejszenie `deathRateByAgeGroup` |
+| NAU-019 | Demografia i spisy ludności | T4 | NAU-010, NAU-005 | **hook** -- dokładniejsza widoczność populacji (rozszerzenie Read Models) |
+| NAU-020 | Administracja regionalna | T4 | NAU-017, TRA-020 | **hook** -- Administration (TECH-005), dziedziczy hook z NAU-017/TRA-020 |
+| NAU-021 | Filozofia przyrody (wczesna nauka empiryczna) | T5 | NAU-009, NAU-014 | Realne: przyspiesza Diffusion Knowledge między regionami |
+| NAU-022 | Medycyna zapobiegawcza | T5 | NAU-018, NAU-013 | Realne: dalsze zmniejszenie `deathRateByAgeGroup` (najniższy w domenie) |
+| NAU-023 | Statystyka gospodarcza i planowanie | T5 | NAU-010, NAU-019 | **hook** -- lepsze decyzje State AI (State AI samo jest DEFERRED, poza obecnym zakresem silnika) |
+| NAU-024 | Uniwersytety i ośrodki wiedzy | T6 | NAU-016, NAU-021 | Realne: najwyższy mnożnik akumulacji Knowledge regionu |
+| NAU-025 | Nauka systemowa (metoda naukowa) | T6 | NAU-021, NAU-024 | Realne: szczyt domeny -- globalny mnożnik Diffusion+Knowledge dla WSZYSTKICH odkryć |
+
+------------------------------------------------------------------------
+
+# 5. Co dalej (poza zakresem tego dokumentu)
+
+Bez zmian względem pierwszej wersji -- patrz też sekcja 2.3 dla
+rozróżnienia "realne"/"(nowy content PM)"/"hook":
+
+1. **Schemat `KnowledgeDomainDefinition`** -- te 5 domen nie ma dziś
+   żadnego typu contentu w `packages/content/src/schema/`.
+2. **`content/discoveries/*.json`** -- 125 plików zgodnych z istniejącym
+   `DiscoveryDefinitionSchema`.
+3. **Nowe `ProductionMethod`/`CompanyArchetype`** -- każde "(nowy content
+   PM)" w tabelach wyżej (57 z 125) to osobna pozycja do dopisania (dziś
+   tylko 2+2 istnieją).
+4. **Wywołanie `deposit-lifecycle.ts` z tick loopa** -- funkcje już
+   istnieją (M5), nic ich dziś nie woła.
+5. **33 pozycje oznaczone "hook"** (sekcja 6) wymagają systemów, których
+   dziś nie ma WCALE w kodzie i nie ma ich na żadnym obecnym milestonie
+   (Administration, Events, rozszerzone Read Models, State AI, zmiany w
+   `Inventory`/`production.ts`) -- te pozycje są w katalogu, bo mają sens
+   NARRACYJNY i będą miały sens MECHANICZNY, gdy te systemy kiedyś
+   powstaną, ale dziś są czystą zapowiedzią, nie realnym mechanizmem.
+
+------------------------------------------------------------------------
+
+# 6. Pytania otwarte dla użytkownika
+
+- **33/125 (26%) to hooki lub czyste prerequisites** -- czy to
+  akceptowalny poziom (bliższy normie gatunku niż pierwsza wersja), czy
+  chcesz, żebym dalej przycinał w stronę np. 90%+ "realnych"?
+- Kilka "hooków" (NAU-005/010/019/023, TRA-012/018/020/021/022) tworzy
+  własny mini-łańcuch zależny wyłącznie od innych hooków -- to znaczy,
+  że część domeny Nauka/Transport na wyższych tierach jest strukturalnie
+  odizolowana od reszty silnika, dopóki te systemy (Administration,
+  rozszerzone Read Models) nie powstaną. Czy to akceptowalne, czy wolisz,
+  żebym przeprojektował te konkretne węzły na coś, co JUŻ ma gdzie
+  zadziałać?
+- Czy 125 (5×25) to ostateczna liczba, czy dalej chcesz iterować?
+
+------------------------------------------------------------------------
+
+**KONIEC --- FIRST CAUSE Technology Discovery Catalog v0.1 (DRAFT, wersja 2)**
