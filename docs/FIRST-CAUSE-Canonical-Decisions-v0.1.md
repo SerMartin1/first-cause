@@ -660,11 +660,20 @@ W kodzie pozostaje termin `adoption`.
 
 # 56. TECH-004 --- Knowledge Domains
 
-**Status:** CANONICAL
+**Status:** CANONICAL (zaktualizowane 2026-09-18, patrz
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`; zastępuje
+pierwotny podział na 12 wąskich domen)
 
-12 domen: 1. Agriculture 2. Construction 3. Metallurgy 4. Mining 5.
-Navigation 6. Medicine 7. Mathematics 8. Mechanics 9. Chemistry 10.
-Energy 11. Transportation 12. Communication
+5 domen: 1. Rolnictwo i Żywność 2. Górnictwo i Metalurgia 3.
+Budownictwo i Mechanika 4. Transport i Komunikacja 5. Nauka i
+Społeczeństwo
+
+Każda domena łączy 2--3 z pierwotnych 12 wąskich domen (np. Górnictwo
+i Metalurgia = Mining + Metallurgy) -- pełne mapowanie w katalogu
+odkryć. Powód zmiany: 12 wąskich domen dawało zbyt drobnoziarnisty
+podział względem porównywalnych gier gatunku (RimWorld, Oxygen Not
+Included, Dwarf Fortress) i utrudniało dostarczenie spójnego zestawu
+Discoveries na start (M15).
 
 ------------------------------------------------------------------------
 
@@ -694,26 +703,35 @@ Adoption.
 
 ------------------------------------------------------------------------
 
-# 59. TECH-007 --- T0--T5
+# 59. TECH-007 --- T0--T6
 
-**Status:** CANONICAL
+**Status:** CANONICAL (zaktualizowane 2026-09-18, rozszerzone o jeden
+stopień względem pierwotnego T0--T5, patrz
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`)
 
-T0--T5 są complexity bands.
+T0--T6 są complexity bands.
 
 Nie są historycznymi erami.
+
+T6 = szczyt katalogu odkryć: zorganizowane społeczeństwo przemysłowe
+(huty, medycyna zapobiegawcza, uniwersytety, zintegrowany transport).
+Nie sięga lotu kosmicznego ani epoki elektrycznej -- świadomie poza
+zakresem.
 
 ------------------------------------------------------------------------
 
 # 60. TECH-008 --- Vertical Slice
 
-**Status:** VS
+**Status:** VS (zaktualizowane 2026-09-18 -- pierwotny podział 5
+głównych + 4 wspierające domeny zastąpiony przez TECH-004's 5 nowych
+szerokich domen, patrz
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`)
 
-5 głównych aktywnych domen: - Agriculture - Construction - Metallurgy -
-Mining - Mechanics
+Wszystkie 5 domen (TECH-004) są aktywne w VS -- nowy podział nie
+rozróżnia już "głównych" i "wspierających", każda z 5 domen ma pełny
+zestaw 25 Discoveries.
 
-Support: - Mathematics - Transportation - Medicine - Communication
-
-Aktywne około 20--30 Discoveries.
+125 Discoveries łącznie (5 × 25), zamiast pierwotnego ~20--30.
 
 ------------------------------------------------------------------------
 
