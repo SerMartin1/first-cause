@@ -81,7 +81,7 @@ describe("App", () => {
     screen.getByRole("button", { name: "PL" }).click();
 
     await waitFor(() => {
-      expect(screen.getByText("M11 -- AI Firm")).toBeInTheDocument();
+      expect(screen.getByText("M12 -- Przedsiębiorczość")).toBeInTheDocument();
     });
   });
 });

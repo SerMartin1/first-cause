@@ -60,6 +60,21 @@ describe("loadEconomyContent (audit regression P0-06, content-driven production 
     );
   });
 
+  it("M12: builds one entrepreneurship candidate per content companyArchetype, pointing at its production recipe", () => {
+    const result = loadEconomyContent(REPO_ROOT);
+
+    expect(result.entrepreneurshipCandidatesByArchetypeId.grain_farm).toEqual({
+      archetypeId: "grain_farm",
+      productionMethodId: "manual_farming",
+      capitalRequirement: 0,
+    });
+    expect(result.entrepreneurshipCandidatesByArchetypeId.bakery).toEqual({
+      archetypeId: "bakery",
+      productionMethodId: "manual_food_processing",
+      capitalRequirement: 0,
+    });
+  });
+
   it("drives an identical 12-tick economy run to the hardcoded DEFAULT_* maps (real content is a genuine drop-in, not a parallel unused path)", () => {
     const content = loadEconomyContent(REPO_ROOT);
     expect(content.ok).toBe(true);

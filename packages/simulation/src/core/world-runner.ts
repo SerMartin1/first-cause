@@ -21,6 +21,8 @@ export interface WorldRunnerConfig extends HeadlessRunnerConfig {
   readonly productionRecipesByMethodId?: RunEconomyTickInput["productionRecipesByMethodId"];
   readonly transportModeProfilesByModeId?: RunEconomyTickInput["transportModeProfilesByModeId"];
   readonly pmCandidatesByCurrentMethodId?: RunEconomyTickInput["pmCandidatesByCurrentMethodId"];
+  /** M12: przekazane 1:1 do `runEconomyTick` -- domyślnie brak kandydatów (patrz `economy-tick.ts`). */
+  readonly entrepreneurshipCandidatesByArchetypeId?: RunEconomyTickInput["entrepreneurshipCandidatesByArchetypeId"];
 }
 
 export class WorldRunner {
@@ -65,6 +67,12 @@ export class WorldRunner {
         : {}),
       ...(this.config.transportModeProfilesByModeId !== undefined
         ? { transportModeProfilesByModeId: this.config.transportModeProfilesByModeId }
+        : {}),
+      ...(this.config.entrepreneurshipCandidatesByArchetypeId !== undefined
+        ? {
+            entrepreneurshipCandidatesByArchetypeId:
+              this.config.entrepreneurshipCandidatesByArchetypeId,
+          }
         : {}),
     });
     this.state = result.worldState;

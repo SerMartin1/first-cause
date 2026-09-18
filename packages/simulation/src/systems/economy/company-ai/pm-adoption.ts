@@ -35,7 +35,8 @@ const PM_ADOPTION_PERSISTENCE_TICKS = 3; // TODO tuning -- SS40/SS41 confidence-
 const PM_ADOPTION_MIN_ADVANTAGE = 0.05; // TODO tuning -- SS38 "wymaga dodatniej przewagi"
 const PM_DECISION_TYPE = "production_method_adoption";
 
-function marginPerBatch(
+/** Reused by `opportunity-scanner.ts` (M12) for candidate ExpectedMargin -- same per-batch margin, same "missing price defaults to 0" bounded-rationality allowance. */
+export function marginPerBatch(
   recipe: ProductionRecipe,
   prices: Readonly<Record<string, number>>,
 ): number {

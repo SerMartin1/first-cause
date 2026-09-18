@@ -1,10 +1,13 @@
 import {
+  createCompany,
+  createInventory,
   createWorldState,
   type Company,
   type Connection,
   type Inventory,
   type Market,
   type PopulationCohort,
+  type Region,
   type ResourceDeposit,
   type WorldState,
 } from "@first-cause/entities";
@@ -43,6 +46,7 @@ import {
   decideLabor,
   decideLifecycle,
   decideProduction,
+  evaluateFounding,
 } from "../systems/economy/company-ai/index.js";
 import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js";
 
@@ -79,6 +83,14 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
  * system tego nie potrzebował, bo nic ich dotąd nie wołało w pętli) i są
  * tu jawnie, minimalnie zaimplementowane -- patrz stałe `TODO tuning`
  * poniżej oraz `settlement.ts`.
+ *
+ * M12 (Entrepreneurship, AI-07) dodał krok 7: `company-ai/opportunity-
+ * scanner.ts::evaluateFounding` per (region, `entrepreneurshipCandidates`
+ * entry) -- nowe firmy powstają przez regionalny Opportunity Scan, nie
+ * przez losowe spawnienie (AI-007). Domyślnie pusta mapa kandydatów =
+ * zero nowych firm, dokładnie tak jak każdy caller sprzed M12 się
+ * zachowywał -- pełna wsteczna zgodność, ten sam wzorzec co P0-06's
+ * `productionRecipesByMethodId`.
  */
 
 const EMPLOYEES_PER_CAPACITY_UNIT = 1; // TODO tuning -- most z decyzji produkcyjnej (capacity*utilization) do docelowego zatrudnienia; żaden system tego nie liczy (AI-04 zakłada gotowy target)
@@ -87,6 +99,18 @@ const EXPANSION_CAPITAL_COST = 100; // TODO tuning -- decideLifecycle wymaga jak
 const SURVIVAL_UNITS_PER_CAPITA = 3; // TODO tuning -- ile jednostek dobra "survival" jedna osoba potrzebuje na tick; 0.05 z M8+M9 regression test było skalibrowane pod inny scenariusz (jeden dobrze opłacany pracownik kupujący zboże po cenie 10), nie pod ten fixture
 const SURVIVAL_GOOD_ID = "flour"; // TODO content -- Etap 1 hardcoded most kategoria->dobro (pełne mapowanie z contentu to osobna praca, patrz plan sekcja 1)
 const DEFAULT_TRANSPORT_MODE_ID = "cart"; // TODO tuning -- fallback gdy connection.infrastructure.transportModes jest puste/niedopasowane
+
+/**
+ * M12 (AI-07 Entrepreneurship): jedna para (`CompanyArchetype`,
+ * `ProductionMethod`) rozważana przez `evaluateFounding` w każdym
+ * regionie. `capitalRequirement` to `CompanyArchetypeDefinition.
+ * capitalRequirement` (M2) wprost, bez transformacji.
+ */
+export interface EntrepreneurshipCandidate {
+  readonly archetypeId: string;
+  readonly productionMethodId: string;
+  readonly capitalRequirement: number;
+}
 
 export interface RunEconomyTickInput {
   readonly worldState: WorldState;
@@ -106,6 +130,10 @@ export interface RunEconomyTickInput {
   readonly productionRecipesByMethodId?: Readonly<Record<string, ProductionRecipe>>;
   /** Audytowe P0-06: analogicznie dla kosztów transportu -- domyślnie `DEFAULT_TRANSPORT_MODE_PROFILES`. */
   readonly transportModeProfilesByModeId?: Readonly<Record<string, TransportModeProfile>>;
+  /** M12: kandydaci Opportunity Scannera, keyed by `archetypeId`. Domyślnie `{}` -- brak kandydatów, więc żadna firma nigdy się nie zakłada (pełna wsteczna zgodność dla każdego caller'a sprzed M12). */
+  readonly entrepreneurshipCandidatesByArchetypeId?: Readonly<
+    Record<string, EntrepreneurshipCandidate>
+  >;
 }
 
 export interface RunEconomyTickResult {
@@ -182,7 +210,10 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     input.productionRecipesByMethodId ?? DEFAULT_PRODUCTION_RECIPES;
   const transportModeProfilesByModeId =
     input.transportModeProfilesByModeId ?? DEFAULT_TRANSPORT_MODE_PROFILES;
+  const entrepreneurshipCandidatesByArchetypeId =
+    input.entrepreneurshipCandidatesByArchetypeId ?? {};
 
+  const regions: Record<string, Region> = { ...worldState.regions };
   const companies: Record<string, Company> = { ...worldState.companies };
   const markets: Record<string, Market> = { ...worldState.markets };
   const inventories: Record<string, Inventory> = { ...worldState.inventories };
@@ -198,7 +229,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   const regionIds = Object.keys(worldState.regions).sort();
 
   for (const regionId of regionIds) {
-    const region = worldState.regions[regionId]!;
+    let region = regions[regionId]!;
     const marketId = region.economy.marketId;
     const regionInventoryId = region.economy.regionalInventoryId;
     const companyIds = [...region.economy.companyIds].sort();
@@ -522,6 +553,117 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       }
       markets[marketId] = market;
     }
+
+    // 7. Entrepreneurship (M12, AI-07): regionalny Opportunity Scan --
+    // ocenia każdego kandydata AFTER krok 6, więc widzi tegoticzowy,
+    // świeżo zaktualizowany rynek (shortageSeverity/demand/supply), nie
+    // stan sprzed tego ticka.
+    if (marketId && Object.keys(entrepreneurshipCandidatesByArchetypeId).length > 0) {
+      const market = markets[marketId]!;
+      const prices = Object.fromEntries(
+        Object.entries(market.goods).map(([goodId, good]) => [goodId, good.localPrice]),
+      );
+      const availableLabor = cohortIds.reduce(
+        (sum, cohortId) => sum + availableWorkers(populationCohorts[cohortId]!),
+        0,
+      );
+      const resourceStockByResourceId: Record<string, number> = {};
+      for (const [resourceId, depositId] of depositIdByResource) {
+        resourceStockByResourceId[resourceId] =
+          resourceDeposits[depositId]!.stock.quantity;
+      }
+
+      for (const archetypeId of Object.keys(
+        entrepreneurshipCandidatesByArchetypeId,
+      ).sort()) {
+        const candidate = entrepreneurshipCandidatesByArchetypeId[archetypeId]!;
+        const recipe = productionRecipesByMethodId[candidate.productionMethodId];
+        if (!recipe) continue;
+
+        const primaryOutputGoodId = Object.keys(recipe.goodOutputsPerBatch).sort()[0];
+        const outputGoodState = primaryOutputGoodId
+          ? market.goods[primaryOutputGoodId]
+          : undefined;
+        const demandGapSeverity = outputGoodState?.shortageSeverity ?? 0;
+        const unmetDemandQuantity = outputGoodState
+          ? Math.max(0, outputGoodState.demand - outputGoodState.supply)
+          : 0;
+        const existingCompetitorCount = companyIds.filter(
+          (id) =>
+            companies[id]!.archetypeId === archetypeId && companies[id]!.status.active,
+        ).length;
+
+        const foundingResult = evaluateFounding({
+          region,
+          tick,
+          archetypeId,
+          recipe,
+          capitalRequirement: candidate.capitalRequirement,
+          prices,
+          demandGapSeverity,
+          unmetDemandQuantity,
+          resourceStockByResourceId,
+          availableLabor,
+          existingCompetitorCount,
+        });
+        region = foundingResult.region;
+
+        // Bez przynajmniej jednej kohorty region nie ma nikogo, kto mógłby
+        // zostać właścicielem nowej firmy (Company.ownerEntityId wymaga
+        // istniejącej kohorty) -- to samo `population.totalPopulation > 0`
+        // hard-eligibility, tylko sprawdzone tu przed faktyczną konstrukcją,
+        // nie w samym `evaluateFounding` (który go już wymusza).
+        const ownerCohortId = cohortIds[0];
+        if (foundingResult.founded && foundingResult.companyDraft && ownerCohortId) {
+          const draft = foundingResult.companyDraft;
+          const newCompanyId = `company_${draft.archetypeId}_${regionId}_t${tick}`;
+          const newInventoryId = `inventory_${newCompanyId}`;
+
+          const newInventory = createInventory({
+            id: newInventoryId,
+            ownerType: "company",
+            ownerId: newCompanyId,
+            locationRegionId: regionId,
+          });
+          const baseCompany = createCompany({
+            id: newCompanyId,
+            archetypeId: draft.archetypeId,
+            // TODO content -- brak generatora nazw firm (M12 nie wprowadza contentu, patrz plan sekcja "Dane").
+            name: `New ${draft.archetypeId} (${region.name})`,
+            foundedTick: tick,
+            regionId,
+            ownerType: "individual",
+            // TODO tuning -- brak modelu "kto zostaje przedsiębiorcą" (§46
+            // Capital Formation jest celowo uproszczone) -- pierwsza (po
+            // sortowaniu ID) kohorta regionu jako placeholder właściciela.
+            ownerEntityId: ownerCohortId,
+            inventoryId: newInventoryId,
+            initialCash: draft.initialCash,
+            initialWageOffer: draft.initialWageOffer,
+          });
+          const newCompany: Company = {
+            ...baseCompany,
+            production: {
+              ...baseCompany.production,
+              productionMethodId: draft.productionMethodId,
+              capacity: draft.initialCapacity,
+              utilization: draft.initialUtilization,
+            },
+          };
+
+          companies[newCompanyId] = newCompany;
+          inventories[newInventoryId] = newInventory;
+          facts.push({
+            type: "company_founded",
+            subject: { entityType: "company", entityId: newCompanyId },
+            location: { regionId },
+            values: { before: 0, after: 1, delta: 1 },
+          });
+        }
+      }
+    }
+
+    regions[regionId] = region;
   }
 
   // 7. Handel: fizyczne przeniesienie dóbr wzdłuż każdego Connection (M10).
@@ -609,7 +751,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   const nextWorldState = createWorldState({
     world: worldState.world,
     continents: Object.values(worldState.continents),
-    regions: Object.values(worldState.regions),
+    regions: Object.values(regions),
     connections: Object.values(connections),
     resourceDeposits: Object.values(resourceDeposits),
     settlements: Object.values(worldState.settlements),

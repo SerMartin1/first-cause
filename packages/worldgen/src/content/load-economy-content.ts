@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import {
   loadContentPack,
+  type CompanyArchetypeDefinition,
   type DefinitionRegistry,
   type LocaleBundle,
   type ProductionMethodDefinition,
@@ -10,6 +11,7 @@ import {
 import {
   parseProductionRecipe,
   parseTransportModeProfile,
+  type EntrepreneurshipCandidate,
   type ProductionRecipe,
   type TransportModeProfile,
 } from "@first-cause/simulation";
@@ -35,6 +37,10 @@ export interface LoadEconomyContentResult {
   readonly errors: readonly string[];
   readonly productionRecipesByMethodId: Readonly<Record<string, ProductionRecipe>>;
   readonly transportModeProfilesByModeId: Readonly<Record<string, TransportModeProfile>>;
+  /** M12: one candidate per `companyArchetype` (its first `productionMethodIds` entry -- VS scope never lists more than one). */
+  readonly entrepreneurshipCandidatesByArchetypeId: Readonly<
+    Record<string, EntrepreneurshipCandidate>
+  >;
 }
 
 function readJsonDir(dir: string): unknown[] {
@@ -79,6 +85,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       errors: result.errors,
       productionRecipesByMethodId: {},
       transportModeProfilesByModeId: {},
+      entrepreneurshipCandidatesByArchetypeId: {},
     };
   }
 
@@ -90,6 +97,8 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     DefinitionRegistry<ProductionMethodDefinition> | undefined;
   const transportModeRegistry = result.registries.transportMode as
     DefinitionRegistry<TransportModeDefinition> | undefined;
+  const companyArchetypeRegistry = result.registries.companyArchetype as
+    DefinitionRegistry<CompanyArchetypeDefinition> | undefined;
 
   const productionRecipesByMethodId: Record<string, ProductionRecipe> = {};
   for (const definition of productionMethodRegistry?.all() ?? []) {
@@ -108,10 +117,25 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     );
   }
 
+  const entrepreneurshipCandidatesByArchetypeId: Record<
+    string,
+    EntrepreneurshipCandidate
+  > = {};
+  for (const definition of companyArchetypeRegistry?.all() ?? []) {
+    const productionMethodId = definition.productionMethodIds[0];
+    if (!productionMethodId) continue; // an archetype with no production method yet can't be founded
+    entrepreneurshipCandidatesByArchetypeId[definition.id] = {
+      archetypeId: definition.id,
+      productionMethodId,
+      capitalRequirement: definition.capitalRequirement,
+    };
+  }
+
   return {
     ok: true,
     errors: [],
     productionRecipesByMethodId,
     transportModeProfilesByModeId,
+    entrepreneurshipCandidatesByArchetypeId,
   };
 }

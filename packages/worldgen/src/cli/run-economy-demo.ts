@@ -31,7 +31,9 @@ const REPO_ROOT = path.resolve(
  * Etap 3 (P0-06): receptury produkcji i koszty transportu pochodzą teraz z
  * realnego contentu na dysku (`content/productionMethods|transportModes/
  * *.json`, przez `loadEconomyContent`), nie z hardcoded domyślnych w
- * `economy-tick.ts`.
+ * `economy-tick.ts`. M12: `entrepreneurshipCandidatesByArchetypeId` z
+ * tego samego contentu (`companyArchetypes/*.json`) -- nowe firmy mogą
+ * się zakładać w trakcie demo, nie tylko te z fixture'a.
  */
 const fixturePath = process.argv[2];
 if (!fixturePath) {
@@ -63,6 +65,8 @@ const runner = createWorldRunner({
   worldState: loaded.worldState!,
   productionRecipesByMethodId: content.productionRecipesByMethodId,
   transportModeProfilesByModeId: content.transportModeProfilesByModeId,
+  entrepreneurshipCandidatesByArchetypeId:
+    content.entrepreneurshipCandidatesByArchetypeId,
 });
 
 console.log(`[first-cause] Etap 1 economy demo -- running ${ticks} ticks`);

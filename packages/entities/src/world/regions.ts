@@ -44,6 +44,25 @@ export interface RegionCachedState {
   readonly marketAccess: number;
 }
 
+/**
+ * Region-level decision bookkeeping for `AI-07 Entrepreneurship`
+ * (M12, `company-ai/opportunity-scanner.ts`) -- the same hysteresis/
+ * cooldown/persistence shape `Company.ai` already carries for M11's
+ * per-company decisions (`economy/company.ts` `CompanyAiState`), keyed
+ * by `CompanyArchetype` id instead of a decision type, because the
+ * "actor" evaluating an opportunity here is the *region* (AI Decision
+ * Model §4 "Entrepreneurs / Potential Entrants" -- Entrepreneurship AI is
+ * not a per-Company decision, it runs before any Company exists). No
+ * `memory` field (unlike `CompanyAiState`) -- `OpportunityScore` is
+ * recomputed fresh from current Market/ResourceDeposit/PopulationCohort
+ * state each scan, not from a rolling trend.
+ */
+export interface RegionEntrepreneurshipState {
+  readonly activeStates: Readonly<Record<string, boolean>>;
+  readonly opportunityStreak: Readonly<Record<string, number>>;
+  readonly lastDecision: Readonly<Record<string, number>>;
+}
+
 export interface Region {
   readonly id: string;
   readonly worldId: string;
@@ -60,6 +79,7 @@ export interface Region {
   readonly knowledge: { readonly technologyStateId: string | undefined };
   readonly connections: { readonly connectionIds: readonly string[] };
   readonly cached: RegionCachedState;
+  readonly entrepreneurship: RegionEntrepreneurshipState;
 }
 
 export interface CreateRegionInput {
@@ -105,6 +125,7 @@ export function createRegion(input: CreateRegionInput): Region {
       urbanizationPressure: 0,
       marketAccess: 0,
     },
+    entrepreneurship: { activeStates: {}, opportunityStreak: {}, lastDecision: {} },
   };
 }
 

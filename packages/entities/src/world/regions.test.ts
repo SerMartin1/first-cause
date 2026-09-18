@@ -25,6 +25,11 @@ describe("createRegion", () => {
     expect(region.population).toEqual({ cohortIds: [], totalPopulation: 0 });
     expect(region.resources.depositIds).toEqual([]);
     expect(region.environment.quality).toBe(1);
+    expect(region.entrepreneurship).toEqual({
+      activeStates: {},
+      opportunityStreak: {},
+      lastDecision: {},
+    });
   });
 
   it("rejects an empty id", () => {

@@ -8,6 +8,60 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-09-18
+
+- Wdrożono **M12 -- Entrepreneurship** (AI-07, Opportunity Scanner).
+  Nowy moduł `packages/simulation/src/systems/economy/company-ai/
+  opportunity-scanner.ts` (`evaluateFounding`): kanoniczny
+  `OpportunityScore = DemandGap + ExpectedMargin + ResourceAccess +
+  LaborAvailability + SkillAvailability + MarketAccess - Competition -
+  Risk - CapitalRequirement` (AI-008), ważony i clampowany do `[0,1]`
+  tym samym wzorcem co `lifecycle-decision.ts`'s expansion/contraction
+  score, z pełnym hysteresis+cooldown+persistence (AI-01, §84
+  Anti-Explosion Rules -- brak natychmiastowego wejścia). Aktor
+  oceniający okazję to *region*, nie istniejąca firma (Entrepreneurship
+  AI działa, zanim jakakolwiek firma istnieje) -- `Region`
+  (`packages/entities`) zyskuje nowe pole `entrepreneurship`
+  (`RegionEntrepreneurshipState`: activeStates/opportunityStreak/
+  lastDecision, keyed by `archetypeId`), ten sam kształt co
+  `Company.ai` z M11, ale bez `memory` (OpportunityScore liczony na
+  świeżo co scan, nie z trendu). Minimum Economic Scale (§85) i
+  hard-eligibility (populacja > 0, wymagane zasoby faktycznie dostępne
+  w regionie) blokują założenie firmy niezależnie od wyniku. Capital
+  Formation (§46) świadomie uproszczone -- spec sam mówi "dokładny
+  system finansowania zostanie rozwinięty później", a `Region.economy.
+  wealth`/`PopulationCohort.averageWealth` są martwymi, niepodłączonymi
+  polami nigdzie w silniku -- nowa firma startuje z gotówką dokładnie
+  równą `capitalRequirement` (realna, content-owned liczba, nie
+  wymyślony zastrzyk). `economy-tick.ts` dostaje krok 7: dla regionu z
+  kandydatami (`entrepreneurshipCandidatesByArchetypeId`, domyślnie `{}`
+  -- pełna wsteczna zgodność) liczy `evaluateFounding` per archetyp i,
+  jeśli firma się zakłada, tworzy realny `Company`+`Inventory`
+  (`createCompany`/`createInventory`) z deterministycznym ID
+  (`company_<archetypeId>_<regionId>_t<tick>`) i emituje fakt
+  `company_founded`; back-referencje (`Region.economy.companyIds`)
+  odtwarzają się same przez istniejący `createWorldState`. `worldgen`'s
+  `loadEconomyContent` buduje kandydatów z `content/companyArchetypes/
+  *.json` (jeden kandydat na archetyp, pierwsza `productionMethodIds`
+  pozycja). 14 nowych testów (494 łącznie): Opportunity Founding Test,
+  No Opportunity Test, Competition Saturation Test (z realnym
+  zastrzeżeniem AI Decision Model §47 -- wysoka konkurencja nie
+  blokuje wejścia absolutnie, tylko przesuwa margines), Minimum
+  Economic Scale, hard-eligibility (brak zasobu/populacji), cooldown,
+  determinism (jednostkowy i pełny tick-loop), oraz pełny
+  end-to-end test zakładający drugą farmę w regionie przez realny,
+  już podłączony mechanizm popytu gospodarstw domowych (nie
+  sztucznie wstrzyknięty `demand`). Etykieta `app.milestone`
+  (`locales/en|pl/common.json`) zaktualizowana na "M12 --
+  Entrepreneurship"/"M12 -- Przedsiębiorczość". Świadomie poza
+  zakresem: Local Business Layer/Major Company Promotion (§86-87,
+  nie wymienione w Acceptance Gate tego milestone'u), Transport/
+  Construction Company AI (§52-53, nie są częścią "Implementowane
+  systemy" M12 w roadmapie), pełny model Capital Formation z realną
+  pulą bogactwa regionu/gospodarstw (§46, jawnie odłożone w samym
+  spec), Company Explosion Detector jako osobny system monitoringu
+  (§133, poza tym co Acceptance Gate wymaga).
+
 ## 2026-09-17
 
 - Wdrożono **M11 -- Company AI** (największy dotąd milestone, L
