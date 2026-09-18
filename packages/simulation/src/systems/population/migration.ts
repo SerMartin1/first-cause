@@ -9,6 +9,7 @@ import type { FactInput, FactLocation } from "@first-cause/causality";
 import { InvariantViolationError, assertNonNegative } from "../../core/validation.js";
 import type { RngStream } from "../../core/rng.js";
 import { clamp } from "../economy/company-ai/decision-framework.js";
+import { eligibleLaborForce } from "../economy/labor/employment.js";
 import { cohortSingleIdentityKey } from "./cohorts.js";
 import { stochasticRound } from "./demography.js";
 
@@ -265,15 +266,19 @@ export interface ApplyMigrationFlowResult {
 /**
  * Fizycznie przenosi `migrantCount` osób z `sourceCohort` do kohorty
  * docelowej (scalonej lub nowo utworzonej). `employment` źródła jest
- * przycinane do nowej populacji dokładnie tak jak w
- * `demography.ts::applyMonthlyDemography` (audytowy wzorzec P0-04 --
- * zatrudnienie nigdy nie przeżywa spadku populacji, które go
- * wyprzedziło); migranci lądują w miejscu docelowym jako bezrobotni --
- * fizyczna praca nie przenosi się razem z osobą (M9's Company przechowuje
- * tylko zagregowany `employees`, bez rozbicia per-kohorta, ta sama
- * granica co layoffWorkers's doc comment). `OutMigration === InMigration`
- * (FC-MIGRATION-005) z konstrukcji: oba fakty niżej dzielą to samo,
- * raz policzone `migrantCount`.
+ * przycinane do `eligibleLaborForce` nowej (po odpływie) populacji, nie
+ * do samej populacji (audytowy P0-05 -- 65% working-age to twardszy,
+ * poprawny sufit: kohorta ze 100 osób i 65 zatrudnionymi, po odpływie 10
+ * osób, ma tylko 58,5 miejsca w sile roboczej, więc 65 zatrudnionych
+ * byłoby fantomami, mimo że mieści się w nowej populacji 90). Migranci
+ * lądują w miejscu docelowym jako bezrobotni -- fizyczna praca nie
+ * przenosi się razem z osobą (M9's Company przechowuje tylko zagregowany
+ * `employees`, bez rozbicia per-kohorta, ta sama granica co
+ * layoffWorkers's doc comment). `OutMigration === InMigration`
+ * (FC-MIGRATION-005) z konstrukcji: oba fakty niżej dzielą to samo, raz
+ * policzone `migrantCount`. Company.workforce.employees nie jest tu
+ * korygowane -- to osobny krok w `economy-tick.ts` (audytowe P0-05,
+ * "Company headcount reconciliation").
  */
 export function applyMigrationFlow(
   input: ApplyMigrationFlowInput,
@@ -291,7 +296,10 @@ export function applyMigrationFlow(
 
   const sourcePopulationBefore = sourceCohort.population;
   const sourcePopulationAfter = sourcePopulationBefore - migrantCount;
-  const sourceEmploymentAfter = Math.min(sourceCohort.employment, sourcePopulationAfter);
+  const sourceEmploymentAfter = Math.min(
+    sourceCohort.employment,
+    eligibleLaborForce({ ...sourceCohort, population: sourcePopulationAfter }),
+  );
   const nextSourceCohort: PopulationCohort = {
     ...sourceCohort,
     population: sourcePopulationAfter,

@@ -300,7 +300,7 @@ describe("applyMigrationFlow (FC-MIGRATION-005 accounting)", () => {
     expect(result.destinationCohort.population).toBe(60);
   });
 
-  it("caps source employment at the surviving population (audit pattern P0-04, phantom employment)", () => {
+  it("caps source employment at eligibleLaborForce, not the surviving population (audit P0-05, phantom employment)", () => {
     const sourceCohort = buildCohort({ population: 100, employment: 95 });
 
     const result = applyMigrationFlow({
@@ -313,7 +313,10 @@ describe("applyMigrationFlow (FC-MIGRATION-005 accounting)", () => {
     });
 
     expect(result.sourceCohort.population).toBe(50);
-    expect(result.sourceCohort.employment).toBe(50); // was 95, capped down
+    // eligibleLaborForce = 50 * 0.65 = 32.5 -- a weaker "capped at population
+    // (50)" bound would still leave 50 phantom workers exceeding the real
+    // working-age labor supply.
+    expect(result.sourceCohort.employment).toBe(32.5);
   });
 
   it("throws when migrantCount exceeds the source cohort's population (programmer error, fail loud)", () => {

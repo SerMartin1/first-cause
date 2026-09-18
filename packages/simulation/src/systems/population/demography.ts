@@ -2,6 +2,7 @@ import type { AgeGroup, PopulationCohort } from "@first-cause/entities";
 import type { FactInput, FactLocation } from "@first-cause/causality";
 import { assertNonNegative } from "../../core/validation.js";
 import type { RngStream } from "../../core/rng.js";
+import { eligibleLaborForce } from "../economy/labor/employment.js";
 import {
   AGE_GROUP_ORDER,
   NEXT_AGE_GROUP,
@@ -131,20 +132,32 @@ function populationFact(
 }
 
 /**
- * Audytowe P0-04 ("phantom employment"): `employment` to policzalni ludzie
- * -- nie może przetrwać spadku `population`, który go wyprzedził (śmierć
- * *lub* starzenie się poza `WORKING_AGE_GROUPS`, `labor/employment.ts`
- * nigdy nie przesuwa `employment` razem z tymi przepływami, bo to osobne
- * pole na tym samym rekordzie kohorty). Górny limit to sama `population`
- * tej kohorty po tym miesiącu -- twardszy od `eligibleLaborForce` (M9),
- * celowo: demografia (M6) nie zna stawki partycypacji rynku pracy, to
- * cudza (M9) stała tuningowa, więc nie sięga po nią przez granicę
- * systemów -- ma tylko dopilnować, żeby zatrudnionych nigdy nie było
- * więcej niż żyjących. Które konkretnie firmy straciły tych pracowników
- * pozostaje nierozwiązane (Company przechowuje tylko zagregowany
- * `employees`, nie rozbicie per-kohorta -- udokumentowana, świadoma
- * granica M9, patrz `labor/employment.ts` `layoffWorkers` doc comment),
- * więc po stronie firmy nic tu się nie zmienia.
+ * Audytowe P0-04 (M7-M11 audyt) / P0-05 (M12-M14 audyt) "phantom
+ * employment": `employment` to policzalni ludzie -- nie może przetrwać
+ * spadku `population`, który go wyprzedził (śmierć *lub* starzenie się
+ * poza `WORKING_AGE_GROUPS`, `labor/employment.ts` nigdy nie przesuwa
+ * `employment` razem z tymi przepływami, bo to osobne pole na tym samym
+ * rekordzie kohorty).
+ *
+ * Górny limit to `eligibleLaborForce` (M9) tej kohorty po tym miesiącu,
+ * NIE sama `population` (M7-M11 audyt świadomie wybrał wtedy sam
+ * `population` jako granicę -- demografia miała nie sięgać po M9's stałą
+ * partycypacji rynku pracy przez granicę systemów). M12-M14 audyt
+ * (P0-05) pokazał, że to za słaby sufit: kohorta może mieć populację
+ * większą niż `population * 0.65` i zatrudnienie mieszczące się w
+ * populacji, ale wciąż przekraczające faktyczną siłę roboczą (fantomowi
+ * pracownicy, którzy strukturalnie nie mogą istnieć). Czystość granicy
+ * modułów ustępuje tu poprawności -- `eligibleLaborForce` jest małą,
+ * czystą funkcją bez żadnego stanu M9, więc import nie tworzy realnego
+ * sprzężenia.
+ *
+ * Które konkretnie firmy straciły tych pracowników pozostaje
+ * nierozwiązane NA POZIOMIE KOHORTY (Company przechowuje tylko
+ * zagregowany `employees`, nie rozbicie per-kohorta -- udokumentowana,
+ * świadoma granica M9, patrz `labor/employment.ts` `layoffWorkers` doc
+ * comment); zagregowane uzgodnienie `Company.workforce.employees` z
+ * realną podażą pracy regionu to osobny krok w `economy-tick.ts`
+ * (audytowe P0-05, "Company headcount reconciliation").
  */
 function employmentReconciliationFact(
   cohort: PopulationCohort,
@@ -229,7 +242,10 @@ export function applyMonthlyDemography(
     );
 
     const employmentBefore = cohort.employment;
-    const employmentAfter = Math.min(employmentBefore, after);
+    const employmentAfter = Math.min(
+      employmentBefore,
+      eligibleLaborForce({ ...cohort, population: after }),
+    );
 
     nextCohorts.push({ ...cohort, population: after, employment: employmentAfter });
     const fact = populationFact(cohort, before, after);

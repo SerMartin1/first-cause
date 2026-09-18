@@ -20,6 +20,7 @@ import { createWorldRng } from "./rng.js";
 import { runEconomyTick, type EntrepreneurshipCandidate } from "./economy-tick.js";
 import { roundMoney } from "./rounding.js";
 import { initializeMarketGood } from "../systems/economy/markets/price-adjustment.js";
+import { eligibleLaborForce } from "../systems/economy/labor/employment.js";
 import type { ProductionRecipe } from "../systems/economy/production.js";
 
 /**
@@ -202,7 +203,9 @@ const GRAIN_FARM_RECIPE: ProductionRecipe = {
  * same kind of already-settled starting condition a fixture's
  * `initialWageOffer` represents.
  */
-function buildEntrepreneurshipWorldState(): { worldState: WorldState } {
+function buildEntrepreneurshipWorldState(
+  settlementOverrides: { readonly withSettlement?: boolean } = {},
+): { worldState: WorldState } {
   const world = createWorld({
     id: "world_entrepreneurship_test",
     seed: "opportunity-scanner-unit-test",
@@ -293,6 +296,15 @@ function buildEntrepreneurshipWorldState(): { worldState: WorldState } {
     workforce: { ...baseExistingCompany.workforce, employees: 1 },
   };
 
+  const settlement = settlementOverrides.withSettlement
+    ? createSettlement({
+        id: "settlement_test",
+        regionId: region.id,
+        name: "Test Settlement",
+        foundedTick: 0,
+      })
+    : undefined;
+
   const worldState = createWorldState({
     world,
     continents: [continent],
@@ -302,6 +314,7 @@ function buildEntrepreneurshipWorldState(): { worldState: WorldState } {
     markets: [marketWithGoods],
     inventories: [regionInventory, existingCompanyInventory],
     resourceDeposits: [grainDeposit],
+    settlements: settlement ? [settlement] : [],
   });
 
   return { worldState };
@@ -352,6 +365,54 @@ describe("runEconomyTick -- Entrepreneurship (M12, AI-07 Opportunity Scanner wir
     // the new company shows up in its region's companyIds without any
     // manual bookkeeping in the entrepreneurship step itself.
     expect(state.regions.region_test!.economy.companyIds).toContain(foundedCompanyId);
+  });
+
+  it("assigns a settlementId to a newly founded company when the region has a settlement, and its employees feed Settlement.economy.employment (audit P1-07)", () => {
+    const { worldState } = buildEntrepreneurshipWorldState({ withSettlement: true });
+    const rng = createWorldRng(worldState.world.seed);
+    const candidates: Readonly<Record<string, EntrepreneurshipCandidate>> = {
+      grain_farm: {
+        archetypeId: "grain_farm",
+        productionMethodId: "manual_farming",
+        capitalRequirement: 0,
+      },
+    };
+
+    let state = worldState;
+    let foundedCompanyId: string | undefined;
+    // Wystarczająco dużo ticków, żeby firma zdążyła powstać I zatrudnić
+    // (hiring to osobna decyzja, następny tick po foundingu).
+    for (let tick = 0; tick < 30; tick++) {
+      const result = runEconomyTick({
+        worldState: state,
+        tick,
+        demographyRng: (scopeId) => rng.stream("demography", scopeId),
+        migrationRng: (scopeId) => rng.stream("migration", scopeId),
+        productionRecipesByMethodId: { manual_farming: GRAIN_FARM_RECIPE },
+        entrepreneurshipCandidatesByArchetypeId: candidates,
+      });
+      state = result.worldState;
+
+      if (!foundedCompanyId) {
+        foundedCompanyId = Object.keys(state.companies).find(
+          (id) => !(id in worldState.companies),
+        );
+      }
+      if (
+        foundedCompanyId &&
+        state.companies[foundedCompanyId]!.workforce.employees > 0
+      ) {
+        break;
+      }
+    }
+
+    expect(foundedCompanyId).toBeDefined();
+    const founded = state.companies[foundedCompanyId!]!;
+    expect(founded.settlementId).toBe("settlement_test"); // M14 czyta jobs po tym polu (RM M12-M14 audyt P1-07)
+    expect(founded.workforce.employees).toBeGreaterThan(0); // faktycznie zatrudniła kogoś
+    expect(state.settlements.settlement_test!.economy.employment).toBe(
+      founded.workforce.employees,
+    );
   });
 
   it("never founds a company when no entrepreneurshipCandidatesByArchetypeId is supplied (full backward compatibility)", () => {
@@ -561,5 +622,64 @@ describe("runEconomyTick -- Settlement Growth (M14, society/settlements wired en
     }
 
     expect(runTenTicks()).toEqual(runTenTicks());
+  });
+});
+
+describe("runEconomyTick -- company headcount reconciliation (audit P0-05, migration_demography_reconcile_company_and_cohort_labor)", () => {
+  it("sheds phantom company employees that exceed the region's eligibleLaborForce within a single tick, even when the normal labor decision is on cooldown", () => {
+    // employment=90 na populacji=100 (AGE_25_44) to więcej niż
+    // eligibleLaborForce (100*0.65=65) -- audytowa reprodukcja fantomowych
+    // pracowników, tym razem zasiana bezpośrednio jako stan startowy
+    // (mogłaby równie dobrze powstać z migracji/demografii tego ticka --
+    // krok 10.5 nie rozróżnia przyczyny). `ai.lastDecision.labor_headcount`
+    // ustawione na tick 0 wymusza cooldown w decideLabor (krok 2), żeby to
+    // był NAPRAWDĘ krok 10.5, a nie zwykła decyzja LAYOFF, który usuwa
+    // nadwyżkę.
+    const { worldState } = buildWorldState({ employees: 90, wageOffer: 10 });
+    const companyWithCooldown: Company = {
+      ...worldState.companies.company_test!,
+      ai: {
+        ...worldState.companies.company_test!.ai,
+        lastDecision: {
+          ...worldState.companies.company_test!.ai.lastDecision,
+          labor_headcount: 0,
+        },
+      },
+    };
+    const seededWorldState: WorldState = {
+      ...worldState,
+      companies: { ...worldState.companies, company_test: companyWithCooldown },
+      populationCohorts: {
+        ...worldState.populationCohorts,
+        cohort_test_workers: {
+          ...worldState.populationCohorts.cohort_test_workers!,
+          employment: 90,
+        },
+      },
+    };
+
+    const rng = createWorldRng(seededWorldState.world.seed);
+    const result = runEconomyTick({
+      worldState: seededWorldState,
+      tick: 0,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+    });
+
+    const company = result.worldState.companies.company_test!;
+    // Demografia (krok 10, PRZED uzgodnieniem 10.5) mogła w tym samym ticku
+    // dołożyć urodzenia/starzenie do innych grup wieku tej samej rodziny
+    // (worldState startuje tylko z jedną jawną kohortą -- `applyMonthlyDemography`
+    // dopełnia resztę rodziny syntetycznymi kohortami o populacji 0) --
+    // region's prawdziwy eligibleLaborForce to suma po WSZYSTKICH kohortach
+    // regionu, nie tylko po oryginalnej `cohort_test_workers`.
+    const regionEligibleLaborForce = Object.values(result.worldState.populationCohorts)
+      .filter((c) => c.regionId === "region_test")
+      .reduce((sum, c) => sum + eligibleLaborForce(c), 0);
+
+    expect(company.workforce.employees).toBeLessThan(90); // faktycznie zredukowane
+    expect(company.workforce.employees).toBeLessThanOrEqual(
+      regionEligibleLaborForce + 1e-9,
+    );
   });
 });

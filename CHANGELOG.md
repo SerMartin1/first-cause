@@ -10,6 +10,38 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **fix: Etap 7 -- naprawa audytu M12-M14, P0-05/P1-07 (fantomowi
+  pracownicy i integracja firm z osadami).** Reaguje na
+  `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
+  `migration.ts::applyMigrationFlow` i `demography.ts::applyMonthlyDemography`
+  przycinały `cohort.employment` do samej (nowej) populacji kohorty, nie
+  do `eligibleLaborForce` (65% working-age) -- kohorta mogła mieć więcej
+  "zatrudnionych" niż strukturalnie dostępnej siły roboczej mimo mieszczenia
+  się w populacji (P0-05, reprodukcja: populacja 100→90, employment 65
+  niezmienione, eligibleLaborForce spada do 58,5). Obie funkcje przycinają
+  teraz do `eligibleLaborForce`; `demography.ts`'s doc comment
+  udokumentowanej wcześniej (M7-M11 audyt) granicy modułów zaktualizowany
+  -- M12-M14 audyt uznał czystość granicy za niewystarczającą wobec
+  fantomowych pracowników. `Company.workforce.employees` samo nigdy nie
+  było korygowane po takim spadku (M7-M11 audyt zakładał, że kolejny
+  tick's `decideLabor` sam to nadgoni zwykłym LAYOFF -- w praktyce firma z
+  dodatnią marżą nigdy dobrowolnie nie zwalnia, więc fantomowi pracownicy
+  przetrwaliby w nieskończoność). Nowy krok 10.5 w `economy-tick.ts`
+  wymusza deterministyczny, przymusowy layoff nadwyżki firm regionu ponad
+  `eligibleLaborForce`, tym samym mechanizmem (`layoffWorkers`, firmy i
+  kohorty sortowane po id) co zwykła decyzja LAYOFF. Founding (M12) nie
+  przypisywał nowej firmie `settlementId` mimo że M14 czyta stamtąd jobs
+  do `Settlement.economy.employment` -- teraz przypisuje pierwszy (po
+  sortowaniu id) settlement regionu (P1-07a); samo `Settlement.economy.
+  employment` było liczone tylko na potrzeby presji osady i nigdy nie
+  zapisywane z powrotem -- krok 11 teraz je zapisuje (P1-07b). 5 nowych
+  testów regresyjnych (2 zaktualizowane pod nowy, poprawny sufit
+  `eligibleLaborForce`, 2 nowe w `economy-tick.test.ts` w tym
+  `migration_demography_reconcile_company_and_cohort_labor` z audytu, 1
+  nowy w `demography.test.ts`). Świadomie poza zakresem: LocationScore/
+  wybór osady dla foundingu (P1-01, osobny etap) -- placeholder "pierwszy
+  po sortowaniu" to ten sam wzorzec co istniejący placeholder właściciela.
+
 - **fix: Etap 6 -- naprawa audytu M12-M14, P0-04/P1-03/P2#1 (housing jako
   twardy limit i źródło capacity).** Reaguje na
   `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.

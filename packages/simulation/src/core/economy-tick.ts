@@ -647,6 +647,14 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           const draft = foundingResult.companyDraft;
           const newCompanyId = `company_${draft.archetypeId}_${regionId}_t${tick}`;
           const newInventoryId = `inventory_${newCompanyId}`;
+          // TODO tuning -- brak LocationScore (M12's opisany, ale
+          // niezaimplementowany "Company location decision", audytowe
+          // P1-01) -- pierwszy (po sortowaniu ID) settlement regionu jako
+          // placeholder, ten sam wzorzec co `ownerCohortId` niżej. Bez tego
+          // `settlementId` firma nigdy nie zasila `Settlement.economy.
+          // employment` (audytowe P1-07) mimo że M14 czyta je właśnie po
+          // tym polu.
+          const newCompanySettlementId = [...region.settlements.settlementIds].sort()[0];
 
           const newInventory = createInventory({
             id: newInventoryId,
@@ -661,6 +669,9 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
             name: `New ${draft.archetypeId} (${region.name})`,
             foundedTick: tick,
             regionId,
+            ...(newCompanySettlementId !== undefined
+              ? { settlementId: newCompanySettlementId }
+              : {}),
             ownerType: "individual",
             // TODO tuning -- brak modelu "kto zostaje przedsiębiorcą" (§46
             // Capital Formation jest celowo uproszczone) -- pierwsza (po
@@ -810,12 +821,10 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   }
 
   // 10. Demografia (M6): populacja ewoluuje; `applyMonthlyDemography` samo
-  // uzgadnia teraz zatrudnienie kohort ze spadkiem populacji (audytowe
-  // P0-04, patrz demography.ts). Company.workforce.employees nie jest tu
-  // korygowane -- Company przechowuje tylko zagregowany headcount, bez
-  // rozbicia per-kohorta (świadoma granica M9), więc nie da się przypisać
-  // utraconych miejsc pracy do konkretnej firmy; kolejny tick's decideLabor
-  // sam to nadgoni przez zwykłe HIRE/LAYOFF wobec już skorygowanej podaży pracy.
+  // uzgadnia teraz zatrudnienie kohort z `eligibleLaborForce` po spadku
+  // populacji (audytowe P0-04 z audytu M7-M11 / P0-05 z audytu M12-M14,
+  // patrz demography.ts). Company.workforce.employees NIE jest tu
+  // korygowane -- to osobny krok 10.5 niżej.
   const families = groupCohortsIntoFamilies(Object.values(populationCohorts));
   const nextCohorts: Record<string, PopulationCohort> = {};
   for (const family of families) {
@@ -831,6 +840,74 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     facts.push(...demographyResult.facts);
   }
   populationCohorts = nextCohorts;
+
+  // 10.5 Uzgodnienie zatrudnienia firm z realną podażą pracy regionu
+  // (audytowe P0-05, "Company headcount reconciliation"). Migracja (krok
+  // 8) i demografia (krok 10) właśnie mogły zmniejszyć region's
+  // `eligibleLaborForce` poniżej sumy `Company.workforce.employees` --
+  // obie korygują TYLKO `cohort.employment` (własne pole), nic nie wiedzą
+  // o Company (M9's świadoma granica, patrz demography.ts). M7-M11 audyt
+  // (Etap 3) zakładał, że kolejny tick's `decideLabor` sam to nadgoni
+  // zwykłym LAYOFF -- w praktyce nie nadgania: firma z dodatnią marżą
+  // nigdy dobrowolnie nie zwalnia, więc fantomowi pracownicy przetrwaliby
+  // w nieskończoność (M12-M14 audyt, fixture 120 ticków). Ten krok
+  // wymusza deterministyczny, przymusowy layoff nadwyżki -- dokładnie ten
+  // sam mechanizm (`layoffWorkers`, firmy i kohorty w kolejności
+  // sortowanej id) co zwykła decyzja LAYOFF w kroku 2 wyżej, tylko
+  // wywołany bezwarunkowo na nadwyżkę ponad `eligibleLaborForce`, nie na
+  // decyzji AI. Grupowanie na żywo z `populationCohorts`/`companies` (nie
+  // z `region.population.cohortIds`/`region.economy.companyIds` -- te
+  // cache'e są sprzed migracji/demografii tego ticka, ten sam "obserwuj
+  // na żywo" wzorzec co krok 11 niżej).
+  {
+    const cohortIdsByRegionId = new Map<string, string[]>();
+    for (const cohort of Object.values(populationCohorts)) {
+      const list = cohortIdsByRegionId.get(cohort.regionId);
+      if (list) list.push(cohort.id);
+      else cohortIdsByRegionId.set(cohort.regionId, [cohort.id]);
+    }
+    const companyIdsByRegionId = new Map<string, string[]>();
+    for (const company of Object.values(companies)) {
+      if (!company.status.active) continue;
+      const list = companyIdsByRegionId.get(company.regionId);
+      if (list) list.push(company.id);
+      else companyIdsByRegionId.set(company.regionId, [company.id]);
+    }
+
+    for (const regionId of regionIds) {
+      const regionCohortIds = (cohortIdsByRegionId.get(regionId) ?? []).sort();
+      const regionCompanyIds = (companyIdsByRegionId.get(regionId) ?? []).sort();
+      if (regionCompanyIds.length === 0) continue;
+
+      const regionEligibleLaborForce = regionCohortIds.reduce(
+        (sum, id) => sum + eligibleLaborForce(populationCohorts[id]!),
+        0,
+      );
+      const regionCompanyEmployees = regionCompanyIds.reduce(
+        (sum, id) => sum + companies[id]!.workforce.employees,
+        0,
+      );
+      let excess = regionCompanyEmployees - regionEligibleLaborForce;
+      if (excess <= 0) continue;
+
+      for (const companyId of regionCompanyIds) {
+        if (excess <= 0) break;
+        let company = companies[companyId]!;
+        for (const cohortId of regionCohortIds) {
+          if (excess <= 0) break;
+          const cohort = populationCohorts[cohortId]!;
+          const count = Math.min(excess, company.workforce.employees, cohort.employment);
+          if (count <= 0) continue;
+          const layoffResult = layoffWorkers({ company, cohort, count });
+          company = layoffResult.company;
+          populationCohorts[cohortId] = layoffResult.cohort;
+          facts.push(...layoffResult.facts);
+          excess -= count;
+        }
+        companies[companyId] = company;
+      }
+    }
+  }
 
   // 11. Settlement Growth (M14, `society/settlements`): SettlementPressure
   // + stage transitions + housing (capacity/cost/pressure) -- ostatni krok
@@ -910,7 +987,13 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           housingCapacity: settlement.housing.capacity,
         },
       });
-      settlements[settlementId] = growthResult.settlement;
+      // Audytowe P1-07: `employment` był dotąd liczony tylko na potrzeby
+      // `signals` (presja/awans), nigdy nie zapisywany z powrotem --
+      // `Settlement.economy.employment` zostawało martwe (zawsze 0).
+      settlements[settlementId] = {
+        ...growthResult.settlement,
+        economy: { ...growthResult.settlement.economy, employment },
+      };
       facts.push(...growthResult.facts);
       urbanizationPressureSum += growthResult.pressure.urbanizationPressure;
     }
