@@ -59,6 +59,7 @@ export class WorldRunner {
       worldState: this.state,
       tick: this.headless.tick,
       demographyRng: (scopeId) => this.headless.rngStream("demography", scopeId),
+      migrationRng: (scopeId) => this.headless.rngStream("migration", scopeId),
       ...(this.config.pmCandidatesByCurrentMethodId !== undefined
         ? { pmCandidatesByCurrentMethodId: this.config.pmCandidatesByCurrentMethodId }
         : {}),

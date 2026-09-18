@@ -18,6 +18,10 @@ import { groupCohortsIntoFamilies } from "../systems/population/cohorts.js";
 import { applyMonthlyDemography } from "../systems/population/demography.js";
 import { applyHouseholdConsumption } from "../systems/population/consumption.js";
 import {
+  computeMigrationAttraction,
+  runMigrationPass,
+} from "../systems/population/migration.js";
+import {
   DEFAULT_PRODUCTION_RECIPES,
   runProduction,
   type ProductionRecipe,
@@ -30,6 +34,7 @@ import {
 } from "../systems/economy/settlement.js";
 import {
   availableWorkers,
+  eligibleLaborForce,
   layoffWorkers,
   matchEmployment,
 } from "../systems/economy/labor/employment.js";
@@ -91,6 +96,16 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
  * zero nowych firm, dokładnie tak jak każdy caller sprzed M12 się
  * zachowywał -- pełna wsteczna zgodność, ten sam wzorzec co P0-06's
  * `productionRecipesByMethodId`.
+ *
+ * M13 (Migration, AI-09) dodał krok 7.5 (`Region.cached.
+ * migrationAttraction`, wewnątrz pętli regionów -- świeże dane rynku
+ * pracy/housing tego ticka) i krok 8 (`population/migration.
+ * ts::runMigrationPass`, PO pętli regionów i handlu, żeby każdy region
+ * miał już świeże `migrationAttraction`, nie tylko wcześniej przetworzone
+ * w sortowanej kolejności). Wymaga własnego, wymaganego (jak
+ * `demographyRng`) strumienia RNG "migration" -- nie ma tu bezpiecznego
+ * "domyślnie brak", bo w przeciwieństwie do entrepreneurshipCandidates
+ * migracja nie jest opcjonalną treścią, tylko rdzennym systemem M13.
  */
 
 const EMPLOYEES_PER_CAPACITY_UNIT = 1; // TODO tuning -- most z decyzji produkcyjnej (capacity*utilization) do docelowego zatrudnienia; żaden system tego nie liczy (AI-04 zakłada gotowy target)
@@ -117,6 +132,8 @@ export interface RunEconomyTickInput {
   readonly tick: number;
   /** Demografia (M6) potrzebuje losowości -- `HeadlessRunner.rngStream("demography", scopeId)` albo dowolne inne źródło o tym samym kształcie (SAVE-003: nazwany, scope'owany strumień). */
   readonly demographyRng: (scopeId: string) => RngStream;
+  /** M13: analogicznie dla migracji -- `HeadlessRunner.rngStream("migration", scopeId)`, scope'owany per źródłowa kohorta. */
+  readonly migrationRng: (scopeId: string) => RngStream;
   /** Firma z tym `productionMethodId` rozważa przejście na wskazaną recepturę (AI-08). */
   readonly pmCandidatesByCurrentMethodId?: Readonly<Record<string, string>>;
   /**
@@ -204,7 +221,7 @@ function selectTransportProfile(
 }
 
 export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult {
-  const { worldState, tick, demographyRng } = input;
+  const { worldState, tick, demographyRng, migrationRng } = input;
   const pmCandidates = input.pmCandidatesByCurrentMethodId ?? {};
   const productionRecipesByMethodId =
     input.productionRecipesByMethodId ?? DEFAULT_PRODUCTION_RECIPES;
@@ -663,6 +680,46 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       }
     }
 
+    // 7.5 Migration attraction (M13, AI-09): region's own pull/push
+    // signal, computed fresh this tick from labor market + housing state
+    // (post-entrepreneurship, więc widzi ewentualną nowo założoną firmę),
+    // cache'owany w `Region.cached.migrationAttraction` -- `runMigrationPass`
+    // (krok 8, po pętli regionów) czyta go i jako źródło, i jako pull
+    // każdego kandydata docelowego.
+    {
+      let vacancies = 0;
+      let wageWeightedSum = 0;
+      let wageWeight = 0;
+      for (const companyId of companyIds) {
+        const company = companies[companyId]!;
+        if (!company.status.active) continue;
+        vacancies += company.workforce.vacancies;
+        const weight = company.workforce.employees > 0 ? company.workforce.employees : 1;
+        wageWeightedSum += company.workforce.wageOffer * weight;
+        wageWeight += weight;
+      }
+      const regionEligibleLaborForce = cohortIds.reduce(
+        (sum, id) => sum + eligibleLaborForce(populationCohorts[id]!),
+        0,
+      );
+      const settlementIdsInRegion = region.settlements.settlementIds;
+      const averageHousingCost =
+        settlementIdsInRegion.length > 0
+          ? settlementIdsInRegion.reduce(
+              (sum, id) => sum + (worldState.settlements[id]?.housing.cost ?? 0),
+              0,
+            ) / settlementIdsInRegion.length
+          : 0;
+
+      const migrationAttraction = computeMigrationAttraction({
+        vacancies,
+        eligibleLaborForce: regionEligibleLaborForce,
+        averageWageOffer: wageWeight > 0 ? wageWeightedSum / wageWeight : 0,
+        averageHousingCost,
+      });
+      region = { ...region, cached: { ...region.cached, migrationAttraction } };
+    }
+
     regions[regionId] = region;
   }
 
@@ -713,7 +770,24 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     connections[connectionId] = connection;
   }
 
-  // 8. Regeneracja odnawialnych zasobów (M5, już istniejący system): bez
+  // 8. Migracja (M13, AI-09): probabilistyczna reakcja na push/pull między
+  // bezpośrednio połączonymi regionami (POP-006/POP-007) -- patrz
+  // population/migration.ts's doc comment. Uruchamiana PO pętli regionów,
+  // żeby `Region.cached.migrationAttraction` był świeży (ten tick, nie
+  // poprzedni) dla KAŻDEGO regionu, nie tylko tych wcześniejszych w
+  // sortowanej kolejności iteracji kroku 1-7.5.
+  const migrationResult = runMigrationPass({
+    regions,
+    connections,
+    settlements: worldState.settlements,
+    populationCohorts,
+    tick,
+    rng: migrationRng,
+  });
+  populationCohorts = migrationResult.populationCohorts;
+  facts.push(...migrationResult.facts);
+
+  // 9. Regeneracja odnawialnych zasobów (M5, już istniejący system): bez
   // tego wywołania każdy `renewable: true` depozyt tylko by się wyczerpywał
   // -- `extractFromDeposit` nigdy nie dodaje zasobu z powrotem, regenerację
   // wykonuje wyłącznie ten oddzielny system.
@@ -723,7 +797,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     facts.push(...regenResult.facts);
   }
 
-  // 9. Demografia (M6): populacja ewoluuje; `applyMonthlyDemography` samo
+  // 10. Demografia (M6): populacja ewoluuje; `applyMonthlyDemography` samo
   // uzgadnia teraz zatrudnienie kohort ze spadkiem populacji (audytowe
   // P0-04, patrz demography.ts). Company.workforce.employees nie jest tu
   // korygowane -- Company przechowuje tylko zagregowany headcount, bez

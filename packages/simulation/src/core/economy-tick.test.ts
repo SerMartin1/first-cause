@@ -127,6 +127,7 @@ describe("runEconomyTick -- labor cost settlement (audit regression P1, layoff n
       worldState,
       tick: 0,
       demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
     });
 
     const company = result.worldState.companies.company_test!;
@@ -165,6 +166,7 @@ describe("runEconomyTick -- labor cost settlement (audit regression P1, layoff n
       worldState: withCapacity,
       tick: 0,
       demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
     });
 
     const company = result.worldState.companies.company_test!;
@@ -320,6 +322,7 @@ describe("runEconomyTick -- Entrepreneurship (M12, AI-07 Opportunity Scanner wir
         worldState: state,
         tick,
         demographyRng: (scopeId) => rng.stream("demography", scopeId),
+        migrationRng: (scopeId) => rng.stream("migration", scopeId),
         productionRecipesByMethodId: { manual_farming: GRAIN_FARM_RECIPE },
         entrepreneurshipCandidatesByArchetypeId: candidates,
       });
@@ -357,6 +360,7 @@ describe("runEconomyTick -- Entrepreneurship (M12, AI-07 Opportunity Scanner wir
         worldState: state,
         tick,
         demographyRng: (scopeId) => rng.stream("demography", scopeId),
+        migrationRng: (scopeId) => rng.stream("migration", scopeId),
         productionRecipesByMethodId: { manual_farming: GRAIN_FARM_RECIPE },
         // entrepreneurshipCandidatesByArchetypeId intentionally omitted
       });
@@ -385,6 +389,7 @@ describe("runEconomyTick -- Entrepreneurship (M12, AI-07 Opportunity Scanner wir
           worldState: state,
           tick,
           demographyRng: (scopeId) => rng.stream("demography", scopeId),
+          migrationRng: (scopeId) => rng.stream("migration", scopeId),
           productionRecipesByMethodId: { manual_farming: GRAIN_FARM_RECIPE },
           entrepreneurshipCandidatesByArchetypeId: candidates,
         }).worldState;

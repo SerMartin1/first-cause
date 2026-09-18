@@ -83,6 +83,7 @@ describe("Black Mountain fixture runs a real, wired economy tick (Etap 1 tick-lo
         worldState,
         tick,
         demographyRng: (scopeId) => rng.stream("demography", scopeId),
+        migrationRng: (scopeId) => rng.stream("migration", scopeId),
       });
       worldState = result.worldState;
       allFacts.push(...result.facts);

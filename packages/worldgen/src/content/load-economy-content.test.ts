@@ -91,6 +91,7 @@ describe("loadEconomyContent (audit regression P0-06, content-driven production 
           worldState,
           tick,
           demographyRng: (scopeId) => rng.stream("demography", scopeId),
+          migrationRng: (scopeId) => rng.stream("migration", scopeId),
           productionRecipesByMethodId,
           transportModeProfilesByModeId,
         });

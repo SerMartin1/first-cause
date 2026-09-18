@@ -85,8 +85,13 @@ function monthlyRateFromAnnual(annualRate: number): number {
  * miesiącach zdarzenie w końcu zajdzie (P(nigdy) = (1-frac)^N -> 0).
  * Korzysta z dedykowanego, wcześniej zarezerwowanego a nieużywanego
  * strumienia RNG "demography" (SAVE-003).
+ *
+ * Eksportowana też dla `population/migration.ts` (M13, "seeded
+ * probability" -- AI Decision Model §60) -- ta sama bezstronna zasada
+ * zaokrąglania dotyczy liczby migrantów co liczby urodzeń/zgonów, więc
+ * współdzieli implementację zamiast duplikować ją z innym ziarnem.
  */
-function stochasticRound(value: number, rng: RngStream): number {
+export function stochasticRound(value: number, rng: RngStream): number {
   const floor = Math.floor(value);
   const fraction = value - floor;
   if (fraction === 0) return floor;

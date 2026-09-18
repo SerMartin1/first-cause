@@ -22,8 +22,8 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1--M11 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M11),
-bieżący etap to M12 (BACKLOG). Pełni rolę,
+M1--M13 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M13),
+bieżący etap to M14 (READY). Pełni rolę,
 którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
@@ -3181,8 +3181,8 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-17: M0, M0.1 Audit Fixes, M1, M2, M3, M4, M5 i M6
-ukończone; M7 gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
+Stan na 2026-09-18: M0, M0.1 Audit Fixes oraz M1--M13 ukończone; M14
+gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -3201,9 +3201,9 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M9          DONE      P0          M           MEDIUM        M8
   M10         DONE      P0          M           MEDIUM        M9
   M11         DONE      P0          L           HIGH          M10
-  M12         READY     P0          M           MEDIUM-HIGH   M11
-  M13         BACKLOG   P0          M           MEDIUM        M12
-  M14         BACKLOG   P0          S/M         MEDIUM        M13
+  M12         DONE      P0          M           MEDIUM-HIGH   M11
+  M13         DONE      P0          M           MEDIUM        M12
+  M14         READY     P0          S/M         MEDIUM        M13
   M15         BACKLOG   P0          L           MEDIUM-HIGH   M14
   M16         BACKLOG   P0          M           MEDIUM        M15
   M17         BACKLOG   P0          L           HIGH          M16

@@ -46,7 +46,16 @@ export type NonTerminalAgeGroup = Exclude<AgeGroup, "AGE_65_PLUS">;
  */
 export type CohortFamily = Readonly<Record<AgeGroup, PopulationCohort>>;
 
-function identityKey(cohort: PopulationCohort): string {
+/**
+ * Klucz tożsamości kohorty (lokalizacja + status społeczno-ekonomiczny),
+ * bez `ageGroup` -- dokładnie to, co dzieli jedna "rodzina kohort"
+ * (`CohortFamily`). Eksportowana też dla `population/migration.ts` (M13):
+ * migracja musi rozpoznać, czy w miejscu docelowym istnieje już kohorta
+ * tej samej tożsamości (scalenie) czy trzeba założyć nową, tym samym
+ * kluczem co reszta silnika -- nie osobną, potencjalnie rozjeżdżającą się
+ * definicją "tożsamości".
+ */
+export function cohortIdentityKey(cohort: PopulationCohort): string {
   return JSON.stringify([
     cohort.regionId,
     cohort.settlementId ?? null,
@@ -72,11 +81,11 @@ export function buildCohortFamily(cohorts: readonly PopulationCohort[]): CohortF
     );
   }
 
-  const expectedIdentityKey = identityKey(cohorts[0]!);
+  const expectedIdentityKey = cohortIdentityKey(cohorts[0]!);
   const byAgeGroup: Partial<Record<AgeGroup, PopulationCohort>> = {};
 
   for (const cohort of cohorts) {
-    if (identityKey(cohort) !== expectedIdentityKey) {
+    if (cohortIdentityKey(cohort) !== expectedIdentityKey) {
       throw new InvariantViolationError(
         `buildCohortFamily: cohort ${cohort.id} does not share the family's location/socioeconomic identity`,
       );
@@ -138,7 +147,7 @@ export function groupCohortsIntoFamilies(
 ): readonly CohortFamily[] {
   const groups = new Map<string, PopulationCohort[]>();
   for (const cohort of cohorts) {
-    const key = identityKey(cohort);
+    const key = cohortIdentityKey(cohort);
     const group = groups.get(key);
     if (group) {
       group.push(cohort);

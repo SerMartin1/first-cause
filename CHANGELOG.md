@@ -10,6 +10,57 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- Wdrożono **M13 -- Migration** (AI-09, Migration Decision Integration).
+  Nowy moduł `packages/simulation/src/systems/population/migration.ts`:
+  `computeMigrationAttraction` (region-level `Jobs + ExpectedWage -
+  HousingCost`, cache'owane w `Region.cached.migrationAttraction` --
+  martwe od M3 pole), `computeDistanceFriction`/`computeMigrationPullSignal`
+  (§58-60, oparte na `Connection.cached.effectiveDistance` z M10),
+  `updateMigrationPropensity` (EMA, zapisywane w `PopulationCohort.
+  migrationPropensity` -- też martwe od M3 pole), `evaluateMigrationOutflow`
+  (§60 "household inertia" + "seeded probability", bezstronne
+  zaokrąglanie tym samym `stochasticRound` co demografia M6),
+  `selectDestinationSettlement` (SET-003, twardy housing cap -- puste,
+  jeszcze nieosiedlone regiony są bez ograniczenia, bo nie mają
+  Settlementu do przekroczenia) i `applyMigrationFlow` (fizyczne
+  przeniesienie, scalenie z istniejącą kohortą tej samej tożsamości albo
+  założenie nowej, z parą faktów `population_migrated_out`/`_in` o
+  identycznej wielkości -- OutMigration === InMigration z konstrukcji,
+  FC-MIGRATION-005). Kandydaci migracji (POP-007, FC-MIGRATION-004) to
+  wyłącznie regiony bezpośrednio połączone Connection -- nie całe 3000-
+  regionowe świat; "znane centra"/cultural-family links pozostają
+  niezamodelowane (brak systemu Culture, poza zakresem M13, tak samo
+  jak M12's SkillAvailability/Risk). `economy-tick.ts` dostaje krok 7.5
+  (liczy świeże `migrationAttraction` per region, wewnątrz istniejącej
+  pętli regionów, post-entrepreneurship) i krok 8 (`runMigrationPass`
+  po pętli regionów i handlu, żeby KAŻDY region miał już świeży
+  `migrationAttraction` tego ticka, nie tylko wcześniej przetworzone w
+  sortowanej kolejności) -- z nowym, wymaganym strumieniem RNG
+  "migration" (wcześniej zarezerwowanym w SAVE-003, nieużywanym od M1),
+  analogicznie do `demographyRng`. `cohorts.ts`'s prywatna `identityKey`
+  wyeksportowana jako `cohortIdentityKey` (współdzielona z migracją --
+  rozpoznanie "czy w miejscu docelowym już istnieje kohorta tej samej
+  tożsamości" musi użyć dokładnie tej samej definicji tożsamości co
+  `buildCohortFamily`/`groupCohortsIntoFamilies`, nie osobnej,
+  potencjalnie rozjeżdżającej się kopii); `demography.ts`'s prywatna
+  `stochasticRound` wyeksportowana z tego samego powodu współdzielenia.
+  23 nowe testy (`migration.test.ts`): Migration Attraction Test
+  (FC-MIGRATION-001), Migration Friction Test (FC-MIGRATION-002),
+  Housing Constraint Test (FC-MIGRATION-003, zarówno miękkie
+  tłumienie w `computeMigrationAttraction` jak i twardy cap w
+  `selectDestinationSettlement`), Candidate Set Test (FC-MIGRATION-004,
+  na trójregionowym łańcuchu A--B--C bez bezpośredniego A-C -- populacja
+  nigdy nie ląduje w C), Migration Accounting Test (FC-MIGRATION-005,
+  conservation całego świata + równość sum faktów out/in) i determinism
+  test (dwa niezależne przebiegi tym samym ziarnem -> identyczny wynik).
+  Etykieta `app.milestone` zaktualizowana na "M13 -- Migration"/
+  "M13 -- Migracja". Świadomie poza zakresem: pełny Culture Model i
+  granice/państwa jako modyfikator migracji (oba DEFERRED wprost w
+  roadmapie), wzrost/kurczenie się osad jako reakcja na napływ migrantów
+  (`SettlementPressure`, to M14) -- M13 tylko *respektuje* istniejącą
+  (dziś zwykle zerową, bo nic jeszcze jej nie ustawia) pojemność
+  mieszkaniową, nie hoduje jej.
+
 - Wdrożono **M12 -- Entrepreneurship** (AI-07, Opportunity Scanner).
   Nowy moduł `packages/simulation/src/systems/economy/company-ai/
   opportunity-scanner.ts` (`evaluateFounding`): kanoniczny
