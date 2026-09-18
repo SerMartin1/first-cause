@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   createCompany,
+  createConnection,
   createContinent,
   createInventory,
   createMarket,
   createPopulationCohort,
   createRegion,
   createResourceDeposit,
+  createSettlement,
   createWorld,
   createWorldState,
   type Company,
+  type Connection,
+  type Settlement,
   type WorldState,
 } from "@first-cause/entities";
 import { createWorldRng } from "./rng.js";
@@ -398,5 +402,164 @@ describe("runEconomyTick -- Entrepreneurship (M12, AI-07 Opportunity Scanner wir
     }
 
     expect(runTwelveTicks()).toEqual(runTwelveTicks());
+  });
+});
+
+/**
+ * A settlement whose pressure inputs (population/trade/infrastructure)
+ * are deliberately over-provisioned and stable -- `region_other` has no
+ * Market, so the trade loop's `if (!marketAId || !marketBId ...) continue`
+ * (economy-tick.ts) never touches `connection`, letting the preset
+ * `infrastructure.level`/`currentState.utilization` stand in for real
+ * trade/investment without needing a Company/Market at all (avoids
+ * routing this M14 test through M11's labor/financial-health machinery,
+ * which is not what this test is about).
+ */
+function buildSettlementGrowthWorldState(): { worldState: WorldState } {
+  const world = createWorld({
+    id: "world_settlement_test",
+    seed: "settlement-growth-test",
+    name: "Test World",
+    configuration: { regionCount: 2, worldSizePreset: "prototype-8-12" },
+  });
+  const continent = createContinent({
+    id: "continent_test",
+    worldId: world.id,
+    name: "Test Continent",
+  });
+  const geography = {
+    terrain: "plains" as const,
+    climate: "temperate" as const,
+    area: 100,
+    fertility: 0.5,
+    waterAccess: true,
+    coastal: false,
+    elevationClass: "lowland" as const,
+  };
+  const region = createRegion({
+    id: "region_test",
+    worldId: world.id,
+    continentId: continent.id,
+    name: "Test Region",
+    geography,
+  });
+  const regionOther = createRegion({
+    id: "region_other",
+    worldId: world.id,
+    continentId: continent.id,
+    name: "Other Region",
+    geography,
+  });
+
+  const settlementBase = createSettlement({
+    id: "settlement_test",
+    regionId: region.id,
+    name: "Test Settlement",
+    foundedTick: 0,
+  });
+  const settlement: Settlement = {
+    ...settlementBase,
+    housing: { capacity: 1000, cost: 1, pressure: 0 },
+  };
+
+  const cohort = createPopulationCohort({
+    id: "cohort_settlement_test",
+    regionId: region.id,
+    settlementId: settlement.id,
+    ageGroup: "AGE_25_44",
+    population: 1000,
+    economicClass: "WORKING",
+    skillLevel: "UNSKILLED",
+  });
+
+  const connectionBase = createConnection({
+    id: "connection_test",
+    regionAId: region.id,
+    regionBId: regionOther.id,
+    geography: { physicalDistance: 10, terrainDifficulty: 0, seasonalModifier: 1 },
+    infrastructure: { level: 5, transportModes: [], capacity: 0 },
+  });
+  const connection: Connection = {
+    ...connectionBase,
+    currentState: { utilization: 1, congestion: 0, disrupted: false },
+  };
+
+  const worldState = createWorldState({
+    world,
+    continents: [continent],
+    regions: [region, regionOther],
+    connections: [connection],
+    settlements: [settlement],
+    populationCohorts: [cohort],
+  });
+
+  return { worldState };
+}
+
+describe("runEconomyTick -- Settlement Growth (M14, society/settlements wired end-to-end)", () => {
+  it("advances a settlement's stage after sustained pressure, driven entirely by the tick loop (SET-001/SET-002)", () => {
+    const { worldState } = buildSettlementGrowthWorldState();
+    const rng = createWorldRng(worldState.world.seed);
+
+    let state = worldState;
+    let changedAtTick = -1;
+    for (let tick = 0; tick < 20; tick++) {
+      const result = runEconomyTick({
+        worldState: state,
+        tick,
+        demographyRng: (scopeId) => rng.stream("demography", scopeId),
+        migrationRng: (scopeId) => rng.stream("migration", scopeId),
+      });
+      state = result.worldState;
+      if (state.settlements.settlement_test!.stage !== "CAMP") {
+        changedAtTick = tick;
+        break;
+      }
+    }
+
+    expect(changedAtTick).toBeGreaterThanOrEqual(0);
+    expect(state.settlements.settlement_test!.stage).toBe("HAMLET");
+    expect(
+      state.settlements.settlement_test!.condition.urbanizationPressure,
+    ).toBeGreaterThan(0);
+    expect(state.settlements.settlement_test!.housing.capacity).toBeGreaterThan(0);
+  });
+
+  it("keeps housing capacity growing to track population even without any stage change (SET-003, M13 housing-constraint integration)", () => {
+    const { worldState } = buildSettlementGrowthWorldState();
+    const rng = createWorldRng(worldState.world.seed);
+
+    const result = runEconomyTick({
+      worldState,
+      tick: 0,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+    });
+
+    const settlement = result.worldState.settlements.settlement_test!;
+    // M13's `population/migration.ts::selectDestinationSettlement` reads
+    // exactly this field as a hard cap -- proving it is a real, live
+    // number here (not the M3-era permanent 0) is what "integracja z M13"
+    // in the roadmap's M14 Testy section asks for.
+    expect(settlement.housing.capacity).toBeGreaterThan(0);
+  });
+
+  it("Determinism Test: the same starting state and seed produce byte-identical settlement growth", () => {
+    function runTenTicks(): WorldState {
+      const { worldState } = buildSettlementGrowthWorldState();
+      const rng = createWorldRng(worldState.world.seed);
+      let state = worldState;
+      for (let tick = 0; tick < 10; tick++) {
+        state = runEconomyTick({
+          worldState: state,
+          tick,
+          demographyRng: (scopeId) => rng.stream("demography", scopeId),
+          migrationRng: (scopeId) => rng.stream("migration", scopeId),
+        }).worldState;
+      }
+      return state;
+    }
+
+    expect(runTenTicks()).toEqual(runTenTicks());
   });
 });

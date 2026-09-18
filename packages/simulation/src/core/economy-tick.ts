@@ -9,6 +9,7 @@ import {
   type PopulationCohort,
   type Region,
   type ResourceDeposit,
+  type Settlement,
   type WorldState,
 } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
@@ -21,6 +22,7 @@ import {
   computeMigrationAttraction,
   runMigrationPass,
 } from "../systems/population/migration.js";
+import { evaluateSettlementGrowth } from "../systems/society/settlements.js";
 import {
   DEFAULT_PRODUCTION_RECIPES,
   runProduction,
@@ -106,6 +108,15 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
  * `demographyRng`) strumienia RNG "migration" -- nie ma tu bezpiecznego
  * "domyślnie brak", bo w przeciwieństwie do entrepreneurshipCandidates
  * migracja nie jest opcjonalną treścią, tylko rdzennym systemem M13.
+ *
+ * M14 (Settlements) dodał krok 11: `society/settlements.
+ * ts::evaluateSettlementGrowth` per (region, settlement) -- SettlementPressure,
+ * stage transitions (`SET-001` drabina Camp..Metropolis) i housing
+ * (capacity/cost/pressure, `society/housing.ts`), ostatni krok przed
+ * commitem, żeby widział w pełni rozliczoną populację tego ticka (po
+ * migracji I demografii). `settlements` dołącza do mutowalnych map obok
+ * `regions`/`companies`/itd. -- do M14 był to jedyny top-level rekord
+ * WorldState przepuszczany przez `runEconomyTick` bez zmian.
  */
 
 const EMPLOYEES_PER_CAPACITY_UNIT = 1; // TODO tuning -- most z decyzji produkcyjnej (capacity*utilization) do docelowego zatrudnienia; żaden system tego nie liczy (AI-04 zakłada gotowy target)
@@ -241,6 +252,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     ...worldState.resourceDeposits,
   };
   const connections: Record<string, Connection> = { ...worldState.connections };
+  const settlements: Record<string, Settlement> = { ...worldState.settlements };
   const facts: FactInput[] = [];
 
   const regionIds = Object.keys(worldState.regions).sort();
@@ -820,6 +832,87 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   }
   populationCohorts = nextCohorts;
 
+  // 11. Settlement Growth (M14, `society/settlements`): SettlementPressure
+  // + stage transitions + housing (capacity/cost/pressure) -- ostatni krok
+  // przed commit, żeby osady reagowały na w pełni rozliczoną populację
+  // tego ticka (po migracji I demografii), nie na stan sprzed żadnej z nich.
+  // Population/employment liczone świeżo z finalnych map (a nie z
+  // `Region.population`/`Settlement.economy`, które i tak są tylko
+  // cache'em odtwarzanym przez `createWorldState` na końcu -- ten sam
+  // "obserwuj na żywo, nie z martwego cache" wzorzec co migrationAttraction
+  // w kroku 7.5).
+  const companiesBySettlementId = new Map<string, Company[]>();
+  for (const company of Object.values(companies)) {
+    if (company.settlementId === undefined || !company.status.active) continue;
+    const existing = companiesBySettlementId.get(company.settlementId);
+    if (existing) existing.push(company);
+    else companiesBySettlementId.set(company.settlementId, [company]);
+  }
+  const populationBySettlementId = new Map<string, number>();
+  for (const cohort of Object.values(populationCohorts)) {
+    if (cohort.settlementId === undefined) continue;
+    populationBySettlementId.set(
+      cohort.settlementId,
+      (populationBySettlementId.get(cohort.settlementId) ?? 0) + cohort.population,
+    );
+  }
+
+  for (const regionId of regionIds) {
+    const region = regions[regionId]!;
+    const settlementIds = [...region.settlements.settlementIds].sort();
+    if (settlementIds.length === 0) continue;
+
+    let infrastructureSum = 0;
+    let utilizationSum = 0;
+    let connectionCount = 0;
+    for (const connectionId of region.connections.connectionIds) {
+      const connection = connections[connectionId];
+      if (!connection) continue;
+      infrastructureSum += connection.infrastructure.level;
+      utilizationSum += connection.currentState.utilization;
+      connectionCount += 1;
+    }
+    const infrastructureLevel =
+      connectionCount > 0 ? infrastructureSum / connectionCount : 0;
+    const tradeUtilization = connectionCount > 0 ? utilizationSum / connectionCount : 0;
+
+    let urbanizationPressureSum = 0;
+    for (const settlementId of settlementIds) {
+      const settlement = settlements[settlementId];
+      if (!settlement) continue;
+
+      const population = populationBySettlementId.get(settlementId) ?? 0;
+      const employment = (companiesBySettlementId.get(settlementId) ?? []).reduce(
+        (sum, company) => sum + company.workforce.employees,
+        0,
+      );
+
+      const growthResult = evaluateSettlementGrowth({
+        settlement,
+        tick,
+        signals: {
+          stage: settlement.stage,
+          population,
+          employment,
+          tradeUtilization,
+          infrastructureLevel,
+          housingCapacity: settlement.housing.capacity,
+        },
+      });
+      settlements[settlementId] = growthResult.settlement;
+      facts.push(...growthResult.facts);
+      urbanizationPressureSum += growthResult.pressure.urbanizationPressure;
+    }
+
+    regions[regionId] = {
+      ...region,
+      cached: {
+        ...region.cached,
+        settlementPressure: urbanizationPressureSum / settlementIds.length,
+      },
+    };
+  }
+
   // VALIDATE -> COMMIT (SIM-004): reużywa `createWorldState`'s istniejący,
   // przetestowany walidator referencji zamiast pisać nowy.
   const nextWorldState = createWorldState({
@@ -828,7 +921,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     regions: Object.values(regions),
     connections: Object.values(connections),
     resourceDeposits: Object.values(resourceDeposits),
-    settlements: Object.values(worldState.settlements),
+    settlements: Object.values(settlements),
     populationCohorts: Object.values(populationCohorts),
     companies: Object.values(companies),
     markets: Object.values(markets),

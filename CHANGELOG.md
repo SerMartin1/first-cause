@@ -10,6 +10,61 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- Wdrożono **M14 -- Settlements** (SET-001/002/003, `society/settlements`
+  + `society/housing`). Nowy folder systemów `packages/simulation/src/
+  systems/society/`: `housing.ts` (`growHousingCapacity` -- pojemność
+  goni `population * margines` z ograniczoną prędkością budowy, nigdy
+  natychmiastowo i nigdy w dół; `computeHousingPressure` -- nadwyżka
+  ponad capacity, nie samo zapełnienie; `adjustHousingCost` -- scarcity
+  pricing wygładzone EMA, ten sam kształt co `markets/price-adjustment.
+  ts`) i `settlements.ts` (`computeSettlementPressure` -- kanoniczna
+  `SettlementPressure` §61, rozdzielona na `urbanizationPressure`/
+  `declinePressure`, ważona suma PopulationScore/JobsScore/TradeScore/
+  InfrastructureScore/HousingDemandScore minus Constraints (overcrowding);
+  `evaluateSettlementGrowth` -- automat progowy z persistence+cooldown
+  (ten sam kształt co M12's opportunity-scanner, ale bez DecisionSnapshot/
+  options -- "Settlement nie jest klasycznym aktorem decyzyjnym", §61)
+  i twardym hard-eligibility gate na `housing.capacity >= population`
+  (trzeci warunek z §61 "threshold, persistence, capacity"), nigdy
+  więcej niż jeden szczebel drabiny `Camp→Hamlet→Village→Town→City→
+  Metropolis` na tick. `Settlement` (`packages/entities`) zyskuje nowe
+  pole `growth` (`SettlementGrowthState`: urbanizationStreak/
+  declineStreak/lastStageChangeTick, ten sam kształt co M12's
+  `RegionEntrepreneurshipState`). `economy-tick.ts` dostaje krok 11
+  (ostatni przed commitem -- widzi populację w pełni rozliczoną tego
+  ticka, po migracji I demografii; `settlements` dołącza do mutowalnych
+  map, dotąd jedyny top-level rekord WorldState przepuszczany bez zmian)
+  i wypełnia dwa wcześniej martwe pola: `Settlement.economy.employment`
+  (liczone z aktywnych firm settlementu) i `Region.cached.
+  settlementPressure` (średnia `urbanizationPressure` osad regionu).
+  Housing constraint integration z M13 -- `population/migration.
+  ts::selectDestinationSettlement` już czytało `housing.capacity` jako
+  twardy limit; M14 jest pierwszym systemem, który realnie je zapełnia
+  (dotąd zawsze 0), więc ten limit zaczyna coś znaczyć w praktyce, bez
+  żadnej zmiany po stronie M13 samego. 32 nowe testy: FC-SETTLEMENT-001
+  (Settlement Pressure -- population/jobs/trade w górę podnosi
+  pressure), FC-SETTLEMENT-002 (Stage Transition -- nie w jednym
+  przypadkowym ticku, dokładnie na progu persistence, nigdy więcej niż
+  jeden szczebel, cooldown), FC-SETTLEMENT-003 (Urban Crisis -- nagły
+  skok populacji bez nadążającej budowy realnie podnosi `housing.
+  pressure` tego samego ticka i tłumi urbanizationPressure), plus
+  housing capacity/cost/pressure w izolacji, capacity gate, regresja
+  etapu, i pełny end-to-end test w `economy-tick.test.ts` (osada
+  awansuje CAMP→HAMLET napędzana wyłącznie prawdziwą pętlą ticków, bez
+  ręcznego wołania `evaluateSettlementGrowth`) plus determinism. Etykieta
+  `app.milestone` zaktualizowana na "M14 -- Settlements"/"M14 -- Osady".
+  Świadomie poza zakresem: `UI-F1 -- Procedural Region Visual Identity`
+  (roadmapa wymienia go jako start dla M14, ale to część "Parallel UI
+  Foundation Track" -- jawnie nie tworzy nowego milestone'u ani nie
+  blokuje M14's własnej Acceptance Gate, sekcja 6A; w repo nie istnieje
+  jeszcze nawet wcześniejszy `UI-F0`, więc realizacja UI-F1 zostaje na
+  późniejszą sesję), pełna infrastruktura miejska/`Connection.
+  infrastructure.level` jako inwestycja gracza/AI (M14's własna sekcja
+  wymienia tylko `SettlementPressure`/stage/housing jako
+  "Implementowane systemy" -- infrastructure investment pozostaje dług
+  techniczny odziedziczony po M10, nierozwiązany też tutaj), pełne
+  miasta-państwa (DEFERRED wprost w spec).
+
 - Wdrożono **M13 -- Migration** (AI-09, Migration Decision Integration).
   Nowy moduł `packages/simulation/src/systems/population/migration.ts`:
   `computeMigrationAttraction` (region-level `Jobs + ExpectedWage -

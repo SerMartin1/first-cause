@@ -30,6 +30,21 @@ export interface SettlementCondition {
 }
 
 /**
+ * Bookkeeping dla stage transitions (M14, `society/settlements.ts`):
+ * ten sam kształt (streak + cooldown) co M12's `RegionEntrepreneurshipState`,
+ * tylko bez `activeStates` -- stage to sama `Settlement.stage` (drabina o
+ * jednym aktywnym szczeblu naraz), nie osobny per-kandydat flag.
+ * `urbanizationStreak`/`declineStreak` liczą kolejne ticki, w których
+ * warunek awansu/regresji trzymał się nieprzerwanie (FC-SETTLEMENT-002:
+ * "nie może zależeć wyłącznie od jednego przypadkowego ticka").
+ */
+export interface SettlementGrowthState {
+  readonly urbanizationStreak: number;
+  readonly declineStreak: number;
+  readonly lastStageChangeTick: number | undefined;
+}
+
+/**
  * Settlement (Entity Data Model SS10): "settlements arise and develop
  * organically". A pure data holder in M3 -- growth/urbanization logic
  * is M14. Uses the regional Market (DATA-006), not its own.
@@ -48,6 +63,7 @@ export interface Settlement {
   readonly economy: SettlementEconomyState;
   readonly housing: SettlementHousing;
   readonly condition: SettlementCondition;
+  readonly growth: SettlementGrowthState;
 }
 
 export interface CreateSettlementInput {
@@ -78,5 +94,6 @@ export function createSettlement(input: CreateSettlementInput): Settlement {
     economy: { companyIds: [], employment: 0, localIncome: 0, localWealth: 0 },
     housing: { capacity: 0, cost: 0, pressure: 0 },
     condition: { attractiveness: 0, urbanizationPressure: 0, declinePressure: 0 },
+    growth: { urbanizationStreak: 0, declineStreak: 0, lastStageChangeTick: undefined },
   };
 }

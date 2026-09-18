@@ -81,7 +81,7 @@ describe("App", () => {
     screen.getByRole("button", { name: "PL" }).click();
 
     await waitFor(() => {
-      expect(screen.getByText("M13 -- Migracja")).toBeInTheDocument();
+      expect(screen.getByText("M14 -- Osady")).toBeInTheDocument();
     });
   });
 });
