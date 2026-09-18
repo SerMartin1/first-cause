@@ -16,8 +16,8 @@ enabled it (`Butterfly Effect`).
 
 ## Current milestone
 
-**M0 = DONE; M0.1 Audit Fixes = DONE; M1 = DONE; M2 = DONE; M3 = DONE;
-M4 = DONE; M5 = DONE; M6 = DONE; M7 = DONE; M8 = READY (not started).**
+**M0 through M14 = DONE. M15 = BLOCKED (formal starting condition
+unmet -- see below).**
 M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
 M1 -- Deterministic Core added a real, headless-testable deterministic
 skeleton (`packages/simulation/src/core`): a tick-derived
@@ -85,13 +85,42 @@ update) plus two real content definitions
 Zboże->Mąka->Żywność chain end to end -- see the roadmap's M7 "Wyniki
 wykonania" for what was verified, including what is deliberately still
 missing (no Market yet, so goods move between companies only by a
-test/caller hand-carrying them). Next: **M8 -- Market**.
-Labor/Trade/AI/causality/Chronicle/Architect and a procedural World
-Generation algorithm still do not exist as *systems* driving a live
-world yet -- resources, population and production are each only
-proven in isolation, headless/under test, with no tick loop wiring
-them into `WorldState` yet. See the Implementation Roadmap for the
-full milestone sequence.
+test/caller hand-carrying them).
+
+M8 -- Market added price/shortage adjustment reacting to observed
+supply/demand. M9 -- Labor & Households wired employment matching,
+wages and household consumption. M10 -- Trade & Transport moved goods
+between regions along `Connection`s with real transport cost/friction.
+M11 -- Company AI gave companies OBSERVE -> DECIDE cycles (production,
+labor, PM adoption, lifecycle) with `DecisionSnapshot`/hysteresis/
+cooldown. **`packages/simulation/src/core/economy-tick.ts::runEconomyTick`**
+(driven by `world-runner.ts::WorldRunner`) is the real orchestrator
+wiring all of this into one deterministic monthly tick against a live
+`WorldState` -- this is the live economy loop; it is not missing.
+M12 -- Entrepreneurship added the regional Opportunity Scanner (new
+companies found themselves, no random spawn). M13 -- Migration added
+probabilistic push/pull migration between connected regions, with
+housing as a hard capacity limit. M14 -- Settlements added
+`SettlementPressure` and stage transitions (`Camp -> ... -> Metropolis`)
+plus the housing capacity/cost/pressure system M13 depends on.
+
+M12-M14 went through a post-implementation audit
+(`docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`,
+result: FAIL) and a full remediation across 7 follow-up commits fixing
+migrant identity/determinism, the housing hard-limit bypass, founding's
+missing capital source, phantom employment exceeding the real labor
+force, a non-canonical tick phase order, commit-time validation gaps,
+and lost migrant traits -- see the 2026-09-18 CHANGELOG entries for the
+full list. DONE for M12-M14 is now backed by that audit, not just the
+original implementation commits.
+
+Next: **M15 -- Technology**, currently BLOCKED on its own documented
+starting condition (a missing `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`
+-- see the roadmap's M15 section). UI-F1 (Procedural Region Visual
+Identity) starts alongside it, deferred from M14.
+Causality/Chronicle/Architect and a procedural World Generation
+algorithm still do not exist as *systems* yet -- see the Implementation
+Roadmap for the full milestone sequence.
 
 ## Requirements
 
@@ -124,12 +153,16 @@ pnpm sim:run
 
 This prints the same `CoreStatus` the app would fetch over IPC, then
 runs a 12-tick `HeadlessRunner` demo (deterministic clock/RNG/checksum
-from M1). World State entity shapes exist since M3
-(`packages/entities`), and resource (M5) and population (M6) system
-logic exists and is tested in isolation, but nothing wires either of
-them (or `WorldState`) into a running tick loop yet -- that is left to
-later milestones. AI/market/labor/trade logic does not exist yet
-(M7 onward).
+from M1 only -- this specific CLI demo predates the full economy and was
+never updated to drive it). The real, full tick loop -- resources,
+population, production, market, labor, trade, company AI,
+entrepreneurship, migration, settlements, all of it -- exists and is
+wired together in `packages/simulation/src/core/economy-tick.ts::runEconomyTick`
+/ `world-runner.ts::WorldRunner` (M7-M14, see "Current milestone" above)
+and is exercised end to end by
+`packages/worldgen/src/fixtures/economy-tick.integration.test.ts` and
+`m12-m14-invariant-monitor.test.ts` against the real Black Mountain
+fixture, not by this CLI.
 
 ## Testing
 

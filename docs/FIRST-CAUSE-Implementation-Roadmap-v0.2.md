@@ -2363,12 +2363,18 @@ gracza.
 **Implementowane systemy:** SettlementPressure, settlement stages,
 housing (capacity/cost/pressure).
 
-**UI Foundation Track:** start
-`UI-F1 — Procedural Region Visual Identity`. Powstają
-`RegionVisualProfile` oraz deterministyczny renderer `FCRegionVignette`
-z warstwami terrain → vegetation → settlement → transport →
-infrastructure → industry → landmark. Renderer jest pochodną stanu
-symulacji; nie istnieje globalny skin epoki i nie używa `Math.random()`.
+**UI Foundation Track:** **UI-F1 — Procedural Region Visual Identity**
+jawnie odroczone do M15 (decyzja z 2026-09-18, w ramach naprawy audytu
+post-implementacyjnego M12-M14 -- poprzednia wersja tej sekcji mówiła o
+starcie UI-F1 tutaj, ale M14's rzeczywista implementacja renderingu nie
+objęła; §15's "M14/M15" pozostawało niejednoznaczne, teraz rozstrzygnięte
+na M15). M14 sam w sobie nie jest przez to zablokowany -- UI-F1 był
+zawsze częścią równoległego "Parallel UI Foundation Track", nie
+Acceptance Gate tego milestone'u (sekcja 6A). Docelowo: `RegionVisualProfile`
+oraz deterministyczny renderer `FCRegionVignette` z warstwami terrain →
+vegetation → settlement → transport → infrastructure → industry →
+landmark. Renderer jest pochodną stanu symulacji; nie istnieje globalny
+skin epoki i nie używa `Math.random()`.
 
 **Moduły (`society/settlements`):**
 
@@ -2398,6 +2404,18 @@ Generation/economy), pełne miasta-państwa (DEFERRED).
 `FIRST-CAUSE-Simulation-Test-Spec-v0.1.md` (§70--72),
 `FIRST-CAUSE-World-Generation-Spec-v0.1.md` (§19--20).
 
+**Audyt post-implementacyjny (2026-09-18):** M12-M14 zostały wdrożone
+(commity `c05d27f`/`26ef121`/`a70ba4c`) i oznaczone DONE, ale audyt
+post-implementacyjny (`docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`)
+wykazał FAIL -- 6 blokerów P0 (tożsamość/ID migrantów, obejście
+twardego limitu housing, brak źródła kapitału foundingu, fantomowi
+pracownicy, niekanoniczna kolejność faz ticka) i 8 P1. Pełna naprawa
+(Etapy 5-11, commity `86198a4`/`12d62c9`/`5b7f391`/`6c372bf`/
+`31b1f59`/`221c8ee`/`7ac2bc7`) domyka wszystkie znalezione problemy,
+łącznie z wielotickowym (120 ticków × 3 seedy) monitorem inwariantów na
+prawdziwym contencie. DONE dla M12-M14 jest teraz uzasadnione tym
+audytem, nie tylko commitami wdrożenia.
+
 ------------------------------------------------------------------------
 
 ## M15 --- Technology
@@ -2407,10 +2425,17 @@ Generation/economy), pełne miasta-państwa (DEFERRED).
 Readiness:** PARTIAL — brak katalogu technologii w repo
 
 **Warunek rozpoczęcia:** dostarczyć i zweryfikować przywoływany przez
-specyfikacje `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` albo
-jawnie uzgodnić zastąpienie go walidowanymi definicjami contentu VS.
+specyfikacje `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`.
 Zasady TECH-001–009 obowiązują; brak katalogu nie upoważnia do wymyślania
-20–30 odkryć. Nie blokuje to M1 ani schematów/pipeline M2.
+20–30 odkryć. **Decyzja z 2026-09-18** (przy zamykaniu audytu
+post-implementacyjnego M12-M14): katalog musi zostać dostarczony osobno
+(nie zastępujemy go skrótowo walidowanymi definicjami contentu VS) --
+M15 pozostaje BLOCKED, dopóki ten dokument nie powstanie i nie zostanie
+zweryfikowany. Nie blokuje to M1 ani schematów/pipeline M2. Dodatkowo od
+tej samej decyzji: **UI-F1 — Procedural Region Visual Identity**
+(`RegionVisualProfile` + renderer `FCRegionVignette`, jawnie odroczone z
+M14, patrz M14's sekcja) startuje razem z M15, równoległym torem, bez
+blokowania M15's własnej Acceptance Gate.
 
 **Cel:** wiedza regionalna, stany technologii
 (`Unknown → Known → Available → Adopted`), Discovery Engine oddzielony
@@ -2422,7 +2447,8 @@ Discoveries w 5 głównych + 4 wspierających domenach.
 **Implementowane systemy:** Knowledge accumulation, Discovery
 eligibility, breakthroughs, Availability, PM Adoption (decyzja Company
 AI, integrowana z M11's `AI-08`), Industry/Population/Institutional
-Adoption.
+Adoption. Równolegle (UI Foundation Track, nie część tej Acceptance
+Gate): `RegionVisualProfile`/`FCRegionVignette` (UI-F1, odroczone z M14).
 
 **Moduły (`technology/knowledge`, `technology/discoveries`,
 `technology/diffusion`, `technology/adoption`):**
@@ -3182,8 +3208,12 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-18: M0, M0.1 Audit Fixes oraz M1--M14 ukończone; M15
-gotowy do rozpoczęcia, jeszcze niezaimplementowany. **Ten dokument jest żywy --- po ukończeniu każdego
+Stan na 2026-09-18: M0, M0.1 Audit Fixes oraz M1--M14 ukończone (M12-M14
+dodatkowo przeszły pełny audyt post-implementacyjny i naprawę -- patrz
+M14's sekcja "Audyt post-implementacyjny"); M15 zależnościowo odblokowany
+(M14 DONE), ale formalnie BLOCKED na własnym Warunku rozpoczęcia --
+brakujący `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (patrz M15's
+sekcja). **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -3205,7 +3235,7 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M12         DONE      P0          M           MEDIUM-HIGH   M11
   M13         DONE      P0          M           MEDIUM        M12
   M14         DONE      P0          S/M         MEDIUM        M13
-  M15         BACKLOG   P0          L           MEDIUM-HIGH   M14
+  M15         BLOCKED   P0          L           MEDIUM-HIGH   M14
   M16         BACKLOG   P0          M           MEDIUM        M15
   M17         BACKLOG   P0          L           HIGH          M16
   M18         BACKLOG   P0          M           MEDIUM        M17
@@ -3252,8 +3282,11 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M7 — Production** zgodnie z sekcją M7.
-M0, M0.1, M1, M2, M3, M4, M5 i M6 są DONE. Kolejne milestone’y
+Następny krok: **M15 — Technology**, formalnie BLOCKED do dostarczenia
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (patrz M15's Warunek
+rozpoczęcia); UI-F1 startuje równolegle z M15 (odroczone z M14). M0,
+M0.1 oraz M1--M14 są DONE (M12-M14 dodatkowo przeszły pełną naprawę
+audytu post-implementacyjnego, patrz M14's sekcja). Kolejne milestone’y
 rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
@@ -3273,7 +3306,10 @@ Zmiany względem v0.1 wynikające z zamrożenia warstwy UI/grafiki:
 3.  typed Read Models są częścią Definition of Done systemów user-facing
     od M5;
 4.  Design Tokens, FC primitives i AppShell rozpoczynają się w M5-M10;
-5.  Region Visual Identity rozpoczyna się w M14/M15;
+5.  Region Visual Identity (UI-F1) rozpoczyna się w M15 (pierwotnie
+    dopuszczone jako M14/M15, rozstrzygnięte na M15 decyzją z
+    2026-09-18 -- M14's rzeczywista implementacja renderingu nie objęła,
+    patrz M14's sekcja "Audyt post-implementacyjny");
 6.  komponenty Causality/WHY? rozpoczynają się w M17/M18;
 7.  Chronicle UI rozpoczyna się w M19;
 8.  M21 zreinterpretowano jako pełny **UI Integration Milestone**;

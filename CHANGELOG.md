@@ -10,6 +10,58 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **docs: Etap 12 (ostatni) -- naprawa audytu M12-M14, korekta
+  dokumentacji i dwie decyzje rozstrzygające.** Reaguje na
+  `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`
+  §12 "Documentation Drift" -- ostatni etap planu naprawy, po zamknięciu
+  Etapów 5-11 (kod + testy). Kod jest gotowy od Etapu 11; ten etap tylko
+  zgadza dokumentację ze stanem faktycznym.
+
+  Dwie decyzje podjęte wspólnie z użytkownikiem (audyt wymagał "jawnego
+  uzgodnienia", nie milczącego wyboru):
+  1. **UI-F1 (Procedural Region Visual Identity)** jawnie odroczone z
+     M14 do M15 -- roadmapa wcześniej dopuszczała niejednoznaczne
+     "M14/M15"; M14's implementacja nigdy renderingu nie objęła.
+  2. **M15's Technology Discovery Catalog** pozostaje wymagany --
+     świadomie NIE zastępujemy go skrótowo walidowanymi definicjami
+     contentu VS (roadmapa: "brak katalogu nie upoważnia do wymyślania
+     20-30 odkryć"). M15 zostaje formalnie BLOCKED (tabela §12), dopóki
+     `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` nie zostanie
+     dostarczony osobno.
+
+  Poprawki w `FIRST-CAUSE-Implementation-Roadmap-v0.2.md`: M14's sekcja
+  dostaje nowy akapit "Audyt post-implementacyjny" (FAIL → pełna
+  naprawa, Etapy 5-11, lista commitów); M15's "Warunek rozpoczęcia"
+  i "Implementowane systemy" odzwierciedlają obie decyzje powyżej;
+  §12's przestarzała proza ("M15 gotowy do rozpoczęcia") i tabela
+  (M15: BACKLOG → BLOCKED) skorygowane; §14's "Zasada końcowa" była
+  zamrożona od granicy M6/M7 ("Następny krok: M7") mimo reguły "dokument
+  żywy" z §13 -- zaktualizowana na M15; §15's item 5 ("M14/M15")
+  rozstrzygnięty na M15.
+
+  `README.md`: "Current milestone" był zamrożony na M7 ("M8 = READY, not
+  started") mimo że M8-M14 są od dawna gotowe -- dopisano zwięzłe
+  podsumowanie M8-M14 (real economy loop = `economy-tick.ts::
+  runEconomyTick`/`WorldRunner`, wcześniej błędnie sugerowane jako
+  brakujące), nowy akapit o audycie M12-M14 i naprawie, i skorygowany
+  "Next: M15" z warunkiem blokującym. "Headless simulation" section
+  poprawiona -- `pnpm sim:run`'s 12-tickowe demo rzeczywiście nadal
+  używa tylko gołego `HeadlessRunner` (nigdy nie zaktualizowane), ale
+  zdanie sugerujące że pełnej pętli tickowej "jeszcze nie ma" było
+  fałszywe od M7.
+
+  Skorygowano też dwa konkretne błędy faktyczne we **wcześniejszym**
+  wpisie CHANGELOG M14 (bez przepisywania historii -- poprawki oznaczone
+  wprost jako korekty z datą): "32 nowe testy" → 24 (21 housing/
+  settlements + 3 tick-loop, audyt policzył to samo); fałszywe
+  twierdzenie "UI-F0 jeszcze nie istnieje" (istnieje od M5) zastąpione
+  prawdziwym powodem odroczenia UI-F1.
+
+  Świadomie NIE zrobione w tym etapie: sam Technology Discovery Catalog
+  (decyzja użytkownika: czekamy na osobno dostarczony dokument, nie
+  wymyślam go teraz) i sama implementacja UI-F1 (odroczona do M15,
+  nie ten etap).
+
 - **test: Etap 11 -- naprawa audytu M12-M14, wielotickowy monitor
   inwariantów (`m12_m14_multiseed_120_ticks_with_invariant_monitor`).**
   Reaguje na `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
@@ -255,7 +307,10 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
   ts::selectDestinationSettlement` już czytało `housing.capacity` jako
   twardy limit; M14 jest pierwszym systemem, który realnie je zapełnia
   (dotąd zawsze 0), więc ten limit zaczyna coś znaczyć w praktyce, bez
-  żadnej zmiany po stronie M13 samego. 32 nowe testy: FC-SETTLEMENT-001
+  żadnej zmiany po stronie M13 samego. **24 nowe testy** (skorygowano
+  2026-09-18 -- audyt post-implementacyjny M12-M14 wykazał, że oryginalny
+  wpis błędnie liczył 32; rzeczywiście: 21 testów housing/settlements +
+  3 tick-loop end-to-end): FC-SETTLEMENT-001
   (Settlement Pressure -- population/jobs/trade w górę podnosi
   pressure), FC-SETTLEMENT-002 (Stage Transition -- nie w jednym
   przypadkowym ticku, dokładnie na progu persistence, nigdy więcej niż
@@ -270,9 +325,14 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
   Świadomie poza zakresem: `UI-F1 -- Procedural Region Visual Identity`
   (roadmapa wymienia go jako start dla M14, ale to część "Parallel UI
   Foundation Track" -- jawnie nie tworzy nowego milestone'u ani nie
-  blokuje M14's własnej Acceptance Gate, sekcja 6A; w repo nie istnieje
-  jeszcze nawet wcześniejszy `UI-F0`, więc realizacja UI-F1 zostaje na
-  późniejszą sesję), pełna infrastruktura miejska/`Connection.
+  blokuje M14's własnej Acceptance Gate, sekcja 6A; **skorygowano
+  2026-09-18** -- oryginalny wpis błędnie twierdził, że w repo nie
+  istnieje jeszcze nawet wcześniejszy `UI-F0` -- w rzeczywistości UI-F0
+  istnieje od M5 (Design Tokens, FC primitives, AppShell). Prawdziwy
+  powód odroczenia: UI-F1 to sam w sobie spory, osobny kawałek pracy
+  renderingowej, nie "kolejny mały krok" -- decyzją z 2026-09-18 startuje
+  jawnie razem z M15, nie M14, patrz roadmapa i CHANGELOG "Etap 12"
+  wyżej), pełna infrastruktura miejska/`Connection.
   infrastructure.level` jako inwestycja gracza/AI (M14's własna sekcja
   wymienia tylko `SettlementPressure`/stage/housing jako
   "Implementowane systemy" -- infrastructure investment pozostaje dług
