@@ -354,6 +354,8 @@ function buildChainWorld(input: {
   readonly physicalDistanceAB?: number;
   readonly physicalDistanceBC?: number;
   readonly cohortPopulationInA?: number;
+  /** Nadpisuje domyślną pojedynczą kohortę regionu A -- kilka rekordów naraz, dla testów P0-01/P0-02. */
+  readonly cohortsInA?: readonly PopulationCohort[];
   readonly connectAC?: boolean;
 }): WorldState {
   const world = createWorld({
@@ -436,7 +438,7 @@ function buildChainWorld(input: {
     continents: [continent],
     regions: [regionA, regionB, regionC],
     connections,
-    populationCohorts: [cohortA],
+    populationCohorts: input.cohortsInA ? [...input.cohortsInA] : [cohortA],
   });
 
   const withAttraction: WorldState = {
@@ -471,6 +473,27 @@ function buildChainWorld(input: {
 
 function sumPopulation(cohorts: Readonly<Record<string, PopulationCohort>>): number {
   return Object.values(cohorts).reduce((sum, c) => sum + c.population, 0);
+}
+
+function sumPopulationByAgeGroup(
+  cohorts: Readonly<Record<string, PopulationCohort>>,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const cohort of Object.values(cohorts)) {
+    totals[cohort.ageGroup] = (totals[cohort.ageGroup] ?? 0) + cohort.population;
+  }
+  return totals;
+}
+
+function sumPopulationByProfession(
+  cohorts: Readonly<Record<string, PopulationCohort>>,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const cohort of Object.values(cohorts)) {
+    const key = cohort.profession ?? "none";
+    totals[key] = (totals[key] ?? 0) + cohort.population;
+  }
+  return totals;
 }
 
 describe("runMigrationPass -- candidate set (POP-007, FC-MIGRATION-004)", () => {
@@ -586,5 +609,106 @@ describe("runMigrationPass -- determinism", () => {
 
     expect(first.populationCohorts).toEqual(second.populationCohorts);
     expect(first.facts).toEqual(second.facts);
+  });
+});
+
+describe("runMigrationPass -- cohort identity across age groups (audit P0-01)", () => {
+  it("migration_preserves_age_under_record_permutation: each age group lands as itself, regardless of source record order", () => {
+    const adults = buildCohort({
+      id: "cohort_a_adults",
+      regionId: "region_a",
+      ageGroup: "AGE_25_44",
+      population: 1000,
+    });
+    const seniors = buildCohort({
+      id: "cohort_a_seniors",
+      regionId: "region_a",
+      ageGroup: "AGE_65_PLUS",
+      population: 1000,
+    });
+
+    const runWithOrder = (cohortsInA: readonly PopulationCohort[]) => {
+      const worldState = buildChainWorld({
+        attractionByRegion: { region_a: 0, region_b: 1, region_c: 1 },
+        connectAC: false,
+        cohortsInA,
+      });
+      return runMigrationPass({
+        regions: worldState.regions,
+        connections: worldState.connections,
+        settlements: worldState.settlements,
+        populationCohorts: worldState.populationCohorts,
+        tick: 0,
+        rng: testRng("age-permutation"),
+      });
+    };
+
+    const adultsFirst = runWithOrder([adults, seniors]);
+    const seniorsFirst = runWithOrder([seniors, adults]);
+
+    for (const result of [adultsFirst, seniorsFirst]) {
+      const totals = sumPopulationByAgeGroup(result.populationCohorts);
+      // Żadna grupa wieku nie może "pożyczyć" populacji drugiej --
+      // audytowa reprodukcja: kolejność rekordów zmieniała, KTÓRA grupa
+      // wieku odziedziczyła migrantów drugiej.
+      expect(totals["AGE_25_44"]).toBe(1000);
+      expect(totals["AGE_65_PLUS"]).toBe(1000);
+    }
+
+    // Wynik przebiegu nie może zależeć od kolejności wejściowych rekordów
+    // (SIM-005) -- oba przebiegi startują z tego samego zbioru kohort,
+    // różni je tylko kolejność w rekordzie wejściowym.
+    expect(adultsFirst.populationCohorts).toEqual(seniorsFirst.populationCohorts);
+    expect(adultsFirst.facts).toEqual(seniorsFirst.facts);
+  });
+});
+
+describe("runMigrationPass -- concurrent professions to the same destination (audit P0-02)", () => {
+  it("migration_profession_ids_are_unique_and_population_conserved: two professions migrating in the same tick don't overwrite each other's destination cohort", () => {
+    const agriculture = buildCohort({
+      id: "cohort_a_agriculture",
+      regionId: "region_a",
+      population: 1000,
+      profession: "agriculture",
+    });
+    const manufacturing = buildCohort({
+      id: "cohort_a_manufacturing",
+      regionId: "region_a",
+      population: 1000,
+      profession: "manufacturing",
+    });
+
+    const worldState = buildChainWorld({
+      attractionByRegion: { region_a: 0, region_b: 1, region_c: 1 },
+      connectAC: false,
+      cohortsInA: [agriculture, manufacturing],
+    });
+
+    const before = sumPopulation(worldState.populationCohorts);
+    const result = runMigrationPass({
+      regions: worldState.regions,
+      connections: worldState.connections,
+      settlements: worldState.settlements,
+      populationCohorts: worldState.populationCohorts,
+      tick: 0,
+      rng: testRng("profession-collision"),
+    });
+    const after = sumPopulation(result.populationCohorts);
+
+    // Audytowa reprodukcja: 2000 przed, 1985 po -- kolizja ID kasowała
+    // pierwszych 15 migrantów mimo poprawnie wyglądającego bilansu faktów.
+    expect(after).toBe(before);
+
+    const byProfession = sumPopulationByProfession(result.populationCohorts);
+    expect(byProfession["agriculture"]).toBe(1000);
+    expect(byProfession["manufacturing"]).toBe(1000);
+
+    const outTotal = result.facts
+      .filter((f) => f.type === "population_migrated_out")
+      .reduce((sum, f) => sum + (f.values.delta ?? 0), 0);
+    const inTotal = result.facts
+      .filter((f) => f.type === "population_migrated_in")
+      .reduce((sum, f) => sum + (f.values.delta ?? 0), 0);
+    expect(inTotal).toBe(-outTotal);
   });
 });

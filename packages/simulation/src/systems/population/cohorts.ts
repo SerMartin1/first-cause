@@ -66,6 +66,24 @@ export function cohortIdentityKey(cohort: PopulationCohort): string {
 }
 
 /**
+ * Pełna tożsamość POJEDYNCZEJ kohorty: `cohortIdentityKey` (rodzina) plus
+ * `ageGroup`. `cohortIdentityKey` celowo pomija `ageGroup` -- to jest
+ * dokładnie to, co spaja pięć rekordów jednej rodziny -- więc nie wolno go
+ * używać do indeksowania POJEDYNCZYCH kohort. `population/migration.ts`
+ * (M13) operuje właśnie na pojedynczych rekordach wiekowych (migrant
+ * jednej grupy wieku na raz): indeksowanie odbiorców po
+ * `cohortIdentityKey` mieszało grupy wieku tej samej rodziny pod jednym
+ * kluczem -- druga grupa wieku migrująca do tego samego miejsca
+ * "scalała się" z odbiorcą pierwszej, cichcem zmieniając jej wiek
+ * (audytowy P0-01). Ta funkcja istnieje właśnie po to, żeby taki kod miał
+ * poprawny, gotowy klucz zamiast dopisywać `ageGroup` do
+ * `cohortIdentityKey` ad-hoc w każdym miejscu z osobna.
+ */
+export function cohortSingleIdentityKey(cohort: PopulationCohort): string {
+  return JSON.stringify([cohortIdentityKey(cohort), cohort.ageGroup]);
+}
+
+/**
  * Validates and indexes a flat list of cohorts into a `CohortFamily`:
  * exactly one per age group, all sharing the same identity. Throws
  * rather than silently dropping/mixing population -- same fail-loud

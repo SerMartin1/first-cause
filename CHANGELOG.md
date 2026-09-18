@@ -10,6 +10,36 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **fix: Etap 5 -- naprawa audytu M12-M14, P0-01/P0-02 (tożsamość i ID
+  migrantów).** Reaguje na
+  `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
+  `population/cohorts.ts` dostaje nową `cohortSingleIdentityKey`
+  (tożsamość rodziny + `ageGroup`) obok istniejącej `cohortIdentityKey`
+  (tożsamość samej rodziny, celowo bez `ageGroup`). `population/
+  migration.ts::runMigrationPass` indeksował dotąd odbiorców migracji po
+  tożsamości rodziny -- dwie grupy wieku tej samej rodziny migrujące do
+  tego samego miejsca w jednym ticku nadpisywały się nawzajem w indeksie,
+  cichcem zmieniając wiek drugiej grupy migrantów (P0-01); teraz używa
+  `cohortSingleIdentityKey`. Szablon ID nowo tworzonej kohorty migrantów w
+  `applyMigrationFlow` pomijał `profession` -- dwie profesje migrujące w
+  tym samym ticku do tego samego miejsca mogły otrzymać identyczne ID i
+  nadpisać się w mapie kohort mimo poprawnie wyglądającego bilansu faktów
+  (P0-02); szablon dostaje brakujący segment profesji. 4 nowe testy
+  regresyjne odtwarzające dokładne reprodukcje z audytu:
+  `cohortSingleIdentityKey` rozróżnia grupy wieku tej samej rodziny
+  (`cohorts.test.ts`), permutacja kolejności rekordów wejściowych nie
+  zmienia wyniku migracji (`migration_preserves_age_under_record_
+  permutation`), dwie profesje migrujące jednocześnie nie tracą populacji
+  (`migration_profession_ids_are_unique_and_population_conserved`).
+  Świadomie poza zakresem tego etapu: P0-03..P0-06 i wszystkie P1/P2/P3 z
+  audytu -- kolejne etapy 6-12, patrz plan w audycie sekcja 14.
+
+- Zapisano raport audytu post-implementation M12–M14 w
+  `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`,
+  aby utrwalić porównanie implementacji ze specyfikacjami, wyniki kontroli,
+  reprodukcje błędów i warunki rozpoczęcia M15. Wynik audytu: FAIL,
+  gotowość do M15: NOT READY. Bez zmian kodu i bez wdrażania napraw.
+
 - Wdrożono **M14 -- Settlements** (SET-001/002/003, `society/settlements`
   + `society/housing`). Nowy folder systemów `packages/simulation/src/
   systems/society/`: `housing.ts` (`growHousingCapacity` -- pojemność

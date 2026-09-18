@@ -3,6 +3,8 @@ import { createPopulationCohort, type AgeGroup } from "@first-cause/entities";
 import {
   AGE_GROUP_ORDER,
   buildCohortFamily,
+  cohortIdentityKey,
+  cohortSingleIdentityKey,
   groupCohortsIntoFamilies,
 } from "./cohorts.js";
 
@@ -76,6 +78,40 @@ describe("buildCohortFamily", () => {
     expect(() =>
       buildCohortFamily([...worldFamily.slice(0, 4), settlementFamily[4]!]),
     ).toThrow(/does not share the family/);
+  });
+});
+
+describe("cohortSingleIdentityKey (audyt P0-01: rodzina vs pojedyncza kohorta)", () => {
+  it("różnicuje dwa rekordy tej samej rodziny po ageGroup, mimo że cohortIdentityKey ich nie rozróżnia", () => {
+    const family = buildFamily();
+    const adults = family.find((c) => c.ageGroup === "AGE_25_44")!;
+    const seniors = family.find((c) => c.ageGroup === "AGE_65_PLUS")!;
+
+    // Cała rodzina dzieli jeden klucz rodziny -- to jest zamierzone.
+    expect(cohortIdentityKey(adults)).toBe(cohortIdentityKey(seniors));
+    // Ale pełna tożsamość pojedynczej kohorty musi je rozróżniać --
+    // inaczej indeksowanie po niej miesza grupy wieku (audytowy P0-01).
+    expect(cohortSingleIdentityKey(adults)).not.toBe(cohortSingleIdentityKey(seniors));
+  });
+
+  it("traktuje dwie kohorty o tej samej tożsamości (region/settlement/klasa/skill/profesja/ageGroup) jako ten sam klucz", () => {
+    const a = createPopulationCohort({
+      id: "cohort_x",
+      regionId: "region_001",
+      ageGroup: "AGE_25_44",
+      population: 10,
+      economicClass: "WORKING",
+      skillLevel: "UNSKILLED",
+    });
+    const b = createPopulationCohort({
+      id: "cohort_y",
+      regionId: "region_001",
+      ageGroup: "AGE_25_44",
+      population: 999,
+      economicClass: "WORKING",
+      skillLevel: "UNSKILLED",
+    });
+    expect(cohortSingleIdentityKey(a)).toBe(cohortSingleIdentityKey(b));
   });
 });
 

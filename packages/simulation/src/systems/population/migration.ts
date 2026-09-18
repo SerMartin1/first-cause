@@ -9,7 +9,7 @@ import type { FactInput, FactLocation } from "@first-cause/causality";
 import { InvariantViolationError, assertNonNegative } from "../../core/validation.js";
 import type { RngStream } from "../../core/rng.js";
 import { clamp } from "../economy/company-ai/decision-framework.js";
-import { cohortIdentityKey } from "./cohorts.js";
+import { cohortSingleIdentityKey } from "./cohorts.js";
 import { stochasticRound } from "./demography.js";
 
 /**
@@ -232,7 +232,7 @@ export interface ApplyMigrationFlowInput {
   readonly destinationRegionId: string;
   readonly destinationSettlementId: string | undefined;
   readonly tick: number;
-  /** Kohorta w miejscu docelowym o tej samej tożsamości (`cohortIdentityKey`), jeśli już istnieje -- inaczej powstaje nowa. */
+  /** Kohorta w miejscu docelowym o tej samej tożsamości (`cohortSingleIdentityKey` -- rodzina + ageGroup), jeśli już istnieje -- inaczej powstaje nowa. */
   readonly existingDestinationCohort: PopulationCohort | undefined;
 }
 
@@ -284,9 +284,18 @@ export function applyMigrationFlow(
     ? { ...existingDestinationCohort, population: destinationPopulationAfter }
     : {
         ...createPopulationCohort({
+          // Musi zawierać KAŻDE pole `cohortSingleIdentityKey` (region,
+          // settlement, economicClass, skillLevel, profession, ageGroup) --
+          // inaczej dwie różne tożsamości (np. dwie profesje migrujące w
+          // tym samym ticku do tego samego miejsca) generują identyczny
+          // string ID i druga migracja nadpisuje zapis pierwszej w mapie
+          // kohort (audytowy P0-02, utrata populacji mimo poprawnego
+          // bilansu faktów).
           id: `cohort_migrant_${sourceCohort.ageGroup}_${input.destinationRegionId}${
             input.destinationSettlementId ? `_${input.destinationSettlementId}` : ""
-          }_${sourceCohort.economicClass}_${sourceCohort.skillLevel}_t${input.tick}`,
+          }_${sourceCohort.economicClass}_${sourceCohort.skillLevel}${
+            sourceCohort.profession ? `_${sourceCohort.profession}` : ""
+          }_t${input.tick}`,
           regionId: input.destinationRegionId,
           ...(input.destinationSettlementId !== undefined
             ? { settlementId: input.destinationSettlementId }
@@ -413,9 +422,13 @@ export function runMigrationPass(input: RunMigrationPassInput): RunMigrationPass
   const facts: FactInput<number>[] = [];
 
   const settlementPopulationById = new Map<string, number>();
+  // Klucz MUSI zawierać `ageGroup` (patrz `cohortSingleIdentityKey`'s doc
+  // comment) -- `cohortIdentityKey` samo w sobie to tożsamość rodziny
+  // (5 rekordów wiekowych dzieli jeden klucz), więc indeksowanie po nim tu
+  // mieszałoby te 5 rekordów pod jednym wpisem (audytowy P0-01).
   const cohortIdentityIndex = new Map<string, string>();
   for (const cohort of Object.values(cohorts)) {
-    cohortIdentityIndex.set(cohortIdentityKey(cohort), cohort.id);
+    cohortIdentityIndex.set(cohortSingleIdentityKey(cohort), cohort.id);
     if (cohort.settlementId !== undefined) {
       settlementPopulationById.set(
         cohort.settlementId,
@@ -485,7 +498,7 @@ export function runMigrationPass(input: RunMigrationPassInput): RunMigrationPass
         continue;
       }
 
-      const destinationIdentity = cohortIdentityKey({
+      const destinationIdentity = cohortSingleIdentityKey({
         ...sourceCohort,
         regionId: destinationRegionId,
         settlementId: destinationChoice.settlementId,
