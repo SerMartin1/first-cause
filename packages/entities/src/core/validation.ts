@@ -44,3 +44,37 @@ export function assertNonEmpty(value: string, label: string): string {
   }
   return value;
 }
+
+/**
+ * Audytowe P1-05: `create*` konstruktory walidują swoje WŁASNE pola przy
+ * budowie, ale kod, który później produkuje nowy stan przez spread
+ * (`{...settlement, condition: {...}}`, jak `settlements.ts::
+ * evaluateSettlementGrowth`) nigdy nie przechodzi przez ten konstruktor
+ * ponownie -- NaN wliczony gdzieś wcześniej (np. dzielenie przez zero w
+ * `tradeUtilization`) mógł więc cicho przetrwać aż do `createWorldState`.
+ * Rekurencyjnie schodzi po każdym polu obiektu/tablicy i odrzuca każdą
+ * napotkaną liczbę, która nie jest skończona -- jedyny sposób złapania
+ * tego na "końcowej walidacji" (SIM-004 VALIDATE -> COMMIT) bez
+ * wymieniania z osobna każdego numerycznego pola każdego typu encji.
+ */
+export function assertFiniteDeep(value: unknown, path: string): void {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new InvariantViolationError(
+        `${path} must be a finite number, got ${String(value)}`,
+      );
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      assertFiniteDeep(value[i], `${path}[${i}]`);
+    }
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const [key, nested] of Object.entries(value)) {
+      assertFiniteDeep(nested, `${path}.${key}`);
+    }
+  }
+}

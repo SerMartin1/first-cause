@@ -220,6 +220,120 @@ describe("createWorldState -- referential integrity (rule 9: no dangling referen
       createWorldState({ ...input, companies: [...input.companies!, brokenCompany] }),
     ).toThrow(InvariantViolationError);
   });
+
+  it("world_commit_rejects_nan_duplicate_ids_and_invalid_ownership: rejects a company whose ownerEntityId references an unknown cohort (audit P1-05)", () => {
+    const input = buildFixtureInput();
+    const ghostOwnerCompany = createCompany({
+      id: "company_999",
+      archetypeId: "crop_farm",
+      name: "Ghost Owner Farm",
+      foundedTick: 0,
+      regionId: "region_001",
+      ownerType: "individual",
+      ownerEntityId: "cohort_999", // no such cohort exists
+      inventoryId: "inventory_001",
+    });
+
+    expect(() =>
+      createWorldState({
+        ...input,
+        companies: [...input.companies!, ghostOwnerCompany],
+      }),
+    ).toThrow(/ownerEntityId/);
+  });
+
+  it("rejects an Inventory whose ownerId references no entity of its own ownerType (audit P1-05)", () => {
+    const input = buildFixtureInput();
+    const ghostOwnerInventory = createInventory({
+      id: "inventory_999",
+      ownerType: "company",
+      ownerId: "company_999", // no such company exists
+      locationRegionId: "region_001",
+    });
+
+    expect(() =>
+      createWorldState({
+        ...input,
+        inventories: [...input.inventories!, ghostOwnerInventory],
+      }),
+    ).toThrow(/ownerId/);
+  });
+
+  it("rejects a PopulationCohort whose settlementId belongs to a different region than the cohort itself (audit P1-05)", () => {
+    const input = buildFixtureInput();
+    // settlement_001 belongs to region_001 -- placing the cohort in
+    // region_002 while still pointing at that settlement is exactly the
+    // "settlement exists, but nobody confirmed it's the SAME region" gap.
+    const mismatchedCohort = createPopulationCohort({
+      id: "cohort_999",
+      regionId: "region_002",
+      settlementId: "settlement_001",
+      ageGroup: "AGE_25_44",
+      population: 10,
+      economicClass: "WORKING",
+      skillLevel: "UNSKILLED",
+    });
+
+    expect(() =>
+      createWorldState({
+        ...input,
+        populationCohorts: [...input.populationCohorts!, mismatchedCohort],
+      }),
+    ).toThrow(/region/i);
+  });
+
+  it("rejects a Company whose settlementId belongs to a different region than the company itself (audit P1-05)", () => {
+    const input = buildFixtureInput();
+    const mismatchedCompany = createCompany({
+      id: "company_999",
+      archetypeId: "crop_farm",
+      name: "Misplaced Farm",
+      foundedTick: 0,
+      regionId: "region_002", // settlement_001 actually belongs to region_001
+      settlementId: "settlement_001",
+      ownerType: "individual",
+      ownerEntityId: "cohort_001",
+      inventoryId: "inventory_001",
+    });
+
+    expect(() =>
+      createWorldState({
+        ...input,
+        companies: [...input.companies!, mismatchedCompany],
+      }),
+    ).toThrow(/region/i);
+  });
+
+  it("rejects two entities sharing the same id instead of silently letting the second overwrite the first (audit P1-05)", () => {
+    const input = buildFixtureInput();
+    const duplicateRegion = createRegion({
+      id: "region_001", // collides with the fixture's own region_001
+      worldId: input.world.id,
+      continentId: "continent_001",
+      name: "Duplicate Black Mountain",
+      geography,
+    });
+
+    expect(() =>
+      createWorldState({ ...input, regions: [...input.regions!, duplicateRegion] }),
+    ).toThrow(/[Dd]uplicate/);
+  });
+
+  it("rejects a NaN that entered a computed field after construction, not caught by any create* constructor (audit P1-05)", () => {
+    const input = buildFixtureInput();
+    // Reproduces the audit exactly: a Settlement built via spread (the way
+    // `society/settlements.ts::evaluateSettlementGrowth` mutates state
+    // tick to tick) rather than through `createSettlement` again, so the
+    // constructor's own finite-number checks never run on it.
+    const settlementWithNaN = {
+      ...input.settlements![0]!,
+      condition: { ...input.settlements![0]!.condition, urbanizationPressure: NaN },
+    };
+
+    expect(() =>
+      createWorldState({ ...input, settlements: [settlementWithNaN] }),
+    ).toThrow(/finite/);
+  });
 });
 
 describe("createWorldState -- serialization roundtrip (Save/Determinism Spec cross-cutting since M1)", () => {

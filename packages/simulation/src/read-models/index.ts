@@ -5,3 +5,4 @@ export * from "./important-now-read-model.js";
 export * from "./resource-deposit-read-model.js";
 export * from "./company-summary-read-model.js";
 export * from "./market-summary-read-model.js";
+export * from "./settlement-summary-read-model.js";

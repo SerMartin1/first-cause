@@ -300,6 +300,61 @@ describe("applyMigrationFlow (FC-MIGRATION-005 accounting)", () => {
     expect(result.destinationCohort.population).toBe(60);
   });
 
+  it("migration_preserves_weighted_wealth_and_education: a migrant's wealth/education/literacy travel with them into a newly created cohort, not reset to 0 (audit P1-06)", () => {
+    const sourceCohort = buildCohort({
+      population: 100,
+      averageWealth: 100,
+      educationLevel: 0.8,
+      literacy: 0.9,
+    });
+
+    const result = applyMigrationFlow({
+      sourceCohort,
+      migrantCount: 10,
+      destinationRegionId: "region_b",
+      destinationSettlementId: undefined,
+      tick: 5,
+      existingDestinationCohort: undefined,
+    });
+
+    // Kohorta docelowa nie istniała wcześniej -- migranci przynoszą swoje
+    // wartości wprost (audytowa reprodukcja: przed fixem 0, 0, 0).
+    expect(result.destinationCohort.averageWealth).toBe(100);
+    expect(result.destinationCohort.educationLevel).toBe(0.8);
+    expect(result.destinationCohort.literacy).toBe(0.9);
+  });
+
+  it("weights wealth/education/literacy by population when merging into an existing destination cohort", () => {
+    const sourceCohort = buildCohort({
+      population: 100,
+      averageWealth: 100,
+      educationLevel: 1,
+      literacy: 1,
+    });
+    const existingDestinationCohort = buildCohort({
+      id: "cohort_dest_existing",
+      regionId: "region_b",
+      population: 30, // 3x smaller than the 10 migrants would need to dominate the average... see weights below
+      averageWealth: 0,
+      educationLevel: 0,
+      literacy: 0,
+    });
+
+    const result = applyMigrationFlow({
+      sourceCohort,
+      migrantCount: 10,
+      destinationRegionId: "region_b",
+      destinationSettlementId: undefined,
+      tick: 5,
+      existingDestinationCohort,
+    });
+
+    // (0*30 + 100*10) / 40 = 25 -- weighted by population, not a flat average.
+    expect(result.destinationCohort.averageWealth).toBe(25);
+    expect(result.destinationCohort.educationLevel).toBe(0.25);
+    expect(result.destinationCohort.literacy).toBe(0.25);
+  });
+
   it("caps source employment at eligibleLaborForce, not the surviving population (audit P0-05, phantom employment)", () => {
     const sourceCohort = buildCohort({ population: 100, employment: 95 });
 

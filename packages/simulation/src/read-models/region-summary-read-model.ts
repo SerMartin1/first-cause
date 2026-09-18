@@ -23,6 +23,10 @@ export interface RegionSummaryReadModel {
   readonly resourceDefinitionIds: readonly string[];
   readonly companyArchetypeIds: readonly string[];
   readonly connectedRegionIds: readonly string[];
+  /** M13's push/pull signal (`Region.cached.migrationAttraction`, `population/migration.ts`), freshly computed each tick -- audytowe P1-08, dotąd nieujawnione żadnym Read Modelem. */
+  readonly migrationAttraction: number;
+  /** M14's SettlementPressure (`Region.cached.settlementPressure`, `society/settlements.ts`), średnia urbanizationPressure po settlementach regionu -- audytowe P1-08. */
+  readonly settlementPressure: number;
 }
 
 const SETTLEMENT_STAGE_RANK: Readonly<Record<SettlementStage, number>> = {
@@ -94,5 +98,7 @@ export function buildRegionSummaryReadModel(
     resourceDefinitionIds,
     companyArchetypeIds,
     connectedRegionIds,
+    migrationAttraction: region.cached.migrationAttraction,
+    settlementPressure: region.cached.settlementPressure,
   };
 }

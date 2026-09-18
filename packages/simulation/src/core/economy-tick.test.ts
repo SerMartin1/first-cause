@@ -929,6 +929,14 @@ describe("runEconomyTick -- canonical phase order (audit P0-06/P1-04)", () => {
         carryingCapacity: 1000,
       },
     });
+    const ownerCohort = createPopulationCohort({
+      id: "cohort_owner",
+      regionId: region.id,
+      ageGroup: "AGE_25_44",
+      population: 10,
+      economicClass: "WORKING",
+      skillLevel: "UNSKILLED",
+    });
     const baseCompany = createCompany({
       id: "company_test",
       archetypeId: "test_archetype",
@@ -936,7 +944,7 @@ describe("runEconomyTick -- canonical phase order (audit P0-06/P1-04)", () => {
       foundedTick: 0,
       regionId: region.id,
       ownerType: "individual",
-      ownerEntityId: "no_owner_cohort_needed",
+      ownerEntityId: ownerCohort.id,
       inventoryId: companyInventory.id,
       initialCash: 10_000,
       initialWageOffer: 10,
@@ -967,6 +975,7 @@ describe("runEconomyTick -- canonical phase order (audit P0-06/P1-04)", () => {
       companies: [company],
       inventories: [companyInventory],
       resourceDeposits: [deposit],
+      populationCohorts: [ownerCohort],
     });
     const rng = createWorldRng(worldState.world.seed);
 

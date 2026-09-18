@@ -1,4 +1,4 @@
-import { InvariantViolationError } from "./core/validation.js";
+import { InvariantViolationError, assertFiniteDeep } from "./core/validation.js";
 import { groupIdsBy, toById } from "./core/indexes.js";
 import type { World } from "./world/world.js";
 import type { Continent } from "./world/continent.js";
@@ -87,11 +87,12 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
   const inventories = input.inventories ?? [];
   const technologyStates = input.technologyStates ?? [];
 
-  const continentsById = toById(continents);
-  const regionsById = toById(regions);
-  const settlementsById = toById(settlements);
-  const cohortsById = toById(populationCohorts);
-  const inventoriesById = toById(inventories);
+  const continentsById = toById(continents, "Continent");
+  const regionsById = toById(regions, "Region");
+  const settlementsById = toById(settlements, "Settlement");
+  const cohortsById = toById(populationCohorts, "PopulationCohort");
+  const inventoriesById = toById(inventories, "Inventory");
+  const companiesById = toById(companies, "Company");
 
   for (const continent of continents) {
     requireSame(continent.worldId, input.world.id, `Continent "${continent.id}".worldId`);
@@ -142,6 +143,14 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
         cohort.settlementId,
         `PopulationCohort "${cohort.id}".settlementId`,
       );
+      // Audytowe P1-05: samo istnienie settlementu nie potwierdza, że
+      // leży w TYM SAMYM regionie co kohorta -- bez tego wpis mógłby po
+      // cichu wskazywać osadę zupełnie gdzie indziej.
+      requireSame(
+        settlementsById[cohort.settlementId]!.regionId,
+        cohort.regionId,
+        `PopulationCohort "${cohort.id}".settlementId's region`,
+      );
     }
   }
   for (const company of companies) {
@@ -152,11 +161,24 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
         company.settlementId,
         `Company "${company.id}".settlementId`,
       );
+      requireSame(
+        settlementsById[company.settlementId]!.regionId,
+        company.regionId,
+        `Company "${company.id}".settlementId's region`,
+      );
     }
     requireExists(
       inventoriesById,
       company.inventoryId,
       `Company "${company.id}".inventoryId`,
+    );
+    // Audytowe P1-05: "właściciele nie są kompleksowo walidowani" --
+    // ownerEntityId wcześniej mógł wskazywać nieistniejącą kohortę bez
+    // żadnego błędu (np. po jej usunięciu w przyszłym systemie).
+    requireExists(
+      cohortsById,
+      company.ownerEntityId,
+      `Company "${company.id}".ownerEntityId`,
     );
   }
   const marketIdByRegion = new Map<string, string>();
@@ -179,6 +201,20 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
       regionsById,
       inventory.locationRegionId,
       `Inventory "${inventory.id}".locationRegionId`,
+    );
+    // Audytowe P1-05: "właściciele inventory... nie są kompleksowo
+    // walidowani" -- `ownerId` wcześniej nie był w ogóle sprawdzany
+    // przeciw encji, którą `ownerType` deklaruje.
+    const ownerById: Readonly<Record<string, unknown>> =
+      inventory.ownerType === "region"
+        ? regionsById
+        : inventory.ownerType === "company"
+          ? companiesById
+          : settlementsById;
+    requireExists(
+      ownerById,
+      inventory.ownerId,
+      `Inventory "${inventory.id}".ownerId (ownerType "${inventory.ownerType}")`,
     );
     if (inventory.ownerType !== "region") continue;
     // Same one-per-region rule as Market above, for the same reason: a
@@ -284,19 +320,50 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
     continentIds: Object.keys(continentsById).sort(),
     regionIds: Object.keys(regionsById).sort(),
   };
+  const resolvedConnections = toById(connections, "Connection");
+  const resolvedResourceDeposits = toById(resourceDeposits, "ResourceDeposit");
+  const resolvedMarkets = toById(markets, "Market");
+  const resolvedTechnologyStates = toById(technologyStates, "TechnologyState");
+
+  // Audytowe P1-05: NaN/Infinity odrzucane dopiero przy (de)serializacji
+  // nie chroni tego, co WorldState zaraz przyjmie jako swój bieżący stan
+  // -- ta walidacja biegnie PRZED zwróceniem, na finalnych, w pełni
+  // przeliczonych obiektach (nie na surowym wejściu), więc łapie też
+  // NaN wprowadzone przez samo przeliczenie (np. `totalPopulationOf`).
+  assertFiniteDeep(resolvedWorld, "World");
+  for (const [id, entity] of Object.entries(resolvedContinents))
+    assertFiniteDeep(entity, `Continent "${id}"`);
+  for (const [id, entity] of Object.entries(resolvedRegions))
+    assertFiniteDeep(entity, `Region "${id}"`);
+  for (const [id, entity] of Object.entries(resolvedConnections))
+    assertFiniteDeep(entity, `Connection "${id}"`);
+  for (const [id, entity] of Object.entries(resolvedResourceDeposits))
+    assertFiniteDeep(entity, `ResourceDeposit "${id}"`);
+  for (const [id, entity] of Object.entries(resolvedSettlements))
+    assertFiniteDeep(entity, `Settlement "${id}"`);
+  for (const [id, entity] of Object.entries(cohortsById))
+    assertFiniteDeep(entity, `PopulationCohort "${id}"`);
+  for (const [id, entity] of Object.entries(companiesById))
+    assertFiniteDeep(entity, `Company "${id}"`);
+  for (const [id, entity] of Object.entries(resolvedMarkets))
+    assertFiniteDeep(entity, `Market "${id}"`);
+  for (const [id, entity] of Object.entries(inventoriesById))
+    assertFiniteDeep(entity, `Inventory "${id}"`);
+  for (const [id, entity] of Object.entries(resolvedTechnologyStates))
+    assertFiniteDeep(entity, `TechnologyState "${id}"`);
 
   return {
     world: resolvedWorld,
     continents: resolvedContinents,
     regions: resolvedRegions,
-    connections: toById(connections),
-    resourceDeposits: toById(resourceDeposits),
+    connections: resolvedConnections,
+    resourceDeposits: resolvedResourceDeposits,
     settlements: resolvedSettlements,
     populationCohorts: cohortsById,
-    companies: toById(companies),
-    markets: toById(markets),
+    companies: companiesById,
+    markets: resolvedMarkets,
     inventories: inventoriesById,
-    technologyStates: toById(technologyStates),
+    technologyStates: resolvedTechnologyStates,
   };
 }
 

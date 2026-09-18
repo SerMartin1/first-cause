@@ -11,6 +11,7 @@ import {
   createWorld,
   createWorldState,
 } from "@first-cause/entities";
+import type { WorldState } from "@first-cause/entities";
 import { buildRegionSummaryReadModel } from "./region-summary-read-model.js";
 
 function buildFixtureState() {
@@ -127,6 +128,31 @@ describe("buildRegionSummaryReadModel", () => {
     expect(summary.resourceDefinitionIds).toEqual(["iron_ore"]);
     expect(summary.companyArchetypeIds).toEqual(["smelter"]);
     expect(summary.connectedRegionIds).toEqual(["region_b"]);
+    // Audytowe P1-08: dotąd nieujawnione żadnym Read Modelem.
+    expect(summary.migrationAttraction).toBe(0);
+    expect(summary.settlementPressure).toBe(0);
+  });
+
+  it("surfaces Region.cached's live migrationAttraction/settlementPressure (audit P1-08)", () => {
+    const state = buildFixtureState();
+    const withCached: WorldState = {
+      ...state,
+      regions: {
+        ...state.regions,
+        region_a: {
+          ...state.regions.region_a!,
+          cached: {
+            ...state.regions.region_a!.cached,
+            migrationAttraction: 0.42,
+            settlementPressure: 0.73,
+          },
+        },
+      },
+    };
+
+    const summary = buildRegionSummaryReadModel(withCached, "region_a")!;
+    expect(summary.migrationAttraction).toBe(0.42);
+    expect(summary.settlementPressure).toBe(0.73);
   });
 
   it("returns an empty region with no settlement/resources/connections cleanly", () => {

@@ -10,6 +10,44 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **fix: Etap 10 -- naprawa audytu M12-M14, P1-05/P1-06/P1-08 (walidacja
+  commitów, cechy migrantów, Read Models osad).** Reaguje na
+  `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
+  `createWorldState` nie chroniło nowych stanów (P1-05): `toById`
+  (`packages/entities/src/core/indexes.ts`) po cichu nadpisywało
+  zduplikowane ID -- teraz odrzuca duplikaty, z nazwą typu encji w
+  komunikacie błędu. Nowa `core/validation.ts::assertFiniteDeep`
+  rekurencyjnie odrzuca NaN/Infinity w dowolnie zagnieżdżonym polu
+  liczbowym każdej encji przed commitem (reprodukcja audytu:
+  `tradeUtilization = NaN` → `urbanizationPressure = NaN` przechodziło
+  bez błędu, bo stan budowany przez spread -- jak
+  `evaluateSettlementGrowth` -- nigdy nie wraca przez konstruktor
+  `create*`). Sprawdzenie istnienia settlementu dla kohorty/firmy
+  potwierdza teraz też zgodność jego regionu; `Company.ownerEntityId`
+  musi wskazywać istniejącą kohortę; `Inventory.ownerId` musi wskazywać
+  istniejącą encję zgodną z `ownerType`.
+
+  Migracja resetowała `averageWealth`/`educationLevel`/`literacy`
+  migranta do 0 (P1-06) -- w przeciwieństwie do zatrudnienia (świadomie
+  zostawionego, bo przywiązanego do konkretnej pracy) to cechy osobiste;
+  `migration.ts::applyMigrationFlow` liczy je teraz jako ważoną
+  (populacją) średnią migrantów i miejsca docelowego, tym samym wzorcem
+  co `matchEmployment`'s `averageIncome`.
+
+  Brakowało typed Read Modelu dla housing/pressure osady (P1-08): nowy
+  `settlement-summary-read-model.ts` (`housing.capacity/cost/pressure`,
+  `urbanizationPressure`/`declinePressure`, `employment`) -- ten sam
+  wzorzec co `company-summary-read-model.ts`. `RegionSummaryReadModel`
+  zyskuje `migrationAttraction`/`settlementPressure` (dotąd widoczne
+  tylko w surowym `WorldState`).
+
+  16 nowych/zaktualizowanych testów, w tym dokładnie nazwane w audycie
+  `world_commit_rejects_nan_duplicate_ids_and_invalid_ownership` i
+  `migration_preserves_weighted_wealth_and_education`. Musiałem przy
+  okazji dodać brakujące kohorty-właścicieli do dwóch istniejących test
+  fixture'ów (`economy-tick.test.ts`, `company-summary-read-model.test.ts`),
+  które dotąd polegały na niewalidowanym `ownerEntityId`.
+
 - **fix: Etap 9 -- naprawa audytu M12-M14, P0-03/P1-01/P1-02 (kapitał
   foundingu, twarda eligibility, zachowanie DecisionSnapshot).** Reaguje
   na `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.

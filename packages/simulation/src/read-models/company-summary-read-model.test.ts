@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createCompany,
   createInventory,
+  createPopulationCohort,
   createRegion,
   createRegionGeography,
   createWorld,
@@ -49,6 +50,14 @@ function buildFixtureState() {
     inventoryId: inventory.id,
     initialCash: 250,
   });
+  const ownerCohort = createPopulationCohort({
+    id: "cohort_001",
+    regionId: region.id,
+    ageGroup: "AGE_25_44",
+    population: 10,
+    economicClass: "WORKING",
+    skillLevel: "UNSKILLED",
+  });
 
   return createWorldState({
     world,
@@ -58,6 +67,7 @@ function buildFixtureState() {
     regions: [region],
     inventories: [inventory],
     companies: [company],
+    populationCohorts: [ownerCohort],
   });
 }
 

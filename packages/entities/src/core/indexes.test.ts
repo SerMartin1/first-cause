@@ -64,4 +64,12 @@ describe("toById", () => {
     expect(byId.a).toEqual({ id: "a" });
     expect(byId.b).toEqual({ id: "b" });
   });
+
+  it("rejects a duplicate id instead of letting the second occurrence silently overwrite the first (audit P1-05)", () => {
+    expect(() => toById([{ id: "a" }, { id: "a" }])).toThrow(/[Dd]uplicate/);
+  });
+
+  it("includes the given label in the error message when duplicates collide", () => {
+    expect(() => toById([{ id: "a" }, { id: "a" }], "Widget")).toThrow(/Widget/);
+  });
 });

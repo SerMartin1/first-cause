@@ -246,6 +246,24 @@ function cohortLocation(
     : { regionId: cohort.regionId, settlementId: cohort.settlementId };
 }
 
+/**
+ * Ważona (populacją) średnia dwóch grup łączonych w jedną -- audytowe
+ * P1-06. `totalWeight <= 0` (obie grupy puste) zwraca 0 zamiast dzielenia
+ * przez zero -- ten sam styl co `computeMigrationAttraction`'s
+ * `vacancyRate` ternary.
+ */
+function weightedTraitAverage(
+  existingValue: number,
+  existingWeight: number,
+  incomingValue: number,
+  incomingWeight: number,
+): number {
+  const totalWeight = existingWeight + incomingWeight;
+  return totalWeight > 0
+    ? (existingValue * existingWeight + incomingValue * incomingWeight) / totalWeight
+    : 0;
+}
+
 export interface ApplyMigrationFlowInput {
   readonly sourceCohort: PopulationCohort;
   /** Już ograniczone przez `min(desiredOutflow, sourceCohort.population, destinationRemainingCapacity)` -- ta funkcja tylko fizycznie przenosi. */
@@ -278,7 +296,11 @@ export interface ApplyMigrationFlowResult {
  * (FC-MIGRATION-005) z konstrukcji: oba fakty niżej dzielą to samo, raz
  * policzone `migrantCount`. Company.workforce.employees nie jest tu
  * korygowane -- to osobny krok w `economy-tick.ts` (audytowe P0-05,
- * "Company headcount reconciliation").
+ * "Company headcount reconciliation"). `averageWealth`/`educationLevel`/
+ * `literacy` przenoszą się z migrantem ważoną (populacją) średnią z
+ * miejscem docelowym (audytowe P1-06) -- w przeciwieństwie do
+ * zatrudnienia to cechy osobiste, nie zawodowe, więc nie ma powodu ich
+ * zerować.
  */
 export function applyMigrationFlow(
   input: ApplyMigrationFlowInput,
@@ -308,8 +330,42 @@ export function applyMigrationFlow(
 
   const destinationPopulationBefore = existingDestinationCohort?.population ?? 0;
   const destinationPopulationAfter = destinationPopulationBefore + migrantCount;
+  // Audytowe P1-06: migranci przynoszą swój majątek i wykształcenie ze
+  // sobą -- w przeciwieństwie do zatrudnienia/dochodu (przywiązanych do
+  // konkretnej pracy, którą świadomie zostawiają, patrz doc comment tej
+  // funkcji), `averageWealth`/`educationLevel`/`literacy` to cechy
+  // OSOBISTE, nie zawodowe. Ważona średnia (populacją) zamiast resetu do
+  // fabrycznego 0 (nowa kohorta) albo pozostawienia bez zmian (scalenie z
+  // istniejącą) -- ten sam kształt co `matchEmployment`'s ważona
+  // `averageIncome`. Przy tworzeniu nowej kohorty `destinationPopulationBefore`
+  // wynosi 0, więc formuła sama sprowadza się do "migranci przynoszą
+  // swoje wartości wprost", bez osobnej gałęzi.
+  const nextAverageWealth = weightedTraitAverage(
+    existingDestinationCohort?.averageWealth ?? 0,
+    destinationPopulationBefore,
+    sourceCohort.averageWealth,
+    migrantCount,
+  );
+  const nextEducationLevel = weightedTraitAverage(
+    existingDestinationCohort?.educationLevel ?? 0,
+    destinationPopulationBefore,
+    sourceCohort.educationLevel,
+    migrantCount,
+  );
+  const nextLiteracy = weightedTraitAverage(
+    existingDestinationCohort?.literacy ?? 0,
+    destinationPopulationBefore,
+    sourceCohort.literacy,
+    migrantCount,
+  );
   const nextDestinationCohort: PopulationCohort = existingDestinationCohort
-    ? { ...existingDestinationCohort, population: destinationPopulationAfter }
+    ? {
+        ...existingDestinationCohort,
+        population: destinationPopulationAfter,
+        averageWealth: nextAverageWealth,
+        educationLevel: nextEducationLevel,
+        literacy: nextLiteracy,
+      }
     : {
         ...createPopulationCohort({
           // Musi zawierać KAŻDE pole `cohortSingleIdentityKey` (region,
@@ -336,6 +392,9 @@ export function applyMigrationFlow(
         // `createPopulationCohort` nie przyjmuje `profession` -- doklejane
         // ręcznie z template, tak samo jak cohorts.ts's createSyntheticZeroCohort.
         profession: sourceCohort.profession,
+        averageWealth: nextAverageWealth,
+        educationLevel: nextEducationLevel,
+        literacy: nextLiteracy,
       };
 
   if (migrantCount <= 0) {
