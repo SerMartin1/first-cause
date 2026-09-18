@@ -34,15 +34,23 @@ import type { ProductionRecipe } from "../production.js";
  * gives PM Adoption's SkillGap/EnergyRisk/Uncertainty and Lifecycle's
  * MarketGrowth/InputRisk/LaborRisk/MarketRisk: `skillRequirements` (M2)
  * is an `OpenRecordSchema` placeholder bag no M-milestone has given a
- * concrete shape yet. Capital Formation (§46) is explicitly deferred in
- * the spec itself ("Dokładny system finansowania zostanie rozwinięty
- * później") -- no region-level wealth pool exists anywhere in the engine
- * today (`Region.economy.wealth`/`PopulationCohort.averageWealth` are
- * both dormant, unwired fields), so a new company's founding capital is
- * simplified to "the entrepreneur brings exactly `capitalRequirement`,
- * never more" (bounded by a real, content-authored number, not minted
- * arbitrarily) rather than drawn from a tracked pool that does not exist
- * yet.
+ * concrete shape yet.
+ *
+ * Capital Formation (§46) is explicitly deferred in the spec itself
+ * ("Dokładny system finansowania zostanie rozwinięty później"), ale
+ * audytowe P0-03 (M12-M14 audyt): deferred detail nie znosi "no money
+ * from nothing" (AI §46). `Region.economy.wealth` -- dotąd zupełnie
+ * martwe pole, nic go nigdzie w silniku nie zasilało -- jest teraz
+ * jedynym, minimalnym, uzgodnionym źródłem: founding wymaga
+ * `capitalRequirement <= region.economy.wealth` jako twardego warunku i
+ * faktycznie go obciąża (`Region.economy.wealth -= capitalRequirement`
+ * w zwracanym regionie). Dopóki żaden system nie zasila tego pola
+ * (accrual to osobna, przyszła praca), founding z niezerowym
+ * `capitalRequirement` będzie poprawnie zablokowany -- to jest
+ * oczekiwane, nie regresja: oba obecne archetypy JSON mają
+ * `capitalRequirement = 0`, więc `initialCash` pozostaje 0 tak jak
+ * dotąd dla nich, bez zmiany obserwowalnego zachowania dzisiejszego
+ * contentu.
  */
 const FOUNDING_ACTIVATE_SCORE = 0.55; // TODO tuning -- max feasible pre-clamp score is ~0.9 (weights below), so this sits meaningfully under that ceiling
 const FOUNDING_DEACTIVATE_SCORE = 0.3; // TODO tuning
@@ -127,8 +135,16 @@ export interface EvaluateFoundingInput {
   readonly demandGapSeverity: number;
   /** Raw unmet quantity (demand - supply, clamped >= 0) of the primary output good this tick -- Minimum Economic Scale gate (§85). */
   readonly unmetDemandQuantity: number;
-  /** resourceId -> deposit stock quantity available in the region (0/absent = none). */
+  /**
+   * resourceId -> deposit stock quantity available in the region (0/absent
+   * = none). Audytowe P1-01: caller musi już wyzerować wpisy dla depozytów
+   * z `discovery.status` innym niż DISCOVERED/ASSESSED -- ta funkcja ufa
+   * każdej dodatniej wartości jako fizycznie dostępnej, nie zna samego
+   * statusu odkrycia (patrz `economy-tick.ts`'s wywołanie).
+   */
   readonly resourceStockByResourceId: Readonly<Record<string, number>>;
+  /** goodId -> zapas w regionalnym inventory (0/absent = brak) -- audytowe P1-01, wcześniej goodInputsPerBatch w ogóle nie był sprawdzany. */
+  readonly goodStockByGoodId: Readonly<Record<string, number>>;
   /** Unemployed, labor-force-eligible workers available in the region (`labor/employment.ts::availableWorkers`, summed). */
   readonly availableLabor: number;
   /** Existing companies of this same archetype already active in the region. */
@@ -226,9 +242,29 @@ export function evaluateFounding(input: EvaluateFoundingInput): EvaluateFounding
     (resourceId) => (input.resourceStockByResourceId[resourceId] ?? 0) > 0,
   );
 
+  // Audytowe P1-01: goodInputsPerBatch (dobra pośrednie, nie surowe
+  // zasoby) w ogóle nie były sprawdzane -- firma mogła powstać mimo
+  // braku wymaganego, niedostępnego dobra wejściowego.
+  const requiredGoodIds = Object.keys(recipe.goodInputsPerBatch).sort();
+  const everyRequiredGoodAvailable = requiredGoodIds.every(
+    (goodId) => (input.goodStockByGoodId[goodId] ?? 0) > 0,
+  );
+
+  // Audytowe P1-01: PM dopuszczający inny archetyp -- ten sam
+  // "pusta lista = brak ograniczenia" wzorzec co pm-adoption.ts.
+  const archetypeEligibleForRecipe =
+    recipe.eligibleCompanyArchetypeIds.length === 0 ||
+    recipe.eligibleCompanyArchetypeIds.includes(archetypeId);
+
   const laborTarget = recipe.employeesPerBatch * LABOR_ACCESS_BATCHES_TARGET;
   const laborAvailability =
     laborTarget > 0 ? clamp(availableLabor / laborTarget, 0, 1) : 1;
+  // Audytowe P1-01: `laborAvailability` był tylko miękkim (0.1-wagowym)
+  // składnikiem wyniku -- founding przy available labor = 0 wciąż mógł
+  // przejść próg aktywacji. `laborTarget` to dokładnie tyle pracy, ile
+  // potrzebuje pierwszy batch startowej capacity (MIN_ECONOMIC_SCALE_BATCHES
+  // === LABOR_ACCESS_BATCHES_TARGET === FOUNDING_INITIAL_CAPACITY).
+  const sufficientLaborAvailable = laborTarget <= 0 || availableLabor >= laborTarget;
 
   const marginPerBatchValue = marginPerBatch(recipe, input.prices);
   const competitionPenalty =
@@ -246,9 +282,18 @@ export function evaluateFounding(input: EvaluateFoundingInput): EvaluateFounding
 
   const minEconomicScaleQuantity =
     primaryOutputQuantityPerBatch(recipe) * MIN_ECONOMIC_SCALE_BATCHES;
+  // Audytowe P0-03: kapitał musi mieć źródło -- region.economy.wealth
+  // (patrz doc comment modułu). Audytowe P1-01: praca/dobra pośrednie/
+  // zgodność archetypu z PM dołączają jako twarde bramki, tym samym
+  // wzorcem co istniejący everyRequiredResourceAvailable.
+  const sufficientCapitalAvailable = capitalRequirement <= region.economy.wealth;
   const hardEligible =
     region.population.totalPopulation > 0 &&
     everyRequiredResourceAvailable &&
+    everyRequiredGoodAvailable &&
+    sufficientLaborAvailable &&
+    sufficientCapitalAvailable &&
+    archetypeEligibleForRecipe &&
     (minEconomicScaleQuantity <= 0 || unmetDemandQuantity >= minEconomicScaleQuantity);
 
   const wasActive = isOpportunityActive(state, archetypeId);
@@ -274,7 +319,16 @@ export function evaluateFounding(input: EvaluateFoundingInput): EvaluateFounding
   ) {
     state = recordEntrepreneurshipDecision(state, archetypeId, tick);
     return {
-      region: { ...region, entrepreneurship: state },
+      // Audytowe P0-03: firma naprawdę obciąża wspólną pulę kapitału
+      // regionu -- nie tworzy `initialCash` z niczego.
+      region: {
+        ...region,
+        entrepreneurship: state,
+        economy: {
+          ...region.economy,
+          wealth: region.economy.wealth - capitalRequirement,
+        },
+      },
       founded: true,
       opportunityScore,
       companyDraft: {

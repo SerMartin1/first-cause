@@ -659,10 +659,32 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         (sum, cohortId) => sum + availableWorkers(populationCohorts[cohortId]!),
         0,
       );
+      // Audytowe P1-01: fizyczny stock nie może ujawniać się scannerowi
+      // niezależnie od stanu odkrycia (World Generation Spec §16 -- Black
+      // Mountain's Iron Ore MOŻE zaczynać jako hidden/unknown, region "nie
+      // ma automatycznie rozwiniętego przemysłu żelaza" -- founding nie
+      // może omijać tej granicy). Tylko DISCOVERED/ASSESSED depozyty
+      // wnoszą swój stock; UNKNOWN/SUSPECTED liczą się jako 0 dostępne.
       const resourceStockByResourceId: Record<string, number> = {};
       for (const [resourceId, depositId] of depositIdByResource) {
-        resourceStockByResourceId[resourceId] =
-          resourceDeposits[depositId]!.stock.quantity;
+        const deposit = resourceDeposits[depositId]!;
+        const isKnown =
+          deposit.discovery.status === "DISCOVERED" ||
+          deposit.discovery.status === "ASSESSED";
+        resourceStockByResourceId[resourceId] = isKnown ? deposit.stock.quantity : 0;
+      }
+      // Audytowe P1-01: goodInputsPerBatch (dobra pośrednie) w ogóle nie
+      // był sprawdzany -- regionalne inventory (to samo, z którego
+      // korzystają settleHouseholdPurchase/settleTradeFlow) jako widoczny
+      // dla przedsiębiorcy zapas dóbr.
+      const regionInventoryForFounding = regionInventoryId
+        ? inventories[regionInventoryId]
+        : undefined;
+      const goodStockByGoodId: Record<string, number> = {};
+      if (regionInventoryForFounding) {
+        for (const [goodId, item] of Object.entries(regionInventoryForFounding.items)) {
+          goodStockByGoodId[goodId] = item.quantity;
+        }
       }
 
       for (const archetypeId of Object.keys(
@@ -695,6 +717,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           demandGapSeverity,
           unmetDemandQuantity,
           resourceStockByResourceId,
+          goodStockByGoodId,
           availableLabor,
           existingCompetitorCount,
         });
@@ -756,11 +779,18 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
 
           companies[newCompanyId] = newCompany;
           inventories[newInventoryId] = newInventory;
+          // Audytowe P1-02: `evaluateFounding` już budowało
+          // `DecisionSnapshot` (options/factors/selectedAction), ale
+          // wcześniej nic go stąd nie odbierało -- fakt niósł tylko
+          // istnienie 0->1, gubiąc rzeczywiste powody founding (CD
+          // AI-010/CAUS-001). `founded === true` gwarantuje
+          // `foundingResult.snapshot` jest zdefiniowany (evaluateFounding
+          // buduje go dokładnie w tej samej gałęzi).
           facts.push({
             type: "company_founded",
             subject: { entityType: "company", entityId: newCompanyId },
             location: { regionId },
-            values: { before: 0, after: 1, delta: 1 },
+            values: { before: undefined, after: foundingResult.snapshot },
           });
         }
       }

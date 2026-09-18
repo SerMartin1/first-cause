@@ -249,7 +249,7 @@ function buildEntrepreneurshipWorldState(
     ownerId: "company_existing_farm",
     locationRegionId: region.id,
   });
-  const grainDeposit = createResourceDeposit({
+  const baseGrainDeposit = createResourceDeposit({
     id: "deposit_test_grain",
     resourceDefinitionId: "grain",
     regionId: region.id,
@@ -261,6 +261,14 @@ function buildEntrepreneurshipWorldState(
       carryingCapacity: 50_000,
     },
   });
+  // Audytowe P1-01: founding wymaga teraz DISCOVERED/ASSESSED (World Gen
+  // Spec §16 -- discovery nie może być pomijane przez founding). Grain to
+  // widoczny, powierzchniowy zasób rolny (w przeciwieństwie do Black
+  // Mountain's celowo hidden Iron Ore) -- region już go zna od startu.
+  const grainDeposit = {
+    ...baseGrainDeposit,
+    discovery: { ...baseGrainDeposit.discovery, status: "DISCOVERED" as const },
+  };
   const cohort: ReturnType<typeof createPopulationCohort> = {
     ...createPopulationCohort({
       id: "cohort_test_workers",
@@ -350,7 +358,16 @@ describe("runEconomyTick -- Entrepreneurship (M12, AI-07 Opportunity Scanner wir
       );
       if (newCompanyId) {
         foundedCompanyId = newCompanyId;
-        expect(result.facts.some((f) => f.type === "company_founded")).toBe(true);
+        const foundedFact = result.facts.find((f) => f.type === "company_founded");
+        expect(foundedFact).toBeDefined();
+        // Audytowe P1-02: fakt musi nieść rzeczywisty DecisionSnapshot
+        // (options/selectedAction/causalContext.factors), nie tylko
+        // istnienie 0->1 -- inaczej M17 nie odzyska przyczyn foundingu.
+        const snapshot = foundedFact!.values.after as
+          | { selectedAction?: string; causalContext?: { factors?: unknown[] } }
+          | undefined;
+        expect(snapshot?.selectedAction).toBe("FOUND");
+        expect(snapshot?.causalContext?.factors?.length).toBeGreaterThan(0);
         break;
       }
     }
@@ -413,6 +430,49 @@ describe("runEconomyTick -- Entrepreneurship (M12, AI-07 Opportunity Scanner wir
     expect(state.settlements.settlement_test!.economy.employment).toBe(
       founded.workforce.employees,
     );
+  });
+
+  it("does not found a resource-dependent company while the deposit is still undiscovered (audit P1-01, discovery cannot be bypassed by founding)", () => {
+    const { worldState } = buildEntrepreneurshipWorldState();
+    const undiscoveredDeposit = {
+      ...worldState.resourceDeposits.deposit_test_grain!,
+      discovery: {
+        ...worldState.resourceDeposits.deposit_test_grain!.discovery,
+        status: "UNKNOWN" as const,
+      },
+    };
+    const worldStateWithHiddenDeposit: WorldState = {
+      ...worldState,
+      resourceDeposits: {
+        ...worldState.resourceDeposits,
+        deposit_test_grain: undiscoveredDeposit,
+      },
+    };
+    const rng = createWorldRng(worldStateWithHiddenDeposit.world.seed);
+    const candidates: Readonly<Record<string, EntrepreneurshipCandidate>> = {
+      grain_farm: {
+        archetypeId: "grain_farm",
+        productionMethodId: "manual_farming",
+        capitalRequirement: 0,
+      },
+    };
+
+    let state = worldStateWithHiddenDeposit;
+    for (let tick = 0; tick < 30; tick++) {
+      const result = runEconomyTick({
+        worldState: state,
+        tick,
+        demographyRng: (scopeId) => rng.stream("demography", scopeId),
+        migrationRng: (scopeId) => rng.stream("migration", scopeId),
+        productionRecipesByMethodId: { manual_farming: GRAIN_FARM_RECIPE },
+        entrepreneurshipCandidatesByArchetypeId: candidates,
+      });
+      state = result.worldState;
+    }
+
+    // Fizyczny stock istnieje (50 000), ale nikt w symulacji o nim nie
+    // wie -- founding nie może omijać tej granicy (World Gen Spec §16).
+    expect(Object.keys(state.companies)).toEqual(["company_existing_farm"]);
   });
 
   it("never founds a company when no entrepreneurshipCandidatesByArchetypeId is supplied (full backward compatibility)", () => {

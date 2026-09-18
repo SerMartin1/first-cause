@@ -13,7 +13,7 @@ const geography = createRegionGeography({
   elevationClass: "lowland",
 });
 
-function region(overrides: { totalPopulation?: number } = {}): Region {
+function region(overrides: { totalPopulation?: number; wealth?: number } = {}): Region {
   const base = createRegion({
     id: "region_001",
     worldId: "world_001",
@@ -27,6 +27,7 @@ function region(overrides: { totalPopulation?: number } = {}): Region {
       ...base.population,
       totalPopulation: overrides.totalPopulation ?? 100,
     },
+    economy: { ...base.economy, wealth: overrides.wealth ?? 0 },
   };
 }
 
@@ -47,6 +48,7 @@ const ABUNDANT_CONDITIONS: Omit<EvaluateFoundingInput, "region" | "tick"> = {
   demandGapSeverity: 1,
   unmetDemandQuantity: 1000,
   resourceStockByResourceId: { grain: 50_000 },
+  goodStockByGoodId: {},
   availableLabor: 100,
   existingCompetitorCount: 0,
 };
@@ -189,5 +191,52 @@ describe("evaluateFounding (M12, AI-07 Entrepreneurship / Opportunity Scanner)",
         capitalRequirement: -100,
       }),
     ).toThrow(/capitalRequirement/);
+  });
+
+  it("founding_debits_capital_and_rejects_insufficient_funds: capitalRequirement must be backed by region.economy.wealth (audit P0-03)", () => {
+    const requiresCapital: Omit<EvaluateFoundingInput, "region" | "tick"> = {
+      ...ABUNDANT_CONDITIONS,
+      capitalRequirement: 100,
+    };
+
+    // wealth = 0 (region()'s default) -- P0-03's audit reproduction: a
+    // region without accumulated wealth may NOT mint capital out of
+    // nothing just because the archetype JSON asks for it.
+    const blocked = runUntilDecided(region(), requiresCapital, 30);
+    expect(blocked.founded).toBe(false);
+
+    // wealth = exactly the requirement -- founds, AND the pool is
+    // actually debited (not just checked and ignored).
+    const funded = runUntilDecided(region({ wealth: 100 }), requiresCapital);
+    expect(funded.founded).toBe(true);
+    expect(funded.companyDraft?.initialCash).toBe(100);
+    expect(funded.region.economy.wealth).toBe(0);
+  });
+
+  it("founding_respects_inputs_labor_pm_and_discovery: hard eligibility now also requires labor, good inputs, and PM/archetype compatibility (audit P1-01)", () => {
+    const noLabor: Omit<EvaluateFoundingInput, "region" | "tick"> = {
+      ...ABUNDANT_CONDITIONS,
+      availableLabor: 0,
+    };
+    expect(runUntilDecided(region(), noLabor, 30).founded).toBe(false);
+
+    const requiresGood: Omit<EvaluateFoundingInput, "region" | "tick"> = {
+      ...ABUNDANT_CONDITIONS,
+      recipe: { ...GRAIN_FARM_RECIPE, goodInputsPerBatch: { fertilizer: 1 } },
+      goodStockByGoodId: {}, // fertilizer required, none available
+    };
+    expect(runUntilDecided(region(), requiresGood, 30).founded).toBe(false);
+
+    const goodAvailable: Omit<EvaluateFoundingInput, "region" | "tick"> = {
+      ...requiresGood,
+      goodStockByGoodId: { fertilizer: 10 },
+    };
+    expect(runUntilDecided(region(), goodAvailable).founded).toBe(true);
+
+    const wrongArchetype: Omit<EvaluateFoundingInput, "region" | "tick"> = {
+      ...ABUNDANT_CONDITIONS,
+      archetypeId: "bakery", // recipe.eligibleCompanyArchetypeIds only lists "grain_farm"
+    };
+    expect(runUntilDecided(region(), wrongArchetype, 30).founded).toBe(false);
   });
 });

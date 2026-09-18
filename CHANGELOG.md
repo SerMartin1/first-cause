@@ -10,6 +10,39 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **fix: Etap 9 -- naprawa audytu M12-M14, P0-03/P1-01/P1-02 (kapitał
+  foundingu, twarda eligibility, zachowanie DecisionSnapshot).** Reaguje
+  na `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
+  Founding tworzył `initialCash` bez obciążenia jakiejkolwiek puli
+  kapitału (P0-03) -- `Region.economy.wealth` (dotąd zupełnie martwe
+  pole) jest teraz jedynym, minimalnym źródłem: `capitalRequirement <=
+  region.economy.wealth` to nowy twardy warunek, a founding faktycznie
+  obciąża tę pulę. Dopóki żaden system nie zasila `wealth` (przyszła
+  praca), founding z niezerowym `capitalRequirement` będzie poprawnie
+  zablokowany -- oba obecne archetypy JSON mają `capitalRequirement=0`,
+  więc dzisiejszy content zachowuje się identycznie. Twarda eligibility
+  (P1-01) rozszerzona o: dostępność pracy (`availableLabor >=
+  laborTarget`, wcześniej tylko miękki 0,1-wagowy składnik wyniku),
+  dostępność dóbr pośrednich (`goodInputsPerBatch`, wcześniej w ogóle
+  niesprawdzane, nowe pole `goodStockByGoodId` z regionalnego inventory)
+  i zgodność archetypu z PM (`recipe.eligibleCompanyArchetypeIds`, ten
+  sam wzorzec co M7-M11's PM Adoption). `economy-tick.ts` przestaje też
+  ujawniać scannerowi fizyczny stock zasobów niezależnie od
+  `discovery.status` -- tylko DISCOVERED/ASSESSED depozyty wnoszą swój
+  stock (World Generation Spec §16: Black Mountain's Iron Ore może
+  zaczynać jako hidden, region "nie ma automatycznie rozwiniętego
+  przemysłu żelaza" -- founding nie może omijać tej granicy). `evaluateFounding`
+  budowany `DecisionSnapshot` ginął przed zapisem faktu (P1-02) --
+  `company_founded` niesie teraz cały snapshot (options/selectedAction/
+  causalContext.factors) zamiast tylko istnienia 0->1. 6 nowych/
+  zaktualizowanych testów, w tym dokładnie nazwany w audycie
+  `founding_debits_capital_and_rejects_insufficient_funds`. Świadomie
+  poza zakresem: export opportunity i location scoring (LocationScore,
+  wybór osady/regionu dla foundingu) -- pozostają nowymi, nie
+  zaimplementowanymi zdolnościami, nie brakującymi bramkami eligibility;
+  audyt flagował je jako odrębny, większy brak M12, nie jako część
+  "hard eligibility" tego etapu.
+
 - **fix: Etap 8 -- naprawa audytu M12-M14, P0-06/P1-04 (kanoniczna
   kolejność faz ticka, jeden zegar).** Reaguje na
   `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
