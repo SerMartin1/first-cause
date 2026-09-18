@@ -10,6 +10,33 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **fix: Etap 6 -- naprawa audytu M12-M14, P0-04/P1-03/P2#1 (housing jako
+  twardy limit i źródło capacity).** Reaguje na
+  `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
+  `population/migration.ts::selectDestinationSettlement` zwracała
+  `remainingCapacity: Infinity` zarówno gdy region docelowy nie ma
+  settlementów (poprawnie, rural), jak i gdy MA settlementy, ale wszystkie
+  są pełne (błędnie -- to obejście twardego limitu migracji z RM M13);
+  drugi przypadek zwraca teraz `0`, nie `Infinity` (P0-04). Zmieniony też
+  istniejący test, który wprost oczekiwał starego (niezgodnego z RM M13)
+  zachowania. `society/housing.ts::growHousingCapacity` zyskuje wymagany
+  parametr `availableConstructionLabor` -- capacity nigdy nie rośnie
+  szybciej niż liczba bezrobotnych, zdolnych do pracy mieszkańców
+  settlementu na ten tick (`labor/employment.ts::availableWorkers`,
+  zsumowane per settlement w `economy-tick.ts` kroku 11), więc nie
+  powstaje już z samej liczby mieszkańców bez żadnego zaangażowanego
+  zasobu (AI Decision Model §53, P1-03). `runMigrationPass` zwalnia teraz
+  też `settlementPopulationById` przy odpływie, nie tylko zwiększa go przy
+  napływie -- w tym samym passie osada, która traci mieszkańców, od razu
+  widzi zwolnione miejsce dla kolejnych przepływów (P2#1). 6 nowych testów
+  regresyjnych (housing.test.ts ×2, settlements.test.ts ×2,
+  migration.test.ts ×2, w tym `full_destination_housing_blocks_inflow`,
+  `housing_growth_requires_accounted_source` i
+  `migration_outflow_releases_housing_capacity` z audytu). Świadomie poza
+  zakresem: pełne Construction Company AI (§53's pressure/materiały/ceny)
+  -- audyt tego teraz nie wymaga; P0-05/P0-06/P0-03 i pozostałe P1 --
+  kolejne etapy 7-12.
+
 - **fix: Etap 5 -- naprawa audytu M12-M14, P0-01/P0-02 (tożsamość i ID
   migrantów).** Reaguje na
   `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.

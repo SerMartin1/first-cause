@@ -83,6 +83,7 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
     const result = evaluateSettlementGrowth({
       settlement,
       tick: 0,
+      availableConstructionLabor: 1_000_000,
       signals: {
         stage: settlement.stage,
         population: 1000,
@@ -114,6 +115,7 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
       const result = evaluateSettlementGrowth({
         settlement,
         tick,
+        availableConstructionLabor: 1_000_000,
         signals: { stage: settlement.stage, ...signals },
       });
       if (result.settlement.stage !== settlement.stage) {
@@ -143,6 +145,7 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
     const result = evaluateSettlementGrowth({
       settlement,
       tick: 5,
+      availableConstructionLabor: 1_000_000,
       signals: {
         stage: settlement.stage,
         population: 1000,
@@ -174,6 +177,7 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
       const result = evaluateSettlementGrowth({
         settlement,
         tick,
+        availableConstructionLabor: 1_000_000,
         signals: { stage: settlement.stage, ...signals },
       });
       settlement = result.settlement;
@@ -203,6 +207,7 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
     const advance = evaluateSettlementGrowth({
       settlement,
       tick: 5,
+      availableConstructionLabor: 1_000_000,
       signals: { stage: settlement.stage, ...signals },
     });
     expect(advance.settlement.stage).toBe("HAMLET");
@@ -213,6 +218,7 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
     const immediatelyAfter = evaluateSettlementGrowth({
       settlement,
       tick: 6,
+      availableConstructionLabor: 1_000_000,
       signals: {
         stage: settlement.stage,
         population: 5000,
@@ -234,6 +240,7 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
     const result = evaluateSettlementGrowth({
       settlement,
       tick: 5,
+      availableConstructionLabor: 1_000_000,
       signals: {
         stage: settlement.stage,
         population: 1000,
@@ -260,6 +267,7 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
       evaluateSettlementGrowth({
         settlement,
         tick: 0,
+        availableConstructionLabor: 0,
         signals: {
           stage: settlement.stage,
           population: 1,
@@ -270,5 +278,47 @@ describe("evaluateSettlementGrowth -- stage transitions (FC-SETTLEMENT-002)", ()
         },
       }),
     ).not.toThrow();
+  });
+});
+
+describe("evaluateSettlementGrowth -- housing construction requires accounted labor (audit P1-03)", () => {
+  it("housing_growth_requires_accounted_source: capacity does not appear from nowhere -- zero idle labor means zero growth despite huge unmet demand", () => {
+    const settlement = buildSettlement(); // housing.capacity starts at 0
+
+    const result = evaluateSettlementGrowth({
+      settlement,
+      tick: 0,
+      availableConstructionLabor: 0,
+      signals: {
+        stage: settlement.stage,
+        population: 100,
+        employment: 0,
+        tradeUtilization: 0,
+        infrastructureLevel: 0,
+        housingCapacity: settlement.housing.capacity,
+      },
+    });
+
+    expect(result.settlement.housing.capacity).toBe(0);
+  });
+
+  it("grows once idle labor becomes available, bounded by how much labor there is", () => {
+    const settlement = buildSettlement();
+
+    const result = evaluateSettlementGrowth({
+      settlement,
+      tick: 0,
+      availableConstructionLabor: 3,
+      signals: {
+        stage: settlement.stage,
+        population: 100,
+        employment: 0,
+        tradeUtilization: 0,
+        infrastructureLevel: 0,
+        housingCapacity: settlement.housing.capacity,
+      },
+    });
+
+    expect(result.settlement.housing.capacity).toBe(3);
   });
 });

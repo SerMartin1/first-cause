@@ -43,9 +43,10 @@ import { stochasticRound } from "./demography.js";
  * docelowy faktycznie ma jakiś Settlement -- puste (jeszcze
  * nieosiedlone) ziemie nie mają pojemności do przekroczenia, więc
  * migranci osiadają tam jako kohorta regionalna (`settlementId ===
- * undefined`), bez ograniczenia. To świadome uproszczenie do czasu M14
- * (Settlements), które dopiero uczyni `Settlement.housing.capacity`
- * niezerowym w praktyce -- patrz `selectDestinationSettlement` niżej.
+ * undefined`), bez ograniczenia. Gdy region MA settlementy, ale
+ * wszystkie są pełne, limit jest twardy naprawdę -- migranci NIE trafiają
+ * do rural fallbacku (audytowy P0-04, wcześniej oba przypadki błędnie
+ * zwracały `Infinity`) -- patrz `selectDestinationSettlement` niżej.
  */
 
 const JOBS_WEIGHT = 0.4; // TODO tuning
@@ -179,7 +180,13 @@ export function evaluateMigrationOutflow(input: {
 }
 
 export interface DestinationSettlementChoice {
-  /** `undefined` = migranci osiadają jako kohorta regionalna (rural/unsettled), bez ograniczenia pojemności. */
+  /**
+   * `undefined` ma dwa odrębne znaczenia, rozróżniane przez
+   * `remainingCapacity` (audytowy P0-04): `Infinity` = region bez
+   * settlementów, migranci osiadają jako kohorta regionalna bez
+   * ograniczenia; `0` = region MA settlementy, ale wszystkie są pełne --
+   * twardo zablokowane, nie rural fallback.
+   */
   readonly settlementId: string | undefined;
   readonly remainingCapacity: number;
 }
@@ -188,10 +195,20 @@ export interface DestinationSettlementChoice {
  * Housing constraint (SET-003, §60 "capacity"): wybiera settlement
  * regionu docelowego z największą pozostałą pojemnością
  * (`housing.capacity - bieżąca_populacja`, deterministyczny tie-break po
- * id). Gdy region nie ma żadnego settlementu -- albo każdy jest pełny --
- * migranci lądują jako kohorta regionalna, bez twardego limitu (patrz
- * doc comment modułu). FC-MIGRATION-003: przy dodatniej pojemności wynik
- * nigdy jej nie przekracza.
+ * id). FC-MIGRATION-003: przy dodatniej pojemności wynik nigdy jej nie
+ * przekracza.
+ *
+ * Dwa odrębne przypadki `settlementId === undefined` (audytowy P0-04 --
+ * były błędnie zlewane w jeden):
+ * - region BEZ żadnego settlementu -- puste, jeszcze nieosiedlone ziemie
+ *   faktycznie nie mają pojemności do przekroczenia, więc migranci osiadają
+ *   tam jako kohorta regionalna, bez twardego limitu (`Infinity`, patrz
+ *   doc comment modułu);
+ * - region MA settlementy, ale WSZYSTKIE są już pełne -- to nie jest
+ *   "brak osady", tylko realny twardy limit z RM M13/SET-003: `0`, nie
+ *   `Infinity`. Poprzednio oba przypadki zwracały `Infinity`, co w
+ *   praktyce znosiło housing jako ograniczenie migracji, gdy tylko
+ *   region miał jakikolwiek settlement.
  */
 export function selectDestinationSettlement(input: {
   readonly destinationRegion: Region;
@@ -199,6 +216,9 @@ export function selectDestinationSettlement(input: {
   readonly settlementPopulationById: ReadonlyMap<string, number>;
 }): DestinationSettlementChoice {
   const settlementIds = [...input.destinationRegion.settlements.settlementIds].sort();
+  if (settlementIds.length === 0) {
+    return { settlementId: undefined, remainingCapacity: Number.POSITIVE_INFINITY };
+  }
 
   let best: DestinationSettlementChoice | undefined;
   for (const settlementId of settlementIds) {
@@ -212,7 +232,7 @@ export function selectDestinationSettlement(input: {
   }
 
   if (!best || best.remainingCapacity <= 0) {
-    return { settlementId: undefined, remainingCapacity: Number.POSITIVE_INFINITY };
+    return { settlementId: undefined, remainingCapacity: 0 };
   }
   return best;
 }
@@ -414,7 +434,10 @@ export interface RunMigrationPassResult {
  * samego settlementu w tym samym ticku widzą już zajętą przez
  * wcześniejsze przepływy pojemność, więc housing capacity nigdy nie
  * zostaje przekroczona nawet gdy kilka regionów źródłowych celuje w ten
- * sam settlement jednocześnie.
+ * sam settlement jednocześnie. Symetrycznie zwalniany przy odpływie
+ * (audytowy P2#1) -- osada źródłowa, która sama traci migrantów w tym
+ * ticku, od razu widzi mniejszą zajętość dla KOLEJNYCH przepływów tego
+ * samego passu (np. gdy jest jednocześnie celem innego regionu).
  */
 export function runMigrationPass(input: RunMigrationPassInput): RunMigrationPassResult {
   const { regions, connections, settlements, tick, rng } = input;
@@ -520,6 +543,17 @@ export function runMigrationPass(input: RunMigrationPassInput): RunMigrationPass
       cohorts[cohortId] = flowResult.sourceCohort;
       cohorts[flowResult.destinationCohort.id] = flowResult.destinationCohort;
       cohortIdentityIndex.set(destinationIdentity, flowResult.destinationCohort.id);
+      // Audytowy P2#1: odpływ ze SKĄD zwalnia miejsce tak samo na żywo jak
+      // przyjazd DOKĄD je zajmuje -- inaczej kolejne strumienie w tym samym
+      // ticku, którym KOD źródło jest jednocześnie CELEM innego przepływu
+      // (albo które liczą tę samą osadę jako kandydata), widziałyby
+      // sztucznie zawyżoną zajętość źródła.
+      if (sourceCohort.settlementId !== undefined) {
+        settlementPopulationById.set(
+          sourceCohort.settlementId,
+          (settlementPopulationById.get(sourceCohort.settlementId) ?? 0) - migrantCount,
+        );
+      }
       if (destinationChoice.settlementId !== undefined) {
         settlementPopulationById.set(
           destinationChoice.settlementId,

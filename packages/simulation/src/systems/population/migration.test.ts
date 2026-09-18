@@ -9,6 +9,7 @@ import {
   createWorldState,
   type PopulationCohort,
   type Region,
+  type Settlement,
   type WorldState,
 } from "@first-cause/entities";
 import { createWorldRng, type RngStream } from "../../core/rng.js";
@@ -211,7 +212,7 @@ describe("selectDestinationSettlement (SET-003, FC-MIGRATION-003 hard cap)", () 
     expect(choice.remainingCapacity).toBe(60);
   });
 
-  it("falls back to unconstrained rural when every settlement is already at capacity", () => {
+  it("blocks (does NOT fall back to unconstrained rural) when every settlement is already at capacity (audit P0-04)", () => {
     const full = {
       ...createSettlement({
         id: "settlement_full",
@@ -231,8 +232,12 @@ describe("selectDestinationSettlement (SET-003, FC-MIGRATION-003 hard cap)", () 
       settlementPopulationById: new Map([[full.id, 10]]),
     });
 
+    // Audytowa reprodukcja: region MA settlement, ale jest pełny -- to
+    // twardy limit (0), nie rural fallback (Infinity). Poprzednio oba
+    // przypadki (brak settlementu / pełny settlement) zwracały to samo
+    // Infinity, znosząc housing jako ograniczenie migracji.
     expect(choice.settlementId).toBeUndefined();
-    expect(choice.remainingCapacity).toBe(Number.POSITIVE_INFINITY);
+    expect(choice.remainingCapacity).toBe(0);
   });
 });
 
@@ -357,6 +362,8 @@ function buildChainWorld(input: {
   /** Nadpisuje domyślną pojedynczą kohortę regionu A -- kilka rekordów naraz, dla testów P0-01/P0-02. */
   readonly cohortsInA?: readonly PopulationCohort[];
   readonly connectAC?: boolean;
+  /** Settlementy regionu B (jedynego bezpośredniego sąsiada A), dla testów P0-04 pełnego housingu. */
+  readonly settlementsInB?: readonly Settlement[];
 }): WorldState {
   const world = createWorld({
     id: "world_migration_test",
@@ -439,6 +446,7 @@ function buildChainWorld(input: {
     regions: [regionA, regionB, regionC],
     connections,
     populationCohorts: input.cohortsInA ? [...input.cohortsInA] : [cohortA],
+    settlements: input.settlementsInB ? [...input.settlementsInB] : [],
   });
 
   const withAttraction: WorldState = {
@@ -710,5 +718,187 @@ describe("runMigrationPass -- concurrent professions to the same destination (au
       .filter((f) => f.type === "population_migrated_in")
       .reduce((sum, f) => sum + (f.values.delta ?? 0), 0);
     expect(inTotal).toBe(-outTotal);
+  });
+});
+
+describe("runMigrationPass -- full destination housing blocks inflow (audit P0-04)", () => {
+  it("full_destination_housing_blocks_inflow: migrants do not spill into an unconstrained rural cohort when the only destination settlement is full", () => {
+    const fullSettlement = {
+      ...createSettlement({
+        id: "settlement_b_full",
+        regionId: "region_b",
+        name: "Full",
+        foundedTick: 0,
+      }),
+      housing: { capacity: 0, cost: 0, pressure: 0 }, // pełne od zera -- każda dodatnia populacja by je przekroczyła
+    };
+
+    const worldState = buildChainWorld({
+      attractionByRegion: { region_a: 0, region_b: 1, region_c: 1 },
+      connectAC: false,
+      settlementsInB: [fullSettlement],
+    });
+
+    const before = sumPopulation(worldState.populationCohorts);
+    const result = runMigrationPass({
+      regions: worldState.regions,
+      connections: worldState.connections,
+      settlements: worldState.settlements,
+      populationCohorts: worldState.populationCohorts,
+      tick: 0,
+      rng: testRng("full-housing-block"),
+    });
+
+    // Zero migrantów fizycznie się przeniosło -- populacja regionu A
+    // niezmieniona, brak nowej kohorty w regionie B (audytowa
+    // reprodukcja: przed fixem `settlementId: undefined, remainingCapacity:
+    // Infinity` puszczał migrantów jako nieograniczoną kohortę regionalną).
+    expect(sumPopulation(result.populationCohorts)).toBe(before);
+    for (const cohort of Object.values(result.populationCohorts)) {
+      if (cohort.regionId === "region_b") {
+        expect(cohort.population).toBe(0);
+      }
+    }
+    expect(result.facts).toEqual([]);
+  });
+});
+
+describe("runMigrationPass -- outflow releases housing capacity within the same pass (audit P2#1)", () => {
+  it("migration_outflow_releases_housing_capacity: a settlement that loses residents this tick frees room for a later inflow in the SAME pass", () => {
+    // Chain: region_away -- region_hub -- region_incoming (region_away and
+    // region_incoming NOT directly connected). Sortowanie regionów po id
+    // (SIM-005) daje kolejność away, hub, incoming -- hub jest więc
+    // przetwarzany jako ŹRÓDŁO (resident wyjeżdża, zwalniając miejsce)
+    // ZANIM region_incoming jest przetwarzany jako źródło napływu DO hub.
+    // To dokładnie ta kolejność, w której bug P2#1 (settlementPopulationById
+    // aktualizowany tylko dla napływu, nie odpływu) blokowałby napływ mimo
+    // realnie zwolnionego miejsca.
+    const world = createWorld({
+      id: "world_release_test",
+      seed: "release-test",
+      name: "Release Test World",
+      configuration: { regionCount: 3, worldSizePreset: "prototype-8-12" },
+    });
+    const continent = createContinent({
+      id: "continent_test",
+      worldId: world.id,
+      name: "Test Continent",
+    });
+    const regionAway = createRegion({
+      id: "region_away",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "Away",
+      geography: GEOGRAPHY,
+    });
+    const regionHub = createRegion({
+      id: "region_hub",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "Hub",
+      geography: GEOGRAPHY,
+    });
+    const regionIncoming = createRegion({
+      id: "region_incoming",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "Incoming",
+      geography: GEOGRAPHY,
+    });
+
+    const connections = [
+      createConnection({
+        id: "connection_hub_away",
+        regionAId: "region_hub",
+        regionBId: "region_away",
+        geography: { physicalDistance: 0, terrainDifficulty: 0, seasonalModifier: 1 },
+      }),
+      createConnection({
+        id: "connection_incoming_hub",
+        regionAId: "region_incoming",
+        regionBId: "region_hub",
+        geography: { physicalDistance: 0, terrainDifficulty: 0, seasonalModifier: 1 },
+      }),
+    ];
+
+    const hubSettlement = {
+      ...createSettlement({
+        id: "settlement_hub",
+        regionId: "region_hub",
+        name: "Hub Settlement",
+        foundedTick: 0,
+      }),
+      housing: { capacity: 1000, cost: 0, pressure: 0 }, // dokładnie tyle, ile resident zajmuje na starcie -- pełne
+    };
+
+    const resident = buildCohort({
+      id: "cohort_hub_resident",
+      regionId: "region_hub",
+      settlementId: "settlement_hub",
+      population: 1000,
+    });
+    // skillLevel "SKILLED" (resident jest "UNSKILLED"): świadomie inna
+    // tożsamość niż resident, żeby napływ NIE scalił się w jeden rekord z
+    // resident's własną kohortą -- test musi umieć odróżnić "ile zostało z
+    // resident" od "ile przybyło z incoming" jako dwa osobne rekordy.
+    const incoming = buildCohort({
+      id: "cohort_incoming",
+      regionId: "region_incoming",
+      population: 1000,
+      skillLevel: "SKILLED",
+    });
+
+    const worldState = createWorldState({
+      world,
+      continents: [continent],
+      regions: [regionAway, regionHub, regionIncoming],
+      connections,
+      populationCohorts: [resident, incoming],
+      settlements: [hubSettlement],
+    });
+
+    const withAttraction: WorldState = {
+      ...worldState,
+      regions: {
+        region_away: {
+          ...worldState.regions.region_away!,
+          cached: { ...worldState.regions.region_away!.cached, migrationAttraction: 1 },
+        },
+        region_hub: {
+          ...worldState.regions.region_hub!,
+          cached: { ...worldState.regions.region_hub!.cached, migrationAttraction: 0.5 },
+        },
+        region_incoming: {
+          ...worldState.regions.region_incoming!,
+          cached: {
+            ...worldState.regions.region_incoming!.cached,
+            migrationAttraction: 0,
+          },
+        },
+      },
+    };
+
+    const result = runMigrationPass({
+      regions: withAttraction.regions,
+      connections: withAttraction.connections,
+      settlements: withAttraction.settlements,
+      populationCohorts: withAttraction.populationCohorts,
+      tick: 0,
+      rng: testRng("release-within-pass"),
+    });
+
+    const residentAfter = result.populationCohorts[resident.id]!;
+    expect(residentAfter.population).toBeLessThan(1000); // odpływ do region_away faktycznie nastąpił
+
+    const totalHubSettlementPopulation = Object.values(result.populationCohorts)
+      .filter((c) => c.settlementId === "settlement_hub")
+      .reduce((sum, c) => sum + c.population, 0);
+
+    // Bez fixu P2#1: settlementPopulationById zostałby na 1000 (odpływ nigdy
+    // nie zwolniony), więc napływ z region_incoming byłby zablokowany
+    // (remainingCapacity=0) i totalHubSettlementPopulation === residentAfter.
+    // Z fixem: napływ zajął dokładnie tyle miejsca, ile odpływ zwolnił.
+    expect(totalHubSettlementPopulation).toBeGreaterThan(residentAfter.population);
+    expect(totalHubSettlementPopulation).toBeLessThanOrEqual(1000); // twardy limit wciąż respektowany
   });
 });

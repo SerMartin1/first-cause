@@ -849,11 +849,20 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     else companiesBySettlementId.set(company.settlementId, [company]);
   }
   const populationBySettlementId = new Map<string, number>();
+  // Bezrobotni, zdolni do pracy mieszkańcy per settlement (audytowy P1-03)
+  // -- twardy limit wzrostu housing.capacity, ten sam "no free creation"
+  // wzorzec co P0-05's eligibleLaborForce dla zatrudnienia kohorty.
+  const availableConstructionLaborBySettlementId = new Map<string, number>();
   for (const cohort of Object.values(populationCohorts)) {
     if (cohort.settlementId === undefined) continue;
     populationBySettlementId.set(
       cohort.settlementId,
       (populationBySettlementId.get(cohort.settlementId) ?? 0) + cohort.population,
+    );
+    availableConstructionLaborBySettlementId.set(
+      cohort.settlementId,
+      (availableConstructionLaborBySettlementId.get(cohort.settlementId) ?? 0) +
+        availableWorkers(cohort),
     );
   }
 
@@ -890,6 +899,8 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       const growthResult = evaluateSettlementGrowth({
         settlement,
         tick,
+        availableConstructionLabor:
+          availableConstructionLaborBySettlementId.get(settlementId) ?? 0,
         signals: {
           stage: settlement.stage,
           population,

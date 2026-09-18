@@ -29,10 +29,24 @@ const HOUSING_CONSTRUCTION_RATE = 0.05; // TODO tuning -- ułamek pozostałego d
  * na tick -- ta sama "goniący cel" logika co `HousingConstructionRate`
  * w World Generation Spec §20's ducha, tylko rozłożona w czasie zamiast
  * jednorazowego seeda na Tick 0 (ten jest zadaniem worldgena, nie M14).
+ *
+ * `availableConstructionLabor` (audytowy P1-03): dodatkowo ogranicza
+ * wzrost do liczby bezrobotnych, zdolnych do pracy mieszkańców settlementu
+ * (`labor/employment.ts::availableWorkers`, ten sam "no free creation"
+ * wzorzec co P0-05's `eligibleLaborForce` dla zatrudnienia) -- bez tego
+ * capacity rosło z samej liczby mieszkańców, bez żadnego zaangażowanego
+ * zasobu (AI Decision Model §53: "Construction... nie buduje automatycznie
+ * tylko dlatego, że osada rośnie"). Jeden bezrobotny mieszkaniec buduje co
+ * najwyżej jedną jednostkę capacity na tick -- to NIE jest pełne
+ * Construction Company AI (§53's pressure/materiały/ceny pozostają
+ * niezamodelowane, celowo -- audyt nie wymaga tego teraz), tylko minimalny
+ * uzgodniony hard constraint, tej samej postaci co reszta silnika
+ * (`Math.min(pożądane, dostępne)`).
  */
 export function growHousingCapacity(input: {
   readonly currentCapacity: number;
   readonly population: number;
+  readonly availableConstructionLabor: number;
 }): number {
   const currentCapacity = assertNonNegative(
     input.currentCapacity,
@@ -42,10 +56,15 @@ export function growHousingCapacity(input: {
     input.population,
     "growHousingCapacity().population",
   );
+  const availableConstructionLabor = assertNonNegative(
+    input.availableConstructionLabor,
+    "growHousingCapacity().availableConstructionLabor",
+  );
 
   const target = population * HOUSING_MARGIN;
   if (target <= currentCapacity) return currentCapacity;
-  return currentCapacity + (target - currentCapacity) * HOUSING_CONSTRUCTION_RATE;
+  const desiredGrowth = (target - currentCapacity) * HOUSING_CONSTRUCTION_RATE;
+  return currentCapacity + Math.min(desiredGrowth, availableConstructionLabor);
 }
 
 /**
@@ -95,6 +114,8 @@ export interface UpdateSettlementHousingInput {
   readonly settlement: Settlement;
   /** Bieżąca (ten tick, po migracji/demografii) fizyczna populacja settlementu -- obserwowana przez wywołującego, nie liczona tutaj (ten sam wzorzec co markets/price-adjustment.ts's `supply`/`demand`). */
   readonly population: number;
+  /** Bezrobotni, zdolni do pracy mieszkańcy settlementu ten tick (`labor/employment.ts::availableWorkers`, zsumowane po kohortach) -- twardy limit wzrostu `housing.capacity` (audytowy P1-03). */
+  readonly availableConstructionLabor: number;
 }
 
 export interface UpdateSettlementHousingResult {
@@ -112,9 +133,14 @@ export function updateSettlementHousing(
     "updateSettlementHousing().population",
   );
 
+  const availableConstructionLabor = assertNonNegative(
+    input.availableConstructionLabor,
+    "updateSettlementHousing().availableConstructionLabor",
+  );
   const capacity = growHousingCapacity({
     currentCapacity: settlement.housing.capacity,
     population,
+    availableConstructionLabor,
   });
   const pressure = computeHousingPressure({ population, capacity });
   const cost = adjustHousingCost({ currentCost: settlement.housing.cost, pressure });

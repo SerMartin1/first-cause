@@ -186,6 +186,8 @@ export interface EvaluateSettlementGrowthInput {
   readonly settlement: Settlement;
   readonly tick: number;
   readonly signals: SettlementSignals;
+  /** Bezrobotni, zdolni do pracy mieszkańcy settlementu ten tick -- twardy limit wzrostu housing (`housing.ts::growHousingCapacity`, audytowy P1-03). Osobno od `signals`, bo `computeSettlementPressure`'s formuła (§61) go nie używa. */
+  readonly availableConstructionLabor: number;
 }
 
 export interface EvaluateSettlementGrowthResult {
@@ -213,6 +215,7 @@ export function evaluateSettlementGrowth(
   const housingResult = updateSettlementHousing({
     settlement,
     population: signals.population,
+    availableConstructionLabor: input.availableConstructionLabor,
   });
   settlement = { ...settlement, housing: housingResult.housing };
   const facts: FactInput<number>[] = [...housingResult.facts];
