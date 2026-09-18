@@ -10,6 +10,31 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **test: Etap 11 -- naprawa audytu M12-M14, wielotickowy monitor
+  inwariantów (`m12_m14_multiseed_120_ticks_with_invariant_monitor`).**
+  Reaguje na `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
+  Audyt sam uruchamiał 120 ticków Black Mountain z prawdziwym contentem
+  ręcznie, poza repo, żeby złapać naruszenia zatrudnienia mimo
+  "PASS bez wyjątku" ("Nie jest to PASS inwariantów", audyt §4). Nowy
+  `packages/worldgen/src/fixtures/m12-m14-invariant-monitor.test.ts`
+  odtwarza to jako commitowany test: prawdziwy content
+  (`loadEconomyContent`, entrepreneurship candidates włączone -- M12
+  aktywne), prawdziwe 8-regionowe Black Mountain fixture (M13 migracja
+  i M14 osady mają się o co realnie kłócić), 120 ticków, 3 niezależne
+  seedy RNG. Po każdym ticku sprawdza: `cohort.employment <=
+  eligibleLaborForce` (P0-05a), suma headcountu aktywnych firm regionu
+  <= suma eligibleLaborForce regionu (P0-05b), `World.currentTick`
+  idzie dokładnie o 1 do przodu (P1-04), `housing.capacity` nigdy nie
+  maleje, `Settlement.stage` przesuwa się co najwyżej o jeden szczebel
+  na tick. Świadomie NIE sprawdza `population <= housing.capacity` jako
+  twardego globalnego niezmiennika -- przeludnienie ponad capacity jest
+  legalnym, zamierzonym stanem (Urban Crisis, FC-SETTLEMENT-003);
+  migracja (P0-04) blokuje tylko nowy napływ do pełnej osady, demografia
+  (urodzenia) może wciąż stopniowo przekroczyć capacity organicznie --
+  mylenie tych dwóch rzeczy byłoby dokładnie błędem, przed którym
+  ostrzega audyt. Wszystkie 3 seedy przechodzą 120 ticków bez naruszenia
+  żadnego z powyższych.
+
 - **fix: Etap 10 -- naprawa audytu M12-M14, P1-05/P1-06/P1-08 (walidacja
   commitów, cechy migrantów, Read Models osad).** Reaguje na
   `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
