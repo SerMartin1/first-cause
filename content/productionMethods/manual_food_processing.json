@@ -5,5 +5,11 @@
   "outputs": ["bread"],
   "inputs": ["flour"],
   "resourceRequirements": [],
+  "productivity": {
+    "employeesPerBatch": 1,
+    "resourceInputsPerBatch": {},
+    "goodInputsPerBatch": { "flour": 5 },
+    "goodOutputsPerBatch": { "bread": 4 }
+  },
   "implementationPhase": "VS"
 }

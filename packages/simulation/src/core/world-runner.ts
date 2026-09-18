@@ -5,7 +5,7 @@ import {
   type SimulationFact,
 } from "@first-cause/causality";
 import { createHeadlessRunner, type HeadlessRunnerConfig } from "./runner.js";
-import { runEconomyTick } from "./economy-tick.js";
+import { runEconomyTick, type RunEconomyTickInput } from "./economy-tick.js";
 
 /**
  * Composes `HeadlessRunner` (M1: deterministic clock/RNG/command
@@ -17,17 +17,23 @@ import { runEconomyTick } from "./economy-tick.js";
  */
 export interface WorldRunnerConfig extends HeadlessRunnerConfig {
   readonly worldState: WorldState;
+  /** Audytowe P0-06: przekazane 1:1 do `runEconomyTick` -- domyślne, jeśli pominięte (patrz `economy-tick.ts`). */
+  readonly productionRecipesByMethodId?: RunEconomyTickInput["productionRecipesByMethodId"];
+  readonly transportModeProfilesByModeId?: RunEconomyTickInput["transportModeProfilesByModeId"];
+  readonly pmCandidatesByCurrentMethodId?: RunEconomyTickInput["pmCandidatesByCurrentMethodId"];
 }
 
 export class WorldRunner {
   private readonly headless: ReturnType<typeof createHeadlessRunner>;
   private readonly factStore: FactStore;
+  private readonly config: WorldRunnerConfig;
   private state: WorldState;
 
   constructor(config: WorldRunnerConfig) {
     this.headless = createHeadlessRunner(config);
     this.state = config.worldState;
     this.factStore = createFactStore();
+    this.config = config;
   }
 
   get tick(): number {
@@ -44,10 +50,22 @@ export class WorldRunner {
 
   /** Advances exactly one tick: runs the economy, commits the result, then advances the clock (mirrors `HeadlessRunner.step`'s own "drain, then advance" order). */
   step(): void {
+    // `exactOptionalPropertyTypes`: only forward each optional field when
+    // the caller actually set it, instead of writing an explicit
+    // `undefined` that the type system treats as different from "absent".
     const result = runEconomyTick({
       worldState: this.state,
       tick: this.headless.tick,
       demographyRng: (scopeId) => this.headless.rngStream("demography", scopeId),
+      ...(this.config.pmCandidatesByCurrentMethodId !== undefined
+        ? { pmCandidatesByCurrentMethodId: this.config.pmCandidatesByCurrentMethodId }
+        : {}),
+      ...(this.config.productionRecipesByMethodId !== undefined
+        ? { productionRecipesByMethodId: this.config.productionRecipesByMethodId }
+        : {}),
+      ...(this.config.transportModeProfilesByModeId !== undefined
+        ? { transportModeProfilesByModeId: this.config.transportModeProfilesByModeId }
+        : {}),
     });
     this.state = result.worldState;
     this.factStore.emitAll(this.headless.tick, result.facts);

@@ -19,6 +19,7 @@ function company(cash = 1000): Company {
 
 const currentRecipe: ProductionRecipe = {
   productionMethodId: "manual_farming",
+  employeesPerBatch: 1,
   resourceInputsPerBatch: { grain: 10 },
   goodInputsPerBatch: {},
   goodOutputsPerBatch: { flour: 8 },
@@ -26,6 +27,7 @@ const currentRecipe: ProductionRecipe = {
 
 const betterRecipe: ProductionRecipe = {
   productionMethodId: "improved_farming",
+  employeesPerBatch: 1,
   resourceInputsPerBatch: { grain: 10 },
   goodInputsPerBatch: {},
   goodOutputsPerBatch: { flour: 12 },
@@ -33,6 +35,7 @@ const betterRecipe: ProductionRecipe = {
 
 const worseRecipe: ProductionRecipe = {
   productionMethodId: "worse_farming",
+  employeesPerBatch: 1,
   resourceInputsPerBatch: { grain: 10 },
   goodInputsPerBatch: {},
   goodOutputsPerBatch: { flour: 6 },
@@ -167,18 +170,21 @@ describe("evaluatePmAdoption", () => {
   it("Test Determinism (regression guard, audit P0-03): a recipe with the same goods in a different key order gives the exact same pmScore/adoption outcome", () => {
     const currentRecipeSingleGood: ProductionRecipe = {
       productionMethodId: "manual_farming",
+      employeesPerBatch: 1,
       resourceInputsPerBatch: {},
       goodInputsPerBatch: {},
       goodOutputsPerBatch: { flour: 0.55 },
     };
     const candidateInsertedAscending: ProductionRecipe = {
       productionMethodId: "improved_farming",
+      employeesPerBatch: 1,
       resourceInputsPerBatch: {},
       goodInputsPerBatch: {},
       goodOutputsPerBatch: { a: 0.1, b: 0.2, c: 0.3 },
     };
     const candidateInsertedDescending: ProductionRecipe = {
       productionMethodId: "improved_farming",
+      employeesPerBatch: 1,
       resourceInputsPerBatch: {},
       goodInputsPerBatch: {},
       goodOutputsPerBatch: { c: 0.3, b: 0.2, a: 0.1 },

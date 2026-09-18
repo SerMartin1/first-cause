@@ -126,6 +126,36 @@ function populationFact(
 }
 
 /**
+ * Audytowe P0-04 ("phantom employment"): `employment` to policzalni ludzie
+ * -- nie może przetrwać spadku `population`, który go wyprzedził (śmierć
+ * *lub* starzenie się poza `WORKING_AGE_GROUPS`, `labor/employment.ts`
+ * nigdy nie przesuwa `employment` razem z tymi przepływami, bo to osobne
+ * pole na tym samym rekordzie kohorty). Górny limit to sama `population`
+ * tej kohorty po tym miesiącu -- twardszy od `eligibleLaborForce` (M9),
+ * celowo: demografia (M6) nie zna stawki partycypacji rynku pracy, to
+ * cudza (M9) stała tuningowa, więc nie sięga po nią przez granicę
+ * systemów -- ma tylko dopilnować, żeby zatrudnionych nigdy nie było
+ * więcej niż żyjących. Które konkretnie firmy straciły tych pracowników
+ * pozostaje nierozwiązane (Company przechowuje tylko zagregowany
+ * `employees`, nie rozbicie per-kohorta -- udokumentowana, świadoma
+ * granica M9, patrz `labor/employment.ts` `layoffWorkers` doc comment),
+ * więc po stronie firmy nic tu się nie zmienia.
+ */
+function employmentReconciliationFact(
+  cohort: PopulationCohort,
+  before: number,
+  after: number,
+): FactInput<number> | undefined {
+  if (after === before) return undefined;
+  return {
+    type: "employment_changed",
+    subject: { entityType: "populationCohort", entityId: cohort.id },
+    location: cohortLocation(cohort),
+    values: { before, after, delta: after - before },
+  };
+}
+
+/**
  * Advances one cohort family (POP-001: population is cohort-based, never
  * individual NPCs) by exactly one month.
  *
@@ -193,9 +223,18 @@ export function applyMonthlyDemography(
       `applyMonthlyDemography(${cohort.id}).population`,
     );
 
-    nextCohorts.push({ ...cohort, population: after });
+    const employmentBefore = cohort.employment;
+    const employmentAfter = Math.min(employmentBefore, after);
+
+    nextCohorts.push({ ...cohort, population: after, employment: employmentAfter });
     const fact = populationFact(cohort, before, after);
     if (fact) facts.push(fact);
+    const employmentFact = employmentReconciliationFact(
+      cohort,
+      employmentBefore,
+      employmentAfter,
+    );
+    if (employmentFact) facts.push(employmentFact);
   }
 
   return { cohorts: nextCohorts, facts };

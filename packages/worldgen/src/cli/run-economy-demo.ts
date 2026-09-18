@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
   buildCompanySummaryReadModel,
@@ -7,6 +8,12 @@ import {
   createWorldRunner,
 } from "@first-cause/simulation";
 import { loadWorldFixture } from "../fixtures/load-world-fixture.js";
+import { loadEconomyContent } from "../content/load-economy-content.js";
+
+const REPO_ROOT = path.resolve(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "../../../..",
+);
 
 /**
  * Headless demo: `pnpm --filter @first-cause/worldgen run demo:economy -- <fixture.json> [ticks]`.
@@ -20,6 +27,11 @@ import { loadWorldFixture } from "../fixtures/load-world-fixture.js";
  * nie powinien zależeć) od `worldgen` (brak cykli w grafie workspace
  * dependencies), więc miejsce, które zna OBA (jak załadować fixture i jak
  * go odpalić), jest tu.
+ *
+ * Etap 3 (P0-06): receptury produkcji i koszty transportu pochodzą teraz z
+ * realnego contentu na dysku (`content/productionMethods|transportModes/
+ * *.json`, przez `loadEconomyContent`), nie z hardcoded domyślnych w
+ * `economy-tick.ts`.
  */
 const fixturePath = process.argv[2];
 if (!fixturePath) {
@@ -38,11 +50,19 @@ if (!loaded.ok) {
   process.exit(1);
 }
 
+const content = loadEconomyContent(REPO_ROOT);
+if (!content.ok) {
+  console.error("[first-cause] Content pack failed to load:", content.errors);
+  process.exit(1);
+}
+
 const runner = createWorldRunner({
   worldSeed: loaded.worldState!.world.seed,
   startYear: loaded.worldState!.world.currentDate.year,
   startMonth: loaded.worldState!.world.currentDate.month,
   worldState: loaded.worldState!,
+  productionRecipesByMethodId: content.productionRecipesByMethodId,
+  transportModeProfilesByModeId: content.transportModeProfilesByModeId,
 });
 
 console.log(`[first-cause] Etap 1 economy demo -- running ${ticks} ticks`);

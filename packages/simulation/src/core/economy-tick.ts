@@ -49,16 +49,31 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
 /**
  * Etap 1 tick-loop integration (audytowe P0-01): pierwsze miejsce, które
  * faktycznie woła M7-M11 przeciw prawdziwemu `WorldState`, zamiast tylko
- * przeciw ręcznie złożonym danym testowym. Świadomie NIE naprawia
+ * przeciw ręcznie złożonym danym testowym. Świadomie NIE naprawiał wtedy
  * ograniczenia produkcji pracą (P0-02), uzgodnienia zatrudnienia z
- * demografią (P0-04) ani JSON-owych receptur (P0-06) -- używa
- * istniejących funkcji systemowych dokładnie tak, jak są dziś.
+ * demografią (P0-04) ani JSON-owych receptur (P0-06) -- używał
+ * istniejących funkcji systemowych dokładnie tak, jak były.
  *
  * Etap 2 (audytowe P0-03/P0-05/P0-07) dodał tu: sortowanie kluczy przed
  * sumowaniem (`sortedEntries`, ten sam most co
  * `company-ai/pm-adoption.ts`/`markets/demand-aggregation.ts`) i
  * rozliczenie pieniędzy wyłącznie przez `applyCompanyFinances`
  * (`settlement.ts`), które samo zaokrągla przez `roundMoney`.
+ *
+ * Etap 3 naprawił P0-02 (`production.ts::ProductionRecipe.employeesPerBatch`
+ * -- `runProduction` teraz odrzuca batch, na który nie starcza
+ * `Company.workforce.employees`, ten sam wzorzec co zasoby/dobra), P0-04
+ * (`population/demography.ts` -- zatrudnienie kohorty jest teraz
+ * ograniczane do jej bieżącej populacji po śmierciach/starzeniu, więc
+ * martwi ludzie przestają liczyć się jako zatrudnieni) i P0-06:
+ * `productionRecipesByMethodId`/`transportModeProfilesByModeId` poniżej są
+ * teraz parametrem (domyślnie `DEFAULT_PRODUCTION_RECIPES`/
+ * `DEFAULT_TRANSPORT_MODE_PROFILES`, zachowanie identyczne jak dotąd dla
+ * caller'a, który nic nie poda) -- realny content-driven caller
+ * (`worldgen`'s `loadEconomyContent`) buduje je z `content/
+ * productionMethods|transportModes/*.json` przez `production.
+ * ts::parseProductionRecipe`/`transport/modes.ts::parseTransportModeProfile`
+ * zamiast polegać na hardcoded domyślnych w tym pliku.
  *
  * Kilka drobnych mostów nie istniało wcześniej nigdzie w silniku (żaden
  * system tego nie potrzebował, bo nic ich dotąd nie wołało w pętli) i są
@@ -78,8 +93,19 @@ export interface RunEconomyTickInput {
   readonly tick: number;
   /** Demografia (M6) potrzebuje losowości -- `HeadlessRunner.rngStream("demography", scopeId)` albo dowolne inne źródło o tym samym kształcie (SAVE-003: nazwany, scope'owany strumień). */
   readonly demographyRng: (scopeId: string) => RngStream;
-  /** Firma z tym `productionMethodId` rozważa przejście na wskazaną recepturę (AI-08) -- pusta mapa, dopóki nie istnieje żaden content-driven katalog kandydatur (P0-06 to osobna praca). */
+  /** Firma z tym `productionMethodId` rozważa przejście na wskazaną recepturę (AI-08). */
   readonly pmCandidatesByCurrentMethodId?: Readonly<Record<string, string>>;
+  /**
+   * Audytowe P0-06: receptury produkcji per `productionMethodId`. Domyślnie
+   * `DEFAULT_PRODUCTION_RECIPES` (te same dwie receptury co dotąd,
+   * zachowanie identyczne dla każdego caller'a, który nic nie poda) --
+   * realny content-driven caller (`worldgen`) buduje tę mapę z
+   * `content/productionMethods/*.json` przez `parseProductionRecipe`
+   * zamiast polegać na hardcoded domyślnych.
+   */
+  readonly productionRecipesByMethodId?: Readonly<Record<string, ProductionRecipe>>;
+  /** Audytowe P0-06: analogicznie dla kosztów transportu -- domyślnie `DEFAULT_TRANSPORT_MODE_PROFILES`. */
+  readonly transportModeProfilesByModeId?: Readonly<Record<string, TransportModeProfile>>;
 }
 
 export interface RunEconomyTickResult {
@@ -138,17 +164,24 @@ function computeInputAvailability(
   return availability;
 }
 
-function selectTransportProfile(connection: Connection): TransportModeProfile {
+function selectTransportProfile(
+  connection: Connection,
+  transportModeProfilesByModeId: Readonly<Record<string, TransportModeProfile>>,
+): TransportModeProfile {
   for (const modeId of connection.infrastructure.transportModes) {
-    const profile = DEFAULT_TRANSPORT_MODE_PROFILES[modeId];
+    const profile = transportModeProfilesByModeId[modeId];
     if (profile) return profile;
   }
-  return DEFAULT_TRANSPORT_MODE_PROFILES[DEFAULT_TRANSPORT_MODE_ID]!;
+  return transportModeProfilesByModeId[DEFAULT_TRANSPORT_MODE_ID]!;
 }
 
 export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult {
   const { worldState, tick, demographyRng } = input;
   const pmCandidates = input.pmCandidatesByCurrentMethodId ?? {};
+  const productionRecipesByMethodId =
+    input.productionRecipesByMethodId ?? DEFAULT_PRODUCTION_RECIPES;
+  const transportModeProfilesByModeId =
+    input.transportModeProfilesByModeId ?? DEFAULT_TRANSPORT_MODE_PROFILES;
 
   const companies: Record<string, Company> = { ...worldState.companies };
   const markets: Record<string, Market> = { ...worldState.markets };
@@ -196,7 +229,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         : {};
 
       const recipe = company.production.productionMethodId
-        ? DEFAULT_PRODUCTION_RECIPES[company.production.productionMethodId]
+        ? productionRecipesByMethodId[company.production.productionMethodId]
         : undefined;
 
       // 1. Company AI: OBSERVE (ostatni tick) -> DECIDE.
@@ -273,7 +306,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         ? pmCandidates[company.production.productionMethodId]
         : undefined;
       const candidateRecipe = candidateMethodId
-        ? DEFAULT_PRODUCTION_RECIPES[candidateMethodId]
+        ? productionRecipesByMethodId[candidateMethodId]
         : undefined;
       if (recipe && candidateRecipe) {
         const pmResult = evaluatePmAdoptionSafely({
@@ -490,7 +523,10 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     const marketBId = regionB?.economy.marketId;
     if (!marketAId || !marketBId || marketAId === marketBId) continue;
 
-    const transportMode = selectTransportProfile(connection);
+    const transportMode = selectTransportProfile(
+      connection,
+      transportModeProfilesByModeId,
+    );
     const goodIds = Object.keys(markets[marketAId]!.goods)
       .filter((goodId) => markets[marketBId]!.goods[goodId])
       .sort();
@@ -534,8 +570,13 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     facts.push(...regenResult.facts);
   }
 
-  // 9. Demografia (M6): populacja ewoluuje; zatrudnienie NIE jest z nią
-  // uzgadniane (audytowe P0-04) -- świadomie pozostawione dla Etapu 2+.
+  // 9. Demografia (M6): populacja ewoluuje; `applyMonthlyDemography` samo
+  // uzgadnia teraz zatrudnienie kohort ze spadkiem populacji (audytowe
+  // P0-04, patrz demography.ts). Company.workforce.employees nie jest tu
+  // korygowane -- Company przechowuje tylko zagregowany headcount, bez
+  // rozbicia per-kohorta (świadoma granica M9), więc nie da się przypisać
+  // utraconych miejsc pracy do konkretnej firmy; kolejny tick's decideLabor
+  // sam to nadgoni przez zwykłe HIRE/LAYOFF wobec już skorygowanej podaży pracy.
   const families = groupCohortsIntoFamilies(Object.values(populationCohorts));
   const nextCohorts: Record<string, PopulationCohort> = {};
   for (const family of families) {

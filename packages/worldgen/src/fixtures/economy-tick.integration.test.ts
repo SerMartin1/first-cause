@@ -55,6 +55,17 @@ function assertNoNonFiniteOrNegative(value: unknown, label: string): void {
  * baku eksportu do innych regionów -- Etap 1 świadomie tego nie naprawia
  * (patrz plan). Ten test dowodzi, że pętla *działa*, nie że ta konkretna
  * gospodarka jest w pełni zbalansowana.
+ *
+ * Etap 3 (P0-02) usunęło "darmową pracę" -- produkcja teraz naprawdę
+ * potrzebuje `Company.workforce.employees`. Tutejsza kohorta ma tylko 9
+ * osób w wieku produkcyjnym (~5-6 dostępnych etatów), więc gdy
+ * `production-decision.ts` pcha `utilization` w górę szybciej niż rynek
+ * pracy nadąża, wakaty (audytowe P1 "rosnące bez końca", Etap 4) i presja
+ * płacowa (`labor/wages.ts`) windują koszty ponad ograniczoną produkcją
+ * przychody -- firma kończy 24 ticki na ujemnej gotówce. To poprawna,
+ * nowo odsłonięta konsekwencja naprawionego ograniczenia pracą, nie regres
+ * w rozliczeniu finansowym (`settlement.ts`), więc test dowodzi
+ * zaangażowania finansowego przez przychód/koszty, nie przez wypłacalność.
  */
 describe("Black Mountain fixture runs a real, wired economy tick (Etap 1 tick-loop integration)", () => {
   it("runs 24 ticks without throwing, and the economy visibly moves (not a no-op)", () => {
@@ -95,9 +106,13 @@ describe("Black Mountain fixture runs a real, wired economy tick (Etap 1 tick-lo
     expect(market.goods.flour!.localPrice).not.toBe(2);
     // Coś fizycznie trafiło do inventory regionu i/lub zostało z niego kupione -- fizyczne rozliczenie (settlement.ts) faktycznie działa, nie tylko liczy pieniądze.
     expect(Object.keys(regionInventory.items).length).toBeGreaterThan(0);
-    // Firma wygenerowała realny przepływ finansowy (Company.finance przestało być martwym polem).
+    // Firma wygenerowała realny przepływ finansowy (Company.finance przestało być martwym polem)
+    // -- nie sprawdzamy tu wypłacalności: przy P0-02 naprawionym ograniczeniu pracą i wciąż-P1
+    // rosnących bez końca wakatach ta konkretna, jednokohortowa gospodarka kończy 24 ticki na
+    // minusie (patrz doc comment powyżej), co jest oczekiwane, nie regresem rozliczenia.
     expect(company.finance.cash).not.toBe(initialCash);
-    expect(company.finance.cash).toBeGreaterThan(0);
+    expect(company.finance.revenue).toBeGreaterThan(0);
+    expect(company.finance.costs).toBeGreaterThan(0);
 
     // Company AI faktycznie podjęło i wykonało strukturalną decyzję (nie tylko dial produkcji) w tym oknie.
     expect(allFacts.some((fact) => fact.type === "vacancies_opened")).toBe(true);

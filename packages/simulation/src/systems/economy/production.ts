@@ -31,6 +31,16 @@ import { applyProductionToCompany } from "./companies.js";
  */
 export interface ProductionRecipe {
   readonly productionMethodId: string;
+  /**
+   * Ilu zatrudnionych (`Company.workforce.employees`) wymaga jeden batch --
+   * audytowe P0-02: bez tego pola `computeBatches` liczyła produkcję
+   * wyłącznie z `capacity*utilization` i dostępności zasobów/dóbr, więc
+   * firma z `employees === 0` nadal produkowała. Ten sam wzorzec ograniczenia
+   * co `resourceInputsPerBatch`/`goodInputsPerBatch` -- `0` oznacza "ten
+   * przepis nie wymaga pracy" (np. w pełni zautomatyzowana linia), nie
+   * "praca jest nieograniczona".
+   */
+  readonly employeesPerBatch: number;
   /** Resource id -> ilość zużywana na jeden batch, wydobywana na żywo z `ResourceDeposit` (M5). */
   readonly resourceInputsPerBatch: Readonly<Record<string, number>>;
   /** Good id -> ilość zużywana z własnego Inventory firmy na jeden batch. */
@@ -67,17 +77,86 @@ export interface RunProductionResult {
 export const DEFAULT_PRODUCTION_RECIPES: Readonly<Record<string, ProductionRecipe>> = {
   manual_farming: {
     productionMethodId: "manual_farming",
+    // 1:1 z EMPLOYEES_PER_CAPACITY_UNIT (economy-tick.ts): jeden batch tej
+    // capacity-jednostki odpowiada dokładnie jednemu zatrudnionemu.
+    employeesPerBatch: 1,
     resourceInputsPerBatch: { grain: 10 },
     goodInputsPerBatch: {},
     goodOutputsPerBatch: { flour: 8 },
   },
   manual_food_processing: {
     productionMethodId: "manual_food_processing",
+    employeesPerBatch: 1,
     resourceInputsPerBatch: {},
     goodInputsPerBatch: { flour: 5 },
     goodOutputsPerBatch: { bread: 4 },
   },
 };
+
+function parseNonNegativeNumber(value: unknown, label: string): number {
+  if (typeof value !== "number") {
+    throw new InvariantViolationError(
+      `${label} must be a number, got ${value === null ? "null" : typeof value}`,
+    );
+  }
+  return assertNonNegative(value, label);
+}
+
+function parseQuantityRecord(
+  value: unknown,
+  label: string,
+): Readonly<Record<string, number>> {
+  if (value === undefined) return {};
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new InvariantViolationError(
+      `${label} must be an object, got ${value === null ? "null" : typeof value}`,
+    );
+  }
+  const result: Record<string, number> = {};
+  for (const [key, quantity] of Object.entries(value)) {
+    result[key] = parseNonNegativeNumber(quantity, `${label}.${key}`);
+  }
+  return result;
+}
+
+/**
+ * Audytowe P0-06: `ProductionMethodDefinition.productivity` (M2
+ * `OpenRecordSchema` -- "exact shape belongs to the system milestone that
+ * consumes it", `@first-cause/content` `common.ts`) parsowane na konkretny,
+ * walidowany `ProductionRecipe` -- ten sam fail-loud styl co
+ * `computeBatches` już stosuje wobec zasobów/dóbr, teraz też wobec
+ * *pochodzenia* przepisu (content/productionMethods/*.json), nie tylko
+ * jego użycia. Przyjmuje surowy bag (`Record<string, unknown>`), nie typ
+ * `ProductionMethodDefinition` z `@first-cause/content` -- M7 (Simulation
+ * Core) celowo nie zależy od pakietu content, tylko od kształtu jednego
+ * pola, które i tak dostaje z zewnątrz (caller w `worldgen` już przeszedł
+ * przez `loadContentPack`, więc `id`/referencje są tam już zwalidowane).
+ */
+export function parseProductionRecipe(
+  productionMethodId: string,
+  productivity: Readonly<Record<string, unknown>>,
+): ProductionRecipe {
+  const label = `productionMethods/${productionMethodId}.productivity`;
+  return {
+    productionMethodId,
+    employeesPerBatch: parseNonNegativeNumber(
+      productivity.employeesPerBatch,
+      `${label}.employeesPerBatch`,
+    ),
+    resourceInputsPerBatch: parseQuantityRecord(
+      productivity.resourceInputsPerBatch,
+      `${label}.resourceInputsPerBatch`,
+    ),
+    goodInputsPerBatch: parseQuantityRecord(
+      productivity.goodInputsPerBatch,
+      `${label}.goodInputsPerBatch`,
+    ),
+    goodOutputsPerBatch: parseQuantityRecord(
+      productivity.goodOutputsPerBatch,
+      `${label}.goodOutputsPerBatch`,
+    ),
+  };
+}
 
 function maxBatchesFor(available: number, quantityPerBatch: number): number {
   if (quantityPerBatch <= 0) return Number.POSITIVE_INFINITY;
@@ -91,6 +170,22 @@ function computeBatches(input: RunProductionInput): number {
   assertNonNegative(company.production.utilization, "Company.production.utilization");
 
   let batches = Math.floor(company.production.capacity * company.production.utilization);
+
+  // Audytowe P0-02: praca to twarde ograniczenie wejściowe, tak samo jak
+  // zasób czy dobro pośrednie -- `employees === 0` (nowo założona firma
+  // przed pierwszym zatrudnieniem, albo firma po zwolnieniu wszystkich)
+  // musi dać 0 batchy, niezależnie od tego, ile capacity/utilization
+  // deklaruje.
+  assertNonNegative(
+    recipe.employeesPerBatch,
+    `ProductionRecipe(${recipe.productionMethodId}).employeesPerBatch`,
+  );
+  if (recipe.employeesPerBatch > 0) {
+    batches = Math.min(
+      batches,
+      maxBatchesFor(company.workforce.employees, recipe.employeesPerBatch),
+    );
+  }
 
   for (const [resourceId, quantityPerBatch] of Object.entries(
     recipe.resourceInputsPerBatch,

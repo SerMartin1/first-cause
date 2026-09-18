@@ -192,16 +192,19 @@ importers:
 
   packages/worldgen:
     dependencies:
+      '@first-cause/content':
+        specifier: workspace:*
+        version: link:../content
       '@first-cause/entities':
         specifier: workspace:*
         version: link:../entities
+      '@first-cause/simulation':
+        specifier: workspace:*
+        version: link:../simulation
       zod:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
-      '@first-cause/simulation':
-        specifier: workspace:*
-        version: link:../simulation
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

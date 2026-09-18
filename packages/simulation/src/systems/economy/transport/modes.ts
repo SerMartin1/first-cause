@@ -1,3 +1,5 @@
+import { InvariantViolationError, assertPositive } from "../../../core/validation.js";
+
 /**
  * Transport Mode profiles (Simulation Model SS28 `TransportCost =
  * EffectiveDistance x CargoFactor x TransportModeCost x
@@ -30,3 +32,25 @@ export const DEFAULT_TRANSPORT_MODE_PROFILES: Readonly<
   cart: { transportModeId: "cart", costPerUnitDistance: 0.35 },
   river: { transportModeId: "river", costPerUnitDistance: 0.15 },
 };
+
+/**
+ * Audytowe P0-06: `TransportModeDefinition.cost` (M2 `OpenRecordSchema`)
+ * parsowane na konkretny, walidowany `TransportModeProfile` -- ten sam
+ * fail-loud wzorzec co `production.ts::parseProductionRecipe` (M7) wobec
+ * `productivity`. Przyjmuje surowy bag, nie typ `TransportModeDefinition`
+ * z `@first-cause/content` -- Simulation Core celowo nie zależy od pakietu
+ * content.
+ */
+export function parseTransportModeProfile(
+  transportModeId: string,
+  cost: Readonly<Record<string, unknown>>,
+): TransportModeProfile {
+  const label = `transportModes/${transportModeId}.cost.costPerUnitDistance`;
+  const raw = cost.costPerUnitDistance;
+  if (typeof raw !== "number") {
+    throw new InvariantViolationError(
+      `${label} must be a number, got ${raw === null ? "null" : typeof raw}`,
+    );
+  }
+  return { transportModeId, costPerUnitDistance: assertPositive(raw, label) };
+}

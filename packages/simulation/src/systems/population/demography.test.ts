@@ -231,13 +231,109 @@ describe("applyMonthlyDemography -- invariants", () => {
       const before = sumPopulation(family);
       const result = applyMonthlyDemography(family, { tick, rng });
       const after = sumPopulation(result.cohorts);
-      const sumOfFactDeltas = result.facts.reduce(
-        (sum, f) => sum + (f.values.delta ?? 0),
-        0,
-      );
+      const sumOfFactDeltas = result.facts
+        .filter(
+          (f) => f.type === "population_increased" || f.type === "population_declined",
+        )
+        .reduce((sum, f) => sum + (f.values.delta ?? 0), 0);
       expect(after - before).toBe(sumOfFactDeltas);
       family = result.cohorts;
     }
+  });
+});
+
+describe("applyMonthlyDemography -- employment reconciliation (audit regression P0-04, phantom employment)", () => {
+  it("caps employment at the cohort's new population when a fully-employed cohort dies out entirely", () => {
+    const family = buildFamily(EVEN_FAMILY).map((cohort) =>
+      cohort.ageGroup === "AGE_25_44" ? { ...cohort, employment: 120 } : cohort,
+    );
+    const rates: DemographyRates = {
+      deathRateByAgeGroup: {
+        AGE_0_14: 0,
+        AGE_15_24: 0,
+        AGE_25_44: 1, // whole bracket dies this month (100% annual -> monthly rate 1)
+        AGE_45_64: 0,
+        AGE_65_PLUS: 0,
+      },
+      birthRate: 0,
+      agingSpanYears: {},
+    };
+
+    const result = applyMonthlyDemography(family, {
+      tick: 0,
+      rng: testRng("employment-death-wipeout"),
+      rates,
+    });
+    const workingCohort = result.cohorts.find((c) => c.ageGroup === "AGE_25_44")!;
+
+    expect(workingCohort.population).toBe(0);
+    expect(workingCohort.employment).toBe(0); // was 120 -- would be phantom employment without reconciliation
+    expect(result.facts).toContainEqual({
+      type: "employment_changed",
+      subject: { entityType: "populationCohort", entityId: "cohort_AGE_25_44" },
+      location: { regionId: "region_001", settlementId: undefined },
+      values: { before: 120, after: 0, delta: -120 },
+    });
+  });
+
+  it("leaves employment untouched when it already fits within the cohort's surviving population", () => {
+    const family = buildFamily(EVEN_FAMILY).map((cohort) =>
+      cohort.ageGroup === "AGE_25_44" ? { ...cohort, employment: 50 } : cohort,
+    );
+    const rates: DemographyRates = {
+      deathRateByAgeGroup: {
+        AGE_0_14: 0,
+        AGE_15_24: 0,
+        AGE_25_44: 0.05, // small death rate, plenty of population left over employment=50
+        AGE_45_64: 0,
+        AGE_65_PLUS: 0,
+      },
+      birthRate: 0,
+      agingSpanYears: {},
+    };
+
+    const result = applyMonthlyDemography(family, {
+      tick: 0,
+      rng: testRng("employment-no-reconciliation-needed"),
+      rates,
+    });
+    const workingCohort = result.cohorts.find((c) => c.ageGroup === "AGE_25_44")!;
+
+    expect(workingCohort.employment).toBe(50);
+    expect(
+      result.facts.some(
+        (f) =>
+          f.type === "employment_changed" && f.subject.entityId === "cohort_AGE_25_44",
+      ),
+    ).toBe(false);
+  });
+
+  it("also reconciles employment when population shrinks via aging-out, not just death", () => {
+    const family = buildFamily(EVEN_FAMILY).map((cohort) =>
+      cohort.ageGroup === "AGE_45_64" ? { ...cohort, employment: 120 } : cohort,
+    );
+    const rates: DemographyRates = {
+      deathRateByAgeGroup: {
+        AGE_0_14: 0,
+        AGE_15_24: 0,
+        AGE_25_44: 0,
+        AGE_45_64: 0,
+        AGE_65_PLUS: 0,
+      },
+      birthRate: 0,
+      // 1-year span => exact monthly aging fraction of 1/12; 120 * 1/12 = 10 aged out exactly.
+      agingSpanYears: { AGE_45_64: 1 },
+    };
+
+    const result = applyMonthlyDemography(family, {
+      tick: 0,
+      rng: testRng("employment-aging-out"),
+      rates,
+    });
+    const preRetirement = result.cohorts.find((c) => c.ageGroup === "AGE_45_64")!;
+
+    expect(preRetirement.population).toBe(110); // 120 - 10 aged into AGE_65_PLUS
+    expect(preRetirement.employment).toBe(110); // capped down from the stale 120
   });
 });
 

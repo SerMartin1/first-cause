@@ -2,5 +2,6 @@
   "id": "cart",
   "nameKey": "content.transport_mode.cart.name",
   "terrainCompatibility": ["plains", "hills"],
+  "cost": { "costPerUnitDistance": 0.35 },
   "implementationPhase": "VS"
 }

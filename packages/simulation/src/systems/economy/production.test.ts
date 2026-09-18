@@ -14,7 +14,17 @@ import {
   type ProductionRecipe,
 } from "./production.js";
 
-function buildCompany(overrides?: { capacity?: number; utilization?: number }): Company {
+// employees domyślnie ustawione hojnie ponad jakąkolwiek capacity użytą w
+// tych testach -- testy poniżej badają ograniczenia zasobowe/dobrowe, więc
+// praca (P0-02) nie ma być tu przypadkowym wąskim gardłem, chyba że test
+// jawnie poda niższe `employees`.
+const AMPLE_EMPLOYEES = 1000;
+
+function buildCompany(overrides?: {
+  capacity?: number;
+  utilization?: number;
+  employees?: number;
+}): Company {
   const base = createCompany({
     id: "company_farm",
     archetypeId: "grain_farm",
@@ -31,6 +41,10 @@ function buildCompany(overrides?: { capacity?: number; utilization?: number }): 
       ...base.production,
       capacity: overrides?.capacity ?? 10,
       utilization: overrides?.utilization ?? 1,
+    },
+    workforce: {
+      ...base.workforce,
+      employees: overrides?.employees ?? AMPLE_EMPLOYEES,
     },
   };
 }
@@ -248,10 +262,74 @@ describe("runProduction -- M7 Acceptance Gate (real M4 fixture company: Green Va
   });
 });
 
+describe("runProduction -- labor as a hard input constraint (audit regression P0-02)", () => {
+  it("produces zero batches when the company has no employees, even with ample capacity and resources", () => {
+    const result = runProduction({
+      tick: 0,
+      company: buildCompany({ capacity: 10, utilization: 1, employees: 0 }),
+      inventory: buildInventory(),
+      recipe: MANUAL_FARMING,
+      resourceDeposits: { grain: buildGrainDeposit(1000) },
+    });
+
+    expect(result.batches).toBe(0);
+    expect(result.company.production.outputLastTick).toBe(0);
+    expect(result.inventory.items.flour).toBeUndefined();
+    expect(result.resourceDeposits.grain!.stock.quantity).toBe(1000);
+  });
+
+  it("caps batches at the number of employees when labor is the tightest constraint", () => {
+    const result = runProduction({
+      tick: 0,
+      company: buildCompany({ capacity: 10, utilization: 1, employees: 3 }),
+      inventory: buildInventory(),
+      recipe: MANUAL_FARMING,
+      resourceDeposits: { grain: buildGrainDeposit(1000) },
+    });
+
+    expect(result.batches).toBe(3); // capacity allows 10, but only 3 employees available
+  });
+
+  it("does not gate production on labor when the recipe declares employeesPerBatch: 0 (fully automated)", () => {
+    const automatedRecipe: ProductionRecipe = {
+      ...MANUAL_FARMING,
+      productionMethodId: "automated_farming",
+      employeesPerBatch: 0,
+    };
+    const result = runProduction({
+      tick: 0,
+      company: buildCompany({ capacity: 4, utilization: 1, employees: 0 }),
+      inventory: buildInventory(),
+      recipe: automatedRecipe,
+      resourceDeposits: { grain: buildGrainDeposit(1000) },
+    });
+
+    expect(result.batches).toBe(4);
+  });
+
+  it("rejects a negative employeesPerBatch instead of silently treating it as unbounded", () => {
+    const badRecipe: ProductionRecipe = {
+      ...MANUAL_FARMING,
+      productionMethodId: "broken_labor",
+      employeesPerBatch: -1,
+    };
+    expect(() =>
+      runProduction({
+        tick: 0,
+        company: buildCompany({ employees: 5 }),
+        inventory: buildInventory(),
+        recipe: badRecipe,
+        resourceDeposits: { grain: buildGrainDeposit(1000) },
+      }),
+    ).toThrow();
+  });
+});
+
 describe("runProduction -- recipe input validation", () => {
   it("rejects a negative quantityPerBatch instead of silently treating it as unbounded", () => {
     const badRecipe: ProductionRecipe = {
       productionMethodId: "broken",
+      employeesPerBatch: 1,
       resourceInputsPerBatch: { grain: -1 },
       goodInputsPerBatch: {},
       goodOutputsPerBatch: {},

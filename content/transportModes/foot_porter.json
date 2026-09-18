@@ -2,5 +2,6 @@
   "id": "foot_porter",
   "nameKey": "content.transport_mode.foot_porter.name",
   "terrainCompatibility": ["plains", "hills", "mountains", "forest"],
+  "cost": { "costPerUnitDistance": 1.0 },
   "implementationPhase": "VS"
 }

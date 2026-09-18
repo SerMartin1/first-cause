@@ -2,5 +2,6 @@
   "id": "pack_animal",
   "nameKey": "content.transport_mode.pack_animal.name",
   "terrainCompatibility": ["plains", "hills", "mountains"],
+  "cost": { "costPerUnitDistance": 0.6 },
   "implementationPhase": "VS"
 }

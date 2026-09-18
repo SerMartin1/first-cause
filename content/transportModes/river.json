@@ -2,5 +2,6 @@
   "id": "river",
   "nameKey": "content.transport_mode.river.name",
   "terrainCompatibility": ["plains", "wetland"],
+  "cost": { "costPerUnitDistance": 0.15 },
   "implementationPhase": "VS"
 }
