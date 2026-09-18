@@ -683,3 +683,247 @@ describe("runEconomyTick -- company headcount reconciliation (audit P0-05, migra
     );
   });
 });
+
+/**
+ * region_source: jedna duża kohorta (10 000, AGE_25_44), zero firm/
+ * settlementów -- migrationAttraction = 0 (brak jobs/wage, brak
+ * housing cost). region_dest: jedna firma z realną capacity/utilization
+ * (target employment > 0 -> HIRE tej samej tury, `workforce.vacancies`
+ * naprawdę dodatnie po kroku 4), zero kohort/settlementów -- eligibleLaborForce
+ * regionu = 0, więc jobsScore = 1 (pełen wynik: są wakaty, nikt lokalnie
+ * ich nie zapełnia). Silny, przewidywalny push/pull bez potrzeby
+ * kontrolowania dokładnych liczb rynku pracy.
+ */
+function buildPhaseOrderWorldState(): { worldState: WorldState } {
+  const world = createWorld({
+    id: "world_phase_order_test",
+    seed: "phase-order-test",
+    name: "Phase Order Test World",
+    configuration: { regionCount: 2, worldSizePreset: "prototype-8-12" },
+  });
+  const continent = createContinent({
+    id: "continent_test",
+    worldId: world.id,
+    name: "Test Continent",
+  });
+  const geography = {
+    terrain: "plains" as const,
+    climate: "temperate" as const,
+    area: 100,
+    fertility: 0.5,
+    waterAccess: true,
+    coastal: false,
+    elevationClass: "lowland" as const,
+  };
+  const regionSource = createRegion({
+    id: "region_source",
+    worldId: world.id,
+    continentId: continent.id,
+    name: "Source",
+    geography,
+  });
+  const regionDest = createRegion({
+    id: "region_dest",
+    worldId: world.id,
+    continentId: continent.id,
+    name: "Dest",
+    geography,
+  });
+  const connection = createConnection({
+    id: "connection_source_dest",
+    regionAId: regionSource.id,
+    regionBId: regionDest.id,
+    geography: { physicalDistance: 0, terrainDifficulty: 0, seasonalModifier: 1 },
+  });
+
+  const cohort = createPopulationCohort({
+    id: "cohort_source_workers",
+    regionId: regionSource.id,
+    ageGroup: "AGE_25_44",
+    population: 10_000,
+    economicClass: "WORKING",
+    skillLevel: "UNSKILLED",
+  });
+
+  const destCompanyInventory = createInventory({
+    id: "inventory_dest_company",
+    ownerType: "company",
+    ownerId: "company_dest",
+    locationRegionId: regionDest.id,
+  });
+  const baseDestCompany = createCompany({
+    id: "company_dest",
+    archetypeId: "test_archetype",
+    name: "Dest Company",
+    foundedTick: 0,
+    regionId: regionDest.id,
+    ownerType: "individual",
+    ownerEntityId: cohort.id,
+    inventoryId: destCompanyInventory.id,
+    initialCash: 10_000,
+    initialWageOffer: 10,
+  });
+  const destCompany: Company = {
+    ...baseDestCompany,
+    production: { ...baseDestCompany.production, capacity: 100, utilization: 1 },
+  };
+
+  const worldState = createWorldState({
+    world,
+    continents: [continent],
+    regions: [regionSource, regionDest],
+    connections: [connection],
+    populationCohorts: [cohort],
+    companies: [destCompany],
+    inventories: [destCompanyInventory],
+  });
+
+  return { worldState };
+}
+
+describe("runEconomyTick -- canonical phase order (audit P0-06/P1-04)", () => {
+  it("canonical_phase_order_and_world_clock: demography runs before migration within the same tick, and World.currentTick/currentDate actually advance", () => {
+    const { worldState } = buildPhaseOrderWorldState();
+    const rng = createWorldRng(worldState.world.seed);
+
+    const result = runEconomyTick({
+      worldState,
+      tick: 0,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+    });
+
+    // P1-04: WorldRunner's own tick counter szedł do przodu, ale World
+    // samo zostawało zamrożone na starcie -- teraz musi realnie iść razem.
+    expect(result.worldState.world.currentTick).toBe(1);
+    expect(result.worldState.world.currentDate).toEqual({ year: 1, month: 2 });
+
+    // P0-06: 10 000-osobowa kohorta z domyślnym rocznym death rate
+    // (0.008) ma floor(oczekiwanych zgonów) >= 1 niezależnie od losowego
+    // zaokrąglenia -- demografia MUSI wyemitować population_declined.
+    const demographyFactIndex = result.facts.findIndex(
+      (f) => f.type === "population_declined",
+    );
+    expect(demographyFactIndex).toBeGreaterThanOrEqual(0);
+
+    // Silny push/pull (patrz buildPhaseOrderWorldState's doc comment) ->
+    // migracja MUSI wyemitować odpływ z region_source.
+    const migrationFactIndex = result.facts.findIndex(
+      (f) => f.type === "population_migrated_out",
+    );
+    expect(migrationFactIndex).toBeGreaterThanOrEqual(0);
+
+    // Rdzeń P0-06: demografia (krok 2, na starcie ticka) MUSI wykonać się
+    // PRZED migracją (krok 11, po pętli regionów i handlu) -- stary
+    // porządek miał to odwrotnie (migracja/produkcja na populacji sprzed
+    // demografii danego miesiąca).
+    expect(demographyFactIndex).toBeLessThan(migrationFactIndex);
+  });
+
+  it("resource regeneration runs before production within the same tick: a near-empty renewable deposit that regenerates past the batch threshold this tick actually gets used", () => {
+    const world = createWorld({
+      id: "world_regen_order_test",
+      seed: "regen-order-test",
+      name: "Test World",
+      configuration: { regionCount: 1, worldSizePreset: "prototype-8-12" },
+    });
+    const continent = createContinent({
+      id: "continent_test",
+      worldId: world.id,
+      name: "Test Continent",
+    });
+    const region = createRegion({
+      id: "region_test",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "Test Region",
+      geography: {
+        terrain: "plains",
+        climate: "temperate",
+        area: 100,
+        fertility: 0.5,
+        waterAccess: true,
+        coastal: false,
+        elevationClass: "lowland",
+      },
+    });
+    const companyInventory = createInventory({
+      id: "inventory_company_test",
+      ownerType: "company",
+      ownerId: "company_test",
+      locationRegionId: region.id,
+    });
+    // Za mało na jeden batch (potrzeba 10) -- logistyczny wzrost
+    // (rate=1, capacity=1000) z quantity=9 daje +8.91, czyli 17.91 po
+    // regeneracji -- wystarczy na 1 batch TYLKO jeśli regeneracja
+    // wykonała się PRZED produkcją tego ticka (audytowe P0-06).
+    const deposit = createResourceDeposit({
+      id: "deposit_test",
+      resourceDefinitionId: "test_resource",
+      regionId: region.id,
+      initialQuantity: 9,
+      renewable: true,
+      renewableState: {
+        regenerationRate: 1,
+        sustainableYield: 100,
+        carryingCapacity: 1000,
+      },
+    });
+    const baseCompany = createCompany({
+      id: "company_test",
+      archetypeId: "test_archetype",
+      name: "Test Company",
+      foundedTick: 0,
+      regionId: region.id,
+      ownerType: "individual",
+      ownerEntityId: "no_owner_cohort_needed",
+      inventoryId: companyInventory.id,
+      initialCash: 10_000,
+      initialWageOffer: 10,
+    });
+    const company: Company = {
+      ...baseCompany,
+      production: {
+        ...baseCompany.production,
+        productionMethodId: "test_method",
+        capacity: 1,
+        utilization: 1,
+      },
+      workforce: { ...baseCompany.workforce, employees: 1 },
+    };
+    const recipe: ProductionRecipe = {
+      productionMethodId: "test_method",
+      employeesPerBatch: 1,
+      resourceInputsPerBatch: { test_resource: 10 },
+      goodInputsPerBatch: {},
+      goodOutputsPerBatch: { test_output: 1 },
+      eligibleCompanyArchetypeIds: ["test_archetype"],
+    };
+
+    const worldState = createWorldState({
+      world,
+      continents: [continent],
+      regions: [region],
+      companies: [company],
+      inventories: [companyInventory],
+      resourceDeposits: [deposit],
+    });
+    const rng = createWorldRng(worldState.world.seed);
+
+    const result = runEconomyTick({
+      worldState,
+      tick: 0,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+      productionRecipesByMethodId: { test_method: recipe },
+    });
+
+    const outputQuantity =
+      result.worldState.inventories.inventory_company_test?.items.test_output?.quantity ??
+      0;
+    expect(outputQuantity).toBeGreaterThan(0); // batch faktycznie wyprodukowany
+    expect(result.worldState.resourceDeposits.deposit_test!.stock.quantity).toBeLessThan(
+      17.91, // regenerowane + wydobyte tego samego ticka -- mniej niż samo regenerowane 17.91
+    );
+  });
+});

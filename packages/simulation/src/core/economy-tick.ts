@@ -14,6 +14,7 @@ import {
 } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 import { sortedEntries } from "./determinism.js";
+import { advanceCalendarDate } from "./time.js";
 import type { RngStream } from "./rng.js";
 import { groupCohortsIntoFamilies } from "../systems/population/cohorts.js";
 import { applyMonthlyDemography } from "../systems/population/demography.js";
@@ -91,7 +92,7 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
  * tu jawnie, minimalnie zaimplementowane -- patrz stałe `TODO tuning`
  * poniżej oraz `settlement.ts`.
  *
- * M12 (Entrepreneurship, AI-07) dodał krok 7: `company-ai/opportunity-
+ * M12 (Entrepreneurship, AI-07) dodał krok 9: `company-ai/opportunity-
  * scanner.ts::evaluateFounding` per (region, `entrepreneurshipCandidates`
  * entry) -- nowe firmy powstają przez regionalny Opportunity Scan, nie
  * przez losowe spawnienie (AI-007). Domyślnie pusta mapa kandydatów =
@@ -99,9 +100,9 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
  * zachowywał -- pełna wsteczna zgodność, ten sam wzorzec co P0-06's
  * `productionRecipesByMethodId`.
  *
- * M13 (Migration, AI-09) dodał krok 7.5 (`Region.cached.
+ * M13 (Migration, AI-09) dodał krok 9.5 (`Region.cached.
  * migrationAttraction`, wewnątrz pętli regionów -- świeże dane rynku
- * pracy/housing tego ticka) i krok 8 (`population/migration.
+ * pracy/housing tego ticka) i krok 11 (`population/migration.
  * ts::runMigrationPass`, PO pętli regionów i handlu, żeby każdy region
  * miał już świeże `migrationAttraction`, nie tylko wcześniej przetworzone
  * w sortowanej kolejności). Wymaga własnego, wymaganego (jak
@@ -109,7 +110,7 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
  * "domyślnie brak", bo w przeciwieństwie do entrepreneurshipCandidates
  * migracja nie jest opcjonalną treścią, tylko rdzennym systemem M13.
  *
- * M14 (Settlements) dodał krok 11: `society/settlements.
+ * M14 (Settlements) dodał krok 12: `society/settlements.
  * ts::evaluateSettlementGrowth` per (region, settlement) -- SettlementPressure,
  * stage transitions (`SET-001` drabina Camp..Metropolis) i housing
  * (capacity/cost/pressure, `society/housing.ts`), ostatni krok przed
@@ -117,6 +118,26 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
  * migracji I demografii). `settlements` dołącza do mutowalnych map obok
  * `regions`/`companies`/itd. -- do M14 był to jedyny top-level rekord
  * WorldState przepuszczany przez `runEconomyTick` bez zmian.
+ *
+ * Etap 8 (audyt M12-M14, P0-06/P1-04) naprawił dwa problemy:
+ *
+ * - Kolejność faz była niekanoniczna (CD SIM-003): Resources/Demography
+ *   (fazy #2/#3) wykonywały się PO Production/Trade/Migration (dawne kroki
+ *   7-10), więc ten tick's produkcja, founding i migracja operowały na
+ *   populacji i zasobach SPRZED tegomiesięcznej demografii/regeneracji.
+ *   Regeneracja zasobów i demografia są teraz krokami 1-2, PRZED pętlą
+ *   regionów -- reszta pipeline'u (kroki 3-12) nie zmieniła swojej
+ *   WEWNĘTRZNEJ względnej kolejności, tylko numerację (dawne 1-7.5 -> 3-9.5,
+ *   dawne 7/8/9/10/10.5/11 -> 10/11/1/2/11.5/12). To NIE jest pełne 23-fazowe
+ *   SIM-003 (Production Planning/Production/Inventory/itd. pozostają
+ *   zespolone w jeden krok "Company AI", tak jak audyt to świadomie
+ *   dopuszcza -- "nie chodzi o brak frameworka z 23 klasami").
+ * - `World.currentTick`/`currentDate` nigdy nie były aktualizowane --
+ *   `WorldRunner.tick` szedł do przodu, ale `WorldSummaryReadModel` (i
+ *   każdy inny czytelnik `World`) widział zawsze stan startowy (dwa
+ *   niespójne źródła czasu). VALIDATE -> COMMIT niżej przesuwa teraz
+ *   `currentDate` o jeden miesiąc (`core/time.ts::advanceCalendarDate`,
+ *   SIM-001) i `currentTick` na `tick + 1`.
  */
 
 const EMPLOYEES_PER_CAPACITY_UNIT = 1; // TODO tuning -- most z decyzji produkcyjnej (capacity*utilization) do docelowego zatrudnienia; żaden system tego nie liczy (AI-04 zakłada gotowy target)
@@ -257,6 +278,48 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
 
   const regionIds = Object.keys(worldState.regions).sort();
 
+  // 1. Regeneracja odnawialnych zasobów (M5, już istniejący system): bez
+  // tego wywołania każdy `renewable: true` depozyt tylko by się wyczerpywał
+  // -- `extractFromDeposit` nigdy nie dodaje zasobu z powrotem, regenerację
+  // wykonuje wyłącznie ten oddzielny system. Audytowe P0-06: musi iść
+  // PRZED produkcją/foundingiem (CD SIM-003, fazy "Resources" #2 przed
+  // "Production Planning"/"Production" #4/#5) -- inaczej ten tick's
+  // decyzje i ekstrakcja widziałyby stan zasobów sprzed regeneracji.
+  for (const depositId of Object.keys(resourceDeposits).sort()) {
+    const regenResult = regenerateDeposit(resourceDeposits[depositId]!);
+    resourceDeposits[depositId] = regenResult.deposit;
+    facts.push(...regenResult.facts);
+  }
+
+  // 2. Demografia (M6): populacja ewoluuje; `applyMonthlyDemography` samo
+  // uzgadnia teraz zatrudnienie kohort z `eligibleLaborForce` po spadku
+  // populacji (audytowe P0-04 z audytu M7-M11 / P0-05 z audytu M12-M14,
+  // patrz demography.ts). Company.workforce.employees NIE jest tu
+  // korygowane -- to osobny krok 11.5 niżej. Audytowe P0-06: musi iść
+  // PRZED produkcją/migracją tego samego ticka (CD SIM-003, faza
+  // "Demography" #3 przed "Production Planning" #4 i długo przed
+  // "Migration" #15) -- inaczej produkcja i migracja operują na
+  // populacji sprzed demografii danego miesiąca (audytowa reprodukcja:
+  // stary porządek liczył ekonomię tego ticka na populacji poprzedniego
+  // miesiąca).
+  {
+    const families = groupCohortsIntoFamilies(Object.values(populationCohorts));
+    const nextCohorts: Record<string, PopulationCohort> = {};
+    for (const family of families) {
+      const familyCohorts = Object.values(family);
+      const scopeId = familyCohorts[0]!.id;
+      const demographyResult = applyMonthlyDemography(familyCohorts, {
+        tick,
+        rng: demographyRng(scopeId),
+      });
+      for (const cohort of demographyResult.cohorts) {
+        nextCohorts[cohort.id] = cohort;
+      }
+      facts.push(...demographyResult.facts);
+    }
+    populationCohorts = nextCohorts;
+  }
+
   for (const regionId of regionIds) {
     let region = regions[regionId]!;
     const marketId = region.economy.marketId;
@@ -292,7 +355,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         ? productionRecipesByMethodId[company.production.productionMethodId]
         : undefined;
 
-      // 1. Company AI: OBSERVE (ostatni tick) -> DECIDE.
+      // 3. Company AI: OBSERVE (ostatni tick) -> DECIDE.
       const financialHealth = assessFinancialHealth(company);
 
       const depositsForRecipe: Record<string, ResourceDeposit> = {};
@@ -382,7 +445,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       companies[companyId] = company;
       if (!company.status.active) continue;
 
-      // 2. Rynek pracy: wages -> hire/layoff.
+      // 4. Rynek pracy: wages -> hire/layoff.
       const availableLabor = cohortIds.reduce(
         (sum, cohortId) => sum + availableWorkers(populationCohorts[cohortId]!),
         0,
@@ -443,7 +506,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       }
       companies[companyId] = company;
 
-      // 3. Produkcja.
+      // 5. Produkcja.
       let companyInventory = inventories[company.inventoryId]!;
       let batchesRun = 0;
       if (recipe) {
@@ -478,7 +541,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       inventories[company.inventoryId] = companyInventory;
       companies[companyId] = company;
 
-      // 4. Rozliczenie sprzedaży (fizyczne + finansowe).
+      // 6. Rozliczenie sprzedaży (fizyczne + finansowe).
       let revenueThisTick = 0;
       if (recipe && regionInventoryId && market) {
         let regionInventory = inventories[regionInventoryId]!;
@@ -514,7 +577,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       facts.push(...financeResult.facts);
     }
 
-    // 5. Gospodarstwa domowe: dochód -> wydatki -> fizyczny zakup.
+    // 7. Gospodarstwa domowe: dochód -> wydatki -> fizyczny zakup.
     if (marketId) {
       const survivalPrice = markets[marketId]!.goods[SURVIVAL_GOOD_ID]?.localPrice;
       for (const cohortId of cohortIds) {
@@ -557,7 +620,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       }
     }
 
-    // 6. Rynek: cena/niedobór na podstawie realnie zaobserwowanego popytu/podaży tego ticku.
+    // 8. Rynek: cena/niedobór na podstawie realnie zaobserwowanego popytu/podaży tego ticku.
     if (marketId) {
       let market = markets[marketId]!;
       const regionInventory = regionInventoryId
@@ -583,8 +646,8 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       markets[marketId] = market;
     }
 
-    // 7. Entrepreneurship (M12, AI-07): regionalny Opportunity Scan --
-    // ocenia każdego kandydata AFTER krok 6, więc widzi tegoticzowy,
+    // 9. Entrepreneurship (M12, AI-07): regionalny Opportunity Scan --
+    // ocenia każdego kandydata AFTER krok 8, więc widzi tegoticzowy,
     // świeżo zaktualizowany rynek (shortageSeverity/demand/supply), nie
     // stan sprzed tego ticka.
     if (marketId && Object.keys(entrepreneurshipCandidatesByArchetypeId).length > 0) {
@@ -703,11 +766,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       }
     }
 
-    // 7.5 Migration attraction (M13, AI-09): region's own pull/push
+    // 9.5 Migration attraction (M13, AI-09): region's own pull/push
     // signal, computed fresh this tick from labor market + housing state
     // (post-entrepreneurship, więc widzi ewentualną nowo założoną firmę),
     // cache'owany w `Region.cached.migrationAttraction` -- `runMigrationPass`
-    // (krok 8, po pętli regionów) czyta go i jako źródło, i jako pull
+    // (krok 11, po pętli regionów) czyta go i jako źródło, i jako pull
     // każdego kandydata docelowego.
     {
       let vacancies = 0;
@@ -746,7 +809,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     regions[regionId] = region;
   }
 
-  // 7. Handel: fizyczne przeniesienie dóbr wzdłuż każdego Connection (M10).
+  // 10. Handel: fizyczne przeniesienie dóbr wzdłuż każdego Connection (M10).
   const connectionIds = Object.keys(worldState.connections).sort();
   for (const connectionId of connectionIds) {
     let connection = connections[connectionId]!;
@@ -793,12 +856,15 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     connections[connectionId] = connection;
   }
 
-  // 8. Migracja (M13, AI-09): probabilistyczna reakcja na push/pull między
+  // 11. Migracja (M13, AI-09): probabilistyczna reakcja na push/pull między
   // bezpośrednio połączonymi regionami (POP-006/POP-007) -- patrz
   // population/migration.ts's doc comment. Uruchamiana PO pętli regionów,
   // żeby `Region.cached.migrationAttraction` był świeży (ten tick, nie
   // poprzedni) dla KAŻDEGO regionu, nie tylko tych wcześniejszych w
-  // sortowanej kolejności iteracji kroku 1-7.5.
+  // sortowanej kolejności iteracji kroku 3-9.5. Demografia już policzona
+  // (krok 2, na początku ticka) -- migracja więc operuje na populacji PO
+  // urodzeniach/zgonach/starzeniu tego miesiąca, nie sprzed nich
+  // (audytowe P0-06).
   const migrationResult = runMigrationPass({
     regions,
     connections,
@@ -810,55 +876,25 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   populationCohorts = migrationResult.populationCohorts;
   facts.push(...migrationResult.facts);
 
-  // 9. Regeneracja odnawialnych zasobów (M5, już istniejący system): bez
-  // tego wywołania każdy `renewable: true` depozyt tylko by się wyczerpywał
-  // -- `extractFromDeposit` nigdy nie dodaje zasobu z powrotem, regenerację
-  // wykonuje wyłącznie ten oddzielny system.
-  for (const depositId of Object.keys(resourceDeposits).sort()) {
-    const regenResult = regenerateDeposit(resourceDeposits[depositId]!);
-    resourceDeposits[depositId] = regenResult.deposit;
-    facts.push(...regenResult.facts);
-  }
-
-  // 10. Demografia (M6): populacja ewoluuje; `applyMonthlyDemography` samo
-  // uzgadnia teraz zatrudnienie kohort z `eligibleLaborForce` po spadku
-  // populacji (audytowe P0-04 z audytu M7-M11 / P0-05 z audytu M12-M14,
-  // patrz demography.ts). Company.workforce.employees NIE jest tu
-  // korygowane -- to osobny krok 10.5 niżej.
-  const families = groupCohortsIntoFamilies(Object.values(populationCohorts));
-  const nextCohorts: Record<string, PopulationCohort> = {};
-  for (const family of families) {
-    const familyCohorts = Object.values(family);
-    const scopeId = familyCohorts[0]!.id;
-    const demographyResult = applyMonthlyDemography(familyCohorts, {
-      tick,
-      rng: demographyRng(scopeId),
-    });
-    for (const cohort of demographyResult.cohorts) {
-      nextCohorts[cohort.id] = cohort;
-    }
-    facts.push(...demographyResult.facts);
-  }
-  populationCohorts = nextCohorts;
-
-  // 10.5 Uzgodnienie zatrudnienia firm z realną podażą pracy regionu
+  // 11.5 Uzgodnienie zatrudnienia firm z realną podażą pracy regionu
   // (audytowe P0-05, "Company headcount reconciliation"). Migracja (krok
-  // 8) i demografia (krok 10) właśnie mogły zmniejszyć region's
-  // `eligibleLaborForce` poniżej sumy `Company.workforce.employees` --
-  // obie korygują TYLKO `cohort.employment` (własne pole), nic nie wiedzą
-  // o Company (M9's świadoma granica, patrz demography.ts). M7-M11 audyt
-  // (Etap 3) zakładał, że kolejny tick's `decideLabor` sam to nadgoni
-  // zwykłym LAYOFF -- w praktyce nie nadgania: firma z dodatnią marżą
-  // nigdy dobrowolnie nie zwalnia, więc fantomowi pracownicy przetrwaliby
-  // w nieskończoność (M12-M14 audyt, fixture 120 ticków). Ten krok
-  // wymusza deterministyczny, przymusowy layoff nadwyżki -- dokładnie ten
-  // sam mechanizm (`layoffWorkers`, firmy i kohorty w kolejności
-  // sortowanej id) co zwykła decyzja LAYOFF w kroku 2 wyżej, tylko
+  // 11, tuż wyżej) -- ostatni krok zmieniający populację/zatrudnienie tego
+  // ticka -- właśnie mogła zmniejszyć region's `eligibleLaborForce`
+  // poniżej sumy `Company.workforce.employees`. Demografia (krok 2) i
+  // migracja korygują TYLKO `cohort.employment` (własne pole), nic nie
+  // wiedzą o Company (M9's świadoma granica, patrz demography.ts). M7-M11
+  // audyt (Etap 3) zakładał, że kolejny tick's `decideLabor` sam to
+  // nadgoni zwykłym LAYOFF -- w praktyce nie nadgania: firma z dodatnią
+  // marżą nigdy dobrowolnie nie zwalnia, więc fantomowi pracownicy
+  // przetrwaliby w nieskończoność (M12-M14 audyt, fixture 120 ticków). Ten
+  // krok wymusza deterministyczny, przymusowy layoff nadwyżki -- dokładnie
+  // ten sam mechanizm (`layoffWorkers`, firmy i kohorty w kolejności
+  // sortowanej id) co zwykła decyzja LAYOFF w kroku 4 wyżej, tylko
   // wywołany bezwarunkowo na nadwyżkę ponad `eligibleLaborForce`, nie na
   // decyzji AI. Grupowanie na żywo z `populationCohorts`/`companies` (nie
   // z `region.population.cohortIds`/`region.economy.companyIds` -- te
   // cache'e są sprzed migracji/demografii tego ticka, ten sam "obserwuj
-  // na żywo" wzorzec co krok 11 niżej).
+  // na żywo" wzorzec co krok 12 niżej).
   {
     const cohortIdsByRegionId = new Map<string, string[]>();
     for (const cohort of Object.values(populationCohorts)) {
@@ -909,7 +945,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     }
   }
 
-  // 11. Settlement Growth (M14, `society/settlements`): SettlementPressure
+  // 12. Settlement Growth (M14, `society/settlements`): SettlementPressure
   // + stage transitions + housing (capacity/cost/pressure) -- ostatni krok
   // przed commit, żeby osady reagowały na w pełni rozliczoną populację
   // tego ticka (po migracji I demografii), nie na stan sprzed żadnej z nich.
@@ -917,7 +953,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   // `Region.population`/`Settlement.economy`, które i tak są tylko
   // cache'em odtwarzanym przez `createWorldState` na końcu -- ten sam
   // "obserwuj na żywo, nie z martwego cache" wzorzec co migrationAttraction
-  // w kroku 7.5).
+  // w kroku 9.5).
   const companiesBySettlementId = new Map<string, Company[]>();
   for (const company of Object.values(companies)) {
     if (company.settlementId === undefined || !company.status.active) continue;
@@ -1008,9 +1044,20 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   }
 
   // VALIDATE -> COMMIT (SIM-004): reużywa `createWorldState`'s istniejący,
-  // przetestowany walidator referencji zamiast pisać nowy.
+  // przetestowany walidator referencji zamiast pisać nowy. `world` dotąd
+  // przechodził bez zmian -- `WorldRunner.tick` szedł do przodu, ale
+  // `World.currentTick`/`currentDate` zostawały zamrożone na starcie
+  // (audytowe P1-04, dwa niespójne źródła czasu -- `WorldSummaryReadModel`
+  // czyta właśnie te pola). SIM-001: 1 tick = 1 miesiąc, więc data zawsze
+  // przesuwa się o dokładnie jeden miesiąc na wywołanie, niezależnie od
+  // liczbowej wartości `tick`.
+  const nextWorld = {
+    ...worldState.world,
+    currentTick: tick + 1,
+    currentDate: advanceCalendarDate(worldState.world.currentDate),
+  };
   const nextWorldState = createWorldState({
-    world: worldState.world,
+    world: nextWorld,
     continents: Object.values(worldState.continents),
     regions: Object.values(regions),
     connections: Object.values(connections),

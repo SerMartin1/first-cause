@@ -33,6 +33,31 @@ export function tickToDate(
   return { year, month };
 }
 
+/**
+ * Jeden tick dalej (SIM-001: 1 tick = 1 miesiąc), bez potrzeby znajomości
+ * `startYear`/`startMonth` -- liniowa arytmetyka miesięcy sprawia, że
+ * "+1 tick" i "+1 miesiąc" to dokładnie ta sama operacja niezależnie od
+ * punktu startowego (`tickToDate(start, tick+1)` różni się od
+ * `tickToDate(start, tick)` zawsze dokładnie o to). Używane przez
+ * `economy-tick.ts` do przesunięcia `World.currentDate`/`currentTick` w
+ * ramach commitu ticka (audytowe P1-04 -- `World` dotąd zostawał
+ * niezmieniony, mimo że `WorldRunner`'s własny licznik ticków szedł do
+ * przodu).
+ */
+export function advanceCalendarDate(date: CalendarDate): CalendarDate {
+  assertInteger(date.year, "advanceCalendarDate(date.year)");
+  assertInteger(date.month, "advanceCalendarDate(date.month)");
+  if (date.month < 1 || date.month > 12) {
+    throw new RangeError(
+      `advanceCalendarDate: date.month must be 1-12, got ${date.month}`,
+    );
+  }
+
+  return date.month === 12
+    ? { year: date.year + 1, month: 1 }
+    : { year: date.year, month: date.month + 1 };
+}
+
 export interface SimulationClockState {
   readonly startYear: number;
   readonly startMonth: number;

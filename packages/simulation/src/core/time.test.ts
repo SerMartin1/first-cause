@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SimulationClock, tickToDate } from "./time.js";
+import { SimulationClock, advanceCalendarDate, tickToDate } from "./time.js";
 
 describe("tickToDate (1 tick = 1 month, SIM-001)", () => {
   it("tick 0 is the start date", () => {
@@ -23,6 +23,29 @@ describe("tickToDate (1 tick = 1 month, SIM-001)", () => {
 
   it("rejects a negative tick", () => {
     expect(() => tickToDate(1200, 1, -1)).toThrow(RangeError);
+  });
+});
+
+describe("advanceCalendarDate (audit P1-04, World.currentDate advancement)", () => {
+  it("advances by one month within a year", () => {
+    expect(advanceCalendarDate({ year: 1, month: 1 })).toEqual({ year: 1, month: 2 });
+  });
+
+  it("rolls over into the next year after December", () => {
+    expect(advanceCalendarDate({ year: 1, month: 12 })).toEqual({ year: 2, month: 1 });
+  });
+
+  it("matches tickToDate's own month-by-month progression, without needing startYear/startMonth", () => {
+    let date = tickToDate(1200, 3, 0);
+    for (let tick = 1; tick <= 25; tick++) {
+      date = advanceCalendarDate(date);
+      expect(date).toEqual(tickToDate(1200, 3, tick));
+    }
+  });
+
+  it("rejects an out-of-range month", () => {
+    expect(() => advanceCalendarDate({ year: 1, month: 0 })).toThrow(RangeError);
+    expect(() => advanceCalendarDate({ year: 1, month: 13 })).toThrow(RangeError);
   });
 });
 

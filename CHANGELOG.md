@@ -10,6 +10,35 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **fix: Etap 8 -- naprawa audytu M12-M14, P0-06/P1-04 (kanoniczna
+  kolejność faz ticka, jeden zegar).** Reaguje na
+  `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
+  `economy-tick.ts`'s rzeczywista kolejność faz łamała CD SIM-003:
+  Regeneracja zasobów i Demografia (kanoniczne fazy #2/#3) wykonywały się
+  PO Production/Trade/Migration (dawne kroki 7-10), więc produkcja,
+  founding i migracja tego ticka operowały na populacji/zasobach sprzed
+  tegomiesięcznej demografii/regeneracji. Regeneracja i demografia są
+  teraz krokami 1-2, PRZED pętlą regionów; reszta pipeline'u zachowała
+  swoją WEWNĘTRZNĄ względną kolejność, tylko przenumerowaną (dawne 1-7.5
+  -> 3-9.5, dawne 7/8/9/10/10.5/11 -> 10/11/1/2/11.5/12). To nie jest
+  pełne 23-fazowe SIM-003 (Production Planning/Production/Inventory/itd.
+  pozostają zespolone w jeden krok "Company AI" -- audyt świadomie
+  dopuszcza to jako "nie chodzi o brak frameworka z 23 klasami").
+  `World.currentTick`/`currentDate` nigdy nie były aktualizowane przez
+  `runEconomyTick` mimo że `WorldRunner.tick` szedł do przodu -- dwa
+  niespójne źródła czasu, jedno z nich czytane przez
+  `WorldSummaryReadModel`. VALIDATE -> COMMIT przesuwa teraz
+  `currentDate` o jeden miesiąc (nowa `core/time.ts::advanceCalendarDate`,
+  SIM-001) i `currentTick` na `tick + 1`. 6 nowych testów regresyjnych, w
+  tym dokładnie nazwany w audycie `canonical_phase_order_and_world_clock`
+  (weryfikuje zarówno kolejność demografia-przed-migracją po indeksach
+  faktów, jak i przesunięcie zegara) i osobny test regeneracja-przed-
+  -produkcją (prawie pusty odnawialny depozyt, który regeneruje się
+  ponad próg batcha DOKŁADNIE w tym samym ticku). Oba zweryfikowane przez
+  tymczasowe cofnięcie zmiany (`git stash`) -- rzeczywiście łapią
+  regresję. Świadomie poza zakresem: pełne rozbicie na 23 kanoniczne
+  fazy, osobne fazy Services/Needs Satisfaction (niezamodelowane).
+
 - **fix: Etap 7 -- naprawa audytu M12-M14, P0-05/P1-07 (fantomowi
   pracownicy i integracja firm z osadami).** Reaguje na
   `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`.
