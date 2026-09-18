@@ -16,8 +16,8 @@ enabled it (`Butterfly Effect`).
 
 ## Current milestone
 
-**M0 through M14 = DONE. M15 = BLOCKED (formal starting condition
-unmet -- see below).**
+**M0 through M14 = DONE. M15 = READY (formal starting condition met as
+of 2026-09-18 -- see below); system implementation not started yet.**
 M0.1 is a maintenance step, preserving the canonical M0–M29 numbering.
 M1 -- Deterministic Core added a real, headless-testable deterministic
 skeleton (`packages/simulation/src/core`): a tick-derived
@@ -114,9 +114,12 @@ and lost migrant traits -- see the 2026-09-18 CHANGELOG entries for the
 full list. DONE for M12-M14 is now backed by that audit, not just the
 original implementation commits.
 
-Next: **M15 -- Technology**, currently BLOCKED on its own documented
-starting condition (a missing `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`
--- see the roadmap's M15 section). UI-F1 (Procedural Region Visual
+Next: **M15 -- Technology**, READY as of 2026-09-18 -- the
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (125 discoveries,
+5 domains) is delivered and `content/discoveries/*.json` (125 files) is
+written and passing the real M2 pipeline; system implementation
+(knowledge accumulation, Discovery Engine, Adoption) has not started
+yet -- see the roadmap's M15 section. UI-F1 (Procedural Region Visual
 Identity) starts alongside it, deferred from M14.
 Causality/Chronicle/Architect and a procedural World Generation
 algorithm still do not exist as *systems* yet -- see the Implementation

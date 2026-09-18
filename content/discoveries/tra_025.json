@@ -1,0 +1,17 @@
+{
+  "id": "tra_025",
+  "nameKey": "content.discovery.tra_025.name",
+  "primaryDomainId": "transport_communication",
+  "secondaryDomainIds": [],
+  "tier": 6,
+  "prerequisites": ["tra_022", "tra_023", "tra_024"],
+  "knowledgeRequirements": {},
+  "conditions": {},
+  "pressureModifiers": {},
+  "unlocks": [],
+  "diffusion": {},
+  "adoption": {},
+  "causalityTags": ["domain_transport_communication", "effect_realized"],
+  "chronicleSignificance": {},
+  "implementationPhase": "VS"
+}

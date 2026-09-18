@@ -4,9 +4,21 @@
 TECH-004/007/008 w `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 zaktualizowane 2026-09-18 zgodnie z tym dokumentem. Rozstrzyga formalny
 "Warunek rozpoczęcia" M15 w `FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
--- pozostaje techniczny krok: `content/discoveries/*.json` trzeba
-jeszcze napisać (sekcja 5), więc M15 formalnie wciąż BLOCKED do tego
-momentu, ale struktura/zakres nie są już w dyskusji.
+-- **techniczny krok z sekcji 5 zrobiony (2026-09-18):**
+`content/discoveries/*.json` (125 plików) napisane wg
+`DiscoveryDefinitionSchema` i zweryfikowane realnym pipeline'em M2
+(`content-fixtures.integration.test.ts`, 0 błędów/ostrzeżeń), lokalizacja
+EN+PL dodana. M15 formalnie READY. Pola tuningowe (`unlocks` na nowy
+content PM/Good, `knowledgeRequirements`, `pressureModifiers`,
+`diffusion`, `adoption`) pozostają puste -- to odrębny krok z sekcji 5,
+konsumowany przez M15's kod, nie przez samo istnienie plików JSON.
+
+**Znana niezgodność treści (niezmieniona samodzielnie, `AA-006`):**
+`MEC-009` (T2) ma jako prerekwizyt `MIN-019` (T4) -- wyższy tier niż
+sama pozycja. Realny pipeline to przepuszcza (tier = complexity band,
+nie sztywna bramka zależności, `TECH-007`), ale numerycznie jest to
+niezgodne z resztą katalogu. Do rozstrzygnięcia przy pierwszej okazji
+dotykania tej pozycji.
 
 **Data:** 2026-09-18 (druga wersja -- zastępuje pierwszą iterację z tej
 samej sesji, która miała 9 wąskich domen + osobne rozszerzenie

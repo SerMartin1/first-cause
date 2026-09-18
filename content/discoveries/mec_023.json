@@ -1,0 +1,17 @@
+{
+  "id": "mec_023",
+  "nameKey": "content.discovery.mec_023.name",
+  "primaryDomainId": "construction_mechanics",
+  "secondaryDomainIds": [],
+  "tier": 5,
+  "prerequisites": ["mec_012", "mec_018"],
+  "knowledgeRequirements": {},
+  "conditions": {},
+  "pressureModifiers": {},
+  "unlocks": [],
+  "diffusion": {},
+  "adoption": {},
+  "causalityTags": ["domain_construction_mechanics", "effect_realized"],
+  "chronicleSignificance": {},
+  "implementationPhase": "VS"
+}

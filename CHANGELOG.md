@@ -10,6 +10,55 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-18
 
+- **content: `content/discoveries/*.json` (125 plików) -- domyka
+  formalny Warunek rozpoczęcia M15.** Przepisuje wszystkie 125 pozycji
+  z `docs/FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (5 domen ×
+  25 odkryć) do `DiscoveryDefinitionSchema` (M2): `id` (snake_case,
+  np. `agr_001`), `nameKey`, `primaryDomainId` (`agriculture_food`/
+  `mining_metallurgy`/`construction_mechanics`/
+  `transport_communication`/`science_society`), `tier` (0--6),
+  `prerequisites` (realne referencje do innych odkryć w tym samym
+  pakiecie) i `implementationPhase: "VS"`. Pola tuningowe
+  (`knowledgeRequirements`, `conditions`, `pressureModifiers`,
+  `unlocks`, `diffusion`, `adoption`, `chronicleSignificance`)
+  pozostają puste (`{}`/`[]`) -- `AGENTS.md`'s "configurable placeholder
+  + TODO tuning": katalog świadomie nie ustala tych wartości (sekcja 1),
+  a `unlocks` na nowy content PM/Good wymaga najpierw samego tego
+  contentu (23/125 pozycji, katalog's sekcja 5 pkt 3 -- odrębny,
+  jeszcze niezrobiony krok). `causalityTags` niesie kategorię z katalogu
+  (`effect_realized`/`effect_new_content_pm`/`effect_pure_prerequisite`)
+  plus domenę, jako wolny opis (nie cross-referencowany), żeby
+  klasyfikacja z katalogu przetrwała w danych.
+
+  `locales/en|pl/common.json` dostały 125 nowych kluczy
+  `content.discovery.<id>.name` (EN + PL, z prozy katalogu).
+  `packages/content/src/content-fixtures.integration.test.ts` czyta
+  teraz też `content/discoveries` i asertuje `stats.discovery === 125`
+  -- realny pipeline M2 (referencje, cykle, duplikaty ID, faza,
+  pokrycie lokalizacji) przechodzi zerem błędów/ostrzeżeń na
+  wszystkich 125 plikach.
+
+  **Znaleziony, nienaprawiony samodzielnie problem:** katalog's
+  `MEC-009` (T2) ma prerekwizyt `MIN-019` (T4) -- wyższy tier niż sama
+  pozycja. Realny pipeline to przepuszcza (tier to complexity band, nie
+  bramka zależności, `TECH-007`), ale numerycznie jest to niezgodność w
+  prozie katalogu. Nie zmieniono bez wyraźnej decyzji (`AA-006`) --
+  odnotowane w katalogu i w roadmapie's M15 sekcji.
+
+  Zaktualizowano `FIRST-CAUSE-Implementation-Roadmap-v0.2.md` (M15:
+  BLOCKED -> READY w §0, §12, §14 i M15's własnej sekcji),
+  `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (status techniczny
+  z sekcji 5 odhaczony) i `README.md` ("Current milestone": M15 BLOCKED
+  -> READY). Świadomie NIE zrobione: `KnowledgeDomainDefinition` schema,
+  nowe `ProductionMethod`/`CompanyArchetype` dla 23 "(nowy content PM)"
+  pozycji, wywołanie `deposit-lifecycle.ts` z tick loopa, faktyczne
+  zapisywanie `TechnologyState.knowledge`/`discoveries` w
+  `economy-tick.ts` -- to jest sama implementacja systemów M15
+  (Discovery Engine, Adoption), nie ten krok.
+
+  Pełny `pnpm typecheck`/`lint` (1 preexisting warning)/`format:check`/
+  `test` (582 testy)/`build`/`test:e2e` -- wszystkie zielone.
+
 - **docs: Etap 12 (ostatni) -- naprawa audytu M12-M14, korekta
   dokumentacji i dwie decyzje rozstrzygające.** Reaguje na
   `docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`

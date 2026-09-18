@@ -1,0 +1,17 @@
+{
+  "id": "tra_006",
+  "nameKey": "content.discovery.tra_006.name",
+  "primaryDomainId": "transport_communication",
+  "secondaryDomainIds": [],
+  "tier": 1,
+  "prerequisites": ["min_001"],
+  "knowledgeRequirements": {},
+  "conditions": {},
+  "pressureModifiers": {},
+  "unlocks": [],
+  "diffusion": {},
+  "adoption": {},
+  "causalityTags": ["domain_transport_communication", "effect_pure_prerequisite"],
+  "chronicleSignificance": {},
+  "implementationPhase": "VS"
+}

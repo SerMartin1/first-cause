@@ -1,0 +1,17 @@
+{
+  "id": "min_012",
+  "nameKey": "content.discovery.min_012.name",
+  "primaryDomainId": "mining_metallurgy",
+  "secondaryDomainIds": [],
+  "tier": 2,
+  "prerequisites": ["min_003"],
+  "knowledgeRequirements": {},
+  "conditions": {},
+  "pressureModifiers": {},
+  "unlocks": [],
+  "diffusion": {},
+  "adoption": {},
+  "causalityTags": ["domain_mining_metallurgy", "effect_realized"],
+  "chronicleSignificance": {},
+  "implementationPhase": "VS"
+}

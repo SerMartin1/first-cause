@@ -1,0 +1,17 @@
+{
+  "id": "nau_007",
+  "nameKey": "content.discovery.nau_007.name",
+  "primaryDomainId": "science_society",
+  "secondaryDomainIds": [],
+  "tier": 1,
+  "prerequisites": ["nau_003"],
+  "knowledgeRequirements": {},
+  "conditions": {},
+  "pressureModifiers": {},
+  "unlocks": [],
+  "diffusion": {},
+  "adoption": {},
+  "causalityTags": ["domain_science_society", "effect_pure_prerequisite"],
+  "chronicleSignificance": {},
+  "implementationPhase": "VS"
+}

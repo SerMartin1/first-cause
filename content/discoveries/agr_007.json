@@ -1,0 +1,17 @@
+{
+  "id": "agr_007",
+  "nameKey": "content.discovery.agr_007.name",
+  "primaryDomainId": "agriculture_food",
+  "secondaryDomainIds": [],
+  "tier": 1,
+  "prerequisites": ["agr_002"],
+  "knowledgeRequirements": {},
+  "conditions": {},
+  "pressureModifiers": {},
+  "unlocks": [],
+  "diffusion": {},
+  "adoption": {},
+  "causalityTags": ["domain_agriculture_food", "effect_new_content_pm"],
+  "chronicleSignificance": {},
+  "implementationPhase": "VS"
+}

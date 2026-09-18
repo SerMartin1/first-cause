@@ -23,9 +23,10 @@ implementacji Vertical Slice --- od pustego repozytorium do
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
 M1--M14 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M14),
-bieżący etap to M15 (BACKLOG -- Documentation Readiness PARTIAL, patrz
-M15's "Warunek rozpoczęcia": brak katalogu technologii w repo blokuje
-start, niezależnie od kolejności milestone'ów). Pełni rolę, którą
+bieżący etap to M15 (READY -- Documentation Readiness READY od
+2026-09-18, patrz M15's "Warunek rozpoczęcia -- SPEŁNIONY": katalog
+technologii i `content/discoveries/*.json` dostarczone, implementacja
+systemów jeszcze nie zaczęta). Pełni rolę, którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
 kolejność na poziomie nazw milestone'ów (`IMPL-008`), a ten dokument
@@ -2422,17 +2423,37 @@ audytem, nie tylko commitami wdrożenia.
 
 **Faza:** D --- Knowledge & Economic Evolution · **Priorytet:** P0 ·
 **Złożoność:** L · **Ryzyko:** MEDIUM-HIGH · **Documentation
-Readiness:** PARTIAL — brak katalogu technologii w repo
+Readiness:** READY (od 2026-09-18)
 
-**Warunek rozpoczęcia:** dostarczyć i zweryfikować przywoływany przez
-specyfikacje `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`.
-Zasady TECH-001–009 obowiązują; brak katalogu nie upoważnia do wymyślania
-20–30 odkryć. **Decyzja z 2026-09-18** (przy zamykaniu audytu
-post-implementacyjnego M12-M14): katalog musi zostać dostarczony osobno
-(nie zastępujemy go skrótowo walidowanymi definicjami contentu VS) --
-M15 pozostaje BLOCKED, dopóki ten dokument nie powstanie i nie zostanie
-zweryfikowany. Nie blokuje to M1 ani schematów/pipeline M2. Dodatkowo od
-tej samej decyzji: **UI-F1 — Procedural Region Visual Identity**
+**Warunek rozpoczęcia -- SPEŁNIONY (2026-09-18).** Wymagany katalog
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (5 domen × 25
+odkryć = 125, T0--T6) został dostarczony i domeny/tier są CANONICAL
+(TECH-004/007/008 w `Canonical Decisions` zaktualizowane w tym samym
+kroku). Techniczny krok z sekcji 5 tego katalogu --
+`content/discoveries/*.json` -- jest teraz również zrobiony: 125 plików
+zgodnych z `DiscoveryDefinitionSchema`, zweryfikowanych przez realny
+pipeline M2 (`content-fixtures.integration.test.ts`: 0 błędów, 0
+ostrzeżeń, referencje/cykle/duplikaty/faza/lokalizacja PL+EN -- czyste).
+Pola tuningowe (`knowledgeRequirements`, `conditions`,
+`pressureModifiers`, `diffusion`, `adoption`, `unlocks`,
+`chronicleSignificance`) są świadomie puste (`{}`/`[]`) -- to
+"configurable placeholder + TODO tuning" (`AGENTS.md`), nie brakujący
+zakres tego kroku: ich rzeczywisty kształt zależy od tego, jak M15's
+kod (Discovery Engine, Adoption) faktycznie je konsumuje, co dokument
+katalogu explicite odkłada do implementacji (sekcja 1/5). `unlocks` nie
+wskazuje jeszcze na nowy content PM/Good (23/125 pozycji katalogu je
+wymaga) -- to jest odrębny, jeszcze niezrobiony krok z katalogu's
+sekcji 5 pkt 3, poza zakresem samego `content/discoveries/*.json`.
+
+**Znana niezgodność w katalogu (do rozstrzygnięcia, nie blokuje M15):**
+`MEC-009` (T2) ma w prozie katalogu prerekwizyt `MIN-019` (T4) -- realny
+pipeline to przepuszcza (tier to complexity band, nie sztywna bramka
+zależności, `TECH-007`), ale numerycznie tier prerekwizytu jest wyższy
+niż tier zależnej pozycji. Do jawnego rozstrzygnięcia przy pierwszej
+okazji dotykania tej pozycji (nie zmieniono samodzielnie -- `AA-006`).
+
+**Decyzja z 2026-09-18** (przy zamykaniu audytu post-implementacyjnego
+M12-M14), zachowana: **UI-F1 — Procedural Region Visual Identity**
 (`RegionVisualProfile` + renderer `FCRegionVignette`, jawnie odroczone z
 M14, patrz M14's sekcja) startuje razem z M15, równoległym torem, bez
 blokowania M15's własnej Acceptance Gate.
@@ -3210,10 +3231,12 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 Stan na 2026-09-18: M0, M0.1 Audit Fixes oraz M1--M14 ukończone (M12-M14
 dodatkowo przeszły pełny audyt post-implementacyjny i naprawę -- patrz
-M14's sekcja "Audyt post-implementacyjny"); M15 zależnościowo odblokowany
-(M14 DONE), ale formalnie BLOCKED na własnym Warunku rozpoczęcia --
-brakujący `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (patrz M15's
-sekcja). **Ten dokument jest żywy --- po ukończeniu każdego
+M14's sekcja "Audyt post-implementacyjny"); M15 odblokowany -- katalog
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` dostarczony i
+`content/discoveries/*.json` (125 plików) napisane i zweryfikowane
+realnym pipeline'em M2 (patrz M15's sekcja "Warunek rozpoczęcia --
+SPEŁNIONY"); implementacja systemów M15 (Discovery Engine, Adoption)
+jeszcze nie zaczęta. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -3235,7 +3258,7 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M12         DONE      P0          M           MEDIUM-HIGH   M11
   M13         DONE      P0          M           MEDIUM        M12
   M14         DONE      P0          S/M         MEDIUM        M13
-  M15         BLOCKED   P0          L           MEDIUM-HIGH   M14
+  M15         READY     P0          L           MEDIUM-HIGH   M14
   M16         BACKLOG   P0          M           MEDIUM        M15
   M17         BACKLOG   P0          L           HIGH          M16
   M18         BACKLOG   P0          M           MEDIUM        M17
@@ -3282,10 +3305,10 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M15 — Technology**, formalnie BLOCKED do dostarczenia
-`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (patrz M15's Warunek
-rozpoczęcia); UI-F1 startuje równolegle z M15 (odroczone z M14). M0,
-M0.1 oraz M1--M14 są DONE (M12-M14 dodatkowo przeszły pełną naprawę
+Następny krok: **M15 — Technology**, READY -- katalog i
+`content/discoveries/*.json` dostarczone (patrz M15's Warunek
+rozpoczęcia), implementacja systemów jeszcze nie zaczęta; UI-F1 startuje
+równolegle z M15 (odroczone z M14). M0, M0.1 oraz M1--M14 są DONE (M12-M14 dodatkowo przeszły pełną naprawę
 audytu post-implementacyjnego, patrz M14's sekcja). Kolejne milestone’y
 rozpoczynają się po odbiorze ich zależności.
 
