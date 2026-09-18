@@ -116,4 +116,83 @@ describe("decideLabor", () => {
     });
     expect(second.action).toBe("LAYOFF");
   });
+
+  it("audit regression (P1, vacancies rosnące bez końca): vacancies track the current gap instead of accumulating across repeated HIRE ticks", () => {
+    // Labor supply never actually arrives (currentEmployees stays 50 every
+    // tick, as if matchEmployment found nobody to hire), so the target gap
+    // is the same 30 every time -- before the fix, each non-cooldown HIRE
+    // tick added another 30 on top, growing without bound.
+    let c = company(50);
+    for (let tick = 1; tick <= 40; tick += 10) {
+      // step past LAYOFF_COOLDOWN_TICKS (2) each iteration
+      const result = decideLabor({
+        company: c,
+        tick,
+        targetEmployment: 80,
+        financialHealth: healthy,
+      });
+      expect(result.action).toBe("HIRE");
+      expect(result.company.workforce.vacancies).toBe(30);
+      c = result.company;
+    }
+  });
+
+  it("audit regression (P1): vacancies shrink back down when the target drops, instead of only ever growing", () => {
+    const opened = decideLabor({
+      company: company(50),
+      tick: 1,
+      targetEmployment: 80,
+      financialHealth: healthy,
+    });
+    expect(opened.company.workforce.vacancies).toBe(30);
+
+    const shrunk = decideLabor({
+      company: opened.company,
+      tick: 10, // past the cooldown
+      targetEmployment: 55, // demand cooled off; still a HIRE, but a much smaller one
+      financialHealth: healthy,
+    });
+    expect(shrunk.action).toBe("HIRE");
+    expect(shrunk.company.workforce.vacancies).toBe(5);
+  });
+
+  it("audit regression (P1): reaching the target clears any stale unfilled vacancies instead of leaving them dangling", () => {
+    const opened = decideLabor({
+      company: company(50),
+      tick: 1,
+      targetEmployment: 80,
+      financialHealth: healthy,
+    });
+    expect(opened.company.workforce.vacancies).toBe(30);
+
+    // Employees never actually arrived at 80 (still 50), but the target
+    // itself has now caught back down to exactly what's already employed.
+    const settled = decideLabor({
+      company: opened.company,
+      tick: 10,
+      targetEmployment: 50,
+      financialHealth: healthy,
+    });
+    expect(settled.action).toBe("HOLD");
+    expect(settled.company.workforce.vacancies).toBe(0);
+  });
+
+  it("forces vacancies to 0 on a LAYOFF -- a company should never simultaneously show open positions and lay people off", () => {
+    const hired = decideLabor({
+      company: company(50),
+      tick: 1,
+      targetEmployment: 80,
+      financialHealth: healthy,
+    });
+    expect(hired.company.workforce.vacancies).toBe(30);
+
+    const laidOff = decideLabor({
+      company: hired.company,
+      tick: 10,
+      targetEmployment: 10,
+      financialHealth: healthy,
+    });
+    expect(laidOff.action).toBe("LAYOFF");
+    expect(laidOff.company.workforce.vacancies).toBe(0);
+  });
 });

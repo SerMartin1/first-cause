@@ -23,6 +23,16 @@ describe("initializeMarketGood", () => {
     expect(() => initializeMarketGood(0)).toThrow(InvariantViolationError);
     expect(() => initializeMarketGood(-5)).toThrow(InvariantViolationError);
   });
+
+  it("audit regression (P1, floor/monthly-cap konflikt): floors a basePrice under MIN_PRICE instead of letting rounding zero it out", () => {
+    // roundMoney(0.001) rounds to 0.00 (banker's rounding to the nearest
+    // cent) -- before the fix this silently produced localPrice: 0,
+    // violating both MIN_PRICE and the "price > 0" invariant this same
+    // file's own doc comment claims to guarantee.
+    const state = initializeMarketGood(0.001);
+    expect(state.localPrice).toBeGreaterThanOrEqual(0.01); // MIN_PRICE
+    expect(state.localPrice).toBeGreaterThan(0);
+  });
 });
 
 describe("updateMarketGood", () => {
@@ -52,6 +62,53 @@ describe("updateMarketGood", () => {
     expect(next.goods.grain!.shortageSeverity).toBeGreaterThan(0);
     expect(next.goods.grain!.pricePressure).toBeGreaterThan(0);
     expect(next.goods.grain!.localPrice).toBeGreaterThan(10);
+  });
+
+  it("audit regression (P1, rynek nie reaguje na zerową podaż): a good with zero supply and no history still generates upward price pressure when demand is real", () => {
+    const market = seedMarket("grain", 10);
+    const { market: next } = updateMarketGood({
+      market,
+      goodId: "grain",
+      supply: 0, // never produced, no rolling history yet either
+      demandSources: { households: 10 },
+      inventory: 0,
+    });
+
+    expect(next.goods.grain!.shortageSeverity).toBeGreaterThan(0);
+    expect(next.goods.grain!.pricePressure).toBeGreaterThan(0);
+    expect(next.goods.grain!.localPrice).toBeGreaterThan(10);
+  });
+
+  it("audit regression (P1): a sustained zero-supply stockout keeps pushing price up tick after tick, not just once", () => {
+    let market = seedMarket("grain", 10);
+    let previousPrice = 10;
+    for (let tick = 0; tick < 10; tick++) {
+      const result = updateMarketGood({
+        market,
+        goodId: "grain",
+        supply: 0,
+        demandSources: { households: 10 },
+        inventory: 0,
+      });
+      market = result.market;
+      const price = market.goods.grain!.localPrice;
+      expect(price).toBeGreaterThan(previousPrice); // before the fix this stayed frozen at 10 forever
+      previousPrice = price;
+    }
+  });
+
+  it("does not manufacture price pressure for a good with neither supply nor demand (no signal to react to)", () => {
+    const market = seedMarket("grain", 10);
+    const { market: next } = updateMarketGood({
+      market,
+      goodId: "grain",
+      supply: 0,
+      demandSources: {},
+      inventory: 0,
+    });
+
+    expect(next.goods.grain!.pricePressure).toBe(0);
+    expect(next.goods.grain!.localPrice).toBe(10);
   });
 
   it("FC-MARKET-002 surplus: supply > demand gives zero shortage severity and non-positive price pressure", () => {

@@ -97,10 +97,20 @@ export function evaluatePmAdoption(
 
   const nextCompany = updateOpportunityStreak(company, PM_DECISION_TYPE, advantageous);
   const capitalAvailable = nextCompany.finance.cash >= conversionCost;
+  // Audytowe P1 "PM adoption bez hard eligibility": do dziś jedyną twardą
+  // bramką był kapitał na konwersję -- firma dowolnego archetypu mogła
+  // "przyjąć" dowolną Production Method, dopóki matematyka marży wyglądała
+  // dobrze (np. piekarnia przyjmująca manual_farming). Pusta
+  // `eligibleCompanyArchetypeIds` = brak ograniczenia (recepturom bez tego
+  // pola -- np. ręcznie budowanym w testach -- nic się nie zmienia).
+  const archetypeEligible =
+    input.candidateRecipe.eligibleCompanyArchetypeIds.length === 0 ||
+    input.candidateRecipe.eligibleCompanyArchetypeIds.includes(company.archetypeId);
+  const hardEligible = capitalAvailable && archetypeEligible;
 
   if (
     advantageous &&
-    capitalAvailable &&
+    hardEligible &&
     persistenceSatisfied(nextCompany, PM_DECISION_TYPE, PM_ADOPTION_PERSISTENCE_TICKS)
   ) {
     const adopted: Company = {
@@ -126,7 +136,7 @@ export function evaluatePmAdoption(
           { action: "KEEP", hardEligible: true, score: 0 },
           {
             action: "ADOPT",
-            hardEligible: capitalAvailable,
+            hardEligible,
             score: pmScore,
           },
         ],

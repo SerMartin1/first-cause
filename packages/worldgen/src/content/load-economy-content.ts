@@ -96,6 +96,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     productionRecipesByMethodId[definition.id] = parseProductionRecipe(
       definition.id,
       definition.productivity,
+      definition.companyArchetypeIds,
     );
   }
 

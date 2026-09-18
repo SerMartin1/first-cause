@@ -69,38 +69,61 @@ export function decideLabor(input: DecideLaborInput): DecideLaborResult {
   const gap = targetEmployment - currentEmployees;
   if (gap > 0) return finish(company, tick, "HIRE", 0, gap);
   if (gap < 0) return finish(company, tick, "LAYOFF", -gap, 0);
-  return { company, action: "HOLD", layoffTarget: 0, facts: [] };
+  // gap === 0: docelowe zatrudnienie już jest spełnione -- domknij każde
+  // zaległe, niewypełnione wakaty z poprzedniej decyzji zamiast zostawiać
+  // je wiszące (audytowe P1 "vacancies rosnące bez końca" -- ta sama
+  // przyczyna co niżej, ale ten konkretny styk sam nie przechodzi przez
+  // `finish`/cooldown, bo domknięcie księgowe nie jest decyzją wartą
+  // cooldownu).
+  if (company.workforce.vacancies === 0) {
+    return { company, action: "HOLD", layoffTarget: 0, facts: [] };
+  }
+  return {
+    company: { ...company, workforce: { ...company.workforce, vacancies: 0 } },
+    action: "HOLD",
+    layoffTarget: 0,
+    facts: [],
+  };
 }
 
+/**
+ * `nextVacancies` to docelowa wartość `workforce.vacancies` po tej
+ * decyzji (SET, nie ADD) -- audytowe P1 "vacancies rosnące bez końca":
+ * poprzednia wersja dodawała `gap` do już istniejących wakatów co tick, co
+ * przy wyczerpanym rynku pracy (target nigdy nie doganiany) kumulowało
+ * wakaty w nieskończoność, bo `gap` liczony był tylko z `currentEmployees`,
+ * nigdy z tego, ile wakatów już czeka na obsadzenie. Ustawianie zamiast
+ * dodawania samo-koryguje się w obie strony: kurczy się, gdy target
+ * spadnie, rośnie tylko wtedy, gdy realnie brakuje więcej ludzi niż
+ * ostatnio.
+ */
 function finish(
   company: Company,
   tick: number,
   action: "HIRE" | "LAYOFF",
   layoffTarget: number,
-  vacanciesToAdd: number,
+  nextVacancies: number,
 ): DecideLaborResult {
   const withCooldown = recordDecision(company, LABOR_DECISION_TYPE, tick);
+  const beforeVacancies = withCooldown.workforce.vacancies;
   const nextCompany: Company =
-    vacanciesToAdd > 0
+    nextVacancies !== beforeVacancies
       ? {
           ...withCooldown,
-          workforce: {
-            ...withCooldown.workforce,
-            vacancies: withCooldown.workforce.vacancies + vacanciesToAdd,
-          },
+          workforce: { ...withCooldown.workforce, vacancies: nextVacancies },
         }
       : withCooldown;
 
   const facts: FactInput<number>[] = [];
-  if (action === "HIRE" && vacanciesToAdd > 0) {
+  if (action === "HIRE" && nextVacancies > beforeVacancies) {
     facts.push({
       type: "vacancies_opened",
       subject: { entityType: "company", entityId: company.id },
       location: { regionId: company.regionId },
       values: {
-        before: company.workforce.vacancies,
-        after: nextCompany.workforce.vacancies,
-        delta: vacanciesToAdd,
+        before: beforeVacancies,
+        after: nextVacancies,
+        delta: nextVacancies - beforeVacancies,
       },
     });
   }

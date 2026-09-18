@@ -40,14 +40,27 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-/** Seeds a good's/resource's first `MarketGoodState` from its content `basePrice` (BaseContentPrice, M8 "Dane"). */
+/**
+ * Seeds a good's/resource's first `MarketGoodState` from its content
+ * `basePrice` (BaseContentPrice, M8 "Dane"). Audytowe P1 ("floor/monthly-
+ * cap konflikt"): floored at `MIN_PRICE` the same way `updateMarketGood`
+ * floors every later tick -- without this, a `basePrice` under half a
+ * cent (e.g. 0.001) would round to exactly 0 (`roundMoney`, banker's
+ * rounding), silently violating both `MIN_PRICE` and the `price > 0`
+ * invariant (Entity Data Model SS15) this file's own doc comment already
+ * claims. That single inconsistency was the real root of the
+ * floor/cap conflict: once a seeded price could start below `MIN_PRICE`,
+ * the very next tick's floor-clamp (`Math.max(MIN_PRICE, rawNewPrice)`)
+ * could jump it back up by far more than `MAX_TICK_PRICE_CHANGE` allows,
+ * since that clamp is unconditional and never itself respects the cap.
+ */
 export function initializeMarketGood(basePrice: number): MarketGoodState {
   assertPositive(basePrice, "initializeMarketGood(basePrice)");
   return {
     supply: 0,
     demand: 0,
     inventory: 0,
-    localPrice: roundMoney(basePrice),
+    localPrice: roundMoney(Math.max(MIN_PRICE, basePrice)),
     importDemand: 0, // M10 (handel międzyregionalny) -- placeholder untouched by M8
     exportSupply: 0, // M10 -- placeholder untouched by M8
     shortageSeverity: 0,
@@ -140,10 +153,24 @@ export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGood
   const reference = normalSupply(priorSupplyHistory, supply);
 
   // Brak jakiejkolwiek bazowej podaży (ani historii, ani bieżącego ticka) to
-  // stan bez punktu odniesienia -- presja zostaje 0 zamiast dzielić przez
-  // zero (Finite Numbers, Simulation Test Spec SS18), zamiast zgadywać.
+  // stan bez punktu odniesienia dla dzielenia (Finite Numbers, Simulation
+  // Test Spec SS18) -- ale to NIE znaczy "brak sygnału". Audytowe P1
+  // ("rynek nie reaguje na zerową podaż"): stary kod dawał tu zawsze 0,
+  // więc dobro, które nigdy nie miało żadnej podaży (ani tego ticka, ani
+  // w historii -- każda podaż=0 dopisuje kolejne 0 do rolling history,
+  // więc `reference` samo nigdy się nie podniesie), nie generowało presji
+  // cenowej bez względu na to, jak duży był popyt -- realny stockout nigdy
+  // nie podnosił ceny. Brak podaży + realny popyt to sam w sobie
+  // najsilniejszy możliwy sygnał niedoboru, więc trafia w sufit
+  // `MAX_TICK_PRICE_CHANGE` (dalej przechodzi przez to samo smoothing/cap
+  // co każda inna presja); brak i podaży, i popytu zostaje przy 0 -- nie
+  // ma żadnego sygnału do wygenerowania.
   const rawPressure =
-    reference > 0 ? PRICE_SENSITIVITY * ((demand - effectiveSupply) / reference) : 0;
+    reference > 0
+      ? PRICE_SENSITIVITY * ((demand - effectiveSupply) / reference)
+      : demand > 0
+        ? MAX_TICK_PRICE_CHANGE
+        : 0;
   const cappedPressure = clamp(
     rawPressure,
     -MAX_TICK_PRICE_CHANGE,

@@ -215,6 +215,91 @@ describe("decideLifecycle", () => {
     expect(result.company.status.active).toBe(true);
   });
 
+  it("audit regression (P1): an inactive company never EXPANDs, even when every other gate (score/persistence/cash) is satisfied", () => {
+    let c: Company = {
+      ...company({ utilization: 1 }),
+      status: { ...company().status, active: false },
+    };
+    let lastResult = decideLifecycle({
+      company: c,
+      tick: 1,
+      financialHealth: healthy,
+      demandPersistenceScore: 1,
+      expectedMargin: 1,
+      capitalCost: 0,
+    });
+    c = lastResult.company;
+    for (let tick = 2; tick <= 6; tick++) {
+      lastResult = decideLifecycle({
+        company: c,
+        tick,
+        financialHealth: healthy,
+        demandPersistenceScore: 1,
+        expectedMargin: 1,
+        capitalCost: 0,
+      });
+      c = lastResult.company;
+    }
+    expect(lastResult.action).not.toBe("EXPAND");
+    expect(c.production.capacity).toBe(0);
+  });
+
+  it("audit regression (P1): an inactive company never CONTRACTs, even when every other gate is satisfied", () => {
+    let c: Company = {
+      ...company({ utilization: 0, capacity: 10 }),
+      status: { ...company().status, active: false },
+    };
+    let lastResult = decideLifecycle({
+      company: c,
+      tick: 1,
+      financialHealth: healthy,
+      demandPersistenceScore: 0,
+      expectedMargin: -1,
+      capitalCost: 0,
+    });
+    c = lastResult.company;
+    for (let tick = 2; tick <= 3; tick++) {
+      lastResult = decideLifecycle({
+        company: c,
+        tick,
+        financialHealth: healthy,
+        demandPersistenceScore: 0,
+        expectedMargin: -1,
+        capitalCost: 0,
+      });
+      c = lastResult.company;
+    }
+    expect(lastResult.action).not.toBe("CONTRACT");
+    expect(c.production.capacity).toBe(10);
+  });
+
+  it("audit regression (P1, decision-snapshot niekompletny): EXPAND's snapshot.hardEligible is true on a real, active expansion", () => {
+    let c = company({ utilization: 1 });
+    let lastResult = decideLifecycle({
+      company: c,
+      tick: 1,
+      financialHealth: healthy,
+      demandPersistenceScore: 1,
+      expectedMargin: 1,
+      capitalCost: 0,
+    });
+    c = lastResult.company;
+    for (let tick = 2; tick <= 6; tick++) {
+      lastResult = decideLifecycle({
+        company: c,
+        tick,
+        financialHealth: healthy,
+        demandPersistenceScore: 1,
+        expectedMargin: 1,
+        capitalCost: 0,
+      });
+      c = lastResult.company;
+    }
+    expect(lastResult.action).toBe("EXPAND");
+    const expandOption = lastResult.snapshot?.options.find((o) => o.action === "EXPAND");
+    expect(expandOption?.hardEligible).toBe(true);
+  });
+
   it("fails loud on a negative capitalCost instead of letting expansion mint cash (regression guard, audit P0-05)", () => {
     expect(() =>
       decideLifecycle({

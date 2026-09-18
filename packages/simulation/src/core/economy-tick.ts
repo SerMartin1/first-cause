@@ -333,6 +333,13 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         facts.push(...wageResult.facts);
       }
 
+      // Audytowe P1 ("layoff nie rozlicza poprawnie pozostałej płacy"):
+      // zapamiętane PRZED wykonaniem layoff, żeby zwolnieni tego ticka
+      // wciąż dostali zapłatę za czas, w którym byli zatrudnieni -- bez
+      // tego `laborCostThisTick` (niżej) liczyłby się już od
+      // zredukowanego stanu i zwolnieni nie dostaliby nic za ten tick.
+      const employeesBeforeLaborAction = company.workforce.employees;
+
       if (laborDecision.action === "HIRE") {
         for (const cohortId of cohortIds) {
           if (company.workforce.vacancies <= 0) break;
@@ -433,7 +440,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         inventories[regionInventoryId] = regionInventory;
       }
 
-      const laborCostThisTick = company.workforce.wageOffer * company.workforce.employees;
+      const employeesPaidThisTick = Math.max(
+        employeesBeforeLaborAction,
+        company.workforce.employees,
+      );
+      const laborCostThisTick = company.workforce.wageOffer * employeesPaidThisTick;
       const financeResult = applyCompanyFinances({
         company,
         revenue: revenueThisTick,

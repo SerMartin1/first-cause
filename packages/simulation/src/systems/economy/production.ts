@@ -47,6 +47,18 @@ export interface ProductionRecipe {
   readonly goodInputsPerBatch: Readonly<Record<string, number>>;
   /** Good id -> ilość dodawana do własnego Inventory firmy na jeden batch. */
   readonly goodOutputsPerBatch: Readonly<Record<string, number>>;
+  /**
+   * `CompanyArchetype` id-y, które w ogóle mogą prowadzić tę Production
+   * Method -- to `ProductionMethodDefinition.companyArchetypeIds` (M2),
+   * NIE część "productivity" bagu (w przeciwieństwie do pól powyżej): to
+   * już ustrukturyzowane, referencyjne pole M2, `ProductionRecipe` tylko
+   * niesie je dalej pod tym samym kluczem (`productionMethodId`), bo to
+   * jedyny per-recepturowy lookup, przez który przechodzi cały silnik
+   * (`DEFAULT_PRODUCTION_RECIPES`/`productionRecipesByMethodId`). Pusta
+   * tablica = brak ograniczenia. Audytowe P1 "PM adoption bez hard
+   * eligibility" -- `company-ai/pm-adoption.ts` to jedyny dziś konsument.
+   */
+  readonly eligibleCompanyArchetypeIds: readonly string[];
 }
 
 export interface RunProductionInput {
@@ -83,6 +95,7 @@ export const DEFAULT_PRODUCTION_RECIPES: Readonly<Record<string, ProductionRecip
     resourceInputsPerBatch: { grain: 10 },
     goodInputsPerBatch: {},
     goodOutputsPerBatch: { flour: 8 },
+    eligibleCompanyArchetypeIds: ["grain_farm"],
   },
   manual_food_processing: {
     productionMethodId: "manual_food_processing",
@@ -90,6 +103,7 @@ export const DEFAULT_PRODUCTION_RECIPES: Readonly<Record<string, ProductionRecip
     resourceInputsPerBatch: {},
     goodInputsPerBatch: { flour: 5 },
     goodOutputsPerBatch: { bread: 4 },
+    eligibleCompanyArchetypeIds: ["bakery"],
   },
 };
 
@@ -131,10 +145,16 @@ function parseQuantityRecord(
  * Core) celowo nie zależy od pakietu content, tylko od kształtu jednego
  * pola, które i tak dostaje z zewnątrz (caller w `worldgen` już przeszedł
  * przez `loadContentPack`, więc `id`/referencje są tam już zwalidowane).
+ *
+ * `companyArchetypeIds` to osobny parametr, nie pole `productivity` --
+ * to już ustrukturyzowane `ProductionMethodDefinition.companyArchetypeIds`
+ * (M2), caller (`worldgen`) przekazuje je wprost z definicji, bez
+ * przechodzenia przez ten sam bag co ilości na batch.
  */
 export function parseProductionRecipe(
   productionMethodId: string,
   productivity: Readonly<Record<string, unknown>>,
+  companyArchetypeIds: readonly string[] = [],
 ): ProductionRecipe {
   const label = `productionMethods/${productionMethodId}.productivity`;
   return {
@@ -155,6 +175,7 @@ export function parseProductionRecipe(
       productivity.goodOutputsPerBatch,
       `${label}.goodOutputsPerBatch`,
     ),
+    eligibleCompanyArchetypeIds: companyArchetypeIds,
   };
 }
 

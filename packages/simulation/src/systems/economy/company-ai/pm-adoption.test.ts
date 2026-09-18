@@ -23,6 +23,7 @@ const currentRecipe: ProductionRecipe = {
   resourceInputsPerBatch: { grain: 10 },
   goodInputsPerBatch: {},
   goodOutputsPerBatch: { flour: 8 },
+  eligibleCompanyArchetypeIds: [],
 };
 
 const betterRecipe: ProductionRecipe = {
@@ -31,6 +32,7 @@ const betterRecipe: ProductionRecipe = {
   resourceInputsPerBatch: { grain: 10 },
   goodInputsPerBatch: {},
   goodOutputsPerBatch: { flour: 12 },
+  eligibleCompanyArchetypeIds: [],
 };
 
 const worseRecipe: ProductionRecipe = {
@@ -39,6 +41,7 @@ const worseRecipe: ProductionRecipe = {
   resourceInputsPerBatch: { grain: 10 },
   goodInputsPerBatch: {},
   goodOutputsPerBatch: { flour: 6 },
+  eligibleCompanyArchetypeIds: [],
 };
 
 const prices = { grain: 2, flour: 5 };
@@ -81,6 +84,79 @@ describe("evaluatePmAdoption", () => {
     }
     expect(adopted).toBe(false);
     expect(c.production.productionMethodId).toBeUndefined();
+  });
+
+  it("audit regression (P1, PM adoption bez hard eligibility): never adopts a recipe restricted to a different company archetype, even with a great margin", () => {
+    const bakeryOnlyRecipe: ProductionRecipe = {
+      ...betterRecipe,
+      eligibleCompanyArchetypeIds: ["bakery"],
+    };
+    let c = company(); // archetypeId: "grain_farm" -- not "bakery"
+    let adopted = false;
+    for (let tick = 1; tick <= 10; tick++) {
+      const result = evaluatePmAdoption({
+        company: c,
+        tick,
+        currentRecipe,
+        candidateRecipe: bakeryOnlyRecipe,
+        prices,
+        conversionCost: 5,
+      });
+      c = result.company;
+      adopted = result.adopted;
+    }
+    expect(adopted).toBe(false);
+    expect(c.production.productionMethodId).toBeUndefined();
+  });
+
+  it("audit regression (P1): adopts a recipe once the company's own archetype is in the allow-list", () => {
+    const grainFarmRecipe: ProductionRecipe = {
+      ...betterRecipe,
+      eligibleCompanyArchetypeIds: ["grain_farm", "bakery"],
+    };
+    let c = company(); // archetypeId: "grain_farm"
+    let adopted = false;
+    for (let tick = 1; tick <= 3; tick++) {
+      const result = evaluatePmAdoption({
+        company: c,
+        tick,
+        currentRecipe,
+        candidateRecipe: grainFarmRecipe,
+        prices,
+        conversionCost: 5,
+      });
+      c = result.company;
+      adopted = result.adopted;
+    }
+    expect(adopted).toBe(true);
+    expect(c.production.productionMethodId).toBe("improved_farming");
+  });
+
+  it("audit regression (P1, decision-snapshot niekompletny): ADOPT's snapshot.hardEligible is true on a real adoption (capital AND archetype both qualify)", () => {
+    let c = company();
+    let lastResult = evaluatePmAdoption({
+      company: c,
+      tick: 1,
+      currentRecipe,
+      candidateRecipe: betterRecipe,
+      prices,
+      conversionCost: 5,
+    });
+    c = lastResult.company;
+    for (let tick = 2; tick <= 3; tick++) {
+      lastResult = evaluatePmAdoption({
+        company: c,
+        tick,
+        currentRecipe,
+        candidateRecipe: betterRecipe,
+        prices,
+        conversionCost: 5,
+      });
+      c = lastResult.company;
+    }
+    expect(lastResult.adopted).toBe(true);
+    const adoptOption = lastResult.snapshot?.options.find((o) => o.action === "ADOPT");
+    expect(adoptOption?.hardEligible).toBe(true);
   });
 
   it("Technologia może być nieopłacalna (SS39): a high conversion cost can turn an output gain into a rejection", () => {
@@ -174,6 +250,7 @@ describe("evaluatePmAdoption", () => {
       resourceInputsPerBatch: {},
       goodInputsPerBatch: {},
       goodOutputsPerBatch: { flour: 0.55 },
+      eligibleCompanyArchetypeIds: [],
     };
     const candidateInsertedAscending: ProductionRecipe = {
       productionMethodId: "improved_farming",
@@ -181,6 +258,7 @@ describe("evaluatePmAdoption", () => {
       resourceInputsPerBatch: {},
       goodInputsPerBatch: {},
       goodOutputsPerBatch: { a: 0.1, b: 0.2, c: 0.3 },
+      eligibleCompanyArchetypeIds: [],
     };
     const candidateInsertedDescending: ProductionRecipe = {
       productionMethodId: "improved_farming",
@@ -188,6 +266,7 @@ describe("evaluatePmAdoption", () => {
       resourceInputsPerBatch: {},
       goodInputsPerBatch: {},
       goodOutputsPerBatch: { c: 0.3, b: 0.2, a: 0.1 },
+      eligibleCompanyArchetypeIds: [],
     };
     const flatPrices = { flour: 1, a: 1, b: 1, c: 1 };
 

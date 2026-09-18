@@ -333,6 +333,7 @@ describe("runProduction -- recipe input validation", () => {
       resourceInputsPerBatch: { grain: -1 },
       goodInputsPerBatch: {},
       goodOutputsPerBatch: {},
+      eligibleCompanyArchetypeIds: [],
     };
     expect(() =>
       runProduction({

@@ -111,7 +111,11 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
         decisionType: CLOSURE_DECISION_TYPE,
         options: [
           { action: "HOLD", hardEligible: true, score: 0 },
-          { action: "CLOSE", hardEligible: true, score: 1 },
+          // Audytowe P1 (decision-snapshot niekompletny): `hardEligible`
+          // odzwierciedla teraz sam bramkujący invariant tej gałęzi
+          // (`company.status.active`), zamiast być hardcoded `true` tylko
+          // dlatego, że ta gałąź i tak nigdy nie jest osiągana inaczej.
+          { action: "CLOSE", hardEligible: company.status.active, score: 1 },
         ],
         selectedAction: "CLOSE",
         factors: [
@@ -142,11 +146,20 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
   company = setActive(company, EXPANSION_DECISION_TYPE, nowExpanding);
   company = updateOpportunityStreak(company, EXPANSION_DECISION_TYPE, nowExpanding);
 
+  // Audytowe P1: dwie strukturalne (nie-scorowe) bramki EXPAND, obliczone
+  // raz i reużyte zarówno w warunku `if`, jak i w snapshotcie poniżej, żeby
+  // nigdy nie mogły się rozjechać. `company.status.active` brakowało tu
+  // wcześniej -- bez tego, firma zamknięta (status.active=false) w
+  // poprzednim ticku (normalnie odfiltrowywana przez wywołującego,
+  // `economy-tick.ts`'s `if (!company.status.active) continue;`) mogłaby,
+  // wywołana bezpośrednio (inny caller/test), "ożyć" strukturalnie przez
+  // EXPAND -- dokładnie ten sam invariant co gałąź CLOSURE już egzekwuje.
   const canAffordExpansion = company.finance.cash >= capitalCost;
+  const expansionHardEligible = canAffordExpansion && company.status.active;
   if (
     nowExpanding &&
     !input.financialHealth.distressed &&
-    canAffordExpansion &&
+    expansionHardEligible &&
     persistenceSatisfied(company, EXPANSION_DECISION_TYPE, EXPANSION_PERSISTENCE_TICKS) &&
     !isOnCooldown(company, EXPANSION_DECISION_TYPE, tick, EXPANSION_COOLDOWN_TICKS)
   ) {
@@ -172,7 +185,11 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
         decisionType: EXPANSION_DECISION_TYPE,
         options: [
           { action: "HOLD", hardEligible: true, score: 0 },
-          { action: "EXPAND", hardEligible: canAffordExpansion, score: expansionScore },
+          {
+            action: "EXPAND",
+            hardEligible: expansionHardEligible,
+            score: expansionScore,
+          },
         ],
         selectedAction: "EXPAND",
         factors: [
@@ -199,9 +216,14 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
   company = setActive(company, CONTRACTION_DECISION_TYPE, nowContracting);
   company = updateOpportunityStreak(company, CONTRACTION_DECISION_TYPE, nowContracting);
 
+  // Audytowe P1: `company.production.capacity > 0` była już tu strukturalną
+  // bramką (nie da się skurczyć poniżej zera); brakowało obok niej
+  // `company.status.active` -- ten sam invariant co EXPAND/CLOSURE.
+  const contractionHardEligible =
+    company.production.capacity > 0 && company.status.active;
   if (
     nowContracting &&
-    company.production.capacity > 0 &&
+    contractionHardEligible &&
     persistenceSatisfied(
       company,
       CONTRACTION_DECISION_TYPE,
@@ -224,7 +246,11 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
         decisionType: CONTRACTION_DECISION_TYPE,
         options: [
           { action: "HOLD", hardEligible: true, score: 0 },
-          { action: "CONTRACT", hardEligible: true, score: contractionScore },
+          {
+            action: "CONTRACT",
+            hardEligible: contractionHardEligible,
+            score: contractionScore,
+          },
         ],
         selectedAction: "CONTRACT",
         factors: [
