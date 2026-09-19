@@ -23,6 +23,10 @@ export interface WorldRunnerConfig extends HeadlessRunnerConfig {
   readonly pmCandidatesByCurrentMethodId?: RunEconomyTickInput["pmCandidatesByCurrentMethodId"];
   /** M12: przekazane 1:1 do `runEconomyTick` -- domyślnie brak kandydatów (patrz `economy-tick.ts`). */
   readonly entrepreneurshipCandidatesByArchetypeId?: RunEconomyTickInput["entrepreneurshipCandidatesByArchetypeId"];
+  /** M15: przekazane 1:1 do `runEconomyTick` -- domyślnie brak treści Technology (patrz `economy-tick.ts`). */
+  readonly discoveryEligibilityRulesById?: RunEconomyTickInput["discoveryEligibilityRulesById"];
+  readonly knowledgeDomainIds?: RunEconomyTickInput["knowledgeDomainIds"];
+  readonly requiredDiscoveryIdsByMethodId?: RunEconomyTickInput["requiredDiscoveryIdsByMethodId"];
 }
 
 export class WorldRunner {
@@ -60,6 +64,23 @@ export class WorldRunner {
       tick: this.headless.tick,
       demographyRng: (scopeId) => this.headless.rngStream("demography", scopeId),
       migrationRng: (scopeId) => this.headless.rngStream("migration", scopeId),
+      // M15: zawsze podłączone (ten sam wzorzec co demography/migration
+      // wyżej) -- zarezerwowany strumień RNG "discovery" (`core/rng.ts`)
+      // to realna sprawa runtime'owa samego WorldRunner, nie coś, w co
+      // caller się opcjonalnie włącza. Wsteczna-zgodność
+      // `runEconomyTick`'s własnej ścieżki `discoveryRng === undefined`
+      // ma znaczenie tylko dla bezpośrednich callerów sprzed M15 (głównie
+      // testów jednostkowych), nie dla tego produkcyjnego runtime'u.
+      discoveryRng: (scopeId) => this.headless.rngStream("discovery", scopeId),
+      ...(this.config.discoveryEligibilityRulesById !== undefined
+        ? { discoveryEligibilityRulesById: this.config.discoveryEligibilityRulesById }
+        : {}),
+      ...(this.config.knowledgeDomainIds !== undefined
+        ? { knowledgeDomainIds: this.config.knowledgeDomainIds }
+        : {}),
+      ...(this.config.requiredDiscoveryIdsByMethodId !== undefined
+        ? { requiredDiscoveryIdsByMethodId: this.config.requiredDiscoveryIdsByMethodId }
+        : {}),
       ...(this.config.pmCandidatesByCurrentMethodId !== undefined
         ? { pmCandidatesByCurrentMethodId: this.config.pmCandidatesByCurrentMethodId }
         : {}),

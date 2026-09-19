@@ -11,6 +11,7 @@ export * from "./schema/transport-mode-definition.js";
 export * from "./schema/intervention-definition.js";
 export * from "./schema/event-type-definition.js";
 export * from "./schema/chronicle-template-definition.js";
+export * from "./schema/knowledge-domain-definition.js";
 export * from "./content-types.js";
 export * from "./registry/definition-registry.js";
 export * from "./loaders/load-result.js";

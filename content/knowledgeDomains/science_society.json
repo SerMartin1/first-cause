@@ -1,0 +1,6 @@
+{
+  "id": "science_society",
+  "nameKey": "content.knowledgeDomain.science_society.name",
+  "spilloverTargets": {},
+  "implementationPhase": "VS"
+}

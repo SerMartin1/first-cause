@@ -4,13 +4,17 @@ import {
   loadContentPack,
   type CompanyArchetypeDefinition,
   type DefinitionRegistry,
+  type DiscoveryDefinition,
+  type KnowledgeDomainDefinition,
   type LocaleBundle,
   type ProductionMethodDefinition,
   type TransportModeDefinition,
 } from "@first-cause/content";
 import {
+  parseDiscoveryEligibilityRule,
   parseProductionRecipe,
   parseTransportModeProfile,
+  type DiscoveryEligibilityRule,
   type EntrepreneurshipCandidate,
   type ProductionRecipe,
   type TransportModeProfile,
@@ -41,6 +45,23 @@ export interface LoadEconomyContentResult {
   readonly entrepreneurshipCandidatesByArchetypeId: Readonly<
     Record<string, EntrepreneurshipCandidate>
   >;
+  /** M15: `content/discoveries/*.json`, kluczowane po id -- wejście Discovery Engine. */
+  readonly discoveryDefinitionsById: Readonly<Record<string, DiscoveryDefinition>>;
+  /** M15: `content/knowledgeDomains/*.json`, kluczowane po id. */
+  readonly knowledgeDomainDefinitionsById: Readonly<Record<string, KnowledgeDomainDefinition>>;
+  /** M15: sparsowane z `discoveryDefinitionsById` -- gotowe do `RunEconomyTickInput.discoveryEligibilityRulesById`. */
+  readonly discoveryEligibilityRulesById: Readonly<Record<string, DiscoveryEligibilityRule>>;
+  /** M15: `Object.keys(knowledgeDomainDefinitionsById)` -- gotowe do `RunEconomyTickInput.knowledgeDomainIds`. */
+  readonly knowledgeDomainIds: readonly string[];
+  /**
+   * M15: `productionMethodId` -> id `DiscoveryDefinition`, których wymaga
+   * jej własne pole `discoveries` (`ProductionMethodDefinition.discoveries`,
+   * już referencyjnie zwalidowane przez M2 -- właściwy kierunek dla
+   * gate'owania AI-08, nie `DiscoveryDefinition.unlocks`, które jest
+   * polimorficzne i wskazuje w drugą stronę). Pusta tablica = brak
+   * gate'owania (wstecznie zgodne).
+   */
+  readonly requiredDiscoveryIdsByMethodId: Readonly<Record<string, readonly string[]>>;
 }
 
 function readJsonDir(dir: string): unknown[] {
@@ -72,6 +93,8 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       companyArchetype: readJsonDir(path.join(contentDir, "companyArchetypes")),
       productionMethod: readJsonDir(path.join(contentDir, "productionMethods")),
       transportMode: readJsonDir(path.join(contentDir, "transportModes")),
+      discovery: readJsonDir(path.join(contentDir, "discoveries")),
+      knowledgeDomain: readJsonDir(path.join(contentDir, "knowledgeDomains")),
     },
     locales: {
       en: readJsonLocale(path.join(localesDir, "en", "common.json")),
@@ -86,6 +109,11 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       productionRecipesByMethodId: {},
       transportModeProfilesByModeId: {},
       entrepreneurshipCandidatesByArchetypeId: {},
+      discoveryDefinitionsById: {},
+      knowledgeDomainDefinitionsById: {},
+      discoveryEligibilityRulesById: {},
+      knowledgeDomainIds: [],
+      requiredDiscoveryIdsByMethodId: {},
     };
   }
 
@@ -99,14 +127,20 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     DefinitionRegistry<TransportModeDefinition> | undefined;
   const companyArchetypeRegistry = result.registries.companyArchetype as
     DefinitionRegistry<CompanyArchetypeDefinition> | undefined;
+  const discoveryRegistry = result.registries.discovery as
+    DefinitionRegistry<DiscoveryDefinition> | undefined;
+  const knowledgeDomainRegistry = result.registries.knowledgeDomain as
+    DefinitionRegistry<KnowledgeDomainDefinition> | undefined;
 
   const productionRecipesByMethodId: Record<string, ProductionRecipe> = {};
+  const requiredDiscoveryIdsByMethodId: Record<string, readonly string[]> = {};
   for (const definition of productionMethodRegistry?.all() ?? []) {
     productionRecipesByMethodId[definition.id] = parseProductionRecipe(
       definition.id,
       definition.productivity,
       definition.companyArchetypeIds,
     );
+    requiredDiscoveryIdsByMethodId[definition.id] = definition.discoveries;
   }
 
   const transportModeProfilesByModeId: Record<string, TransportModeProfile> = {};
@@ -131,11 +165,32 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     };
   }
 
+  const discoveryDefinitionsById: Record<string, DiscoveryDefinition> = {};
+  const discoveryEligibilityRulesById: Record<string, DiscoveryEligibilityRule> = {};
+  for (const definition of discoveryRegistry?.all() ?? []) {
+    discoveryDefinitionsById[definition.id] = definition;
+    discoveryEligibilityRulesById[definition.id] = parseDiscoveryEligibilityRule(
+      definition.primaryDomainId,
+      definition.tier,
+      definition.prerequisites,
+    );
+  }
+
+  const knowledgeDomainDefinitionsById: Record<string, KnowledgeDomainDefinition> = {};
+  for (const definition of knowledgeDomainRegistry?.all() ?? []) {
+    knowledgeDomainDefinitionsById[definition.id] = definition;
+  }
+
   return {
     ok: true,
     errors: [],
     productionRecipesByMethodId,
     transportModeProfilesByModeId,
     entrepreneurshipCandidatesByArchetypeId,
+    discoveryDefinitionsById,
+    knowledgeDomainDefinitionsById,
+    discoveryEligibilityRulesById,
+    knowledgeDomainIds: Object.keys(knowledgeDomainDefinitionsById).sort(),
+    requiredDiscoveryIdsByMethodId,
   };
 }

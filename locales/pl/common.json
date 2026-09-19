@@ -146,5 +146,10 @@
   "content.discovery.nau_022.name": "Medycyna zapobiegawcza",
   "content.discovery.nau_023.name": "Statystyka gospodarcza i planowanie",
   "content.discovery.nau_024.name": "Uniwersytety i ośrodki wiedzy",
-  "content.discovery.nau_025.name": "Nauka systemowa (metoda naukowa)"
+  "content.discovery.nau_025.name": "Nauka systemowa (metoda naukowa)",
+  "content.knowledgeDomain.agriculture_food.name": "Rolnictwo i Żywność",
+  "content.knowledgeDomain.mining_metallurgy.name": "Górnictwo i Metalurgia",
+  "content.knowledgeDomain.construction_mechanics.name": "Budownictwo i Mechanika",
+  "content.knowledgeDomain.transport_communication.name": "Transport i Komunikacja",
+  "content.knowledgeDomain.science_society.name": "Nauka i Społeczeństwo"
 }

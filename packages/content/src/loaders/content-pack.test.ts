@@ -24,6 +24,12 @@ const bread = {
   implementationPhase: "VS",
 };
 
+const metallurgy = {
+  id: "metallurgy",
+  nameKey: "content.knowledgeDomain.metallurgy.name",
+  implementationPhase: "VS",
+};
+
 const basicSmelting = {
   id: "basic_smelting",
   nameKey: "content.discovery.basic_smelting.name",
@@ -47,6 +53,7 @@ const FULL_EN_LOCALE = {
   "content.good.bread.name": "Bread",
   "content.discovery.basic_smelting.name": "Basic Smelting",
   "content.discovery.advanced_smelting.name": "Advanced Smelting",
+  "content.knowledgeDomain.metallurgy.name": "Metallurgy",
 };
 
 const FULL_PL_LOCALE = {
@@ -55,6 +62,7 @@ const FULL_PL_LOCALE = {
   "content.good.bread.name": "Chleb",
   "content.discovery.basic_smelting.name": "Podstawowe hutnictwo",
   "content.discovery.advanced_smelting.name": "Zaawansowane hutnictwo",
+  "content.knowledgeDomain.metallurgy.name": "Metalurgia",
 };
 
 describe("loadContentPack -- happy path", () => {
@@ -64,6 +72,7 @@ describe("loadContentPack -- happy path", () => {
         resource: [ironOre],
         good: [flour, bread],
         discovery: [basicSmelting, advancedSmelting],
+        knowledgeDomain: [metallurgy],
       },
       locales: { en: FULL_EN_LOCALE, pl: FULL_PL_LOCALE },
     });
@@ -82,6 +91,7 @@ describe("loadContentPack -- happy path", () => {
       intervention: 0,
       eventType: 0,
       chronicleTemplate: 0,
+      knowledgeDomain: 1,
     });
     const loadedFlour = result.registries.good?.get("flour") as
       { downstreamGoodIds?: readonly string[] } | undefined;

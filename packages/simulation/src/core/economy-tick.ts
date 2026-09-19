@@ -10,6 +10,7 @@ import {
   type Region,
   type ResourceDeposit,
   type Settlement,
+  type TechnologyState,
   type WorldState,
 } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
@@ -57,6 +58,19 @@ import {
   evaluateFounding,
 } from "../systems/economy/company-ai/index.js";
 import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js";
+import { accumulateRegionalKnowledge } from "../systems/technology/knowledge.js";
+import {
+  evaluateBreakthroughs,
+  updateEligibility,
+  type DiscoveryEligibilityRule,
+} from "../systems/technology/discoveries.js";
+import { computeDiffusionPressure, growAvailability } from "../systems/technology/diffusion.js";
+import {
+  applyIndustryAdoption,
+  applyPopulationAccess,
+  isProductionMethodAvailable,
+  type IndustryAdoptionEvent,
+} from "../systems/technology/adoption.js";
 
 /**
  * Etap 1 tick-loop integration (audytowe P0-01): pierwsze miejsce, które
@@ -183,6 +197,27 @@ export interface RunEconomyTickInput {
   readonly entrepreneurshipCandidatesByArchetypeId?: Readonly<
     Record<string, EntrepreneurshipCandidate>
   >;
+  /**
+   * M15: `HeadlessRunner.rngStream("discovery", scopeId)` -- zarezerwowany,
+   * dotąd nieużywany nazwany strumień "discovery" (SAVE-003). Undefined
+   * oznacza, że Technology jest wyłączone dla tego wywołania (pełna
+   * wsteczna zgodność dla każdego caller'a sprzed M15): akumulacja
+   * wiedzy, eligibility, breakthroughs, dyfuzja i population access w
+   * całości pomijane, `technologyStates` przechodzi bez zmian.
+   */
+  readonly discoveryRng?: (scopeId: string) => RngStream;
+  /** M15: `content/discoveries/*.json`, sparsowane do natywnych reguł symulacji przez `worldgen`. Domyślnie `{}`. */
+  readonly discoveryEligibilityRulesById?: Readonly<Record<string, DiscoveryEligibilityRule>>;
+  /** M15: id `content/knowledgeDomains/*.json` -- które domeny akumulują wiedzę co tick. Domyślnie `[]`. */
+  readonly knowledgeDomainIds?: readonly string[];
+  /**
+   * M15: `productionMethodId` -> id odkryć, których wymaga
+   * (`ProductionMethodDefinition.discoveries`, M2) -- gate'uje, którzy
+   * kandydaci PM w ogóle trafiają do AI-08 (`evaluatePmAdoptionSafely`).
+   * Pusta lista (każda production method dziś) oznacza brak gate'owania.
+   * Domyślnie `{}`.
+   */
+  readonly requiredDiscoveryIdsByMethodId?: Readonly<Record<string, readonly string[]>>;
 }
 
 export interface RunEconomyTickResult {
@@ -252,6 +287,22 @@ function selectTransportProfile(
   return transportModeProfilesByModeId[DEFAULT_TRANSPORT_MODE_ID]!;
 }
 
+/** M15: drugi koniec każdego z połączeń `region` -- lista sąsiadów dla `technology/diffusion`. */
+function connectedRegionIds(
+  region: Region,
+  connections: Readonly<Record<string, Connection>>,
+): string[] {
+  const neighborIds: string[] = [];
+  for (const connectionId of region.connections.connectionIds) {
+    const connection = connections[connectionId];
+    if (!connection) continue;
+    neighborIds.push(
+      connection.regionAId === region.id ? connection.regionBId : connection.regionAId,
+    );
+  }
+  return neighborIds;
+}
+
 export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult {
   const { worldState, tick, demographyRng, migrationRng } = input;
   const pmCandidates = input.pmCandidatesByCurrentMethodId ?? {};
@@ -261,6 +312,10 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     input.transportModeProfilesByModeId ?? DEFAULT_TRANSPORT_MODE_PROFILES;
   const entrepreneurshipCandidatesByArchetypeId =
     input.entrepreneurshipCandidatesByArchetypeId ?? {};
+  const discoveryRng = input.discoveryRng;
+  const discoveryEligibilityRulesById = input.discoveryEligibilityRulesById ?? {};
+  const knowledgeDomainIds = input.knowledgeDomainIds ?? [];
+  const requiredDiscoveryIdsByMethodId = input.requiredDiscoveryIdsByMethodId ?? {};
 
   const regions: Record<string, Region> = { ...worldState.regions };
   const companies: Record<string, Company> = { ...worldState.companies };
@@ -274,6 +329,9 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   };
   const connections: Record<string, Connection> = { ...worldState.connections };
   const settlements: Record<string, Settlement> = { ...worldState.settlements };
+  const technologyStates: Record<string, TechnologyState> = {
+    ...worldState.technologyStates,
+  };
   const facts: FactInput[] = [];
 
   const regionIds = Object.keys(worldState.regions).sort();
@@ -320,6 +378,87 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     populationCohorts = nextCohorts;
   }
 
+  // 2.5 Technology (M15, `technology/knowledge|discoveries|diffusion`):
+  // regionalna wiedza -> eligibility -> breakthroughs (Known) -> wzrost
+  // availability napędzany dyfuzją (Available) -> population access.
+  // Musi iść PRZED krokiem 3 (Company AI), który gate'uje kandydatów PM
+  // świeżo zaktualizowanym w tym ticku `technologyStates`.
+  // `discoveryRng === undefined` = Technology wyłączone (pełna wsteczna
+  // zgodność, ten sam wzorzec co domyślne `{}` dla
+  // `pmCandidatesByCurrentMethodId` oznaczające "brak kandydatów AI-08").
+  if (discoveryRng) {
+    // Stabilny snapshot sprzed ticka, kluczowany po regionie (nie po
+    // TechnologyState.id) -- `technology/diffusion` czyta stan INNYCH
+    // regionów sprzed startu tego ticka, ten sam idiom "czytaj
+    // worldState, pisz do świeżej kopii", którego krok 10's pętla handlu
+    // używa dla `worldState.regions`.
+    const technologyStateByRegionId: Record<string, TechnologyState> = {};
+    for (const otherRegionId of regionIds) {
+      const otherTechnologyStateId =
+        worldState.regions[otherRegionId]?.knowledge.technologyStateId;
+      const otherTechnologyState = otherTechnologyStateId
+        ? worldState.technologyStates[otherTechnologyStateId]
+        : undefined;
+      if (otherTechnologyState) technologyStateByRegionId[otherRegionId] = otherTechnologyState;
+    }
+
+    for (const regionId of regionIds) {
+      const region = regions[regionId]!;
+      const technologyStateId = region.knowledge.technologyStateId;
+      if (!technologyStateId) continue;
+      let technologyState = technologyStates[technologyStateId];
+      if (!technologyState) continue;
+
+      const rng = discoveryRng(regionId);
+
+      const knowledgeResult = accumulateRegionalKnowledge({
+        technologyState,
+        domainIds: knowledgeDomainIds,
+        population: region.population.totalPopulation,
+        rng,
+      });
+      technologyState = knowledgeResult.technologyState;
+      facts.push(...knowledgeResult.facts);
+
+      const eligibilityResult = updateEligibility(
+        technologyState,
+        discoveryEligibilityRulesById,
+      );
+      technologyState = eligibilityResult.technologyState;
+      facts.push(...eligibilityResult.facts);
+
+      const diffusionSignals = computeDiffusionPressure(
+        regionId,
+        connectedRegionIds(region, connections),
+        technologyStateByRegionId,
+        Object.keys(discoveryEligibilityRulesById),
+      );
+      const diffusionPressureByDiscoveryId = Object.fromEntries(
+        Object.entries(diffusionSignals).map(([id, signal]) => [id, signal.pressure]),
+      );
+
+      const breakthroughResult = evaluateBreakthroughs({
+        technologyState,
+        regionId,
+        tick,
+        rng,
+        diffusionPressureByDiscoveryId,
+      });
+      technologyState = breakthroughResult.technologyState;
+      facts.push(...breakthroughResult.facts);
+
+      const availabilityResult = growAvailability(technologyState, diffusionSignals);
+      technologyState = availabilityResult.technologyState;
+      facts.push(...availabilityResult.facts);
+
+      const populationAccessResult = applyPopulationAccess(technologyState);
+      technologyState = populationAccessResult.technologyState;
+      facts.push(...populationAccessResult.facts);
+
+      technologyStates[technologyStateId] = technologyState;
+    }
+  }
+
   for (const regionId of regionIds) {
     let region = regions[regionId]!;
     const marketId = region.economy.marketId;
@@ -336,6 +475,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     const supplyByGood: Record<string, number> = {};
     const companyDemandByGood: Record<string, number> = {};
     const householdDemandByGood: Record<string, number> = {};
+    const industryAdoptionEvents: IndustryAdoptionEvent[] = [];
 
     for (const companyId of companyIds) {
       let company = companies[companyId]!;
@@ -431,7 +571,25 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       const candidateRecipe = candidateMethodId
         ? productionRecipesByMethodId[candidateMethodId]
         : undefined;
-      if (recipe && candidateRecipe) {
+      // M15: kandydat zagate'owany jednym lub więcej odkryciami trafia do
+      // AI-08 dopiero, gdy każde z nich jest w tym regionie
+      // AVAILABLE/ADOPTED -- pusta `requiredDiscoveryIds` (każda
+      // production method dziś) jest zawsze eligible, więc to no-op,
+      // dopóki realny content nie podłączy
+      // `ProductionMethodDefinition.discoveries` (katalog §5 pkt 3, poza
+      // zakresem tutaj).
+      const requiredDiscoveryIds = candidateMethodId
+        ? (requiredDiscoveryIdsByMethodId[candidateMethodId] ?? [])
+        : [];
+      const regionTechnologyState = region.knowledge.technologyStateId
+        ? technologyStates[region.knowledge.technologyStateId]
+        : undefined;
+      const technologyGateSatisfied =
+        requiredDiscoveryIds.length === 0 ||
+        (regionTechnologyState !== undefined &&
+          isProductionMethodAvailable(requiredDiscoveryIds, regionTechnologyState));
+
+      if (recipe && candidateRecipe && technologyGateSatisfied) {
         const pmResult = evaluatePmAdoptionSafely({
           company,
           tick,
@@ -440,6 +598,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           prices,
         });
         company = pmResult.company;
+        if (pmResult.adopted) {
+          for (const discoveryId of requiredDiscoveryIds) {
+            industryAdoptionEvents.push({ discoveryId });
+          }
+        }
       }
 
       companies[companyId] = company;
@@ -510,6 +673,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       let companyInventory = inventories[company.inventoryId]!;
       let batchesRun = 0;
       if (recipe) {
+        const productionMethodIdBeforeProduction = company.production.productionMethodId;
         const productionResult = runProduction({
           tick,
           company,
@@ -517,7 +681,22 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           recipe,
           resourceDeposits: depositsForRecipe,
         });
-        company = productionResult.company;
+        // Audytowe (M15, wykryte pierwszym pełnym wieloticzkowym testem
+        // `pmCandidatesByCurrentMethodId` przez `runEconomyTick`):
+        // `runProduction` zawsze "odbija" `recipe.productionMethodId`
+        // (ten sam `recipe` z GÓRY pętli, celowo sprzed decyzji AI-08 --
+        // ten tick produkuje jeszcze starą metodą) z powrotem do
+        // `company.production.productionMethodId`. Nieszkodliwe, gdy
+        // metoda się nie zmieniła w tym ticku (echo = no-op), ale cofało
+        // krok 3's AI-08 adopcję dokonaną chwilę wcześniej w TYM SAMYM
+        // ticku. Zachowaj to, co AI-08 właśnie ustawiło.
+        company = {
+          ...productionResult.company,
+          production: {
+            ...productionResult.company.production,
+            productionMethodId: productionMethodIdBeforeProduction,
+          },
+        };
         companyInventory = productionResult.inventory;
         batchesRun = productionResult.batches;
         for (const deposit of Object.values(productionResult.resourceDeposits)) {
@@ -836,6 +1015,21 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       region = { ...region, cached: { ...region.cached, migrationAttraction } };
     }
 
+    // M15: zastosuj zdarzenia industry adoption tego regionu (zebrane
+    // wyżej podczas oceny decyzji AI-08 każdej firmy) na jego TechnologyState.
+    const technologyStateId = region.knowledge.technologyStateId;
+    if (technologyStateId && industryAdoptionEvents.length > 0) {
+      const currentTechnologyState = technologyStates[technologyStateId];
+      if (currentTechnologyState) {
+        const industryAdoptionResult = applyIndustryAdoption(
+          currentTechnologyState,
+          industryAdoptionEvents,
+        );
+        technologyStates[technologyStateId] = industryAdoptionResult.technologyState;
+        facts.push(...industryAdoptionResult.facts);
+      }
+    }
+
     regions[regionId] = region;
   }
 
@@ -1097,7 +1291,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     companies: Object.values(companies),
     markets: Object.values(markets),
     inventories: Object.values(inventories),
-    technologyStates: Object.values(worldState.technologyStates),
+    technologyStates: Object.values(technologyStates),
   });
 
   return { worldState: nextWorldState, facts };
@@ -1109,12 +1303,12 @@ function evaluatePmAdoptionSafely(args: {
   readonly currentRecipe: ProductionRecipe;
   readonly candidateRecipe: ProductionRecipe;
   readonly prices: Readonly<Record<string, number>>;
-}): { readonly company: Company } {
+}): { readonly company: Company; readonly adopted: boolean } {
   // conversionCost stays 0 (TODO tuning/content -- no cost model exists
   // yet for switching production methods); evaluatePmAdoption itself
   // still enforces cooldown/persistence/hard eligibility on cash.
   const result = evaluatePmAdoption({ ...args, conversionCost: 0 });
-  return { company: result.company };
+  return { company: result.company, adopted: result.adopted };
 }
 
 interface TradeOneDirectionArgs {

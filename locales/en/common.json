@@ -146,5 +146,10 @@
   "content.discovery.nau_022.name": "Preventive Medicine",
   "content.discovery.nau_023.name": "Economic Statistics and Planning",
   "content.discovery.nau_024.name": "Universities and Centers of Knowledge",
-  "content.discovery.nau_025.name": "Systematic Science (Scientific Method)"
+  "content.discovery.nau_025.name": "Systematic Science (Scientific Method)",
+  "content.knowledgeDomain.agriculture_food.name": "Agriculture and Food",
+  "content.knowledgeDomain.mining_metallurgy.name": "Mining and Metallurgy",
+  "content.knowledgeDomain.construction_mechanics.name": "Construction and Mechanics",
+  "content.knowledgeDomain.transport_communication.name": "Transportation and Communication",
+  "content.knowledgeDomain.science_society.name": "Science and Society"
 }

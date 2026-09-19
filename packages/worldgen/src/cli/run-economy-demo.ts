@@ -67,6 +67,9 @@ const runner = createWorldRunner({
   transportModeProfilesByModeId: content.transportModeProfilesByModeId,
   entrepreneurshipCandidatesByArchetypeId:
     content.entrepreneurshipCandidatesByArchetypeId,
+  discoveryEligibilityRulesById: content.discoveryEligibilityRulesById,
+  knowledgeDomainIds: content.knowledgeDomainIds,
+  requiredDiscoveryIdsByMethodId: content.requiredDiscoveryIdsByMethodId,
 });
 
 console.log(`[first-cause] Etap 1 economy demo -- running ${ticks} ticks`);

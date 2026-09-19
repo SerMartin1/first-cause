@@ -6,3 +6,4 @@ export * from "./systems/resources/index.js";
 export * from "./systems/population/index.js";
 export * from "./systems/economy/index.js";
 export * from "./systems/society/index.js";
+export * from "./systems/technology/index.js";

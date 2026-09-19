@@ -1,0 +1,6 @@
+{
+  "id": "agriculture_food",
+  "nameKey": "content.knowledgeDomain.agriculture_food.name",
+  "spilloverTargets": {},
+  "implementationPhase": "VS"
+}

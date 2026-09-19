@@ -703,74 +703,42 @@ Nie potrzebujemy pełnego sektora usługowego.
 
 # 28. Wiedza VS
 
-Aktywne domeny zgodnie z pierwotnym założeniem:
+**Zaktualizowane 2026-09-18 (patrz `FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`,
+`TECH-004` w `Canonical Decisions`) -- zastępuje pierwotny podział 5
+głównych + 4 wspierające domeny opisany niżej w tej sekcji przed
+aktualizacją.**
 
-**5 aktywnych Knowledge Domains jako rdzeń benchmarku.**
+**5 Knowledge Domains, wszystkie w pełni aktywne w VS, bez rozróżnienia
+"głównych"/"wspierających":** 1. Rolnictwo i Żywność (Agriculture &amp;
+Food) 2. Górnictwo i Metalurgia (Mining &amp; Metallurgy) 3. Budownictwo i
+Mechanika (Construction &amp; Mechanics) 4. Transport i Komunikacja
+(Transportation &amp; Communication) 5. Nauka i Społeczeństwo (Science &amp;
+Society).
 
-Rekomendowane: 1. Agriculture 2. Construction 3. Metallurgy 4. Mining 5.
-Mechanics
-
-Pozostałe domeny mogą istnieć w danych, ale nie muszą aktywnie generować
-rozbudowanego contentu w pierwszym benchmarku.
-
-Dodatkowo minimalne wsparcie: - Mathematics jako prerequisite/support, -
-Transportation jako support, - Medicine/Communication w uproszczonej
-formie.
+Każda domena łączy 2--3 z pierwotnych 12 wąskich domen (np. Górnictwo i
+Metalurgia = Mining + Metallurgy) -- pełne mapowanie w katalogu odkryć.
+Powód zmiany: 12 wąskich domen dawało zbyt drobnoziarnisty podział
+względem porównywalnych gier gatunku i utrudniało dostarczenie spójnego
+zestawu Discoveries na start (M15).
 
 ------------------------------------------------------------------------
 
 # 29. Odkrycia VS
 
-Obowiązkowy katalog aktywny:
+**Zaktualizowane 2026-09-18 (`TECH-008`, zastępuje listę "20--30
+odkryć" z kodami `AGR-001`/`CON-001`/`MET-001`/... opisaną niżej przed
+aktualizacją -- te kody pochodziły z wersji sprzed połączenia domen i
+nigdy nie zostały uzgodnione z realnymi prefiksami contentu).**
 
-### Agriculture
+Obowiązkowy katalog aktywny: **wszystkie 125 odkryć** (5 domen × 25,
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`), tiery T0--T6
+(`TECH-007`). Content: `content/discoveries/*.json` (id: `agr_001`--
+`agr_025`, `min_001`--`min_025`, `mec_001`--`mec_025`, `tra_001`--
+`tra_025`, `nau_001`--`nau_025`), zweryfikowane pipeline'em M2
+(`content-fixtures.integration.test.ts`, 0 błędów/ostrzeżeń).
 
--   AGR-001 Selekcja i planowanie upraw
--   AGR-002 Płodozmian
--   AGR-004 Rolnictwo z wykorzystaniem siły zwierząt --- rozszerzenie
-
-### Construction
-
--   CON-001 Obróbka kamienia
--   CON-002 Wypalanie cegieł
--   CON-003 Ulepszone piece
--   CON-004 Zaprawy wapienne
--   CON-005 Produkcja cementu
-
-### Metallurgy
-
--   MET-001 Podstawowy wytop żelaza
--   MET-002 Kontrola temperatury pieca
--   MET-003 Ulepszony piec hutniczy
--   MET-004 Produkcja stali
-
-### Mining
-
--   MIN-001 Rozpoznawanie złóż powierzchniowych
--   MIN-002 Organizacja kopalni
--   MIN-003 Odwadnianie kopalń --- rozszerzenie
--   MIN-004 Głębokie górnictwo --- rozszerzenie
-
-### Mechanics
-
--   MEC-001 Proste maszyny
--   MEC-002 Koło i przekładnie
--   MEC-003 Energia wodna i wiatrowa
--   MEC-004 Precyzyjne narzędzia --- rozszerzenie
--   MEC-005 Mechanizacja produkcji --- rozszerzenie
-
-### Support
-
--   MAT-001 Systematyczny pomiar
--   MAT-002 Geometria praktyczna
--   TRA-001 Transport juczny
--   TRA-002 Wozy kołowe
--   TRA-003 Organizacja dróg
--   TRA-004 Transport rzeczny
--   MED-001 Podstawowa higiena
--   COM-001 Pismo i zapis
-
-Łącznie VS może aktywować około **20--30 odkryć**.
+Nowy podział nie rozróżnia już "obowiązkowego rdzenia" i pozostałych --
+każda z 5 domen ma pełny, aktywny zestaw 25 Discoveries od startu M15.
 
 ------------------------------------------------------------------------
 

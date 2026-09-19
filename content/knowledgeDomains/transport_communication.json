@@ -1,0 +1,6 @@
+{
+  "id": "transport_communication",
+  "nameKey": "content.knowledgeDomain.transport_communication.name",
+  "spilloverTargets": {},
+  "implementationPhase": "VS"
+}

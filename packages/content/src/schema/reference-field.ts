@@ -11,13 +11,11 @@ import type { ZodType, ZodTypeDef } from "zod";
 type AnyInputZodType<T> = ZodType<T, ZodTypeDef, any>;
 
 /**
- * The 10 content definition types in M2 scope (Implementation Roadmap
- * v0.2, M2 "Moduły"). `KnowledgeDomainDefinition` (Content-Localization-Spec
- * SS4) is intentionally not included yet -- it belongs to M15 Technology,
- * per "No scope creep" (IMPL-010). Fields that would reference a
- * knowledge domain (e.g. Discovery.primaryDomainId) are typed as plain
- * `ContentId`s but are not cross-reference-validated until that registry
- * exists.
+ * 10 typów definicji contentu w zakresie M2 (Implementation Roadmap v0.2,
+ * M2 "Moduły") plus `knowledgeDomain` (Content-Localization-Spec SS4),
+ * dodane w M15 Technology: `Discovery.primaryDomainId`/
+ * `secondaryDomainIds` teraz się do niego cross-referencują (patrz
+ * `discoveryContentTypeSpec.referenceFields`).
  */
 export const CONTENT_TYPE_NAMES = [
   "resource",
@@ -30,6 +28,7 @@ export const CONTENT_TYPE_NAMES = [
   "intervention",
   "eventType",
   "chronicleTemplate",
+  "knowledgeDomain",
 ] as const;
 
 export type ContentTypeName = (typeof CONTENT_TYPE_NAMES)[number];

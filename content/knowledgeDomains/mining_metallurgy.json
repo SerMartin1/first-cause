@@ -1,0 +1,6 @@
+{
+  "id": "mining_metallurgy",
+  "nameKey": "content.knowledgeDomain.mining_metallurgy.name",
+  "spilloverTargets": {},
+  "implementationPhase": "VS"
+}

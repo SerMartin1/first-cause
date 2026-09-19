@@ -8,6 +8,7 @@ import { transportModeContentTypeSpec } from "./schema/transport-mode-definition
 import { interventionContentTypeSpec } from "./schema/intervention-definition.js";
 import { eventTypeContentTypeSpec } from "./schema/event-type-definition.js";
 import { chronicleTemplateContentTypeSpec } from "./schema/chronicle-template-definition.js";
+import { knowledgeDomainContentTypeSpec } from "./schema/knowledge-domain-definition.js";
 import type { AnyContentTypeSpec, ContentTypeName } from "./schema/reference-field.js";
 
 /**
@@ -31,4 +32,5 @@ export const CONTENT_TYPE_SPECS: Readonly<Record<ContentTypeName, AnyContentType
   intervention: interventionContentTypeSpec as unknown as AnyContentTypeSpec,
   eventType: eventTypeContentTypeSpec as unknown as AnyContentTypeSpec,
   chronicleTemplate: chronicleTemplateContentTypeSpec as unknown as AnyContentTypeSpec,
+  knowledgeDomain: knowledgeDomainContentTypeSpec as unknown as AnyContentTypeSpec,
 };

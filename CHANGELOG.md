@@ -8,6 +8,111 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-09-19
+
+- **M15 -- Technology: implementacja systemów Discovery Engine,
+  Diffusion i Adoption.** Cztery nowe moduły w
+  `packages/simulation/src/systems/technology/`:
+  - `knowledge.ts` -- regionalna akumulacja wiedzy per domena
+    (`accumulateRegionalKnowledge`), formuła TODO tuning oparta na
+    populacji (jedyny kanonicznie dostępny sygnał dziś).
+  - `discoveries.ts` -- eligibility (`computeEligibleDiscoveryIds`,
+    próg wiedzy per tier T0--T6 + prerequisites) i breakthrough
+    (`evaluateBreakthroughs`, seeded RNG "discovery"), oddzielone od
+    Adoption zgodnie z AI Decision Model §62.
+  - `diffusion.ts` -- `computeDiffusionPressure` (sygnał 0..1 z
+    połączonych regionów) i `growAvailability` (Known -> Available).
+  - `adoption.ts` -- `isProductionMethodAvailable` (gate AI-08) i
+    `applyIndustryAdoption`/`applyPopulationAccess`; `institutionalAdoption`
+    świadomie zostaje przy 0 (zależy od nieistniejącego systemu
+    Administration, TECH-005).
+
+  Wpięte w `core/economy-tick.ts` jako nowy krok "2.5" (przed Company AI)
+  + gate na kandydatach PM w kroku 3 (`requiredDiscoveryIdsByMethodId`,
+  z `ProductionMethodDefinition.discoveries`, nie z polimorficznego
+  `unlocks`) -- wszystkie nowe pola `RunEconomyTickInput` opcjonalne,
+  `discoveryRng === undefined` = Technology wyłączone (pełna wsteczna
+  zgodność, zero zmian w istniejących ~450 testach). `core/world-runner.ts`
+  podłącza `discoveryRng` bezwarunkowo (jak demography/migration) --
+  to prawdziwy runtime, nie coś, w co caller się opcjonalnie włącza.
+
+  Content: nowy schemat `KnowledgeDomainDefinition`
+  (`packages/content/src/schema/knowledge-domain-definition.ts`, 11.
+  typ contentu) + 5 plików `content/knowledgeDomains/*.json`;
+  `DiscoveryDefinition.primaryDomainId`/`secondaryDomainIds` teraz
+  faktycznie cross-referencują `knowledgeDomain` (wcześniej gołe
+  stringi). `packages/worldgen/src/content/load-economy-content.ts`
+  ładuje `discovery`/`knowledgeDomain` (wcześniej tylko 5 z 7 typów) i
+  buduje `discoveryEligibilityRulesById`/`knowledgeDomainIds`
+  (natywne dla symulacji, przez nowy `parseDiscoveryEligibilityRule`
+  -- ten sam wzorzec co `parseProductionRecipe`) oraz
+  `requiredDiscoveryIdsByMethodId`.
+
+  Entities: `packages/entities/src/technology/technology-state.ts`
+  dostał pierwsze funkcje aktualizujące `TechnologyState`
+  (`setDomainKnowledge`/`setDiscoveryState`/`setEligibleDiscoveryIds`,
+  niemutowalne) -- wcześniej istniał tylko `createTechnologyState`
+  (M3), nic nie aktualizowało stanu.
+
+  Read Model: `technology-summary-read-model.ts` (`knowledge`/
+  `discoveries`/`eligibleDiscoveryIds` per region).
+
+  **Naprawiony przy okazji (M15 jest pierwszym kodem, który przepuszcza
+  `pmCandidatesByCurrentMethodId` przez pełną, wieloticzkową pętlę
+  `runEconomyTick`):** `runProduction` (M7) bezwarunkowo "odbijał"
+  `recipe.productionMethodId` (recepturę sprzed decyzji AI-08 tego
+  samego ticka) z powrotem do `company.production.productionMethodId`,
+  cofając adopcję AI-08 dokonaną chwilę wcześniej w TYM SAMYM ticku --
+  nieszkodliwe, dopóki nikt nie zmieniał metody w danym ticku (echo =
+  no-op), ale realny błąd raz na adopcję. Naprawione w
+  `core/economy-tick.ts`'s kroku 5 (zachowuje productionMethodId
+  ustawione przez AI-08, nie to z `runProduction`'s echa).
+
+  Testy: 43 nowe testy jednostkowe w `systems/technology/*.test.ts` +
+  rozszerzenie `technology-state.test.ts`/`economy-tick.test.ts`/
+  `load-economy-content.test.ts`; nowy
+  `packages/worldgen/src/fixtures/technology-fixture.ts` (syntetyczny
+  świat, 3 regiony, `TechnologyState` faktycznie zlinkowane --
+  `tests/worldgen/fixtures/black_mountain_reference.json` ma wpisy w
+  `technologyStates`, ale żaden region się do nich nie linkuje, więc
+  M15 na tym fixture'cie dziś byłby no-opem); `m15-technology-invariant-monitor.test.ts`
+  (3 seedy × 120 ticków, przeciwko realnemu katalogowi 125 odkryć --
+  status nigdy się nie cofa, `eligibleDiscoveryIds` zawsze poprawny
+  podzbiór świeżego przeliczenia, wszystkie osie w poprawnym zakresie);
+  `technology-acceptance.test.ts` (3 testy wprost na 3 zdania M15's
+  Acceptance Gate z roadmapy).
+
+  `pnpm typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS
+  (634/634 testów, 1 przedistniejące ostrzeżenie lintu sprzed tej
+  sesji, niezwiązane z M15).
+
+- **docs: korekta przestarzałego zakresu "20--30 odkryć" w
+  `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` §28--29 i w roadmapie's M15
+  sekcji.** `TECH-008` (`Canonical Decisions`) był zaktualizowany
+  2026-09-18 na "wszystkie 125 Discoveries", ale VS Spec §29 nadal miał
+  starą listę ok. 20--30 kodów (`AGR-001`/`CON-001`/`MET-001`/...) z
+  wersji sprzed połączenia 12 wąskich domen w 5 szerokich -- kody te nie
+  odpowiadały realnym prefiksom contentu (`agr_/min_/mec_/tra_/nau_`).
+  Zastąpiono zapisem "5 domen, 125 Discoveries" zgodnym z `TECH-004`/
+  `TECH-008`; przy okazji poprawiono też "T0--T5" na "T0--T6"
+  (`TECH-007`, też zaktualizowane 2026-09-18) w roadmapie's Ryzyka.
+  Decyzja zakresu (wszystkie 125 aktywne, nie podzbiór) potwierdzona z
+  użytkownikiem przed rozpoczęciem implementacji M15.
+
+- **content/docs: rozwiązanie znanej niezgodności `MEC-009`/`MIN-019`
+  w katalogu Technology Discovery.** `MEC-009` (Fortyfikacje i budowle
+  publiczne, T2) miał jako prerekwizyt `MIN-019` (Produkcja cementu,
+  T4) -- tier wyższy o 2 poziomy niż sama pozycja, poza wzorcem reszty
+  katalogu (gdzie różnica prerekwizyt/pozycja to co najwyżej 1 tier).
+  Usunięto `min_019` z `prerequisites` w `content/discoveries/mec_009.json`
+  (zostaje tylko `mec_006`, T1, sklepienia i łuki kamienne) -- fortyfikacje
+  wymagają murarstwa kamiennego, nie cementu (odrębny, późniejszy
+  materiał PM używany przez `AGR-020`/`MEC-013`/`MEC-017`/`TRA-016`).
+  Zaktualizowano też `docs/FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md`
+  (tabela + notatka na górze) i `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`'s
+  M15's sekcję. `content-fixtures.integration.test.ts`: nadal 0
+  błędów/ostrzeżeń po zmianie.
+
 ## 2026-09-18
 
 - **content: `content/discoveries/*.json` (125 plików) -- domyka

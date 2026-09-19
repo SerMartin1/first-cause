@@ -13,12 +13,16 @@ content PM/Good, `knowledgeRequirements`, `pressureModifiers`,
 `diffusion`, `adoption`) pozostają puste -- to odrębny krok z sekcji 5,
 konsumowany przez M15's kod, nie przez samo istnienie plików JSON.
 
-**Znana niezgodność treści (niezmieniona samodzielnie, `AA-006`):**
-`MEC-009` (T2) ma jako prerekwizyt `MIN-019` (T4) -- wyższy tier niż
-sama pozycja. Realny pipeline to przepuszcza (tier = complexity band,
-nie sztywna bramka zależności, `TECH-007`), ale numerycznie jest to
-niezgodne z resztą katalogu. Do rozstrzygnięcia przy pierwszej okazji
-dotykania tej pozycji.
+**Niezgodność treści rozwiązana (2026-09-19):** `MEC-009` (T2) miał
+jako prerekwizyt `MIN-019` (T4) -- wyższy tier o 2 poziomy niż sama
+pozycja, poza wzorcem reszty katalogu (gdzie różnica prerekwizyt/pozycja
+to co najwyżej 1 tier). Prerekwizyt `MIN-019` (cement) usunięty --
+fortyfikacje/budowle publiczne wymagają murarstwa kamiennego (`MEC-006`,
+T1, już prerekwizyt), nie cementu, który jest odrębnym, późniejszym
+materiałem PM (`housing.capacity` powyżej progu, `AGR-020`/`MEC-013`/
+`MEC-017`/`TRA-016`). `MEC-009` prerekwizyty: `MEC-006` (T1) --
+zgodne z resztą katalogu. Zaktualizowano też
+`content/discoveries/mec_009.json`.
 
 **Data:** 2026-09-18 (druga wersja -- zastępuje pierwszą iterację z tej
 samej sesji, która miała 9 wąskich domen + osobne rozszerzenie
@@ -225,7 +229,7 @@ obietnice.
 | MEC-006 | Sklepienia i łuki kamienne | T1 | MIN-002, NAU-003 | Realne: podnosi maksymalny osiągalny `SettlementStage` |
 | MEC-007 | Systemy przekładni złożonych | T1 | MEC-003 | Prerequisite dla wyższych tierów MEC |
 | MEC-008 | Zegary i mechanizmy pomiaru czasu | T2 | MEC-003, NAU-001 | Prerequisite dla TRA-013 (brak własnego efektu) |
-| MEC-009 | Fortyfikacje i budowle publiczne | T2 | MIN-019, MEC-006 | Realne: zdolność wymagana dla CITY/METROPOLIS |
+| MEC-009 | Fortyfikacje i budowle publiczne | T2 | MEC-006 | Realne: zdolność wymagana dla CITY/METROPOLIS |
 | MEC-010 | Mosty i przeprawy | T2 | MEC-002, MIN-002 | Realne: usuwa karę `effectiveDistance` za przeszkody wodne |
 | MEC-011 | Wieże i budowle wysokościowe | T2 | MEC-006 | Realne: dalszy wzrost maksymalnego `SettlementStage` |
 | MEC-012 | Mechanizacja produkcji | T2 | MEC-004, MEC-005 | Realne: ogólny mnożnik capacity dla "mechanizowalnych" receptur |

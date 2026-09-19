@@ -22,11 +22,9 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
 i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1--M14 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M14),
-bieżący etap to M15 (READY -- Documentation Readiness READY od
-2026-09-18, patrz M15's "Warunek rozpoczęcia -- SPEŁNIONY": katalog
-technologii i `content/discoveries/*.json` dostarczone, implementacja
-systemów jeszcze nie zaczęta). Pełni rolę, którą
+M1--M15 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M15),
+bieżący etap to M16 (Architect, pierwsza interwencja gracza -- BACKLOG,
+odblokowane przez M15's DONE). Pełni rolę, którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
 kolejność na poziomie nazw milestone'ów (`IMPL-008`), a ten dokument
@@ -2445,12 +2443,12 @@ wskazuje jeszcze na nowy content PM/Good (23/125 pozycji katalogu je
 wymaga) -- to jest odrębny, jeszcze niezrobiony krok z katalogu's
 sekcji 5 pkt 3, poza zakresem samego `content/discoveries/*.json`.
 
-**Znana niezgodność w katalogu (do rozstrzygnięcia, nie blokuje M15):**
-`MEC-009` (T2) ma w prozie katalogu prerekwizyt `MIN-019` (T4) -- realny
-pipeline to przepuszcza (tier to complexity band, nie sztywna bramka
-zależności, `TECH-007`), ale numerycznie tier prerekwizytu jest wyższy
-niż tier zależnej pozycji. Do jawnego rozstrzygnięcia przy pierwszej
-okazji dotykania tej pozycji (nie zmieniono samodzielnie -- `AA-006`).
+**Niezgodność w katalogu rozwiązana (2026-09-19):** `MEC-009` (T2) miał
+prerekwizyt `MIN-019` (T4) -- tier wyższy o 2 poziomy niż zależna
+pozycja, poza wzorcem reszty katalogu. Prerekwizyt `MIN-019` (cement)
+usunięty z `MEC-009` (fortyfikacje wymagają murarstwa kamiennego,
+`MEC-006` T1, nie cementu); `content/discoveries/mec_009.json` i katalog
+zaktualizowane w tym samym kroku.
 
 **Decyzja z 2026-09-18** (przy zamykaniu audytu post-implementacyjnego
 M12-M14), zachowana: **UI-F1 — Procedural Region Visual Identity**
@@ -2460,8 +2458,12 @@ blokowania M15's własnej Acceptance Gate.
 
 **Cel:** wiedza regionalna, stany technologii
 (`Unknown → Known → Available → Adopted`), Discovery Engine oddzielony
-od decyzji Company AI o wdrożeniu (Adoption), 20--30 aktywnych
-Discoveries w 5 głównych + 4 wspierających domenach.
+od decyzji Company AI o wdrożeniu (Adoption), 125 aktywnych Discoveries
+w 5 domenach (`TECH-004`/`TECH-008`, zaktualizowane 2026-09-18 --
+zastępuje pierwotny zapis "20--30 aktywnych w 5 głównych + 4
+wspierających domenach" widoczny niżej w tej sekcji przed korektą;
+patrz też `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` §28--29,
+zaktualizowane tym samym dniem).
 
 **Zależności:** M14 (populacja/osady jako baza wiedzy regionalnej).
 
@@ -2481,9 +2483,9 @@ technology/diffusion -- Availability spread
 technology/adoption -- Industry/Population/Institutional (AI-08 hook)
 ```
 
-**Dane:** 5 głównych domen VS (Agriculture, Construction, Metallurgy,
-Mining, Mechanics) + wspierające (Mathematics, Transportation, Medicine,
-Communication); 20--30 Discoveries (`TECH-008`).
+**Dane:** 5 domen VS (Rolnictwo i Żywność, Górnictwo i Metalurgia,
+Budownictwo i Mechanika, Transport i Komunikacja, Nauka i Społeczeństwo
+-- `TECH-004`); 125 Discoveries, 25 na domenę (`TECH-008`).
 
 **Testy:** discovery eligibility test, discovery ≠ availability test,
 availability ≠ adoption test, PM adoption/rejection test, technology
@@ -2497,18 +2499,73 @@ połączonymi regionami.
 
 **Ryzyka:** złożoność stanu 4-poziomowego
 (`Unknown/Known/ Available/Adopted` × Industry/Population/Institutional)
-przy 20--30 discoveries --- mitygacja: brak klasycznego tech tree
-(`TECH-001`) upraszcza strukturę względem alternatyw; T0--T5 to
+przy 125 discoveries --- mitygacja: brak klasycznego tech tree
+(`TECH-001`) upraszcza strukturę względem alternatyw; T0--T6 to
 complexity bands, nie epoki (`TECH-007`), co unika sztywnej progresji
 czasowej.
 
-**Poza zakresem:** pełne 12 domen jednocześnie aktywne (VS aktywuje 5
-głównych + wsparcie), Administration jako 13. domena (nie jest domeną
---- `TECH-005`).
+**Poza zakresem:** pierwotny podział na 12 wąskich domen (zastąpiony
+przez `TECH-004`'s 5 szerokich domen), Administration jako 6. domena
+(nie jest domeną --- `TECH-005`).
 
 **Źródła:** `FIRST-CAUSE-Canonical-Decisions-v0.1.md` (TECH-001--009),
 `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§28--31),
 `FIRST-CAUSE-AI-Decision-Model-v0.1.md` (§36--41, §62).
+
+### M15 --- Wyniki wykonania (2026-09-19)
+
+**Status: DONE.**
+
+**Nowe moduły (`packages/simulation/src/systems/technology`):**
+`knowledge.ts` (regionalna akumulacja wiedzy, `accumulateRegionalKnowledge`),
+`discoveries.ts` (`computeEligibleDiscoveryIds`/`updateEligibility`/
+`evaluateBreakthroughs` -- eligibility i breakthrough oddzielone od
+Adoption, §62), `diffusion.ts` (`computeDiffusionPressure`/
+`growAvailability` -- Availability między połączonymi regionami),
+`adoption.ts` (`isProductionMethodAvailable` gate'uje kandydatów AI-08,
+`applyIndustryAdoption`/`applyPopulationAccess`; `institutionalAdoption`
+świadomie 0, zależy od nieistniejącego systemu Administration).
+
+**Wpięcie w tick loop:** nowy krok "2.5" w `core/economy-tick.ts`
+(Knowledge -> Eligibility -> Diffusion pressure -> Breakthroughs ->
+Availability -> Population access), zaraz po Demografii i przed Company
+AI (krok 3, który gate'uje kandydatów PM świeżym stanem Technology tego
+ticka). Wszystkie nowe pola `RunEconomyTickInput` opcjonalne --
+`discoveryRng === undefined` wyłącza całą fazę Technology (pełna
+wsteczna zgodność, zero zmian w testach sprzed M15). `core/world-runner.ts`
+podłącza `discoveryRng` bezwarunkowo (ten sam wzorzec co demography/
+migration -- realny runtime, nie opcjonalna funkcja contentu).
+
+**Content:** nowy schemat `KnowledgeDomainDefinition` (11. typ contentu)
++ 5 plików `content/knowledgeDomains/*.json`; `DiscoveryDefinition.
+primaryDomainId`/`secondaryDomainIds` teraz faktycznie
+cross-referencują `knowledgeDomain` (wcześniej gołe stringi, patrz
+katalogu §5 pkt 1 -- domknięte). `worldgen`'s `load-economy-content.ts`
+ładuje `discovery`/`knowledgeDomain` (wcześniej pomijane) i buduje
+simulation-natywne `discoveryEligibilityRulesById`/`requiredDiscoveryIdsByMethodId`
+(z `ProductionMethodDefinition.discoveries`, nie z polimorficznego
+`unlocks` -- właściwy kierunek referencji dla gate'owania AI-08).
+
+**Naprawiony po drodze (audytowy, wykryty pierwszym pełnym
+wieloticzkowym testem `pmCandidatesByCurrentMethodId` przez
+`runEconomyTick`):** `runProduction` (M7) bezwarunkowo "odbijał"
+`recipe.productionMethodId` z powrotem do
+`company.production.productionMethodId`, cofając AI-08's adopcję
+dokonaną chwilę wcześniej w tym samym ticku -- nieszkodliwe, dopóki nikt
+nie zmienił metody w danym ticku (echo = no-op), ale realny błąd raz na
+adopcję, niewidoczny do dziś bo nic wcześniej nie prowadziło
+`pmCandidatesByCurrentMethodId` przez realną, wieloticzkową pętlę.
+Naprawione w `economy-tick.ts`'s kroku 5.
+
+**Testy:** ~43 nowe testy jednostkowe (`systems/technology/*.test.ts`),
+rozszerzenia `technology-state.test.ts`/`economy-tick.test.ts`/
+`load-economy-content.test.ts`; `m15-technology-invariant-monitor.test.ts`
+(3 seedy × 120 ticków przeciwko realnemu katalogowi 125 odkryć, na
+syntetycznym świecie -- `technology-fixture.ts`, bo istniejące World
+Fixture Documenty mają `technologyStates`, ale żaden region się do nich
+nie linkuje); `technology-acceptance.test.ts` (3 testy, jeden na jedno
+zdanie Acceptance Gate wyżej). `pnpm typecheck`/`lint`/`test`/`build`/
+`test:e2e`: wszystkie PASS.
 
 ------------------------------------------------------------------------
 
@@ -3229,14 +3286,11 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-18: M0, M0.1 Audit Fixes oraz M1--M14 ukończone (M12-M14
+Stan na 2026-09-19: M0, M0.1 Audit Fixes oraz M1--M15 ukończone (M12-M14
 dodatkowo przeszły pełny audyt post-implementacyjny i naprawę -- patrz
-M14's sekcja "Audyt post-implementacyjny"); M15 odblokowany -- katalog
-`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` dostarczony i
-`content/discoveries/*.json` (125 plików) napisane i zweryfikowane
-realnym pipeline'em M2 (patrz M15's sekcja "Warunek rozpoczęcia --
-SPEŁNIONY"); implementacja systemów M15 (Discovery Engine, Adoption)
-jeszcze nie zaczęta. **Ten dokument jest żywy --- po ukończeniu każdego
+M14's sekcja "Audyt post-implementacyjny"; M15's sekcja "Wyniki
+wykonania" opisuje implementację Discovery Engine/Diffusion/Adoption).
+M16 odblokowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -3258,8 +3312,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M12         DONE      P0          M           MEDIUM-HIGH   M11
   M13         DONE      P0          M           MEDIUM        M12
   M14         DONE      P0          S/M         MEDIUM        M13
-  M15         READY     P0          L           MEDIUM-HIGH   M14
-  M16         BACKLOG   P0          M           MEDIUM        M15
+  M15         DONE      P0          L           MEDIUM-HIGH   M14
+  M16         READY     P0          M           MEDIUM        M15
   M17         BACKLOG   P0          L           HIGH          M16
   M18         BACKLOG   P0          M           MEDIUM        M17
   M19         BACKLOG   P0          M/L         MEDIUM        M18
@@ -3305,12 +3359,14 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M15 — Technology**, READY -- katalog i
-`content/discoveries/*.json` dostarczone (patrz M15's Warunek
-rozpoczęcia), implementacja systemów jeszcze nie zaczęta; UI-F1 startuje
-równolegle z M15 (odroczone z M14). M0, M0.1 oraz M1--M14 są DONE (M12-M14 dodatkowo przeszły pełną naprawę
-audytu post-implementacyjnego, patrz M14's sekcja). Kolejne milestone’y
-rozpoczynają się po odbiorze ich zależności.
+Następny krok: **M16 — Architect (pierwsza interwencja)**, READY --
+Influence, koszt interwencji, `VS-INT-01 Reveal Resource Deposit` i
+pozostałe 4 core interwencje, Root Fact jako pierwszy punkt causal graph.
+M0, M0.1 oraz M1--M15 są DONE (M12-M14 dodatkowo przeszły pełną naprawę
+audytu post-implementacyjnego, patrz M14's sekcja; M15's implementacja
+Discovery Engine/Diffusion/Adoption opisana w M15's sekcji "Wyniki
+wykonania"). Kolejne milestone’y rozpoczynają się po odbiorze ich
+zależności.
 
 ------------------------------------------------------------------------
 

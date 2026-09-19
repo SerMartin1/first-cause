@@ -1,0 +1,6 @@
+{
+  "id": "construction_mechanics",
+  "nameKey": "content.knowledgeDomain.construction_mechanics.name",
+  "spilloverTargets": {},
+  "implementationPhase": "VS"
+}

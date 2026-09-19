@@ -4,7 +4,7 @@
   "primaryDomainId": "construction_mechanics",
   "secondaryDomainIds": [],
   "tier": 2,
-  "prerequisites": ["min_019", "mec_006"],
+  "prerequisites": ["mec_006"],
   "knowledgeRequirements": {},
   "conditions": {},
   "pressureModifiers": {},

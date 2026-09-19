@@ -1,4 +1,4 @@
-import { assertNonEmpty } from "../core/validation.js";
+import { assertNonEmpty, InvariantViolationError } from "../core/validation.js";
 
 /** Entity Data Model SS28. */
 export type DiscoveryAdoptionStatus = "UNKNOWN" | "KNOWN" | "AVAILABLE" | "ADOPTED";
@@ -62,4 +62,81 @@ export function createTechnologyState(
     eligibleDiscoveryIds: [],
     specialists: {},
   };
+}
+
+const DEFAULT_DISCOVERY_ADOPTION_STATE: DiscoveryAdoptionState = {
+  status: "UNKNOWN",
+  discoveredTick: undefined,
+  sourceRegionId: undefined,
+  diffusionSource: undefined,
+  availability: 0,
+  industryAdoption: 0,
+  populationAccess: 0,
+  institutionalAdoption: 0,
+};
+
+function assertInRange(value: number, min: number, max: number, label: string): number {
+  if (!Number.isFinite(value) || value < min || value > max) {
+    throw new InvariantViolationError(
+      `${label} must be a finite number in [${min}, ${max}], got ${String(value)}`,
+    );
+  }
+  return value;
+}
+
+/**
+ * M15: ustawia poziom wiedzy regionu dla jednej domeny (0..100, Entity
+ * Data Model SS28). Niemutowalne -- zwraca nowy `TechnologyState`, nigdy
+ * nie mutuje `state`. Wywołujący (`technology/knowledge`) odpowiadają za
+ * clamp/zaokrąglenie przed wywołaniem tej funkcji; to strażnik
+ * niezmienników warstwy encji, nie logika tuningowa.
+ */
+export function setDomainKnowledge(
+  state: TechnologyState,
+  domainId: string,
+  level: number,
+): TechnologyState {
+  assertNonEmpty(domainId, "domainId");
+  assertInRange(level, 0, 100, `TechnologyState.knowledge[${domainId}]`);
+
+  return {
+    ...state,
+    knowledge: { ...state.knowledge, [domainId]: level },
+  };
+}
+
+/**
+ * M15: merguje `patch` do stanu adopcji odkrycia, tworząc go (z
+ * `DEFAULT_DISCOVERY_ADOPTION_STATE`, czyli `UNKNOWN`), jeśli jeszcze
+ * nie istnieje. Niemutowalne. Clamp zakresu osi `0..1`
+ * (availability/industryAdoption/populationAccess/institutionalAdoption)
+ * to odpowiedzialność wywołującego (`technology/discoveries`,
+ * `technology/diffusion`, `technology/adoption`).
+ */
+export function setDiscoveryState(
+  state: TechnologyState,
+  discoveryId: string,
+  patch: Partial<DiscoveryAdoptionState>,
+): TechnologyState {
+  assertNonEmpty(discoveryId, "discoveryId");
+  const current = state.discoveries[discoveryId] ?? DEFAULT_DISCOVERY_ADOPTION_STATE;
+  const next: DiscoveryAdoptionState = { ...current, ...patch };
+
+  return {
+    ...state,
+    discoveries: { ...state.discoveries, [discoveryId]: next },
+  };
+}
+
+/**
+ * M15: zastępuje cache `eligibleDiscoveryIds`. Entity Data Model SS27:
+ * "eligibility może być cache i musi dać się odtworzyć" -- wywołujący
+ * (`technology/discoveries::computeEligibleDiscoveryIds`) przeliczają go
+ * od zera co tick, zamiast akumulować przyrostowo.
+ */
+export function setEligibleDiscoveryIds(
+  state: TechnologyState,
+  eligibleDiscoveryIds: readonly string[],
+): TechnologyState {
+  return { ...state, eligibleDiscoveryIds };
 }

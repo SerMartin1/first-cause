@@ -11,8 +11,7 @@ import type { ContentTypeSpec } from "./reference-field.js";
 
 /**
  * DiscoveryDefinition (Content-Localization-Spec SS45). `primaryDomainId`/
- * `secondaryDomainIds` are plain ContentIds, not cross-reference-validated:
- * KnowledgeDomainDefinition is M15 (Technology) scope, not M2.
+ * `secondaryDomainIds` cross-reference `KnowledgeDomainDefinition` (M15).
  * `unlocks` is polymorphic (may point at goods, PMs, archetypes,
  * transport modes, ...) -- validated per-target-type once those
  * consumers exist (M7+), not here.
@@ -47,6 +46,8 @@ export const discoveryContentTypeSpec: ContentTypeSpec<DiscoveryDefinition> = {
       cardinality: "many",
       cyclic: true,
     },
+    { field: "primaryDomainId", targetType: "knowledgeDomain", cardinality: "one" },
+    { field: "secondaryDomainIds", targetType: "knowledgeDomain", cardinality: "many" },
   ],
   localizationKeyFields: ["nameKey"],
 };

@@ -9,8 +9,10 @@ import {
   createRegion,
   createResourceDeposit,
   createSettlement,
+  createTechnologyState,
   createWorld,
   createWorldState,
+  setDiscoveryState,
   type Company,
   type Connection,
   type Settlement,
@@ -994,5 +996,229 @@ describe("runEconomyTick -- canonical phase order (audit P0-06/P1-04)", () => {
     expect(result.worldState.resourceDeposits.deposit_test!.stock.quantity).toBeLessThan(
       17.91, // regenerowane + wydobyte tego samego ticka -- mniej niż samo regenerowane 17.91
     );
+  });
+});
+
+describe("runEconomyTick -- M15 Technology wiring (technology/knowledge|discoveries|diffusion|adoption)", () => {
+  function buildWorldStateWithTechnology(): {
+    worldState: WorldState;
+    technologyStateId: string;
+  } {
+    const world = createWorld({
+      id: "world_tech_test",
+      seed: "economy-tick-technology-unit-test",
+      name: "Test World",
+      configuration: { regionCount: 1, worldSizePreset: "prototype-8-12" },
+    });
+    const continent = createContinent({
+      id: "continent_tech_test",
+      worldId: world.id,
+      name: "Test Continent",
+    });
+    const technologyState = createTechnologyState({
+      id: "technology_tech_test",
+      regionId: "region_tech_test",
+    });
+    const baseRegion = createRegion({
+      id: "region_tech_test",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "Test Region",
+      geography: {
+        terrain: "plains",
+        climate: "temperate",
+        area: 100,
+        fertility: 0.5,
+        waterAccess: true,
+        coastal: false,
+        elevationClass: "lowland",
+      },
+    });
+    const region = {
+      ...baseRegion,
+      knowledge: { technologyStateId: technologyState.id },
+    };
+    const cohort = createPopulationCohort({
+      id: "cohort_tech_test",
+      regionId: region.id,
+      ageGroup: "AGE_25_44",
+      population: 5000, // zgodne z KNOWLEDGE_GAIN_TODO_TUNING.populationDivisor -- przyrost dokładnie 1/tick
+      economicClass: "WORKING",
+      skillLevel: "UNSKILLED",
+    });
+
+    const worldState = createWorldState({
+      world,
+      continents: [continent],
+      regions: [region],
+      populationCohorts: [cohort],
+      technologyStates: [technologyState],
+    });
+
+    return { worldState, technologyStateId: technologyState.id };
+  }
+
+  it("leaves technologyStates untouched when discoveryRng is not provided (backward compatible with every pre-M15 caller)", () => {
+    const { worldState, technologyStateId } = buildWorldStateWithTechnology();
+    const rng = createWorldRng(worldState.world.seed);
+
+    const result = runEconomyTick({
+      worldState,
+      tick: 0,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+    });
+
+    expect(result.worldState.technologyStates[technologyStateId]).toEqual(
+      worldState.technologyStates[technologyStateId],
+    );
+  });
+
+  it("accumulates knowledge and, given enough ticks, discovers an eligible technology (discovery eligibility test, full tick-loop integration)", () => {
+    const { worldState, technologyStateId } = buildWorldStateWithTechnology();
+    const rng = createWorldRng(worldState.world.seed);
+    const discoveryEligibilityRulesById = {
+      d1: { primaryDomainId: "agriculture_food", tier: 0, prerequisites: [] },
+    };
+
+    let currentWorldState = worldState;
+    let becameKnown = false;
+    for (let tick = 0; tick < 500 && !becameKnown; tick++) {
+      const result = runEconomyTick({
+        worldState: currentWorldState,
+        tick,
+        demographyRng: (scopeId) => rng.stream("demography", scopeId),
+        migrationRng: (scopeId) => rng.stream("migration", scopeId),
+        discoveryRng: (scopeId) => rng.stream("discovery", scopeId),
+        discoveryEligibilityRulesById,
+        knowledgeDomainIds: ["agriculture_food"],
+      });
+      currentWorldState = result.worldState;
+      becameKnown =
+        currentWorldState.technologyStates[technologyStateId]?.discoveries.d1?.status ===
+        "KNOWN";
+    }
+
+    expect(becameKnown).toBe(true);
+    expect(
+      currentWorldState.technologyStates[technologyStateId]?.knowledge.agriculture_food,
+    ).toBeGreaterThan(0);
+  });
+
+  it("gates a discovery-linked production method candidate out of AI-08 until the discovery is AVAILABLE in that region", () => {
+    const { worldState: baseWorldState, technologyStateId } = buildWorldStateWithTechnology();
+    // Ten sam kształt firmy/receptury co fixtures "audit regression P1"
+    // wyżej, zminimalizowany na potrzeby tego testu: jedna firma, obecna
+    // vs. ściśle lepsza receptura kandydacka zagate'owana za
+    // "gated_discovery".
+    const companyInventory = createInventory({
+      id: "inventory_company_tech_test",
+      ownerType: "company",
+      ownerId: "company_tech_test",
+      locationRegionId: "region_tech_test",
+    });
+    const company = createCompany({
+      id: "company_tech_test",
+      archetypeId: "test_archetype",
+      name: "Test Company",
+      foundedTick: 0,
+      regionId: "region_tech_test",
+      ownerType: "individual",
+      ownerEntityId: "cohort_tech_test",
+      inventoryId: companyInventory.id,
+      initialCash: 1000,
+    });
+    const companyWithMethod: Company = {
+      ...company,
+      production: { ...company.production, productionMethodId: "current_method" },
+    };
+    // Porównanie marż w AI-08 wymaga prawdziwego, wycenionego Marketu --
+    // bez niego `prices` domyślnie to `{}` i marża każdej receptury
+    // wynosi 0 niezależnie od `goodOutputsPerBatch`, więc nic nigdy nie
+    // wyglądałoby "advantageous" (ten sam powód, dla którego każdy inny
+    // fixture AI-08 w tym pliku go ustawia).
+    const market = createMarket({ id: "market_tech_test", regionId: "region_tech_test" });
+    const marketWithPrice = {
+      ...market,
+      goods: { output: initializeMarketGood(1) },
+    };
+    const regionWithMarket = {
+      ...baseWorldState.regions.region_tech_test!,
+      economy: { ...baseWorldState.regions.region_tech_test!.economy, marketId: market.id },
+    };
+
+    const worldState = createWorldState({
+      world: baseWorldState.world,
+      continents: Object.values(baseWorldState.continents),
+      regions: [regionWithMarket],
+      populationCohorts: Object.values(baseWorldState.populationCohorts),
+      technologyStates: Object.values(baseWorldState.technologyStates),
+      companies: [companyWithMethod],
+      inventories: [companyInventory],
+      markets: [marketWithPrice],
+    });
+    const rng = createWorldRng(worldState.world.seed);
+
+    const currentRecipe: ProductionRecipe = {
+      productionMethodId: "current_method",
+      employeesPerBatch: 1,
+      resourceInputsPerBatch: {},
+      goodInputsPerBatch: {},
+      goodOutputsPerBatch: { output: 1 },
+      eligibleCompanyArchetypeIds: [],
+    };
+    const gatedCandidateRecipe: ProductionRecipe = {
+      productionMethodId: "gated_method",
+      employeesPerBatch: 1,
+      resourceInputsPerBatch: {},
+      goodInputsPerBatch: {},
+      goodOutputsPerBatch: { output: 100 }, // ogromna przewaga marży -- przyjęta natychmiast, gdyby nie gate
+      eligibleCompanyArchetypeIds: [],
+    };
+    const tickInputBase = {
+      worldState,
+      demographyRng: (scopeId: string) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId: string) => rng.stream("migration", scopeId),
+      pmCandidatesByCurrentMethodId: { current_method: "gated_method" },
+      productionRecipesByMethodId: {
+        current_method: currentRecipe,
+        gated_method: gatedCandidateRecipe,
+      },
+      requiredDiscoveryIdsByMethodId: { gated_method: ["gated_discovery"] },
+    };
+
+    let ungatedState = worldState;
+    for (let tick = 0; tick < 5; tick++) {
+      ungatedState = runEconomyTick({ ...tickInputBase, worldState: ungatedState, tick })
+        .worldState;
+    }
+    expect(ungatedState.companies.company_tech_test?.production.productionMethodId).toBe(
+      "current_method", // nigdy nie przyjęta: wymagane odkrycie jest UNKNOWN, nie AVAILABLE
+    );
+
+    const availableTechnologyState = setDiscoveryState(
+      worldState.technologyStates[technologyStateId]!,
+      "gated_discovery",
+      { status: "AVAILABLE" },
+    );
+    const availableWorldState: WorldState = {
+      ...worldState,
+      technologyStates: {
+        ...worldState.technologyStates,
+        [technologyStateId]: availableTechnologyState,
+      },
+    };
+    let gatedState = availableWorldState;
+    for (let tick = 0; tick < 5; tick++) {
+      gatedState = runEconomyTick({ ...tickInputBase, worldState: gatedState, tick })
+        .worldState;
+    }
+    expect(gatedState.companies.company_tech_test?.production.productionMethodId).toBe(
+      "gated_method", // teraz przyjęta -- AI-08 ją oceniło i wygrała na marży
+    );
+    expect(
+      gatedState.technologyStates[technologyStateId]?.discoveries.gated_discovery
+        ?.industryAdoption,
+    ).toBeGreaterThan(0);
   });
 });

@@ -75,6 +75,36 @@ describe("loadEconomyContent (audit regression P0-06, content-driven production 
     });
   });
 
+  it("M15: loads content/discoveries and content/knowledgeDomains into validated maps, and production methods' `discoveries` into a gating map", () => {
+    const result = loadEconomyContent(REPO_ROOT);
+
+    expect(Object.keys(result.discoveryDefinitionsById)).toHaveLength(125);
+    expect(result.discoveryDefinitionsById.agr_001?.id).toBe("agr_001");
+    expect(Object.keys(result.knowledgeDomainDefinitionsById)).toHaveLength(5);
+    expect(result.knowledgeDomainDefinitionsById.agriculture_food?.id).toBe(
+      "agriculture_food",
+    );
+    // Dzisiejsze 2 realne production methods nie deklarują jeszcze
+    // `discoveries` (M15's "poza zakresem": nowy content PM za `unlocks`
+    // to osobny krok) -- mapa istnieje i jest kluczowana, ale każda
+    // wartość jest pusta.
+    expect(result.requiredDiscoveryIdsByMethodId.manual_farming).toEqual([]);
+    expect(result.requiredDiscoveryIdsByMethodId.manual_food_processing).toEqual([]);
+    expect(Object.keys(result.discoveryEligibilityRulesById)).toHaveLength(125);
+    expect(result.discoveryEligibilityRulesById.agr_001).toEqual({
+      primaryDomainId: "agriculture_food",
+      tier: result.discoveryDefinitionsById.agr_001?.tier,
+      prerequisites: result.discoveryDefinitionsById.agr_001?.prerequisites,
+    });
+    expect(result.knowledgeDomainIds).toEqual([
+      "agriculture_food",
+      "construction_mechanics",
+      "mining_metallurgy",
+      "science_society",
+      "transport_communication",
+    ]);
+  });
+
   it("drives an identical 12-tick economy run to the hardcoded DEFAULT_* maps (real content is a genuine drop-in, not a parallel unused path)", () => {
     const content = loadEconomyContent(REPO_ROOT);
     expect(content.ok).toBe(true);
