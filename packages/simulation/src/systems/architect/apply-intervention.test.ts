@@ -19,6 +19,7 @@ const revealRule = parseArchitectInterventionRule(
   {},
   { base: 15 },
   12,
+  { policy: "allowed" },
   "resource_discovered",
 );
 
@@ -124,6 +125,35 @@ describe("applyArchitectIntervention", () => {
     expect(factStore.all()).toHaveLength(1);
   });
 
+  it("rejects when the emitted fact type doesn't match the rule's declared rootFactType (P1 audit fix)", () => {
+    const mismatchedRule = parseArchitectInterventionRule(
+      "reveal_resource_deposit",
+      "resources",
+      ["entity"],
+      {},
+      { base: 15 },
+      12,
+      { policy: "allowed" },
+      "not_the_real_fact_type", // real handler always emits "resource_discovered"
+    );
+    const state = buildState();
+    const factStore = createFactStore();
+
+    const result = applyArchitectIntervention(state, mismatchedRule, {
+      instanceId: "intervention_001",
+      tick: 3,
+      target: { scopeType: "entity", entityIds: ["deposit_001"] },
+      parameters: {},
+    }, factStore);
+
+    expect(result.outcome).toBe("REJECTED");
+    if (result.outcome !== "REJECTED") return;
+    expect(result.errors.join(" ")).toMatch(/rootFactType/);
+    // Atomicity: nothing committed despite the handler having run.
+    expect(state.architectInfluence.current).toBe(100);
+    expect(factStore.size).toBe(0);
+  });
+
   it("rejects before touching state when the target doesn't exist (validation-before-execution, SS26)", () => {
     const state = buildState();
     const factStore = createFactStore();
@@ -167,6 +197,33 @@ describe("applyArchitectIntervention", () => {
     if (second.outcome !== "COMPLETED") return;
     expect(second.intervention.status).toBe("COMPLETED");
     expect(second.worldState.architectInfluence.current).toBe(70); // 100 - 15 - 15
+  });
+
+  it("rejects a duplicate instanceId instead of overwriting the existing intervention (P0 audit fix)", () => {
+    const state = buildState();
+    const factStore = createFactStore();
+
+    const first = applyArchitectIntervention(state, revealRule, {
+      instanceId: "intervention_001",
+      tick: 3,
+      target: { scopeType: "entity", entityIds: ["deposit_001"] },
+      parameters: {},
+    }, factStore);
+    expect(first.outcome).toBe("COMPLETED");
+    if (first.outcome !== "COMPLETED") return;
+
+    const second = applyArchitectIntervention(first.worldState, revealRule, {
+      instanceId: "intervention_001", // duplicate of the first call's id
+      tick: 4,
+      target: { scopeType: "entity", entityIds: ["deposit_001"] },
+      parameters: {},
+    }, factStore);
+
+    expect(second.outcome).toBe("REJECTED");
+    if (second.outcome !== "REJECTED") return;
+    expect(second.errors.join(" ")).toMatch(/already exists/);
+    // The original instance survives untouched -- no silent overwrite.
+    expect(first.worldState.interventions.intervention_001!.appliedTick).toBe(3);
   });
 
   it("ARCH-002: reveals the deposit's status without founding a company or otherwise mutating anything beyond the declared target", () => {

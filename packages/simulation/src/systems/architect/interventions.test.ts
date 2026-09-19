@@ -76,7 +76,7 @@ describe("reveal_resource_deposit", () => {
 
   it("validateTarget rejects an unknown deposit", () => {
     const state = buildFixtureState();
-    expect(handler.validateTarget(state, { scopeType: "entity", entityIds: ["nope"] })).not.toEqual([]);
+    expect(handler.validateTarget(state, { scopeType: "entity", entityIds: ["nope"] }, [])).not.toEqual([]);
   });
 
   it("apply moves the deposit to DISCOVERED and emits a resource_discovered fact", () => {
@@ -145,12 +145,25 @@ describe("fertility_shift", () => {
 describe("knowledge_injection", () => {
   const handler = INTERVENTION_EFFECT_HANDLERS.knowledge_injection!;
 
+  const knowledgeDomainIds = ["agriculture_food", "mining_metallurgy"];
+
   it("validateTarget rejects a region with no linked TechnologyState", () => {
     const state = buildFixtureState();
-    const errors = handler.validateTarget(state, {
-      scopeType: "region",
-      entityIds: ["region_b", "agriculture_food"],
-    });
+    const errors = handler.validateTarget(
+      state,
+      { scopeType: "region", entityIds: ["region_b", "agriculture_food"] },
+      knowledgeDomainIds,
+    );
+    expect(errors).not.toEqual([]);
+  });
+
+  it("validateTarget rejects a domain id that isn't one of the canonical Knowledge Domains", () => {
+    const state = buildFixtureState();
+    const errors = handler.validateTarget(
+      state,
+      { scopeType: "region", entityIds: ["region_a", "invented_magic"] },
+      knowledgeDomainIds,
+    );
     expect(errors).not.toEqual([]);
   });
 

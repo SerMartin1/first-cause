@@ -99,6 +99,7 @@ describe("loadEconomyContent (audit regression P0-06, content-driven production 
       parameters: {},
       costs: { base: 15, magnitudePerUnit: 0, scopeMultiplier: {}, naturalnessMultiplier: 1 },
       cooldownTicks: 12,
+      stackingPolicy: "allowed",
       rootFactType: "resource_discovered",
     });
     expect(result.architectInterventionRulesById.fertility_shift?.parameters).toEqual({
@@ -115,12 +116,14 @@ describe("loadEconomyContent (audit regression P0-06, content-driven production 
     expect(result.knowledgeDomainDefinitionsById.agriculture_food?.id).toBe(
       "agriculture_food",
     );
-    // Dzisiejsze 2 realne production methods nie deklarują jeszcze
-    // `discoveries` (M15's "poza zakresem": nowy content PM za `unlocks`
-    // to osobny krok) -- mapa istnieje i jest kluczowana, ale każda
-    // wartość jest pusta.
+    // `manual_farming`/`manual_food_processing` są bazowe, bez gate'u.
     expect(result.requiredDiscoveryIdsByMethodId.manual_farming).toEqual([]);
     expect(result.requiredDiscoveryIdsByMethodId.manual_food_processing).toEqual([]);
+    // Audytowe P0 (2026-09-19): `watermill_milling` jest realnym, gated
+    // upgrade'em `manual_farming` -- `discoveries`/`pmCandidatesByCurrentMethodId`
+    // muszą realnie się łączyć, nie tylko istnieć jako puste mapy.
+    expect(result.requiredDiscoveryIdsByMethodId.watermill_milling).toEqual(["mec_004"]);
+    expect(result.pmCandidatesByCurrentMethodId.manual_farming).toBe("watermill_milling");
     expect(Object.keys(result.discoveryEligibilityRulesById)).toHaveLength(125);
     expect(result.discoveryEligibilityRulesById.agr_001).toEqual({
       primaryDomainId: "agriculture_food",

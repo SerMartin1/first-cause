@@ -6,16 +6,22 @@ import { computeInterventionCost } from "./cost.js";
 /**
  * `architect/validation` (M16, SS26 "Validation przed wykonaniem":
  * target istnieje, scope dozwolony, parametry w zakresie, Influence
- * wystarcza, cooldown, stacking, world rule compatibility). VS scope:
- * `stacking`/"world rule compatibility" nie mają dziś generycznego
- * systemu do sprawdzenia poza tym, co cooldown + parameter range już
- * pokrywają (SS53's "stacking example" -- nieskończone `+10 fertility`
- * -- jest wprost adresowane przez cooldown per (definitionId, target)).
+ * wystarcza, cooldown, stacking, world rule compatibility). Audytowe P0/P1
+ * (M15-M16 remediation, 2026-09-19): `stacking.policy` z contentu
+ * (`forbidden`/`limited`/`allowed`) egzekwowane tu jako branch na
+ * cooldownie (`forbidden` = na zawsze co najwyżej raz, `limited` =
+ * dzisiejszy cooldown window, `allowed` = brak restrykcji); `instanceId`
+ * unikalny, `entityIds` w dokładnej liczbie, parametry finite i bez
+ * nadmiarowych kluczy. "world rule compatibility" wciąż nie ma
+ * generycznego systemu -- poza zakresem tej remediacji.
  */
 export interface ValidateInterventionInput {
+  readonly instanceId: string;
   readonly target: ArchitectInterventionTarget;
   readonly parameters: Readonly<Record<string, number>>;
   readonly tick: number;
+  /** Kanoniczna lista 5 Knowledge Domains z contentu -- patrz `InterventionEffectHandler.validateTarget`. */
+  readonly knowledgeDomainIds: readonly string[];
 }
 
 export type ValidateInterventionResult =
@@ -51,10 +57,37 @@ export function validateIntervention(
 ): ValidateInterventionResult {
   const errors: string[] = [];
 
+  if (!input.instanceId) {
+    errors.push("instanceId must be a non-empty string");
+  } else if (state.interventions[input.instanceId]) {
+    errors.push(`intervention instance "${input.instanceId}" already exists`);
+  }
+
+  if (!Number.isInteger(input.tick) || input.tick < 0) {
+    errors.push(`tick must be a non-negative integer, got ${input.tick}`);
+  }
+
   if (!rule.allowedScopes.includes(input.target.scopeType)) {
     errors.push(
       `scope "${input.target.scopeType}" is not allowed for "${rule.id}" (allowed: ${rule.allowedScopes.join(", ")})`,
     );
+  }
+
+  const handler = INTERVENTION_EFFECT_HANDLERS[rule.id];
+  if (!handler) {
+    errors.push(`no effect handler registered for intervention "${rule.id}"`);
+  } else if (input.target.entityIds.length !== handler.expectedEntityIdCount) {
+    errors.push(
+      `target expects exactly ${handler.expectedEntityIdCount} entityIds for "${rule.id}", got ${input.target.entityIds.length}`,
+    );
+  } else {
+    errors.push(...handler.validateTarget(state, input.target, input.knowledgeDomainIds));
+  }
+
+  for (const paramName of Object.keys(input.parameters)) {
+    if (!(paramName in rule.parameters)) {
+      errors.push(`unexpected parameter "${paramName}" is not declared by "${rule.id}"`);
+    }
   }
 
   for (const [paramName, spec] of Object.entries(rule.parameters)) {
@@ -63,18 +96,15 @@ export function validateIntervention(
       errors.push(`missing required parameter "${paramName}"`);
       continue;
     }
+    if (!Number.isFinite(value)) {
+      errors.push(`parameter "${paramName}" must be a finite number, got ${value}`);
+      continue;
+    }
     if (value < spec.min || value > spec.max) {
       errors.push(
         `parameter "${paramName}" (${value}) is out of range [${spec.min}, ${spec.max}]`,
       );
     }
-  }
-
-  const handler = INTERVENTION_EFFECT_HANDLERS[rule.id];
-  if (!handler) {
-    errors.push(`no effect handler registered for intervention "${rule.id}"`);
-  } else {
-    errors.push(...handler.validateTarget(state, input.target));
   }
 
   const cost = computeInterventionCost(rule, input.target.scopeType, input.parameters);
@@ -85,10 +115,20 @@ export function validateIntervention(
   }
 
   const previousTick = lastAppliedTick(state, rule.id, input.target);
-  if (previousTick !== undefined && input.tick - previousTick < rule.cooldownTicks) {
-    errors.push(
-      `cooldown active: "${rule.id}" on this target can next be applied at tick ${previousTick + rule.cooldownTicks} (now: ${input.tick})`,
-    );
+  if (previousTick !== undefined) {
+    if (rule.stackingPolicy === "forbidden") {
+      errors.push(
+        `stacking is forbidden: "${rule.id}" was already applied to this target at tick ${previousTick}`,
+      );
+    } else if (
+      rule.stackingPolicy === "limited" &&
+      input.tick - previousTick < rule.cooldownTicks
+    ) {
+      errors.push(
+        `cooldown active: "${rule.id}" on this target can next be applied at tick ${previousTick + rule.cooldownTicks} (now: ${input.tick})`,
+      );
+    }
+    // stackingPolicy === "allowed": brak restrykcji, cooldown pomijany.
   }
 
   if (errors.length > 0) return { ok: false, errors };

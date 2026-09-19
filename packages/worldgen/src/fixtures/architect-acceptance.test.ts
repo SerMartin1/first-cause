@@ -24,6 +24,7 @@ const revealRule = parseArchitectInterventionRule(
   {},
   { base: 15 },
   12,
+  { policy: "allowed" },
   "resource_discovered",
 );
 

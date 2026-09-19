@@ -10,6 +10,47 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-19
 
+- **Remediacja audytu M15-M16 (gotowość do M17: Causality).** Niezależny
+  audyt zwrócił werdykt FAIL/NOT READY mimo zielonych
+  `typecheck/lint/test/build/test:e2e` -- wszystkie 2xP0 + 5xP1 ustalenia
+  zweryfikowane w kodzie i naprawione.
+  - **P0 -- Discovery nie wpływało na żadną realną Production Method.**
+    `content/productionMethods/watermill_milling.json` (nowa PM,
+    `discoveries: ["mec_004"]`, realizuje kanoniczny wpis katalogu
+    "MEC-004 -> nowy content PM 'młyn'") + `packages/worldgen/src/
+    content/load-economy-content.ts`'s `derivePmCandidatesByCurrentMethodId`
+    (nowa, generyczna derywacja `pmCandidatesByCurrentMethodId` z
+    contentu, bez której cała ścieżka gate'owania AI-08 była martwa
+    nawet po dopisaniu `discoveries` -- `run-economy-demo.ts` przekazywał
+    ją dawniej zawsze jako `{}`) + wpięcie w `run-economy-demo.ts`. Nowy
+    test integracyjny (`technology-acceptance.test.ts`) dowodzi tego na
+    realnych ID (`manual_farming` -> `watermill_milling` przez `mec_004`
+    AVAILABLE), nie na syntetycznym `gated_method`/`gated_discovery`.
+  - **P0 -- brak walidacji unikalności `instanceId` interwencji
+    Architect.** `validation.ts`'s `validateIntervention` odrzuca teraz
+    duplikat `instanceId` przed wykonaniem, zamiast pozwolić
+    `apply-intervention.ts` po cichu nadpisać istniejącą instancję.
+  - **P1 x5** (`packages/simulation/src/systems/architect/`):
+    `stacking.policy` z contentu (`forbidden`/`limited`/`allowed`)
+    parsowane (`definition.ts`) i egzekwowane (`validation.ts`, branch
+    zamiast bezwarunkowego cooldownu); Knowledge Injection odrzuca
+    `domainId` spoza kanonicznych 5 Knowledge Domains
+    (`interventions.ts`, `knowledgeDomainIds` wstrzykiwane jak w M15);
+    walidacja parametrów odrzuca nieznane klucze, `NaN`/`Infinity`,
+    złe `tick`, złą liczbę `entityIds` (nowe `expectedEntityIdCount` na
+    handlerze); `rootFactType` faktycznie sprawdzane względem
+    emitowanych faktów w `apply-intervention.ts`, nie tylko parsowane.
+  - **P1 -- roadmapa niesprzeczna ze stanem repo.**
+    `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`: `M16 READY` ->
+    `DONE` w tabeli statusów, "Następny krok" z M16 -> M17 Causality,
+    dopisane (nie zastępujące) addenda pod M15/M16 "Wyniki wykonania".
+  - Weryfikacja: `pnpm typecheck/lint/test/build/test:e2e` wszystkie
+    PASS (723/723 testów, 99 plików; lint 0 błędów, 1 wcześniej znany
+    warning w `reference-field.ts`); brak regresji w M12-M15's 3-seed x
+    120-tick monitorach niezmienników (nieużywają
+    `pmCandidatesByCurrentMethodId`, więc nowa PM jest dla nich
+    nieaktywna z definicji).
+
 - **M16 -- Architect (pierwsza interwencja): Influence, 5 VS interwencji,
   Root Fact.** Gracz jako Architekt może teraz naprawdę zmienić warunek
   świata (nie wynik) przez `applyArchitectIntervention`.

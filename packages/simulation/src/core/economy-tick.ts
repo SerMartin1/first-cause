@@ -574,11 +574,14 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         : undefined;
       // M15: kandydat zagate'owany jednym lub więcej odkryciami trafia do
       // AI-08 dopiero, gdy każde z nich jest w tym regionie
-      // AVAILABLE/ADOPTED -- pusta `requiredDiscoveryIds` (każda
-      // production method dziś) jest zawsze eligible, więc to no-op,
-      // dopóki realny content nie podłączy
-      // `ProductionMethodDefinition.discoveries` (katalog §5 pkt 3, poza
-      // zakresem tutaj).
+      // AVAILABLE/ADOPTED -- pusta `requiredDiscoveryIds` jest zawsze
+      // eligible (brak gate'u). Audytowe P0 (2026-09-19): `watermill_
+      // milling` (`content/productionMethods/watermill_milling.json`,
+      // `discoveries: ["mec_004"]`) jest realnym, niesyntetycznym
+      // przykładem tej ścieżki -- `pmCandidates`/`requiredDiscoveryIds`
+      // tu poniżej muszą pochodzić z `LoadEconomyContentResult.
+      // pmCandidatesByCurrentMethodId`/`requiredDiscoveryIdsByMethodId`
+      // (`load-economy-content.ts`), inaczej ten gate jest znowu no-opem.
       const requiredDiscoveryIds = candidateMethodId
         ? (requiredDiscoveryIdsByMethodId[candidateMethodId] ?? [])
         : [];

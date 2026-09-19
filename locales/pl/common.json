@@ -18,6 +18,7 @@
   "content.companyArchetype.bakery.name": "Piekarnia",
   "content.productionMethod.manual_farming.name": "Ręczna uprawa",
   "content.productionMethod.manual_food_processing.name": "Ręczne przetwórstwo żywności",
+  "content.productionMethod.watermill_milling.name": "Mielenie wiatrakowo-wodne",
   "content.transport_mode.foot_porter.name": "Pieszo / Tragarz",
   "content.transport_mode.pack_animal.name": "Zwierzę juczne",
   "content.transport_mode.cart.name": "Wóz",

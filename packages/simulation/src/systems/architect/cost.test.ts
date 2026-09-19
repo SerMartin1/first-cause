@@ -9,6 +9,7 @@ const binaryRule = parseArchitectInterventionRule(
   {},
   { base: 15 },
   12,
+  { policy: "allowed" },
   "resource_discovered",
 );
 
@@ -19,6 +20,7 @@ const magnitudeRule = parseArchitectInterventionRule(
   { magnitude: { min: 0.05, max: 0.3 } },
   { base: 10, magnitudePerUnit: 150, scopeMultiplier: { region: 1.5 }, naturalnessMultiplier: 2 },
   24,
+  { policy: "limited" },
   "region_fertility_shifted",
 );
 

@@ -26,6 +26,8 @@ export interface ArchitectInterventionCostConfig {
   readonly naturalnessMultiplier: number;
 }
 
+export type ArchitectInterventionStackingPolicy = "forbidden" | "limited" | "allowed";
+
 export interface ArchitectInterventionRule {
   readonly id: string;
   readonly category: string;
@@ -33,8 +35,10 @@ export interface ArchitectInterventionRule {
   /** `paramName -> [min, max]`. Puste = interwencja binarna, bez ciągłego parametru magnitude. */
   readonly parameters: Readonly<Record<string, ArchitectInterventionParameterSpec>>;
   readonly costs: ArchitectInterventionCostConfig;
-  /** Ticki między dwoma zastosowaniami tej samej definicji na ten sam target (SS57/SS58). */
+  /** Ticki między dwoma zastosowaniami tej samej definicji na ten sam target (SS57/SS58), egzekwowane tylko dla `stackingPolicy: "limited"`. */
   readonly cooldownTicks: number;
+  /** `forbidden` = co najwyżej jedna aplikacja na target, na zawsze; `limited` = `cooldownTicks` window (dzisiejsze zachowanie); `allowed` = brak restrykcji cooldownu. */
+  readonly stackingPolicy: ArchitectInterventionStackingPolicy;
   readonly rootFactType: string;
 }
 
@@ -111,6 +115,25 @@ function parseParameterSpecs(
   return parsed;
 }
 
+const STACKING_POLICIES: readonly ArchitectInterventionStackingPolicy[] = [
+  "forbidden",
+  "limited",
+  "allowed",
+];
+
+function parseStackingPolicy(
+  definitionId: string,
+  stacking: Readonly<Record<string, unknown>>,
+): ArchitectInterventionStackingPolicy {
+  const policy = stacking.policy;
+  if (typeof policy !== "string" || !STACKING_POLICIES.includes(policy as ArchitectInterventionStackingPolicy)) {
+    throw new InvariantViolationError(
+      `${label(definitionId, "stacking.policy")} must be one of ${STACKING_POLICIES.join(", ")}, got ${policy === undefined ? "undefined" : String(policy)}`,
+    );
+  }
+  return policy as ArchitectInterventionStackingPolicy;
+}
+
 export function parseArchitectInterventionRule(
   id: string,
   category: string,
@@ -118,6 +141,7 @@ export function parseArchitectInterventionRule(
   parameters: Readonly<Record<string, unknown>>,
   costs: Readonly<Record<string, unknown>>,
   cooldown: number,
+  stacking: Readonly<Record<string, unknown>>,
   rootFactType: string,
 ): ArchitectInterventionRule {
   return {
@@ -127,6 +151,7 @@ export function parseArchitectInterventionRule(
     parameters: parseParameterSpecs(id, parameters),
     costs: parseCostConfig(id, costs),
     cooldownTicks: cooldown,
+    stackingPolicy: parseStackingPolicy(id, stacking),
     rootFactType,
   };
 }

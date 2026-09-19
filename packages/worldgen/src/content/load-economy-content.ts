@@ -66,6 +66,19 @@ export interface LoadEconomyContentResult {
    */
   readonly requiredDiscoveryIdsByMethodId: Readonly<Record<string, readonly string[]>>;
   /**
+   * Audytowe P0 (M15-M16 remediation, 2026-09-19): `productionMethodId
+   * (bazowa, `discoveries: []`) -> productionMethodId` (upgrade, `discoveries`
+   * niepuste), wyliczone z contentu, dla par metod współdzielących
+   * `companyArchetypeIds` i identyczny kształt receptury
+   * (`outputs`/`inputs`/`resourceRequirements`). Gotowe do
+   * `RunEconomyTickInput.pmCandidatesByCurrentMethodId` -- bez tego mosta
+   * `ProductionMethodDefinition.discoveries` jest martwe w realnym runie
+   * (`economy-tick.ts`'s AI-08 gate nigdy nie widzi kandydata do zmiany).
+   * VS scope: co najwyżej jeden kandydat na metodę bazową (brak łańcucha
+   * >2 metod na archetyp -- TODO tuning, jeśli taki łańcuch powstanie).
+   */
+  readonly pmCandidatesByCurrentMethodId: Readonly<Record<string, string>>;
+  /**
    * UI-F1 (`RegionVisualProfile`): `companyArchetype.id -> sector`,
    * pochodzi z contentu. `packages/simulation` nigdy nie czyta contentu
    * samodzielnie (AGENTS.md reguła 6) -- podawane do opcji
@@ -76,6 +89,42 @@ export interface LoadEconomyContentResult {
   readonly sectorByCompanyArchetypeId: Readonly<Record<string, string>>;
   /** M16: `content/interventions/*.json`, sparsowane na `ArchitectInterventionRule` -- gotowe dla `applyArchitectIntervention`. */
   readonly architectInterventionRulesById: Readonly<Record<string, ArchitectInterventionRule>>;
+}
+
+/**
+ * Patrz `LoadEconomyContentResult.pmCandidatesByCurrentMethodId`. Reguła
+ * generyczna (AGENTS.md reguła 8 -- brak content-specific branchy tutaj):
+ * dwie metody są parą baza->upgrade, gdy mają wspólny co najmniej jeden
+ * `companyArchetypeId`, identyczne `outputs`/`inputs`/`resourceRequirements`
+ * (ten sam "kształt" receptury), a jedna ma `discoveries: []` (baza), druga
+ * niepuste (upgrade, gated).
+ */
+function derivePmCandidatesByCurrentMethodId(
+  definitions: readonly ProductionMethodDefinition[],
+): Record<string, string> {
+  const sameShape = (a: ProductionMethodDefinition, b: ProductionMethodDefinition): boolean => {
+    const sameSet = (x: readonly string[], y: readonly string[]): boolean =>
+      x.length === y.length && x.every((id) => y.includes(id));
+    return (
+      a.companyArchetypeIds.some((id) => b.companyArchetypeIds.includes(id)) &&
+      sameSet(a.outputs, b.outputs) &&
+      sameSet(a.inputs, b.inputs) &&
+      sameSet(a.resourceRequirements, b.resourceRequirements)
+    );
+  };
+
+  const candidates: Record<string, string> = {};
+  for (const base of definitions) {
+    if (base.discoveries.length > 0) continue; // must itself be ungated
+    for (const upgrade of definitions) {
+      if (upgrade.id === base.id) continue;
+      if (upgrade.discoveries.length === 0) continue; // must be the gated one
+      if (!sameShape(base, upgrade)) continue;
+      candidates[base.id] = upgrade.id;
+      break;
+    }
+  }
+  return candidates;
 }
 
 function readJsonDir(dir: string): unknown[] {
@@ -129,6 +178,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       discoveryEligibilityRulesById: {},
       knowledgeDomainIds: [],
       requiredDiscoveryIdsByMethodId: {},
+      pmCandidatesByCurrentMethodId: {},
       sectorByCompanyArchetypeId: {},
       architectInterventionRulesById: {},
     };
@@ -161,6 +211,9 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     );
     requiredDiscoveryIdsByMethodId[definition.id] = definition.discoveries;
   }
+  const pmCandidatesByCurrentMethodId = derivePmCandidatesByCurrentMethodId(
+    productionMethodRegistry?.all() ?? [],
+  );
 
   const transportModeProfilesByModeId: Record<string, TransportModeProfile> = {};
   for (const definition of transportModeRegistry?.all() ?? []) {
@@ -211,6 +264,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       definition.parameters,
       definition.costs,
       definition.cooldown,
+      definition.stacking,
       definition.rootFactType,
     );
   }
@@ -226,6 +280,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     discoveryEligibilityRulesById,
     knowledgeDomainIds: Object.keys(knowledgeDomainDefinitionsById).sort(),
     requiredDiscoveryIdsByMethodId,
+    pmCandidatesByCurrentMethodId,
     sectorByCompanyArchetypeId,
     architectInterventionRulesById,
   };

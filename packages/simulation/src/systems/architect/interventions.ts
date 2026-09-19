@@ -33,10 +33,13 @@ export interface InterventionEffectResult {
 }
 
 export interface InterventionEffectHandler {
-  /** Błędy specyficzne dla TEGO typu (istnienie targetu, jego kształt) -- allowedScopes/parameter min-max/Influence/cooldown to `validation.ts`, nie tutaj. */
+  /** Dokładna liczba `target.entityIds`, jakiej ten handler się spodziewa -- `validation.ts` odrzuca przed wywołaniem `validateTarget`/`apply`, żeby nadmiarowe/brakujące id nie zostały po cichu zignorowane przez destrukturyzację. */
+  readonly expectedEntityIdCount: number;
+  /** Błędy specyficzne dla TEGO typu (istnienie targetu, jego kształt) -- allowedScopes/parameter min-max/Influence/cooldown to `validation.ts`, nie tutaj. `knowledgeDomainIds` to kanoniczna lista 5 domen z contentu (M15's `load-economy-content.ts`'s `knowledgeDomainIds`, ten sam wzorzec wstrzykiwania) -- większość handlerów go ignoruje. */
   readonly validateTarget: (
     state: WorldState,
     target: ArchitectInterventionTarget,
+    knowledgeDomainIds: readonly string[],
   ) => readonly string[];
   readonly apply: (context: InterventionEffectContext) => InterventionEffectResult;
 }
@@ -47,6 +50,7 @@ function requireRegion(state: WorldState, target: ArchitectInterventionTarget): 
 }
 
 const revealResourceDeposit: InterventionEffectHandler = {
+  expectedEntityIdCount: 1,
   validateTarget(state, target) {
     const depositId = target.entityIds[0];
     if (!depositId || !state.resourceDeposits[depositId]) {
@@ -91,6 +95,7 @@ const revealResourceDeposit: InterventionEffectHandler = {
 };
 
 const fertilityShift: InterventionEffectHandler = {
+  expectedEntityIdCount: 1,
   validateTarget(state, target) {
     return requireRegion(state, target) ? [] : [`Region "${target.entityIds[0]}" does not exist`];
   },
@@ -124,11 +129,15 @@ const fertilityShift: InterventionEffectHandler = {
 };
 
 const knowledgeInjection: InterventionEffectHandler = {
-  validateTarget(state, target) {
+  expectedEntityIdCount: 2,
+  validateTarget(state, target, knowledgeDomainIds) {
     const [regionId, domainId] = target.entityIds;
     const region = regionId ? state.regions[regionId] : undefined;
     if (!region) return [`Region "${String(regionId)}" does not exist`];
     if (!domainId) return ["Knowledge Injection requires a knowledge domain id"];
+    if (!knowledgeDomainIds.includes(domainId)) {
+      return [`"${domainId}" is not a canonical Knowledge Domain (${knowledgeDomainIds.join(", ")})`];
+    }
     const technologyStateId = region.knowledge.technologyStateId;
     if (!technologyStateId || !state.technologyStates[technologyStateId]) {
       return [`Region "${region.id}" has no TechnologyState to inject knowledge into`];
@@ -167,6 +176,7 @@ const knowledgeInjection: InterventionEffectHandler = {
 };
 
 const tradeFrictionShift: InterventionEffectHandler = {
+  expectedEntityIdCount: 1,
   validateTarget(state, target) {
     const connectionId = target.entityIds[0];
     if (!connectionId || !state.connections[connectionId]) {
@@ -212,6 +222,7 @@ const tradeFrictionShift: InterventionEffectHandler = {
  * milestone, jeśli Sustained interventions wejdą do zakresu).
  */
 const environmentalShock: InterventionEffectHandler = {
+  expectedEntityIdCount: 1,
   validateTarget(state, target) {
     return requireRegion(state, target) ? [] : [`Region "${target.entityIds[0]}" does not exist`];
   },

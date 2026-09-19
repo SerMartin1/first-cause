@@ -2623,6 +2623,21 @@ identycznego markupu), 1 nowy test w `load-economy-content.test.ts`
 (`sectorByCompanyArchetypeId`). `pnpm typecheck`/`lint`/`test`/`build`/
 `test:e2e`: wszystkie PASS (649 testów w repo).
 
+**Addendum -- remediacja audytu (2026-09-19):** niezależny audyt wykrył,
+że powyższy "Wyniki wykonania" był technicznie prawdziwy, ale w praktyce
+`unlocks: []`/brak `discoveries` na obu realnych VS Production Methods
+oznaczał, że Discovery Engine nie mógł wpłynąć na ŻADNĄ realną decyzję
+produkcyjną -- i, głębiej, że `pmCandidatesByCurrentMethodId` (od której
+zależy cała ścieżka gate'owania AI-08) nigdy nie było budowane z realnego
+contentu w `run-economy-demo.ts` (zawsze `{}`, istniało tylko w testach).
+Naprawione: nowa `content/productionMethods/watermill_milling.json`
+(`discoveries: ["mec_004"]`, realizuje katalogu §5's "MEC-004 -> nowy
+content PM 'młyn'"), nowa `derivePmCandidatesByCurrentMethodId` w
+`load-economy-content.ts` + wpięcie w `run-economy-demo.ts`, nowy test w
+`technology-acceptance.test.ts` na realnych ID (nie syntetycznym
+`gated_method`/`gated_discovery`). Status DONE potwierdzony ponownie po
+naprawie, nie tylko przez pierwotną implementację.
+
 ------------------------------------------------------------------------
 
 ## M16 --- Architect (pierwsza interwencja)
@@ -2755,9 +2770,27 @@ wyżej):** UI Architect Panel (SS165--170, tor równoległy "Architect
 presentation primitives" z sekcji 6A -- `apps/desktop` nie ma jeszcze
 żadnego ekranu do podłączenia), `cancelIntervention` (SS173's Command API
 ją wymienia, ale nie ma testu Acceptance Gate ani przypadku użycia bez
-UI), `stacking.policy` poza `"allowed"` egzekwowane tylko przez cooldown
--- `"limited"`/`"forbidden"` w contencie są dziś opisowe/nieegzekwowane
-osobno.
+UI). ~~`stacking.policy` poza `"allowed"` egzekwowane tylko przez
+cooldown~~ -- naprawione, patrz addendum poniżej.
+
+**Addendum -- remediacja audytu (2026-09-19):** niezależny audyt przed
+M17 znalazł 1xP0 + 4xP1 w tej implementacji, wszystkie zweryfikowane w
+kodzie i naprawione (`packages/simulation/src/systems/architect/`):
+`applyArchitectIntervention` nie sprawdzało unikalności `instanceId`
+przed zapisem do `state.interventions` (P0 -- duplikat po cichu nadpisywał
+istniejącą instancję, blocker dla jednoznaczności grafu M17); `stacking.
+policy` z contentu było parsowane w Zod, ale nigdy nie docierało do
+`ArchitectInterventionRule` -- `forbidden`/`limited` były czysto
+opisowe (naprawione: `definition.ts` parsuje `stackingPolicy`,
+`validation.ts` branch'uje po nim zamiast bezwarunkowego cooldownu);
+Knowledge Injection przyjmowało dowolny niepusty `domainId`, nie tylko
+jedną z 5 kanonicznych Knowledge Domains; walidacja parametrów nie
+odrzucała nieznanych kluczy/`NaN`/`Infinity`/złego `tick`/złej liczby
+`entityIds`; `rootFactType` było parsowane z contentu, ale nigdy
+sprawdzone względem faktycznie emitowanych faktów (przypadkowa zgodność
+5 dzisiejszych handlerów nie była gwarancją dla przyszłego contentu).
+`pnpm typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS (723
+testy w repo) po naprawie.
 
 ------------------------------------------------------------------------
 
@@ -3449,8 +3482,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M13         DONE      P0          M           MEDIUM        M12
   M14         DONE      P0          S/M         MEDIUM        M13
   M15         DONE      P0          L           MEDIUM-HIGH   M14
-  M16         READY     P0          M           MEDIUM        M15
-  M17         BACKLOG   P0          L           HIGH          M16
+  M16         DONE      P0          M           MEDIUM        M15
+  M17         READY     P0          L           HIGH          M16
   M18         BACKLOG   P0          M           MEDIUM        M17
   M19         BACKLOG   P0          M/L         MEDIUM        M18
   M20         BACKLOG   P0          M           MEDIUM-HIGH   M19
@@ -3495,14 +3528,16 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M16 — Architect (pierwsza interwencja)**, READY --
-Influence, koszt interwencji, `VS-INT-01 Reveal Resource Deposit` i
-pozostałe 4 core interwencje, Root Fact jako pierwszy punkt causal graph.
-M0, M0.1 oraz M1--M15 są DONE (M12-M14 dodatkowo przeszły pełną naprawę
-audytu post-implementacyjnego, patrz M14's sekcja; M15's implementacja
-Discovery Engine/Diffusion/Adoption opisana w M15's sekcji "Wyniki
-wykonania"). Kolejne milestone’y rozpoczynają się po odbiorze ich
-zależności.
+Następny krok: **M17 — Causality (pełna integracja)**, READY -- wszystkie
+systemy z M5--M16 w pełni zintegrowane z Causality Engine, każda znacząca
+mutacja tworzy `SimulationFact` z poprawnymi `causes`/`effects`, fundament
+grafu przyczynowego dla WHY/Chronicle. M0, M0.1 oraz M1--M16 są DONE
+(M12-M14 dodatkowo przeszły pełną naprawę audytu post-implementacyjnego,
+patrz M14's sekcja; M15's implementacja Discovery Engine/Diffusion/
+Adoption i M16's implementacja Architect opisane w ich sekcjach "Wyniki
+wykonania", obie z dopisanym addendum po remediacji niezależnego audytu
+M15-M16 z 2026-09-19 -- patrz też `CHANGELOG.md`). Kolejne milestone’y
+rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
 

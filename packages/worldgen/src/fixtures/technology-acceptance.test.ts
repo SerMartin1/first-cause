@@ -1,8 +1,11 @@
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createCompany,
   createInventory,
   createMarket,
+  createResourceDeposit,
   createWorldState,
   setDiscoveryState,
   type WorldState,
@@ -14,6 +17,9 @@ import {
   type ProductionRecipe,
 } from "@first-cause/simulation";
 import { buildTechnologyTestWorld } from "./technology-fixture.js";
+import { loadEconomyContent } from "../content/load-economy-content.js";
+
+const REPO_ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../..");
 
 /**
  * Dowodzi wprost 3 zdań z M15's Acceptance Gate (Implementation Roadmap
@@ -158,6 +164,110 @@ describe("M15 Acceptance Gate", () => {
       worldState.technologyStates[technologyStateId]?.discoveries.gated_discovery
         ?.industryAdoption,
     ).toBe(0);
+  });
+
+  it("audytowe P0 (2026-09-19): realny content -- grain_farm przechodzi z manual_farming na watermill_milling tylko po tym, jak mec_004 jest AVAILABLE, nie na syntetycznym gated_method/gated_discovery", () => {
+    const content = loadEconomyContent(REPO_ROOT);
+    if (!content.ok) throw new Error(content.errors.join("; "));
+    expect(content.pmCandidatesByCurrentMethodId.manual_farming).toBe("watermill_milling");
+    expect(content.requiredDiscoveryIdsByMethodId.watermill_milling).toEqual(["mec_004"]);
+
+    let worldState: WorldState = buildTechnologyTestWorld();
+    const technologyStateId = "technology_region_connected_a";
+
+    const market = createMarket({ id: "market_a", regionId: "region_connected_a" });
+    const marketWithPrices = { ...market, goods: { flour: initializeMarketGood(1) } };
+    const regionWithMarket = {
+      ...worldState.regions.region_connected_a!,
+      economy: { ...worldState.regions.region_connected_a!.economy, marketId: market.id },
+    };
+    const grainDeposit = createResourceDeposit({
+      id: "deposit_region_connected_a_grain",
+      resourceDefinitionId: "grain",
+      regionId: "region_connected_a",
+      initialQuantity: 100_000,
+      renewable: false,
+    });
+    const companyInventory = createInventory({
+      id: "inventory_company",
+      ownerType: "company",
+      ownerId: "company_001",
+      locationRegionId: "region_connected_a",
+    });
+    const baseCompany = createCompany({
+      id: "company_001",
+      archetypeId: "grain_farm",
+      name: "Test Farm",
+      foundedTick: 0,
+      regionId: "region_connected_a",
+      ownerType: "individual",
+      ownerEntityId: "cohort_region_connected_a",
+      inventoryId: companyInventory.id,
+      initialCash: 1000,
+      initialWageOffer: 10,
+    });
+    const company = {
+      ...baseCompany,
+      production: { ...baseCompany.production, productionMethodId: "manual_farming" },
+    };
+
+    worldState = createWorldState({
+      world: worldState.world,
+      continents: Object.values(worldState.continents),
+      regions: [
+        regionWithMarket,
+        worldState.regions.region_connected_b!,
+        worldState.regions.region_isolated!,
+      ],
+      connections: Object.values(worldState.connections),
+      populationCohorts: Object.values(worldState.populationCohorts),
+      technologyStates: Object.values(worldState.technologyStates),
+      companies: [company],
+      inventories: [companyInventory],
+      markets: [marketWithPrices],
+      resourceDeposits: [grainDeposit],
+    });
+
+    const rng = createWorldRng("acceptance-real-content-pm-gate");
+    const step = (state: WorldState, tick: number): WorldState =>
+      runEconomyTick({
+        worldState: state,
+        tick,
+        demographyRng: (scopeId) => rng.stream("demography", scopeId),
+        migrationRng: (scopeId) => rng.stream("migration", scopeId),
+        pmCandidatesByCurrentMethodId: content.pmCandidatesByCurrentMethodId,
+        productionRecipesByMethodId: content.productionRecipesByMethodId,
+        requiredDiscoveryIdsByMethodId: content.requiredDiscoveryIdsByMethodId,
+      }).worldState;
+
+    // `mec_004` jest UNKNOWN -- gate zamknięty, firma MUSI zostać na manual_farming.
+    for (let tick = 0; tick < 5; tick++) {
+      worldState = step(worldState, tick);
+    }
+    expect(worldState.companies.company_001?.production.productionMethodId).toBe(
+      "manual_farming",
+    );
+
+    // `mec_004` -> AVAILABLE -- gate otwarty, a watermill_milling jest
+    // ściśle bardziej opłacalne (ten sam koszt grain/labor, wyższy output
+    // flour) -- AI-08 MUSI przyjąć.
+    worldState = {
+      ...worldState,
+      technologyStates: {
+        ...worldState.technologyStates,
+        [technologyStateId]: setDiscoveryState(
+          worldState.technologyStates[technologyStateId]!,
+          "mec_004",
+          { status: "AVAILABLE" },
+        ),
+      },
+    };
+    for (let tick = 5; tick < 15; tick++) {
+      worldState = step(worldState, tick);
+    }
+    expect(worldState.companies.company_001?.production.productionMethodId).toBe(
+      "watermill_milling",
+    );
   });
 
   it("dyfuzja wiedzy jest widoczna między połączonymi regionami", () => {

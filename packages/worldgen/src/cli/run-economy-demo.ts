@@ -70,6 +70,7 @@ const runner = createWorldRunner({
   discoveryEligibilityRulesById: content.discoveryEligibilityRulesById,
   knowledgeDomainIds: content.knowledgeDomainIds,
   requiredDiscoveryIdsByMethodId: content.requiredDiscoveryIdsByMethodId,
+  pmCandidatesByCurrentMethodId: content.pmCandidatesByCurrentMethodId,
 });
 
 console.log(`[first-cause] Etap 1 economy demo -- running ${ticks} ticks`);

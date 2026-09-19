@@ -10,6 +10,7 @@ describe("parseArchitectInterventionRule", () => {
       {},
       { base: 15 },
       12,
+      { policy: "allowed" },
       "resource_discovered",
     );
 
@@ -20,6 +21,7 @@ describe("parseArchitectInterventionRule", () => {
       parameters: {},
       costs: { base: 15, magnitudePerUnit: 0, scopeMultiplier: {}, naturalnessMultiplier: 1 },
       cooldownTicks: 12,
+      stackingPolicy: "allowed",
       rootFactType: "resource_discovered",
     });
   });
@@ -32,6 +34,7 @@ describe("parseArchitectInterventionRule", () => {
       { magnitude: { min: 0.05, max: 0.3 } },
       { base: 10, magnitudePerUnit: 150, scopeMultiplier: { region: 1.5 }, naturalnessMultiplier: 1.2 },
       24,
+      { policy: "limited" },
       "region_fertility_shifted",
     );
 
@@ -53,6 +56,7 @@ describe("parseArchitectInterventionRule", () => {
         {},
         { base: "fifteen" },
         0,
+        { policy: "allowed" },
         "x",
       ),
     ).toThrow(/base/);
@@ -67,8 +71,24 @@ describe("parseArchitectInterventionRule", () => {
         { magnitude: { min: 0.5, max: 0.1 } },
         { base: 1 },
         0,
+        { policy: "allowed" },
         "x",
       ),
     ).toThrow(/min.*max/);
+  });
+
+  it("rejects an unknown stacking policy", () => {
+    expect(() =>
+      parseArchitectInterventionRule(
+        "bad",
+        "resources",
+        ["entity"],
+        {},
+        { base: 1 },
+        0,
+        { policy: "sometimes" },
+        "x",
+      ),
+    ).toThrow(/stacking\.policy/);
   });
 });

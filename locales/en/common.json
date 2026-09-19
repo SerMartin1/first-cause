@@ -18,6 +18,7 @@
   "content.companyArchetype.bakery.name": "Bakery",
   "content.productionMethod.manual_farming.name": "Manual Farming",
   "content.productionMethod.manual_food_processing.name": "Manual Food Processing",
+  "content.productionMethod.watermill_milling.name": "Watermill Milling",
   "content.transport_mode.foot_porter.name": "Foot / Porter",
   "content.transport_mode.pack_animal.name": "Pack Animal",
   "content.transport_mode.cart.name": "Cart",

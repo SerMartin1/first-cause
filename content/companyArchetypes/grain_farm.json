@@ -4,7 +4,7 @@
   "sector": "agriculture",
   "allowedInputs": [],
   "allowedOutputs": ["flour"],
-  "productionMethodIds": ["manual_farming"],
+  "productionMethodIds": ["manual_farming", "watermill_milling"],
   "capitalRequirement": 0,
   "implementationPhase": "VS"
 }

@@ -1,0 +1,16 @@
+{
+  "id": "watermill_milling",
+  "nameKey": "content.productionMethod.watermill_milling.name",
+  "companyArchetypeIds": ["grain_farm"],
+  "outputs": ["flour"],
+  "inputs": [],
+  "resourceRequirements": ["grain"],
+  "discoveries": ["mec_004"],
+  "productivity": {
+    "employeesPerBatch": 1,
+    "resourceInputsPerBatch": { "grain": 10 },
+    "goodInputsPerBatch": {},
+    "goodOutputsPerBatch": { "flour": 12 }
+  },
+  "implementationPhase": "VS"
+}

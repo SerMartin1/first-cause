@@ -36,6 +36,8 @@ export interface ApplyArchitectInterventionInput {
   readonly tick: number;
   readonly target: ArchitectInterventionTarget;
   readonly parameters: Readonly<Record<string, number>>;
+  /** Kanoniczna lista 5 Knowledge Domains z contentu -- patrz `ValidateInterventionInput`. */
+  readonly knowledgeDomainIds?: readonly string[];
 }
 
 export type ApplyArchitectInterventionResult =
@@ -57,9 +59,11 @@ export function applyArchitectIntervention(
   factStore: FactStore,
 ): ApplyArchitectInterventionResult {
   const validation = validateIntervention(state, rule, {
+    instanceId: input.instanceId,
     target: input.target,
     parameters: input.parameters,
     tick: input.tick,
+    knowledgeDomainIds: input.knowledgeDomainIds ?? [],
   });
   if (!validation.ok) return { outcome: "REJECTED", errors: validation.errors };
 
@@ -86,6 +90,16 @@ export function applyArchitectIntervention(
       parameters: input.parameters,
       tick: input.tick,
     });
+
+    // Audytowe P1 (2026-09-19): `rule.rootFactType` pochodzi z contentu i
+    // musi faktycznie odpowiadać temu, co handler wyemitował -- inaczej
+    // kontrakt jest tylko parsowany, nigdy sprawdzony (przypadkowa
+    // zgodność dzisiejszych 5 handlerów nie jest gwarancją).
+    if (!effectResult.facts.some((fact) => fact.type === rule.rootFactType)) {
+      throw new Error(
+        `intervention "${rule.id}" did not emit a fact of its declared rootFactType "${rule.rootFactType}"`,
+      );
+    }
 
     const nextInfluence = spendInfluence(state.architectInfluence, cost.total);
     const emittedFacts = factStore.emitAll(
