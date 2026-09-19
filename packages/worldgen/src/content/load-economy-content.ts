@@ -62,6 +62,15 @@ export interface LoadEconomyContentResult {
    * gate'owania (wstecznie zgodne).
    */
   readonly requiredDiscoveryIdsByMethodId: Readonly<Record<string, readonly string[]>>;
+  /**
+   * UI-F1 (`RegionVisualProfile`): `companyArchetype.id -> sector`,
+   * pochodzi z contentu. `packages/simulation` nigdy nie czyta contentu
+   * samodzielnie (AGENTS.md reguła 6) -- podawane do opcji
+   * `sectorByCompanyArchetypeId` w `buildRegionVisualProfileReadModel`,
+   * ten sam wzorzec co `discoveryEligibilityRulesById` już ustanowił dla
+   * M15.
+   */
+  readonly sectorByCompanyArchetypeId: Readonly<Record<string, string>>;
 }
 
 function readJsonDir(dir: string): unknown[] {
@@ -114,6 +123,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       discoveryEligibilityRulesById: {},
       knowledgeDomainIds: [],
       requiredDiscoveryIdsByMethodId: {},
+      sectorByCompanyArchetypeId: {},
     };
   }
 
@@ -155,7 +165,9 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     string,
     EntrepreneurshipCandidate
   > = {};
+  const sectorByCompanyArchetypeId: Record<string, string> = {};
   for (const definition of companyArchetypeRegistry?.all() ?? []) {
+    sectorByCompanyArchetypeId[definition.id] = definition.sector;
     const productionMethodId = definition.productionMethodIds[0];
     if (!productionMethodId) continue; // an archetype with no production method yet can't be founded
     entrepreneurshipCandidatesByArchetypeId[definition.id] = {
@@ -192,5 +204,6 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     discoveryEligibilityRulesById,
     knowledgeDomainIds: Object.keys(knowledgeDomainDefinitionsById).sort(),
     requiredDiscoveryIdsByMethodId,
+    sectorByCompanyArchetypeId,
   };
 }

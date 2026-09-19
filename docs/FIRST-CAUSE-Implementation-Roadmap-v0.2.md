@@ -2567,6 +2567,62 @@ nie linkuje); `technology-acceptance.test.ts` (3 testy, jeden na jedno
 zdanie Acceptance Gate wyżej). `pnpm typecheck`/`lint`/`test`/`build`/
 `test:e2e`: wszystkie PASS.
 
+### UI-F1 --- Wyniki wykonania (2026-09-19)
+
+**Status: DONE** (dogonione przed startem M16, na wyraźną prośbę
+użytkownika -- równoległy tor UI-F1 był przypisany do startu razem z
+M15, ale M15's własna implementacja go nie objęła).
+
+**`RegionVisualProfile` (`packages/simulation/src/read-models/
+region-visual-profile-read-model.ts`, `buildRegionVisualProfileReadModel`):**
+pierwsza połowa SS18.1's pipeline'u (`WorldState -> RegionVisualProfile`).
+Każde pole wywiedzione z realnych danych (SS18.9 "NO DECORATION WITHOUT
+INFORMATION"): `terrain`/`water` z `Region.geography`, `vegetation`
+heurystycznie z `terrain`/`environment.forestPressure`/`geography.
+fertility`/sektora rolnego, `settlement` z największego niebędącego
+CAMP-em settlementu, `transport` z maksymalnego `Connection.infrastructure.
+level` w regionie, `landmarkResourceDefinitionId` z jedynego wyraźnie
+dominującego, odkrytego (`DISCOVERED`/`ASSESSED`), nie wyczerpanego
+złoża. `industry`/część `vegetation` wymaga `sector` z contentu, którego
+`packages/simulation` nie czyta (AGENTS.md reguła 6) -- przyjmuje opcjonalny
+`sectorByCompanyArchetypeId`, budowany przez `packages/worldgen`'s
+`loadEconomyContent` (nowe pole `LoadEconomyContentResult.
+sectorByCompanyArchetypeId`), ten sam wzorzec co M15's
+`discoveryEligibilityRulesById`. `infrastructure`/`energy` świadomie
+zawsze `undefined` -- brak systemu inwestycji infrastrukturalnej/energii
+(ten sam znany brak co M12-M14 audytu: `Connection.infrastructure.level`
+martwe, `Settlement.condition.attractiveness` martwe). `vignetteSeed =
+hash(worldSeed + regionId + visualState)` (`fnv1a32`, SS18.6/SS13.2) --
+deterministyczny, zero `Math.random()`.
+
+**`FCRegionVignette` (`apps/desktop/src/components/fc/FCRegionVignette.tsx`)
++ 7 komponentów warstw z katalogu Implementation Spec SS8.5**
+(`FCTerrainLayer`/`FCVegetationLayer`/`FCSettlementLayer`/
+`FCTransportLayer`/`FCInfrastructureLayer`/`FCIndustryLayer`/
+`FCLandmarkLayer`): druga połowa pipeline'u. **Świadomie placeholder
+geometrii, nie stylu** -- SS18.7/SS13.3 explicite zabraniają Codexowi
+projektowania stylu/biblioteki assetów samodzielnie, a żadna zatwierdzona
+biblioteka (SS18.8's `/assets/region-vignette/`) nie istnieje. Każda
+warstwa renderuje neutralne, zgodne wyłącznie z Design Tokens (SS53)
+znaczniki (linie/prostokąty/romb), nigdy pikturalną sylwetkę góry/drzewa/
+domu -- podmiana na docelowe assety, gdy Design System je dostarczy, nie
+dotyka logiki mapowania/kompozycji/determinizmu powyżej. `FCInfrastructureLayer`
+renderuje zawsze `null` (ten sam brak danych co profil). Rozmiary SS18.2:
+`small` 120x70 (hover), `large` 400x120 (Selected/Detail). Wariant
+kompozycji per warstwa deterministycznie z `vignetteSeed` (`fnv1a32`,
+nigdy `Math.random()`). Nie podłączone jeszcze do żadnego realnego ekranu
+(Region Detail/Atlas -- UI-05/UI-04 -- same nie istnieją póki co w
+`apps/desktop`, patrz sekcja 6A) -- to gotowy, przetestowany fundament do
+podłączenia, kiedy te ekrany faktycznie powstaną.
+
+**Testy:** 9 nowych testów read-modelu (determinizm, honest-"undefined"
+gdy brak danych, dominance/tie-breaking landmarku), 5 nowych testów
+komponentu (`@testing-library/react` -- wymiary SS18.2, accessible label,
+"no decoration without information", skalowanie settlementu, determinizm
+identycznego markupu), 1 nowy test w `load-economy-content.test.ts`
+(`sectorByCompanyArchetypeId`). `pnpm typecheck`/`lint`/`test`/`build`/
+`test:e2e`: wszystkie PASS (649 testów w repo).
+
 ------------------------------------------------------------------------
 
 ## M16 --- Architect (pierwsza interwencja)

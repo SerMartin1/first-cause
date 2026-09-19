@@ -75,6 +75,13 @@ describe("loadEconomyContent (audit regression P0-06, content-driven production 
     });
   });
 
+  it("UI-F1: maps every content companyArchetype to its declared sector", () => {
+    const result = loadEconomyContent(REPO_ROOT);
+
+    expect(result.sectorByCompanyArchetypeId.grain_farm).toBe("agriculture");
+    expect(result.sectorByCompanyArchetypeId.bakery).toBe("food_processing");
+  });
+
   it("M15: loads content/discoveries and content/knowledgeDomains into validated maps, and production methods' `discoveries` into a gating map", () => {
     const result = loadEconomyContent(REPO_ROOT);
 

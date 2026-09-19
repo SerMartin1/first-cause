@@ -7,3 +7,4 @@ export * from "./company-summary-read-model.js";
 export * from "./market-summary-read-model.js";
 export * from "./settlement-summary-read-model.js";
 export * from "./technology-summary-read-model.js";
+export * from "./region-visual-profile-read-model.js";

@@ -139,3 +139,53 @@
 .fc-trend--flat {
   color: var(--fc-text-muted);
 }
+
+/*
+ * FCRegionVignette (SS18/SS13): tylko placeholder geometrii -- Design
+ * Tokens Contract (SS53) zabrania lokalnej palety komponentu, a żadna
+ * zatwierdzona biblioteka assetów winiet regionu (SS18.8) jeszcze nie
+ * istnieje, więc każdy znacznik reużywa istniejących tokenów zamiast
+ * nowego stylu ilustracyjnego.
+ */
+.fc-region-vignette {
+  display: block;
+}
+
+.fc-region-vignette__bg {
+  fill: var(--fc-surface-muted);
+  stroke: var(--fc-border);
+  stroke-width: var(--fc-border-width);
+}
+
+.fc-region-vignette__mark--terrain {
+  stroke: var(--fc-border-strong);
+  stroke-width: 1;
+}
+
+.fc-region-vignette__mark--water {
+  stroke: var(--fc-info);
+  stroke-width: 2;
+}
+
+.fc-region-vignette__mark--vegetation {
+  fill: var(--fc-positive);
+}
+
+.fc-region-vignette__mark--settlement {
+  fill: var(--fc-text-primary);
+}
+
+.fc-region-vignette__mark--transport {
+  stroke: var(--fc-accent);
+  fill: none;
+}
+
+.fc-region-vignette__mark--industry {
+  fill: var(--fc-warning);
+}
+
+.fc-region-vignette__mark--landmark {
+  fill: var(--fc-accent-soft);
+  stroke: var(--fc-accent);
+  stroke-width: 1;
+}

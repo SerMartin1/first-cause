@@ -5,3 +5,4 @@ export * from "./FCPrimaryAction.js";
 export * from "./FCTabs.js";
 export * from "./FCMetric.js";
 export * from "./FCTrend.js";
+export * from "./FCRegionVignette.js";

@@ -10,6 +10,36 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-19
 
+- **UI-F1 -- Procedural Region Visual Identity: `RegionVisualProfile` +
+  `FCRegionVignette` renderer.** Dogonione przed startem M16 (na
+  wyraźną prośbę użytkownika) -- przypisane do startu razem z M15
+  (decyzja z 2026-09-18), ale M15's implementacja go nie objęła.
+  - `packages/simulation/src/read-models/region-visual-profile-read-model.ts`
+    (`buildRegionVisualProfileReadModel`) -- pierwsza połowa SS18.1's
+    pipeline'u, `WorldState -> RegionVisualProfile`. Każde pole
+    wywiedzione z realnych danych, nigdy fabrykowane (SS18.9 "NO
+    DECORATION WITHOUT INFORMATION"); `industry` przyjmuje opcjonalny
+    `sectorByCompanyArchetypeId` (content-derived, bo `packages/simulation`
+    nie czyta contentu -- AGENTS.md reguła 6), zbudowany teraz przez
+    nowe pole `LoadEconomyContentResult.sectorByCompanyArchetypeId` w
+    `packages/worldgen`. `vignetteSeed` deterministyczny (`fnv1a32`),
+    zero `Math.random()`.
+  - `apps/desktop/src/components/fc/FCRegionVignette.tsx` -- druga
+    połowa pipeline'u + 7 komponentów warstw z Implementation Spec
+    SS8.5 (`FCTerrainLayer`/`FCVegetationLayer`/`FCSettlementLayer`/
+    `FCTransportLayer`/`FCInfrastructureLayer`/`FCIndustryLayer`/
+    `FCLandmarkLayer`). Świadomie placeholder geometrii (neutralne
+    znaczniki z Design Tokens), nie stylu -- SS18.7/SS13.3 zabraniają
+    Codexowi projektowania stylu/biblioteki assetów samodzielnie, a
+    żadna zatwierdzona biblioteka (SS18.8) jeszcze nie istnieje.
+  - Jeszcze niepodłączone do żadnego realnego ekranu (Region Detail/
+    Atlas -- UI-05/UI-04 same nie istnieją w `apps/desktop` na
+    2026-09-19) -- gotowy, przetestowany fundament, nie kompletny UX.
+  - 15 nowych testów (9 read-model, 5 komponentu, 1 `load-economy-content`).
+    `pnpm typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS.
+  - Szczegóły: roadmapa, sekcja "UI-F1 --- Wyniki wykonania" (zaraz po
+    M15).
+
 - **M15 -- Technology: implementacja systemów Discovery Engine,
   Diffusion i Adoption.** Cztery nowe moduły w
   `packages/simulation/src/systems/technology/`:
