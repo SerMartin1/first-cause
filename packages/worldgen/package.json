@@ -14,6 +14,7 @@
     "demo:economy": "node dist/cli/run-economy-demo.js"
   },
   "dependencies": {
+    "@first-cause/causality": "workspace:*",
     "@first-cause/content": "workspace:*",
     "@first-cause/entities": "workspace:*",
     "@first-cause/simulation": "workspace:*",

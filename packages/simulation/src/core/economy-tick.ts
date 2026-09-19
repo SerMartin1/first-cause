@@ -71,6 +71,7 @@ import {
   isProductionMethodAvailable,
   type IndustryAdoptionEvent,
 } from "../systems/technology/adoption.js";
+import { tickArchitectInfluence } from "../systems/architect/influence.js";
 
 /**
  * Etap 1 tick-loop integration (audytowe P0-01): pierwsze miejsce, które
@@ -1267,6 +1268,14 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     };
   }
 
+  // 13. Architect Influence regeneracja (M16, `architect/influence`):
+  // proste, bezwarunkowe per-tick zwiększenie balansu gracza (SS164/
+  // OPEN-002, TODO tuning tempa) -- niezależne od wszystkiego powyżej, nie
+  // potrzebuje RNG ani stanu regionu. `interventions` przechodzi niżej do
+  // `createWorldState` niezmienione -- `applyArchitectIntervention` (poza
+  // tick loopem, SS173's Command) jest jedynym miejscem, które je tworzy.
+  const nextArchitectInfluence = tickArchitectInfluence(worldState.architectInfluence);
+
   // VALIDATE -> COMMIT (SIM-004): reużywa `createWorldState`'s istniejący,
   // przetestowany walidator referencji zamiast pisać nowy. `world` dotąd
   // przechodził bez zmian -- `WorldRunner.tick` szedł do przodu, ale
@@ -1292,6 +1301,8 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     markets: Object.values(markets),
     inventories: Object.values(inventories),
     technologyStates: Object.values(technologyStates),
+    architectInfluence: nextArchitectInfluence,
+    interventions: Object.values(worldState.interventions),
   });
 
   return { worldState: nextWorldState, facts };

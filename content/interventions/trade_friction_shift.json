@@ -1,0 +1,20 @@
+{
+  "id": "trade_friction_shift",
+  "nameKey": "content.intervention.trade_friction_shift.name",
+  "category": "economy",
+  "allowedScopes": ["entity"],
+  "parameters": {
+    "magnitude": { "min": 0.05, "max": 0.5 }
+  },
+  "constraints": {},
+  "costs": {
+    "base": 10,
+    "magnitudePerUnit": 100,
+    "scopeMultiplier": { "entity": 1 },
+    "naturalnessMultiplier": 1
+  },
+  "cooldown": 18,
+  "stacking": { "policy": "limited" },
+  "rootFactType": "trade_friction_shifted",
+  "implementationPhase": "VS"
+}

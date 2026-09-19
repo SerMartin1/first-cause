@@ -1,6 +1,6 @@
 {
   "app.title": "FIRST CAUSE",
-  "app.milestone": "M14 -- Settlements",
+  "app.milestone": "M16 -- Architect",
   "nav.world": "World",
   "worker.status.online": "Simulation Worker: ONLINE",
   "worker.status.offline": "Simulation Worker: OFFLINE",
@@ -151,5 +151,10 @@
   "content.knowledgeDomain.mining_metallurgy.name": "Mining and Metallurgy",
   "content.knowledgeDomain.construction_mechanics.name": "Construction and Mechanics",
   "content.knowledgeDomain.transport_communication.name": "Transportation and Communication",
-  "content.knowledgeDomain.science_society.name": "Science and Society"
+  "content.knowledgeDomain.science_society.name": "Science and Society",
+  "content.intervention.reveal_resource_deposit.name": "Reveal Resource Deposit",
+  "content.intervention.fertility_shift.name": "Fertility Shift",
+  "content.intervention.knowledge_injection.name": "Knowledge Injection",
+  "content.intervention.trade_friction_shift.name": "Trade Friction Shift",
+  "content.intervention.environmental_shock.name": "Environmental Shock"
 }

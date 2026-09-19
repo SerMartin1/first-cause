@@ -38,6 +38,7 @@ describe("content fixtures on disk (content/, locales/)", () => {
         transportMode: readJsonDir("content/transportModes"),
         discovery: readJsonDir("content/discoveries"),
         knowledgeDomain: readJsonDir("content/knowledgeDomains"),
+        intervention: readJsonDir("content/interventions"),
       },
       locales: {
         en: readJson("locales/en/common.json"),
@@ -55,6 +56,7 @@ describe("content fixtures on disk (content/, locales/)", () => {
     expect(result.stats.transportMode).toBeGreaterThanOrEqual(4);
     expect(result.stats.discovery).toBe(125);
     expect(result.stats.knowledgeDomain).toBe(5);
+    expect(result.stats.intervention).toBe(5);
     expect(result.registries.resource?.has("iron_ore")).toBe(true);
     expect(result.registries.companyArchetype?.has("grain_farm")).toBe(true);
     expect(result.registries.productionMethod?.has("manual_farming")).toBe(true);
@@ -63,5 +65,7 @@ describe("content fixtures on disk (content/, locales/)", () => {
     expect(result.registries.discovery?.has("nau_025")).toBe(true);
     expect(result.registries.knowledgeDomain?.has("agriculture_food")).toBe(true);
     expect(result.registries.knowledgeDomain?.has("science_society")).toBe(true);
+    expect(result.registries.intervention?.has("reveal_resource_deposit")).toBe(true);
+    expect(result.registries.intervention?.has("environmental_shock")).toBe(true);
   });
 });

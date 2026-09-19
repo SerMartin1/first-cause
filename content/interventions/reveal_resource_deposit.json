@@ -1,0 +1,13 @@
+{
+  "id": "reveal_resource_deposit",
+  "nameKey": "content.intervention.reveal_resource_deposit.name",
+  "category": "resources",
+  "allowedScopes": ["entity"],
+  "parameters": {},
+  "constraints": {},
+  "costs": { "base": 15 },
+  "cooldown": 12,
+  "stacking": { "policy": "allowed" },
+  "rootFactType": "resource_discovered",
+  "implementationPhase": "VS"
+}

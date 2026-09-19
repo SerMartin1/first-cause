@@ -13,6 +13,8 @@ import { createMarket } from "./economy/market.js";
 import { createTechnologyState } from "./technology/technology-state.js";
 import { createWorldState, type CreateWorldStateInput } from "./world-state.js";
 import { InvariantViolationError } from "./core/validation.js";
+import { createArchitectInfluenceState } from "./architect/influence.js";
+import { createArchitectInterventionInstance } from "./architect/intervention.js";
 
 const geography = createRegionGeography({
   terrain: "hills",
@@ -349,5 +351,52 @@ describe("createWorldState -- serialization roundtrip (Save/Determinism Spec cro
     const state = createWorldState(buildFixtureInput());
     const roundtripped = JSON.parse(JSON.stringify(state)) as unknown;
     expect(roundtripped).toEqual(state);
+  });
+});
+
+describe("createWorldState -- architectInfluence/interventions (M16)", () => {
+  it("defaults architectInfluence to a full balance and interventions to empty, when the fixture doesn't know about the Architect yet", () => {
+    const state = createWorldState(buildFixtureInput());
+
+    expect(state.architectInfluence).toEqual({ current: 100, max: 100 });
+    expect(state.interventions).toEqual({});
+  });
+
+  it("accepts an explicit architectInfluence balance and a list of interventions, keyed by id", () => {
+    const input = buildFixtureInput();
+    const intervention = createArchitectInterventionInstance({
+      id: "intervention_001",
+      definitionId: "reveal_resource_deposit",
+      createdTick: 0,
+      target: { scopeType: "entity", entityIds: ["deposit_001"] },
+      parameters: {},
+      cost: { base: 15, magnitude: 0, duration: 1, scope: 1, naturalness: 1, total: 15 },
+    });
+
+    const state = createWorldState({
+      ...input,
+      architectInfluence: createArchitectInfluenceState(80),
+      interventions: [intervention],
+    });
+
+    expect(state.architectInfluence).toEqual({ current: 80, max: 80 });
+    expect(state.interventions.intervention_001).toEqual(intervention);
+  });
+
+  it("rejects two interventions sharing the same id (audit P1-05 pattern)", () => {
+    const input = buildFixtureInput();
+    const build = () =>
+      createArchitectInterventionInstance({
+        id: "intervention_001",
+        definitionId: "reveal_resource_deposit",
+        createdTick: 0,
+        target: { scopeType: "entity", entityIds: ["deposit_001"] },
+        parameters: {},
+        cost: { base: 15, magnitude: 0, duration: 1, scope: 1, naturalness: 1, total: 15 },
+      });
+
+    expect(() =>
+      createWorldState({ ...input, interventions: [build(), build()] }),
+    ).toThrow(/[Dd]uplicate/);
   });
 });

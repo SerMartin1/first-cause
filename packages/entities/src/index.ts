@@ -13,5 +13,7 @@ export * from "./economy/market.js";
 export * from "./economy/company.js";
 export * from "./technology/technology-state.js";
 export * from "./society/settlement.js";
+export * from "./architect/influence.js";
+export * from "./architect/intervention.js";
 export * from "./world-state.js";
 export * from "./indexes/world-indexes.js";

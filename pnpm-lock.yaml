@@ -192,6 +192,9 @@ importers:
 
   packages/worldgen:
     dependencies:
+      '@first-cause/causality':
+        specifier: workspace:*
+        version: link:../causality
       '@first-cause/content':
         specifier: workspace:*
         version: link:../content

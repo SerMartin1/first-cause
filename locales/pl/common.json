@@ -1,6 +1,6 @@
 {
   "app.title": "FIRST CAUSE",
-  "app.milestone": "M14 -- Osady",
+  "app.milestone": "M16 -- Architekt",
   "nav.world": "Świat",
   "worker.status.online": "Simulation Worker: ONLINE",
   "worker.status.offline": "Simulation Worker: OFFLINE",
@@ -151,5 +151,10 @@
   "content.knowledgeDomain.mining_metallurgy.name": "Górnictwo i Metalurgia",
   "content.knowledgeDomain.construction_mechanics.name": "Budownictwo i Mechanika",
   "content.knowledgeDomain.transport_communication.name": "Transport i Komunikacja",
-  "content.knowledgeDomain.science_society.name": "Nauka i Społeczeństwo"
+  "content.knowledgeDomain.science_society.name": "Nauka i Społeczeństwo",
+  "content.intervention.reveal_resource_deposit.name": "Ujawnienie złoża",
+  "content.intervention.fertility_shift.name": "Zmiana żyzności",
+  "content.intervention.knowledge_injection.name": "Zastrzyk wiedzy",
+  "content.intervention.trade_friction_shift.name": "Zmiana tarcia handlowego",
+  "content.intervention.environmental_shock.name": "Wstrząs środowiskowy"
 }

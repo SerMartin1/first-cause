@@ -10,6 +10,52 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-19
 
+- **M16 -- Architect (pierwsza interwencja): Influence, 5 VS interwencji,
+  Root Fact.** Gracz jako Architekt może teraz naprawdę zmienić warunek
+  świata (nie wynik) przez `applyArchitectIntervention`.
+  - `packages/entities/src/architect/` -- `ArchitectInfluenceState`
+    (`current`/`max`, skala 0--100, ARCH-003; Sustained/`reserved`
+    świadomie poza zakresem VS), `ArchitectInterventionInstance` (pełny
+    status lifecycle SS24). `WorldState` (M3) rozszerzone o
+    `architectInfluence`/`interventions`, oba backward-compatible
+    (domyślne, jeśli fixture ich nie zna). `@first-cause/causality`'s
+    `FactInput`/`SimulationFact` (M5) dostały opcjonalne
+    `architect: {interventionId, influenceStrength}` -- Root Fact
+    (ARCH-007) to realny, oznaczony fakt, nie osobny typ encji.
+  - `packages/simulation/src/systems/architect/` -- `influence.ts`
+    (regeneracja per-tick, TODO tuning), `definition.ts`
+    (`ArchitectInterventionRule`, fail-loud parser contentu, wzorzec z
+    M7's `parseProductionRecipe`), `cost.ts`
+    (`Base + MagnitudePerUnit x |magnitude|` x `Scope` x `Naturalness`,
+    SS8), `interventions.ts` (5 effect handlerów VS-INT-01..05 --
+    `reveal_resource_deposit` reużywa M5's `discoverDeposit`,
+    `fertility_shift`/`knowledge_injection`/`trade_friction_shift`/
+    `environmental_shock` mutują odpowiednio `Region.geography.fertility`/
+    `TechnologyState.knowledge`/`Connection.friction.borderFriction`/
+    `Region.environment.waterStress`), `validation.ts`
+    (scope/parametry/target/Influence/cooldown przed wykonaniem, SS26),
+    `apply-intervention.ts` (`applyArchitectIntervention` -- transakcyjny
+    pipeline SS182, jedyna funkcja w tym module, która sama emituje do
+    `FactStore`, bo to command wywoływany POMIĘDZY tickami).
+  - Nowy krok "13." w `core/economy-tick.ts` (regeneracja Influence) --
+    przy okazji naprawiony bug: finalny `createWorldState` nie przekazywał
+    dotąd `architectInfluence`/`interventions` z powrotem, więc każdy tick
+    cicho zerowałby balans i kasował zaaplikowane interwencje.
+  - `content/interventions/*.json` (5 plików, VS-INT-01..05) -- schemat
+    `InterventionDefinitionSchema` i jego rejestracja w
+    `CONTENT_TYPE_SPECS` istniały od wcześniej, przygotowane z
+    wyprzedzeniem. `packages/worldgen`'s `load-economy-content.ts` czyta
+    ten katalog (`architectInterventionRulesById`).
+  - ~74 nowe testy, w tym `packages/worldgen/src/fixtures/
+    architect-acceptance.test.ts` -- dowodzi wprost wszystkich 4 zdań
+    M16's Acceptance Gate na prawdziwym Black Mountain fixture.
+    `pnpm typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS
+    (710 testów w repo).
+  - Świadomie poza zakresem: Butterfly Effect / propagacja Influence
+    przez graf (M17), UI Architect Panel (brak jeszcze ekranu w
+    `apps/desktop`), `cancelIntervention`.
+  - Szczegóły: roadmapa, sekcja "M16 --- Wyniki wykonania".
+
 - **UI-F1 -- Procedural Region Visual Identity: `RegionVisualProfile` +
   `FCRegionVignette` renderer.** Dogonione przed startem M16 (na
   wyraźną prośbę użytkownika) -- przypisane do startu razem z M15

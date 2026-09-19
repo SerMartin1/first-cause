@@ -5,15 +5,18 @@ import {
   type CompanyArchetypeDefinition,
   type DefinitionRegistry,
   type DiscoveryDefinition,
+  type InterventionDefinition,
   type KnowledgeDomainDefinition,
   type LocaleBundle,
   type ProductionMethodDefinition,
   type TransportModeDefinition,
 } from "@first-cause/content";
 import {
+  parseArchitectInterventionRule,
   parseDiscoveryEligibilityRule,
   parseProductionRecipe,
   parseTransportModeProfile,
+  type ArchitectInterventionRule,
   type DiscoveryEligibilityRule,
   type EntrepreneurshipCandidate,
   type ProductionRecipe,
@@ -71,6 +74,8 @@ export interface LoadEconomyContentResult {
    * M15.
    */
   readonly sectorByCompanyArchetypeId: Readonly<Record<string, string>>;
+  /** M16: `content/interventions/*.json`, sparsowane na `ArchitectInterventionRule` -- gotowe dla `applyArchitectIntervention`. */
+  readonly architectInterventionRulesById: Readonly<Record<string, ArchitectInterventionRule>>;
 }
 
 function readJsonDir(dir: string): unknown[] {
@@ -104,6 +109,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       transportMode: readJsonDir(path.join(contentDir, "transportModes")),
       discovery: readJsonDir(path.join(contentDir, "discoveries")),
       knowledgeDomain: readJsonDir(path.join(contentDir, "knowledgeDomains")),
+      intervention: readJsonDir(path.join(contentDir, "interventions")),
     },
     locales: {
       en: readJsonLocale(path.join(localesDir, "en", "common.json")),
@@ -124,6 +130,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       knowledgeDomainIds: [],
       requiredDiscoveryIdsByMethodId: {},
       sectorByCompanyArchetypeId: {},
+      architectInterventionRulesById: {},
     };
   }
 
@@ -141,6 +148,8 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     DefinitionRegistry<DiscoveryDefinition> | undefined;
   const knowledgeDomainRegistry = result.registries.knowledgeDomain as
     DefinitionRegistry<KnowledgeDomainDefinition> | undefined;
+  const interventionRegistry = result.registries.intervention as
+    DefinitionRegistry<InterventionDefinition> | undefined;
 
   const productionRecipesByMethodId: Record<string, ProductionRecipe> = {};
   const requiredDiscoveryIdsByMethodId: Record<string, readonly string[]> = {};
@@ -193,6 +202,19 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     knowledgeDomainDefinitionsById[definition.id] = definition;
   }
 
+  const architectInterventionRulesById: Record<string, ArchitectInterventionRule> = {};
+  for (const definition of interventionRegistry?.all() ?? []) {
+    architectInterventionRulesById[definition.id] = parseArchitectInterventionRule(
+      definition.id,
+      definition.category,
+      definition.allowedScopes,
+      definition.parameters,
+      definition.costs,
+      definition.cooldown,
+      definition.rootFactType,
+    );
+  }
+
   return {
     ok: true,
     errors: [],
@@ -205,5 +227,6 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     knowledgeDomainIds: Object.keys(knowledgeDomainDefinitionsById).sort(),
     requiredDiscoveryIdsByMethodId,
     sectorByCompanyArchetypeId,
+    architectInterventionRulesById,
   };
 }

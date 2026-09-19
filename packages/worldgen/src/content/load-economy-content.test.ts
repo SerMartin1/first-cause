@@ -82,6 +82,30 @@ describe("loadEconomyContent (audit regression P0-06, content-driven production 
     expect(result.sectorByCompanyArchetypeId.bakery).toBe("food_processing");
   });
 
+  it("M16: loads content/interventions into validated ArchitectInterventionRules", () => {
+    const result = loadEconomyContent(REPO_ROOT);
+
+    expect(Object.keys(result.architectInterventionRulesById).sort()).toEqual([
+      "environmental_shock",
+      "fertility_shift",
+      "knowledge_injection",
+      "reveal_resource_deposit",
+      "trade_friction_shift",
+    ]);
+    expect(result.architectInterventionRulesById.reveal_resource_deposit).toEqual({
+      id: "reveal_resource_deposit",
+      category: "resources",
+      allowedScopes: ["entity"],
+      parameters: {},
+      costs: { base: 15, magnitudePerUnit: 0, scopeMultiplier: {}, naturalnessMultiplier: 1 },
+      cooldownTicks: 12,
+      rootFactType: "resource_discovered",
+    });
+    expect(result.architectInterventionRulesById.fertility_shift?.parameters).toEqual({
+      magnitude: { min: 0.05, max: 0.3 },
+    });
+  });
+
   it("M15: loads content/discoveries and content/knowledgeDomains into validated maps, and production methods' `discoveries` into a gating map", () => {
     const result = loadEconomyContent(REPO_ROOT);
 

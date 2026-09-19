@@ -1,0 +1,20 @@
+{
+  "id": "fertility_shift",
+  "nameKey": "content.intervention.fertility_shift.name",
+  "category": "environment",
+  "allowedScopes": ["region"],
+  "parameters": {
+    "magnitude": { "min": 0.05, "max": 0.3 }
+  },
+  "constraints": {},
+  "costs": {
+    "base": 10,
+    "magnitudePerUnit": 150,
+    "scopeMultiplier": { "region": 1.5 },
+    "naturalnessMultiplier": 1
+  },
+  "cooldown": 24,
+  "stacking": { "policy": "limited" },
+  "rootFactType": "region_fertility_shifted",
+  "implementationPhase": "VS"
+}

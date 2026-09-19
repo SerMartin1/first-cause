@@ -1,0 +1,20 @@
+{
+  "id": "environmental_shock",
+  "nameKey": "content.intervention.environmental_shock.name",
+  "category": "experimental_events",
+  "allowedScopes": ["region"],
+  "parameters": {
+    "magnitude": { "min": 0.1, "max": 0.4 }
+  },
+  "constraints": {},
+  "costs": {
+    "base": 20,
+    "magnitudePerUnit": 20,
+    "scopeMultiplier": { "region": 1 },
+    "naturalnessMultiplier": 1
+  },
+  "cooldown": 30,
+  "stacking": { "policy": "forbidden" },
+  "rootFactType": "environmental_shock_applied",
+  "implementationPhase": "VS"
+}

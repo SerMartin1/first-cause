@@ -11,6 +11,11 @@ import type { Company } from "./economy/company.js";
 import type { Market } from "./economy/market.js";
 import type { Inventory } from "./economy/inventory.js";
 import type { TechnologyState } from "./technology/technology-state.js";
+import {
+  createArchitectInfluenceState,
+  type ArchitectInfluenceState,
+} from "./architect/influence.js";
+import type { ArchitectInterventionInstance } from "./architect/intervention.js";
 
 /**
  * The full M3 World State: every entity, keyed by ID (Technology Stack
@@ -30,6 +35,9 @@ export interface WorldState {
   readonly markets: Readonly<Record<string, Market>>;
   readonly inventories: Readonly<Record<string, Inventory>>;
   readonly technologyStates: Readonly<Record<string, TechnologyState>>;
+  /** M16: jeden balans na świat (gracz jako Architekt), nie kolekcja per-region (ARCH-003, SS6). */
+  readonly architectInfluence: ArchitectInfluenceState;
+  readonly interventions: Readonly<Record<string, ArchitectInterventionInstance>>;
 }
 
 export interface CreateWorldStateInput {
@@ -44,6 +52,9 @@ export interface CreateWorldStateInput {
   readonly markets?: readonly Market[];
   readonly inventories?: readonly Inventory[];
   readonly technologyStates?: readonly TechnologyState[];
+  /** Domyślnie pełny balans (`createArchitectInfluenceState()`, SS4) -- backward-compatible dla każdego istniejącego fixture'u, który jeszcze o Architekcie nie wie. */
+  readonly architectInfluence?: ArchitectInfluenceState;
+  readonly interventions?: readonly ArchitectInterventionInstance[];
 }
 
 function requireExists<T>(
@@ -86,6 +97,7 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
   const markets = input.markets ?? [];
   const inventories = input.inventories ?? [];
   const technologyStates = input.technologyStates ?? [];
+  const interventions = input.interventions ?? [];
 
   const continentsById = toById(continents, "Continent");
   const regionsById = toById(regions, "Region");
@@ -93,6 +105,7 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
   const cohortsById = toById(populationCohorts, "PopulationCohort");
   const inventoriesById = toById(inventories, "Inventory");
   const companiesById = toById(companies, "Company");
+  const interventionsById = toById(interventions, "ArchitectInterventionInstance");
 
   for (const continent of continents) {
     requireSame(continent.worldId, input.world.id, `Continent "${continent.id}".worldId`);
@@ -324,6 +337,8 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
   const resolvedResourceDeposits = toById(resourceDeposits, "ResourceDeposit");
   const resolvedMarkets = toById(markets, "Market");
   const resolvedTechnologyStates = toById(technologyStates, "TechnologyState");
+  const resolvedArchitectInfluence =
+    input.architectInfluence ?? createArchitectInfluenceState();
 
   // Audytowe P1-05: NaN/Infinity odrzucane dopiero przy (de)serializacji
   // nie chroni tego, co WorldState zaraz przyjmie jako swój bieżący stan
@@ -351,6 +366,9 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
     assertFiniteDeep(entity, `Inventory "${id}"`);
   for (const [id, entity] of Object.entries(resolvedTechnologyStates))
     assertFiniteDeep(entity, `TechnologyState "${id}"`);
+  assertFiniteDeep(resolvedArchitectInfluence, "ArchitectInfluenceState");
+  for (const [id, entity] of Object.entries(interventionsById))
+    assertFiniteDeep(entity, `ArchitectInterventionInstance "${id}"`);
 
   return {
     world: resolvedWorld,
@@ -364,6 +382,8 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
     markets: resolvedMarkets,
     inventories: inventoriesById,
     technologyStates: resolvedTechnologyStates,
+    architectInfluence: resolvedArchitectInfluence,
+    interventions: interventionsById,
   };
 }
 

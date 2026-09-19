@@ -2679,6 +2679,86 @@ tylko Experiment Mode).
 (§1--41, §156--170), `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (ARCH-001--011).
 
+### M16 --- Wyniki wykonania (2026-09-19)
+
+**Status: DONE.**
+
+**Encje (`packages/entities/src/architect/`):** `influence.ts`
+(`ArchitectInfluenceState { current, max }`, SS6 -- `reserved`/
+`available` świadomie pominięte, Sustained poza zakresem VS, SS7),
+`intervention.ts` (`ArchitectInterventionInstance`, pełny status
+lifecycle SS24 -- `PLANNED/ACTIVE/COMPLETED/CANCELLED/FAILED`, ale VS-INT
+są Instant, więc `applyArchitectIntervention` przechodzi prosto do
+`COMPLETED`/`FAILED` w tym samym wywołaniu). `WorldState` (M3) rozszerzone
+o `architectInfluence`/`interventions` -- oba opcjonalne w
+`CreateWorldStateInput` z bezpiecznym domyślnym (`createArchitectInfluenceState()`/
+puste), więc każdy istniejący fixture nadal się kompiluje bez zmian.
+`@first-cause/causality`'s `SimulationFact`/`FactInput` (M5) dostały
+opcjonalne pole `architect: { interventionId, influenceStrength }`
+(SS32) -- dokładnie ta rozbudowa, na którą `fact.ts`'s własny komentarz
+od M5 czekał ("architect needs the Architect, M16").
+
+**Silnik (`packages/simulation/src/systems/architect/`):**
+`influence.ts` (`tickArchitectInfluence`, regeneracja co tick, TODO
+tuning tempa -- OPEN-002), `definition.ts` (`ArchitectInterventionRule` +
+`parseArchitectInterventionRule`, fail-loud parser `OpenRecordSchema`
+bagów `parameters`/`costs` z contentu, ten sam wzorzec co M7's
+`parseProductionRecipe`), `cost.ts` (`computeInterventionCost`,
+`Base + MagnitudePerUnit x |magnitude|`, razem x `Duration(1) x Scope x
+Naturalness` -- addytywno-multiplikatywny model z SS8), `interventions.ts`
+(5 effect handlerów VS-INT-01..05, keyowane po `definitionId` -- zamknięta
+taksonomia, nie per-instancyjny branch, AGENTS.md reguła 8; Reveal
+Resource Deposit reużywa M5's `discoverDeposit` 1:1), `validation.ts`
+(`validateIntervention` -- scope/parametry/target/Influence/cooldown,
+SS26), `apply-intervention.ts` (`applyArchitectIntervention` --
+transakcyjny pipeline SS182: validate -> cost -> spend Influence ->
+mutate -> Root Fact -> commit; JEDYNA funkcja w `systems/architect` która
+sama emituje do `FactStore`, bo to command wywoływany POMIĘDZY tickami,
+nie krok `runEconomyTick`'s pętli -- potrzebuje realnych
+`SimulationFact.id` do `rootFactIds` od razu).
+
+**Wpięcie w tick loop:** nowy krok "13." w `core/economy-tick.ts`
+(`tickArchitectInfluence`, bezwarunkowy, bez RNG) -- oraz **naprawiony
+audytowy bug znaleziony przy pisaniu tego kroku**: finalny
+`createWorldState` na końcu `runEconomyTick` NIE przekazywał
+`architectInfluence`/`interventions` z wejściowego `worldState`, więc bez
+tej poprawki każdy tick cicho zerowałby balans Influence i kasował
+wszystkie zaaplikowane interwencje z powrotem do domyślnego stanu
+(dokładnie ten sam rodzaj błędu co M15's `runProduction` echo -- realny
+tylko raz coś faktycznie istnieje w tym polu, niewidoczny w żadnym teście
+sprzed tego dnia).
+
+**Content:** `content/interventions/*.json` (5 plików, VS-INT-01..05 z
+katalogu §156--162 -- schemat `InterventionDefinitionSchema` i jego
+rejestracja w `CONTENT_TYPE_SPECS` istniały od dawna, przygotowane z
+wyprzedzeniem tak jak `intervention-definition.ts`'s własny komentarz
+zakładał). `packages/worldgen`'s `load-economy-content.ts` czyta ten
+katalog i buduje `architectInterventionRulesById`. Koszty/progi
+(`baseInfluenceCost` per definicja, `cooldownTicks`, zakresy parametrów)
+są TODO tuning placeholderami (OPEN-003) -- wartości dobrane tak, żeby
+VS Cost Philosophy (SS163: "kilka znaczących interwencji, nie ciągły
+spam") było spełnione już dziś, nie ostateczne liczby.
+
+**Testy:** 11 nowych plików testowych (~74 nowe testy) w
+`packages/entities/src/architect/*.test.ts`,
+`packages/simulation/src/systems/architect/*.test.ts`,
+`packages/worldgen/src/content/load-economy-content.test.ts` (rozszerzony)
+i `packages/worldgen/src/fixtures/architect-acceptance.test.ts` -- ten
+ostatni dowodzi wprost wszystkich 4 zdań Acceptance Gate wyżej na
+prawdziwym Black Mountain fixture (`deposit_black_mountain_iron_ore`,
+zgodnie z katalogu §157 "Cel testowy: Black Mountain"). `pnpm
+typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS (710 testów w
+repo).
+
+**Świadomie poza zakresem tej implementacji (osobno od "Poza zakresem"
+wyżej):** UI Architect Panel (SS165--170, tor równoległy "Architect
+presentation primitives" z sekcji 6A -- `apps/desktop` nie ma jeszcze
+żadnego ekranu do podłączenia), `cancelIntervention` (SS173's Command API
+ją wymienia, ale nie ma testu Acceptance Gate ani przypadku użycia bez
+UI), `stacking.policy` poza `"allowed"` egzekwowane tylko przez cooldown
+-- `"limited"`/`"forbidden"` w contencie są dziś opisowe/nieegzekwowane
+osobno.
+
 ------------------------------------------------------------------------
 
 ## M17 --- Causality (pełna integracja)
