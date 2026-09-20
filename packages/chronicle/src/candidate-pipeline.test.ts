@@ -425,4 +425,67 @@ describe("buildChronicleCandidates", () => {
     }
     expect(allCandidates.some((c) => c.eventType === "migration_wave")).toBe(true);
   });
+
+  it("trade_route_emerged: accumulates trade_flow_active volume and, once resolved, keeps merging later episodes into the SAME entry via a stable aggregationKey", () => {
+    const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+      makeEventType({ id: "trade_route_emerged", category: "trade", candidateThreshold: 5, baseSignificance: 30 }),
+    ]);
+    const activeProcessRegistry = createActiveProcessRegistry();
+    const tradeFact = (id: string, tick: number, volume: number) =>
+      makeFact({
+        id,
+        type: "trade_flow_active",
+        tick,
+        subject: { entityType: "connectionGood", entityId: "connection_1:flour" },
+        location: { regionId: "region_dest" },
+        values: { before: 0, after: volume },
+      });
+
+    buildChronicleCandidates({
+      facts: [tradeFact("fact_0_0", 0, 500)],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 0,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+    });
+    // Silence for > 6 ticks -> first episode resolves.
+    const firstResolution = buildChronicleCandidates({
+      facts: [],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 10,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+      tradeRouteSilenceTicks: 6,
+    });
+    expect(firstResolution).toHaveLength(1);
+    expect(firstResolution[0]!.aggregationKey).toBe("trade_route:connection_1:flour");
+
+    // Trade resumes and resolves again later -- same (connection, good) key.
+    buildChronicleCandidates({
+      facts: [tradeFact("fact_20_0", 20, 800)],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 20,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+    });
+    const secondResolution = buildChronicleCandidates({
+      facts: [],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 30,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+      tradeRouteSilenceTicks: 6,
+    });
+    expect(secondResolution).toHaveLength(1);
+    // Same aggregationKey as the first episode -- chronicle-entry-store.ts folds them into one entry.
+    expect(secondResolution[0]!.aggregationKey).toBe(firstResolution[0]!.aggregationKey);
+  });
 });

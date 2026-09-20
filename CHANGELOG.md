@@ -10,6 +10,35 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-20
 
+- **M19 Chronicle -- podłączenie `trade_route_emerged` (5 z 7), na
+  wyraźną prośbę użytkownika (potwierdzone przed dodaniem nowego faktu
+  w gorącej ścieżce handlu).**
+  - **`packages/simulation`'s `economy-tick.ts`** (`tradeOneDirection`):
+    nowy fakt `trade_flow_active`, emitowany za KAŻDY tick, gdy
+    `evaluateTradeFlow` faktycznie przenosi wolumen (`importedQuantity >
+    0`) -- `Connection` nie ma per-dobro cache'u poprzedniej wartości
+    (w przeciwieństwie do `deposit.extraction.currentExtraction`), więc
+    detekcja "czy to nowy/trwały przepływ" celowo żyje po stronie
+    Chronicle, nie symulacji. `subject.entityId` = `<connectionId>:<goodId>`
+    (ten sam wzorzec co `marketId:goodId` w `price-adjustment.ts`).
+  - **`packages/chronicle`'s `candidate-pipeline.ts`:** nowy akumulacyjny
+    detektor na tym samym `ActiveProcessRegistry` co `migration_wave`,
+    ale z ważną różnicą: kandydat niesie STABILNY `aggregationKey` (bez
+    komponentu okna czasowego), więc `chronicle-entry-store.ts` scala
+    KAŻDĄ kolejną rozdzielczość tej samej pary (connection, good) w
+    JEDEN, stale aktualizowany wpis (SS64) zamiast tworzyć nowy wpis
+    "szlak powstał" co `TRADE_ROUTE_MAX_DURATION_TICKS_TODO_TUNING` --
+    szlak handlowy to trwała cecha strukturalna (SS176), nie seria
+    osobnych epizodów jak fala migracji.
+  - Nowe testy: `economy-tick.test.ts` (+2, w tym realny dwuregionowy
+    scenariusz produkcja->handel->konsumpcja, bez ręcznego seedowania
+    `MarketGoodState` -- te wartości są nadpisywane przez krok 8 ticka),
+    `candidate-pipeline.test.ts` (+1). `pnpm typecheck/lint/test/build`:
+    wszystkie PASS (856 testów w repo).
+  - **Świadomie wciąż niepodłączone:** `regional_boom`/`regional_bust` --
+    ostatnie 2 z 7, wymagają kompozytowego wskaźnika regionu (w
+    przygotowaniu).
+
 - **M19 Chronicle -- podłączenie 4 z 7 wcześniej niepodłączonych event
   types** (`resource_depletion_milestone`, `technology_adoption_wave`,
   `migration_wave`, `intervention_major_consequence`) -- follow-up do

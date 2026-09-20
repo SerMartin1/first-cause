@@ -3179,28 +3179,30 @@ składniki 0..1, baseline (SS23) jako mały stały udział, progi kategorii
 Trace/.../World-Defining jako `SIGNIFICANCE_CATEGORY_THRESHOLDS_TODO_TUNING`.
 
 **CH-03 Candidate Pipeline (`candidate-pipeline.ts`):** z 15 event types
-VS, **12 ma pełny detektor end-to-end** (stan po follow-upie tego samego
-dnia, patrz `CHANGELOG.md`) na realnych typach faktów już emitowanych
-przez `packages/simulation`: `resource_discovered`, `company_founded`,
-`company_major_expansion` <- `company_expanded`, `company_closed`,
-`settlement_stage_changed`, `discovery_occurred`, `shortage_started`,
-`shortage_resolved` (przez `ActiveProcessRegistry` silence-detection,
-SS33), `resource_depletion_milestone` (nowy fakt `resource_reserve_
-milestone` z `extraction.ts`, przekroczenie 75/50/25/10% rezerw),
-`technology_adoption_wave` (1:1 + CH-04 aggregation po `discoveryId`),
-`migration_wave` (`ActiveProcessRegistry.accumulatedMagnitude`,
-znormalizowane przez `region.population.totalPopulation`),
-`intervention_major_consequence` (nowy `intervention-legacy.ts`,
-reużywa `queryButterflyEffect`/M18 zamiast własnej logiki grafowej,
-okresowy `WorldRunner.maybeRunInterventionLegacy`, domyślnie
-wyłączony). **3 pozostają świadomie NIEpodłączone** (content + szablony
-gotowe, brak detektora): `regional_boom`/`regional_bust`/
-`trade_route_emerged` (SS35-38 -- każdy wymaga własnego kalibrowanego
-progu/akumulatora, nie zgadywanego; AGENTS.md "nie wymyślaj mechaniki,
-oznacz TODO"; `trade_route_emerged` dodatkowo wymaga nowego surowego
-sygnału wolumenu handlu, którego `packages/simulation` dziś nie
-emituje). `causalImpact` dla fact-driven detektorów liczony jako
-bounded 1-hop suma `|contribution|` wychodzących krawędzi (SS115/117
+VS, **13 ma pełny detektor end-to-end** (stan po follow-upach tego
+samego dnia, patrz `CHANGELOG.md`) na realnych typach faktów już
+emitowanych przez `packages/simulation`: `resource_discovered`,
+`company_founded`, `company_major_expansion` <- `company_expanded`,
+`company_closed`, `settlement_stage_changed`, `discovery_occurred`,
+`shortage_started`, `shortage_resolved` (przez `ActiveProcessRegistry`
+silence-detection, SS33), `resource_depletion_milestone` (nowy fakt
+`resource_reserve_milestone` z `extraction.ts`, przekroczenie
+75/50/25/10% rezerw), `technology_adoption_wave` (1:1 + CH-04
+aggregation po `discoveryId`), `migration_wave`
+(`ActiveProcessRegistry.accumulatedMagnitude`, znormalizowane przez
+`region.population.totalPopulation`), `intervention_major_consequence`
+(nowy `intervention-legacy.ts`, reużywa `queryButterflyEffect`/M18
+zamiast własnej logiki grafowej, okresowy `WorldRunner.
+maybeRunInterventionLegacy`, domyślnie wyłączony), `trade_route_emerged`
+(nowy fakt `trade_flow_active` z `economy-tick.ts`, akumulator ze
+STABILNYM `aggregationKey` bez komponentu okna -- szlak handlowy to
+jeden trwały wpis aktualizowany w miejscu, nie seria epizodów). **2
+pozostają świadomie NIEpodłączone** (content + szablony gotowe, brak
+detektora): `regional_boom`/`regional_bust` (SS35-38 -- każdy wymaga
+własnego kalibrowanego kompozytowego wskaźnika, nie zgadywanego;
+AGENTS.md "nie wymyślaj mechaniki, oznacz TODO"). `causalImpact` dla
+fact-driven detektorów liczony jako bounded 1-hop suma `|contribution|`
+wychodzących krawędzi (SS115/117
 anti-explosion), nie pełny propagation graph -- to CH-09 (P1).
 
 **CH-04 Aggregation (`aggregation.ts`) + CH-05 Entry Storage

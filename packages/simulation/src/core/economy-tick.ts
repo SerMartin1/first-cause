@@ -1718,6 +1718,31 @@ function tradeOneDirection(args: TradeOneDirectionArgs): Connection {
     args.causalLinks.push(...offsetCausalLinks(tradeResult.causalLinks, baseIndex));
   }
 
+  if (tradeResult.importedQuantity > 0) {
+    // M19 (Chronicle `trade_route_emerged`, CH-03): a raw per-tick
+    // signal that this connection+good actually moved physical volume --
+    // `evaluateTradeFlow` already computes `importedQuantity`, it just
+    // never turned it into a fact before. Deliberately fires every tick
+    // trade flows, not only on change: unlike `extraction.ts`'s
+    // `deposit.extraction.currentExtraction`, nothing here persists a
+    // "previous tick's flow" to compare against, and inventing that
+    // state on `Connection` (which has no per-good slot) is a bigger
+    // entity-model change than this fact needs. Whether repeated ticks
+    // of the same flow become a Chronicle "route" is `ActiveProcessRegistry`
+    // accumulation on the Chronicle side, not a simulation-side concern
+    // (same division of labor as `population_migrated_in` -> `migration_wave`).
+    args.facts.push({
+      type: "trade_flow_active",
+      // `<connectionId>:<goodId>`, same "compound entityId for a
+      // multiplexed relationship" pattern as `price-adjustment.ts`'s
+      // `marketId:goodId` -- one connection can carry many goods, each
+      // its own Chronicle-eligible flow.
+      subject: { entityType: "connectionGood", entityId: `${args.connection.id}:${args.goodId}` },
+      location: { regionId: args.markets[args.importingMarketId]!.regionId },
+      values: { before: 0, after: tradeResult.importedQuantity },
+    });
+  }
+
   if (
     tradeResult.importedQuantity > 0 &&
     args.exportingRegionInventoryId &&

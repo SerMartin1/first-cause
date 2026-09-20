@@ -34,21 +34,21 @@ import type { ChronicleCandidate, GeographicScope } from "./types.js";
  * NOT included here (defined as content, ready for a future detector,
  * intentionally not wired to a candidate yet -- see spec SS35-38,
  * AGENTS.md "nie wymyślaj mechaniki, oznacz TODO"): `regional_boom`/
- * `regional_bust`/`trade_route_emerged` (genuine multi-signal trend
- * detectors -- each needs its own calibrated threshold/accumulator, not
- * a single raw fact), and `intervention_major_consequence` (Architect
- * Legacy, CH-11, P1 -- belongs on top of `queryButterflyEffect`/M18, not
- * this table).
+ * `regional_bust` (genuine multi-signal composite trend detectors --
+ * need their own calibrated indicator, not a single raw fact), and
+ * `intervention_major_consequence` (Architect Legacy, CH-11, P1 --
+ * belongs on top of `queryButterflyEffect`/M18, not this table; wired
+ * separately, see `intervention-legacy.ts`).
  *
- * `shortage_resolved`/`migration_wave` ARE wired, but through
- * `ActiveProcessRegistry` accumulation/silence detection below, not this
- * table (no single raw fact represents "resolved"/"a sustained wave").
- * `technology_adoption_wave` relies entirely on CH-04 aggregation
- * (`aggregationPolicy.scope: "entity"` in content, i.e. per
- * `discoveryId`) to fold repeated `technology_adoption_increased` ticks
- * for the SAME discovery into one entry -- never across different
- * discoveries, which would be exactly the false aggregation SS30
- * forbids.
+ * `shortage_resolved`/`migration_wave`/`trade_route_emerged` ARE wired,
+ * but through `ActiveProcessRegistry` accumulation/silence detection
+ * below, not this table (no single raw fact represents "resolved"/"a
+ * sustained wave"/"a persistent route"). `technology_adoption_wave`
+ * relies entirely on CH-04 aggregation (`aggregationPolicy.scope:
+ * "entity"` in content, i.e. per `discoveryId`) to fold repeated
+ * `technology_adoption_increased` ticks for the SAME discovery into one
+ * entry -- never across different discoveries, which would be exactly
+ * the false aggregation SS30 forbids.
  */
 const RAW_FACT_TYPE_TO_EVENT_TYPE_TODO_TUNING: Readonly<Record<string, string>> = {
   resource_discovered: "resource_discovered",
@@ -81,6 +81,15 @@ const MIGRATION_WAVE_DURATION_SATURATION_TICKS_TODO_TUNING = 36;
 const MIGRATION_WAVE_POPULATION_SATURATION_RATIO_TODO_TUNING = 0.5;
 /** Fallback absolute scale for `magnitude` when no `regionPopulation` context is supplied. */
 const MIGRATION_WAVE_FALLBACK_SCALE_TODO_TUNING = 500;
+
+/** SS33 Trend End: ticks with no renewing `trade_flow_active` before an open trade route is considered resolved. */
+const TRADE_ROUTE_SILENCE_TICKS_TODO_TUNING = 6;
+/** Unlike `migration_wave`, a trade route is a PERSISTENT structural feature (SS176 "Trade Hub Significance... gdy przepływy są trwałe") -- this cap forces a periodic significance re-publish into the SAME entry (via a stable `aggregationKey`, see `tradeRouteProcessKey`) rather than letting one open process run forever unexamined. */
+const TRADE_ROUTE_MAX_DURATION_TICKS_TODO_TUNING = 60;
+/** How many ticks a trade route episode needs to have run before its `duration` component saturates to `1`. */
+const TRADE_ROUTE_DURATION_SATURATION_TICKS_TODO_TUNING = 36;
+/** Fallback absolute scale for `magnitude` -- accumulated flow volume across an episode reaching this saturates to `1` (TODO tuning: no per-good/per-region context hook exists yet for a more relative denominator). */
+const TRADE_ROUTE_FALLBACK_SCALE_TODO_TUNING = 2000;
 
 /** Exported for `intervention-legacy.ts` -- same duration-classification proxy, one shared table. */
 export const DURATION_COMPONENT_TODO_TUNING: Readonly<Record<DurationState, number>> = {
@@ -133,6 +142,8 @@ export interface BuildChronicleCandidatesInput {
   readonly shortageResolutionSilenceTicks?: number;
   readonly migrationWaveSilenceTicks?: number;
   readonly migrationWaveMaxDurationTicks?: number;
+  readonly tradeRouteSilenceTicks?: number;
+  readonly tradeRouteMaxDurationTicks?: number;
 }
 
 function determineScope(fact: SimulationFact): GeographicScope {
@@ -376,6 +387,71 @@ function buildMigrationWaveCandidate(
   };
 }
 
+/** One process per (connection, good) -- `trade_flow_active.subject.entityId` is already `<connectionId>:<goodId>` (see `economy-tick.ts`'s `tradeOneDirection`). */
+function tradeRouteProcessKey(fact: SimulationFact): string {
+  return `trade_route:${fact.subject.entityId}`;
+}
+
+/**
+ * Unlike `buildMigrationWaveCandidate`/`buildShortageResolutionCandidate`,
+ * this candidate carries a STABLE `aggregationKey` with no time-window
+ * component: `chronicle-entry-store.ts`'s `upsert` will keep folding
+ * every later resolution of the SAME (connection, good) into the ONE
+ * entry it already published (extending `endTick`, SS64), rather than
+ * spawning a new "route emerged" entry every
+ * `TRADE_ROUTE_MAX_DURATION_TICKS_TODO_TUNING` -- a trade route is one
+ * ongoing structural fact, not a series of disjoint episodes.
+ */
+function buildTradeRouteCandidate(
+  process: ActiveProcess,
+  eventType: EventTypeDefinition,
+  tick: number,
+  nextId: () => string,
+): ChronicleCandidate | undefined {
+  const elapsedTicks = Math.max(1, tick - process.startTick);
+  const duration = Math.min(1, elapsedTicks / TRADE_ROUTE_DURATION_SATURATION_TICKS_TODO_TUNING);
+  const magnitude = Math.min(1, process.accumulatedMagnitude / TRADE_ROUTE_FALLBACK_SCALE_TODO_TUNING);
+  const geographicScope = GEOGRAPHIC_SCOPE_COMPONENT_TODO_TUNING.REGIONAL;
+
+  const significance = computeSignificance({
+    magnitude,
+    duration,
+    populationAffected: geographicScope,
+    geographicScope,
+    novelty: 0,
+    causalImpact: 0,
+    contextualImportance: 0,
+    baseSignificance: eventType.baseSignificance,
+  });
+
+  if (significance.total < eventType.candidateThreshold) return undefined;
+
+  return {
+    id: nextId(),
+    factRefs: [process.rootFactId],
+    tick,
+    entityRefs: [],
+    // Empty, not a guess: `ActiveProcess` only stores `rootFactId` (a
+    // string), not that fact's `location` -- and a trade route spans TWO
+    // regions (origin + destination), of which only the destination was
+    // ever on the triggering fact anyway. A future pass could extend
+    // `ActiveProcess` to carry a snapshot of the opening fact's
+    // location/regionRefs; not done here to avoid widening a shared
+    // registry type for one detector's need.
+    regionRefs: [],
+    eventType: eventType.id,
+    category: eventType.category,
+    significance,
+    isFirstOccurrence: false,
+    scope: "REGIONAL",
+    durationState: eventType.durationPolicy,
+    causalAnchors: [process.rootFactId],
+    architectInfluence: 0,
+    aggregationKey: process.processKey,
+    status: "PENDING",
+  };
+}
+
 /**
  * CH-03: `SimulationFact[] -> ChronicleCandidate[]` (Candidate Schema
  * SS19). Mutates `noveltyRegistry`/`activeProcessRegistry` as a side
@@ -436,6 +512,18 @@ export function buildChronicleCandidates(
         migrantCount,
       );
     }
+
+    if (fact.type === "trade_flow_active") {
+      const values = fact.values as { after?: unknown };
+      const flowVolume = typeof values.after === "number" ? Math.abs(values.after) : 0;
+      input.activeProcessRegistry.openOrRenew(
+        tradeRouteProcessKey(fact),
+        "trade_route",
+        input.currentTick,
+        fact.id,
+        flowVolume,
+      );
+    }
   }
 
   const silenceTicks = input.shortageResolutionSilenceTicks ?? SHORTAGE_RESOLUTION_SILENCE_TICKS_TODO_TUNING;
@@ -473,6 +561,28 @@ export function buildChronicleCandidates(
         nextId,
         input.context,
       );
+      if (candidate) candidates.push(candidate);
+    }
+  }
+
+  const tradeRouteSilenceTicks = input.tradeRouteSilenceTicks ?? TRADE_ROUTE_SILENCE_TICKS_TODO_TUNING;
+  const tradeRouteMaxDurationTicks =
+    input.tradeRouteMaxDurationTicks ?? TRADE_ROUTE_MAX_DURATION_TICKS_TODO_TUNING;
+  const tradeRouteEventType = input.eventTypes.get("trade_route_emerged");
+  if (tradeRouteEventType) {
+    const resolvable = new Map<string, ActiveProcess>();
+    for (const process of input.activeProcessRegistry.findStale(input.currentTick, tradeRouteSilenceTicks)) {
+      if (process.processType === "trade_route") resolvable.set(process.processKey, process);
+    }
+    for (const process of input.activeProcessRegistry.findExceedingDuration(
+      input.currentTick,
+      tradeRouteMaxDurationTicks,
+    )) {
+      if (process.processType === "trade_route") resolvable.set(process.processKey, process);
+    }
+    for (const process of [...resolvable.values()].sort((a, b) => a.processKey.localeCompare(b.processKey))) {
+      input.activeProcessRegistry.advance(process.processKey, "RESOLVED", input.currentTick);
+      const candidate = buildTradeRouteCandidate(process, tradeRouteEventType, input.currentTick, nextId);
       if (candidate) candidates.push(candidate);
     }
   }

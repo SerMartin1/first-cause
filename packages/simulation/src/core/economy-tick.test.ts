@@ -1222,3 +1222,243 @@ describe("runEconomyTick -- M15 Technology wiring (technology/knowledge|discover
     ).toBeGreaterThan(0);
   });
 });
+
+describe("runEconomyTick -- trade emits trade_flow_active (M19 Chronicle trade_route_emerged)", () => {
+  /**
+   * `market.goods[goodId].supply`/`.demand` get fully recomputed from
+   * real production/consumption at tick step 8 (`updateMarketGood`),
+   * BEFORE trade (step 10) reads them -- pre-seeding `MarketGoodState`
+   * directly in a fixture is silently overwritten. So this scenario is a
+   * real, if minimal, two-region economy: `region_source` runs the same
+   * `grain_farm`/`GRAIN_FARM_RECIPE` fixture as the Entrepreneurship
+   * tests above but with capacity (20) far exceeding its own tiny
+   * (1-person) household's `flour` (== `SURVIVAL_GOOD_ID`) consumption,
+   * leaving a real exportable surplus; `region_dest` has a real,
+   * well-off consuming cohort (`employment`/`averageIncome` preset, same
+   * pattern as `buildEntrepreneurshipWorldState`'s) and produces no
+   * `flour` at all, so its demand is entirely unmet locally.
+   */
+  function buildTradeWorldState(): { worldState: WorldState } {
+    const world = createWorld({
+      id: "world_trade_flow_test",
+      seed: "trade-flow-test",
+      name: "Trade Flow Test World",
+      configuration: { regionCount: 2, worldSizePreset: "prototype-8-12" },
+    });
+    const continent = createContinent({ id: "continent_test", worldId: world.id, name: "Test Continent" });
+    const geography = {
+      terrain: "plains" as const,
+      climate: "temperate" as const,
+      area: 100,
+      fertility: 0.5,
+      waterAccess: true,
+      coastal: false,
+      elevationClass: "lowland" as const,
+    };
+    const regionSource = createRegion({
+      id: "region_source",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "Source",
+      geography,
+    });
+    const regionDest = createRegion({
+      id: "region_dest",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "Dest",
+      geography,
+    });
+    const connection = createConnection({
+      id: "connection_source_dest",
+      regionAId: regionSource.id,
+      regionBId: regionDest.id,
+      geography: { physicalDistance: 0, terrainDifficulty: 0, seasonalModifier: 1 },
+      infrastructure: { level: 1, transportModes: [], capacity: 1000 },
+    });
+
+    const marketSource = {
+      ...createMarket({ id: "market_source", regionId: regionSource.id }),
+      goods: { flour: initializeMarketGood(5) },
+    };
+    const marketDest = {
+      ...createMarket({ id: "market_dest", regionId: regionDest.id }),
+      goods: { flour: initializeMarketGood(5) },
+    };
+
+    const sourceRegionInventory = createInventory({
+      id: "inventory_region_source",
+      ownerType: "region",
+      ownerId: regionSource.id,
+      locationRegionId: regionSource.id,
+    });
+    const destRegionInventory = createInventory({
+      id: "inventory_region_dest",
+      ownerType: "region",
+      ownerId: regionDest.id,
+      locationRegionId: regionDest.id,
+    });
+    const farmInventory = createInventory({
+      id: "inventory_farm",
+      ownerType: "company",
+      ownerId: "company_farm",
+      locationRegionId: regionSource.id,
+    });
+
+    const grainDeposit = {
+      ...createResourceDeposit({
+        id: "deposit_trade_grain",
+        resourceDefinitionId: "grain",
+        regionId: regionSource.id,
+        initialQuantity: 50_000,
+        renewable: true,
+        renewableState: { regenerationRate: 0.05, sustainableYield: 5000, carryingCapacity: 50_000 },
+      }),
+      discovery: { status: "DISCOVERED" as const, discoveredTick: 0, discoveredByEntityId: undefined, confidence: 1 },
+    };
+
+    const farmWorkerCohort: ReturnType<typeof createPopulationCohort> = {
+      ...createPopulationCohort({
+        id: "cohort_farm_worker",
+        regionId: regionSource.id,
+        ageGroup: "AGE_25_44",
+        population: 1,
+        economicClass: "WORKING",
+        skillLevel: "UNSKILLED",
+      }),
+      employment: 1,
+      averageIncome: 1, // minimal purchasing power -- almost none of the farm's own flour output gets consumed locally
+    };
+    const consumingCohort: ReturnType<typeof createPopulationCohort> = {
+      ...createPopulationCohort({
+        id: "cohort_dest_consumers",
+        regionId: regionDest.id,
+        ageGroup: "AGE_25_44",
+        population: 200,
+        economicClass: "WORKING",
+        skillLevel: "UNSKILLED",
+      }),
+      employment: 200,
+      averageIncome: 5000, // real, sustained purchasing power with zero local flour supply
+    };
+
+    const baseFarm = createCompany({
+      id: "company_farm",
+      archetypeId: "grain_farm",
+      name: "Export Farm",
+      foundedTick: 0,
+      regionId: regionSource.id,
+      ownerType: "individual",
+      ownerEntityId: farmWorkerCohort.id,
+      inventoryId: farmInventory.id,
+      initialCash: 1000,
+      initialWageOffer: 10,
+    });
+    const farm: Company = {
+      ...baseFarm,
+      production: { ...baseFarm.production, productionMethodId: "manual_farming", capacity: 20, utilization: 1 },
+      workforce: { ...baseFarm.workforce, employees: 1 },
+    };
+
+    const worldState = createWorldState({
+      world,
+      continents: [continent],
+      regions: [regionSource, regionDest],
+      connections: [connection],
+      markets: [marketSource, marketDest],
+      companies: [farm],
+      populationCohorts: [farmWorkerCohort, consumingCohort],
+      inventories: [sourceRegionInventory, destRegionInventory, farmInventory],
+      resourceDeposits: [grainDeposit],
+    });
+    return { worldState };
+  }
+
+  it("emits trade_flow_active toward the region with real unmet demand, anchored on the specific connection+good", () => {
+    const { worldState } = buildTradeWorldState();
+    const rng = createWorldRng(worldState.world.seed);
+
+    const result = runEconomyTick({
+      worldState,
+      tick: 0,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+      productionRecipesByMethodId: { manual_farming: GRAIN_FARM_RECIPE },
+    });
+
+    const tradeFacts = result.facts.filter((f) => f.type === "trade_flow_active");
+    expect(tradeFacts.length).toBeGreaterThan(0);
+    expect(tradeFacts[0]).toMatchObject({
+      subject: { entityType: "connectionGood", entityId: "connection_source_dest:flour" },
+      location: { regionId: "region_dest" }, // the importing side -- dest has the unmet demand
+    });
+    expect((tradeFacts[0]!.values as { after: number }).after).toBeGreaterThan(0);
+  });
+
+  it("emits no trade_flow_active when neither direction has both surplus and demand", () => {
+    const world = createWorld({
+      id: "world_no_trade_test",
+      seed: "no-trade-test",
+      name: "No Trade Test World",
+      configuration: { regionCount: 2, worldSizePreset: "prototype-8-12" },
+    });
+    const continent = createContinent({ id: "continent_test", worldId: world.id, name: "Test Continent" });
+    const geography = {
+      terrain: "plains" as const,
+      climate: "temperate" as const,
+      area: 100,
+      fertility: 0.5,
+      waterAccess: true,
+      coastal: false,
+      elevationClass: "lowland" as const,
+    };
+    const regionA = createRegion({
+      id: "region_a",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "A",
+      geography,
+    });
+    const regionB = createRegion({
+      id: "region_b",
+      worldId: world.id,
+      continentId: continent.id,
+      name: "B",
+      geography,
+    });
+    const connection = createConnection({
+      id: "connection_a_b",
+      regionAId: regionA.id,
+      regionBId: regionB.id,
+      geography: { physicalDistance: 0, terrainDifficulty: 0, seasonalModifier: 1 },
+      infrastructure: { level: 1, transportModes: [], capacity: 1000 },
+    });
+    // Neither region has any supply or demand for the shared good.
+    const marketA = {
+      ...createMarket({ id: "market_a", regionId: regionA.id }),
+      goods: { grain: initializeMarketGood(2) },
+    };
+    const marketB = {
+      ...createMarket({ id: "market_b", regionId: regionB.id }),
+      goods: { grain: initializeMarketGood(2) },
+    };
+
+    const worldState = createWorldState({
+      world,
+      continents: [continent],
+      regions: [regionA, regionB],
+      connections: [connection],
+      markets: [marketA, marketB],
+    });
+
+    const rng = createWorldRng(worldState.world.seed);
+    const result = runEconomyTick({
+      worldState,
+      tick: 0,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+    });
+
+    expect(result.facts.filter((f) => f.type === "trade_flow_active")).toEqual([]);
+  });
+});
