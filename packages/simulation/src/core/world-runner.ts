@@ -1,33 +1,39 @@
 import type { WorldState } from "@first-cause/entities";
 import {
+  CausalEdgeStore,
   createCausalEdgeStore,
   createFactStore,
+  FactStore,
   pruneCausalMemory,
   type CausalEdge,
-  type CausalEdgeStore,
-  type FactStore,
+  type CausalEdgeStoreState,
+  type FactStoreState,
   type SimulationFact,
 } from "@first-cause/causality";
 import {
+  ActiveProcessRegistry,
   aggregateCandidates,
   buildChronicleCandidates,
   buildInterventionConsequenceCandidates,
+  ChronicleEntryStore,
   collectHistoricalAnchorFactIds,
   createActiveProcessRegistry,
   createChronicleEntryStore,
   createMilestoneRegistry,
   createNoveltyRegistry,
   findTemplateForEventType,
+  MilestoneRegistry,
+  NoveltyRegistry,
   shouldBeHistoricalAnchor,
-  type ActiveProcessRegistry,
+  type ActiveProcessRegistryState,
   type ChronicleCandidate,
   type ChronicleEntry,
-  type ChronicleEntryStore,
-  type MilestoneRegistry,
-  type NoveltyRegistry,
+  type ChronicleEntryStoreState,
+  type MilestoneRegistryState,
+  type NoveltyRegistryState,
 } from "@first-cause/chronicle";
 import type { ChronicleTemplateDefinition, DefinitionRegistry, EventTypeDefinition } from "@first-cause/content";
-import { createHeadlessRunner, type HeadlessRunnerConfig } from "./runner.js";
+import { createHeadlessRunner, HeadlessRunner, type HeadlessRunnerConfig, type HeadlessRunnerState } from "./runner.js";
 import { runEconomyTick, type RunEconomyTickInput } from "./economy-tick.js";
 import { resolveTickCausality } from "./causal-resolution.js";
 import type { PendingCausalLink } from "./causal-links.js";
@@ -101,8 +107,9 @@ export interface WorldRunnerConfig extends HeadlessRunnerConfig {
 }
 
 export class WorldRunner {
-  private readonly headless: ReturnType<typeof createHeadlessRunner>;
-  private readonly factStore: FactStore;
+  /** Not `readonly`: `static fromState` supersedes the fresh instance the constructor builds with a properly-restored one (same reason `HeadlessRunner`'s own `clock`/`rng`/`commandBoundary` aren't `readonly` either). */
+  private headless: HeadlessRunner;
+  private factStore: FactStore;
   private readonly config: WorldRunnerConfig;
   private state: WorldState;
   private causalEdgeStore: CausalEdgeStore;
@@ -123,12 +130,12 @@ export class WorldRunner {
    * zacytować.
    */
   private readonly latestFactIdByEntityAndType = new Map<string, string>();
-  /** M19: always constructed (cheap, empty when unused) -- only actually fed facts when `config.chronicleEventTypes` is set, see `runChronicle`. */
-  private readonly chronicleNoveltyRegistry: NoveltyRegistry = createNoveltyRegistry();
-  private readonly chronicleActiveProcessRegistry: ActiveProcessRegistry = createActiveProcessRegistry();
-  private readonly chronicleEntryStore: ChronicleEntryStore = createChronicleEntryStore();
+  /** M19: always constructed (cheap, empty when unused) -- only actually fed facts when `config.chronicleEventTypes` is set, see `runChronicle`. Not `readonly`: see `headless`'s comment above. */
+  private chronicleNoveltyRegistry: NoveltyRegistry = createNoveltyRegistry();
+  private chronicleActiveProcessRegistry: ActiveProcessRegistry = createActiveProcessRegistry();
+  private chronicleEntryStore: ChronicleEntryStore = createChronicleEntryStore();
   /** SS120 Milestone Registry, keyed `intervention:<interventionId>:<consequenceFactId>` -- prevents `maybeRunInterventionLegacy` from re-reporting the same Butterfly consequence every interval it stays MAJOR-tier. */
-  private readonly chronicleInterventionLegacyRegistry: MilestoneRegistry = createMilestoneRegistry();
+  private chronicleInterventionLegacyRegistry: MilestoneRegistry = createMilestoneRegistry();
 
   constructor(config: WorldRunnerConfig) {
     this.headless = createHeadlessRunner(config);
@@ -162,6 +169,33 @@ export class WorldRunner {
   /** M19: empty for the lifetime of a runner constructed without `config.chronicleEventTypes`. */
   get chronicleEntries(): readonly ChronicleEntry[] {
     return this.chronicleEntryStore.all();
+  }
+
+  /**
+   * M20 (SAVE-related "Canonical State", SS58): every piece of state a
+   * future tick actually reads that isn't uniquely rebuildable from the
+   * rest. `latestFactIdByEntityAndType` is deliberately absent -- Derived
+   * State (SAVE-009), `fromState` rebuilds it from the restored
+   * `factStore` the same way `recordFacts` already does every tick.
+   * `config` (event type registries, tuning overrides, ...) is
+   * Definition Data (DATA-001), not part of this state -- the caller
+   * supplies it again to `fromState`, the same way it supplies
+   * `worldSeed` to `createWorldRunner` today.
+   */
+  getState(): WorldRunnerState {
+    return {
+      headless: this.headless.getState(),
+      worldState: this.state,
+      factStore: this.factStore.getState(),
+      causalEdgeStore: this.causalEdgeStore.getState(),
+      architectInfluenceByFactId: Object.fromEntries(this.architectInfluenceByFactId),
+      chronicle: {
+        novelty: this.chronicleNoveltyRegistry.getState(),
+        activeProcess: this.chronicleActiveProcessRegistry.getState(),
+        entryStore: this.chronicleEntryStore.getState(),
+        interventionLegacyMilestone: this.chronicleInterventionLegacyRegistry.getState(),
+      },
+    };
   }
 
   private recordFacts(emitted: readonly SimulationFact[]): void {
@@ -421,7 +455,67 @@ export class WorldRunner {
       this.step();
     }
   }
+
+  /**
+   * M20: restores a runner from `getState()`'s output. `restoreConfig`
+   * is everything `WorldRunnerConfig` needs MINUS the fields already
+   * carried by `state` (`worldState`, `worldSeed`, `startYear`/
+   * `startMonth` -- all inside `state.headless`/`state.worldState`) --
+   * the caller supplies Definition Data (event type registries,
+   * production recipes, tuning overrides) fresh, same as any other
+   * `createWorldRunner` call.
+   */
+  static fromState(state: WorldRunnerState, restoreConfig: WorldRunnerRestoreConfig): WorldRunner {
+    const runner = new WorldRunner({
+      ...restoreConfig,
+      worldState: state.worldState,
+      worldSeed: state.headless.worldSeed,
+      startYear: state.headless.clock.startYear,
+      startMonth: state.headless.clock.startMonth,
+    });
+
+    runner.headless = HeadlessRunner.fromState(state.headless);
+    runner.factStore = FactStore.fromState(state.factStore);
+    runner.causalEdgeStore = CausalEdgeStore.fromState(state.causalEdgeStore);
+    runner.architectInfluenceByFactId = new Map(Object.entries(state.architectInfluenceByFactId));
+    runner.chronicleNoveltyRegistry = NoveltyRegistry.fromState(state.chronicle.novelty);
+    runner.chronicleActiveProcessRegistry = ActiveProcessRegistry.fromState(state.chronicle.activeProcess);
+    runner.chronicleEntryStore = ChronicleEntryStore.fromState(state.chronicle.entryStore);
+    runner.chronicleInterventionLegacyRegistry = MilestoneRegistry.fromState(
+      state.chronicle.interventionLegacyMilestone,
+    );
+
+    // Derived State (SAVE-009): rebuild from the just-restored factStore
+    // -- the exact same loop `recordFacts` runs every tick, not a second
+    // implementation of it.
+    runner.factsById.clear();
+    runner.latestFactIdByEntityAndType.clear();
+    runner.recordFacts(runner.factStore.all());
+
+    return runner;
+  }
 }
+
+/** M20: `WorldRunner.getState()`/`static fromState()` round-trip shape. */
+export interface WorldRunnerState {
+  readonly headless: HeadlessRunnerState;
+  readonly worldState: WorldState;
+  readonly factStore: FactStoreState;
+  readonly causalEdgeStore: CausalEdgeStoreState;
+  readonly architectInfluenceByFactId: Readonly<Record<string, number>>;
+  readonly chronicle: {
+    readonly novelty: NoveltyRegistryState;
+    readonly activeProcess: ActiveProcessRegistryState;
+    readonly entryStore: ChronicleEntryStoreState;
+    readonly interventionLegacyMilestone: MilestoneRegistryState;
+  };
+}
+
+/** `WorldRunnerConfig` minus the fields `WorldRunnerState` already carries -- see `WorldRunner.fromState`. */
+export type WorldRunnerRestoreConfig = Omit<
+  WorldRunnerConfig,
+  "worldState" | "worldSeed" | "startYear" | "startMonth"
+>;
 
 export function createWorldRunner(config: WorldRunnerConfig): WorldRunner {
   return new WorldRunner(config);

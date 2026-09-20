@@ -49,6 +49,31 @@ export class FactStore {
   get size(): number {
     return this.facts.length;
   }
+
+  /** M20 (SAVE-related "Canonical State", SS58): `nextSequence` must round-trip explicitly -- a fresh `FactStore.emit` after load must never reissue an id a restored fact already holds. */
+  getState(): FactStoreState {
+    return { facts: this.facts.slice(), nextSequence: this.nextSequence };
+  }
+
+  /**
+   * Direct restore (SS58 Canonical State), not a replay through `.emit`:
+   * `state.facts` already carry their real, final ids/ticks, so this
+   * just re-seats them and the saved sequence counter as-is -- no
+   * re-validation of tick monotonicity happens here, `state` is assumed
+   * to already be trustworthy (i.e. it came from a prior `getState()`).
+   */
+  static fromState(state: FactStoreState): FactStore {
+    const store = new FactStore();
+    store.facts.push(...state.facts);
+    store.nextSequence = state.nextSequence;
+    return store;
+  }
+}
+
+/** M20: `FactStore.getState()`/`static fromState()` round-trip shape. */
+export interface FactStoreState {
+  readonly facts: readonly SimulationFact[];
+  readonly nextSequence: number;
 }
 
 export function createFactStore(): FactStore {

@@ -138,6 +138,42 @@ export class ChronicleEntryStore {
     if (!existing) return;
     this.entries.set(id, { ...existing, turningPoint });
   }
+
+  /**
+   * M20 (SS58 Canonical State): `entryIdByAggregationKey` is saved
+   * explicitly rather than re-derived from `entries` on load -- today
+   * every entry's `aggregationKey` (when present) maps back to exactly
+   * the entry that owns it 1:1, so re-deriving would work, but the
+   * index is cheap to save directly and this keeps `fromState` from
+   * silently depending on that invariant continuing to hold as CH-08+
+   * (Historical Threads) evolves the entry model.
+   */
+  getState(): ChronicleEntryStoreState {
+    return {
+      entries: this.all(),
+      nextSequence: this.nextSequence,
+      entryIdByAggregationKey: Object.fromEntries(
+        [...this.entryIdByAggregationKey.entries()].sort(([a], [b]) => a.localeCompare(b)),
+      ),
+    };
+  }
+
+  static fromState(state: ChronicleEntryStoreState): ChronicleEntryStore {
+    const store = new ChronicleEntryStore();
+    store.nextSequence = state.nextSequence;
+    for (const entry of state.entries) store.entries.set(entry.id, entry);
+    for (const [key, entryId] of Object.entries(state.entryIdByAggregationKey)) {
+      store.entryIdByAggregationKey.set(key, entryId);
+    }
+    return store;
+  }
+}
+
+/** M20: `ChronicleEntryStore.getState()`/`static fromState()` round-trip shape. */
+export interface ChronicleEntryStoreState {
+  readonly entries: readonly ChronicleEntry[];
+  readonly nextSequence: number;
+  readonly entryIdByAggregationKey: Readonly<Record<string, string>>;
 }
 
 export function createChronicleEntryStore(): ChronicleEntryStore {

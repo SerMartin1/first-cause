@@ -23,6 +23,22 @@ export class MilestoneRegistry {
   get size(): number {
     return this.reached.size;
   }
+
+  /** M20 (SS58 Canonical State): SS200 Persistence Counters -- "reached" is exactly the kind of persistent condition state a save must carry. */
+  getState(): MilestoneRegistryState {
+    return { reached: [...this.reached].sort() };
+  }
+
+  static fromState(state: MilestoneRegistryState): MilestoneRegistry {
+    const registry = new MilestoneRegistry();
+    for (const key of state.reached) registry.reached.add(key);
+    return registry;
+  }
+}
+
+/** M20: `MilestoneRegistry.getState()`/`static fromState()` round-trip shape. */
+export interface MilestoneRegistryState {
+  readonly reached: readonly string[];
 }
 
 export function createMilestoneRegistry(): MilestoneRegistry {

@@ -1,6 +1,6 @@
 {
   "app.title": "FIRST CAUSE",
-  "app.milestone": "M16 -- Architect",
+  "app.milestone": "M20 -- Save/Load",
   "nav.world": "World",
   "worker.status.online": "Simulation Worker: ONLINE",
   "worker.status.offline": "Simulation Worker: OFFLINE",

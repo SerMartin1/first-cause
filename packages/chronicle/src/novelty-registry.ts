@@ -32,6 +32,22 @@ export class NoveltyRegistry {
   get size(): number {
     return this.seen.size;
   }
+
+  /** M20 (SS58 Canonical State): which `(category, scope, scopeId)` triples have already fired is history, not rebuildable without replaying every tick's Chronicle pipeline from tick 0. */
+  getState(): NoveltyRegistryState {
+    return { seen: [...this.seen].sort() };
+  }
+
+  static fromState(state: NoveltyRegistryState): NoveltyRegistry {
+    const registry = new NoveltyRegistry();
+    for (const key of state.seen) registry.seen.add(key);
+    return registry;
+  }
+}
+
+/** M20: `NoveltyRegistry.getState()`/`static fromState()` round-trip shape. */
+export interface NoveltyRegistryState {
+  readonly seen: readonly string[];
 }
 
 export function createNoveltyRegistry(): NoveltyRegistry {

@@ -1,0 +1,26 @@
+{
+  "name": "@first-cause/persistence",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@first-cause/causality": "workspace:*",
+    "@first-cause/chronicle": "workspace:*",
+    "@first-cause/content": "workspace:*",
+    "@first-cause/entities": "workspace:*",
+    "@first-cause/simulation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}

@@ -3328,6 +3328,93 @@ benchmarkach, jeśli JSON+gzip nie wystarcza).
 (§31--99, §200--213), `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (SAVE-001--011).
 
+### M20 --- Wyniki wykonania (2026-09-20)
+
+**Status: DONE.**
+
+**Kluczowe odkrycie:** "podstawowy roundtrip istniał od M3" (ten dokument) to
+`HeadlessRunner.getState()/fromState()` (M1) i `WorldRng.getState()` --
+działają od dawna. Realna luka M20 to `WorldRunner` (M17+): kompozyt
+`HeadlessRunner + WorldState + FactStore + CausalEdgeStore +
+architectInfluenceByFactId + 4 rejestry Chronicle` nie miał wcześniej
+ŻADNEGO `getState()`/`fromState()` -- ani sam, ani jego części składowe.
+`WorldRunner` nadal nie jest podłączony do `apps/desktop` (to M21) -- M20
+jest czysto logiką backendową.
+
+**1. `packages/causality`/`packages/chronicle` -- brakujące
+`getState()`/`fromState()`:** `FactStore`/`CausalEdgeStore`
+(`{items, nextSequence}`, bezpośrednie przywrócenie, nie replay przez
+`.emit()`/`.add()` -- `nextSequence` musi być jawnie zachowany, żeby
+kolejne wywołania nie kolidowały z przywróconymi id) oraz
+`NoveltyRegistry`/`MilestoneRegistry`/`ActiveProcessRegistry`/
+`ChronicleEntryStore` (SS200 Persistence Counters -- `ActiveProcess.
+accumulatedMagnitude`/`lastSignalTick` to dokładnie ten rodzaj stanu,
+który save musi przechowywać, nie da się go tanio odbudować bez replayu
+całej historii Chronicle od ticka 0).
+
+**2. `WorldRunner.getState()/static fromState()`
+(`packages/simulation`):** kompozytowa metoda wzorem `HeadlessRunner`.
+`latestFactIdByEntityAndType` świadomie NIE jest zapisywane (Derived
+State, SAVE-009) -- `fromState` odtwarza je tą samą pętlą co
+`recordFacts()` nad przywróconym `factStore.all()`. `config` (rejestry
+event types itp.) to Definition Data (DATA-001), podawane na nowo przez
+wywołującego (`WorldRunnerRestoreConfig`), nie część zapisu. Pola
+`headless`/`factStore`/`causalEdgeStore`/4 rejestry Chronicle przestały
+być `readonly`, żeby `fromState` mogło podmienić świeżo skonstruowaną
+instancję na właściwie przywróconą (ten sam powód, dla którego
+`HeadlessRunner`'s własne `clock`/`rng`/`commandBoundary` nigdy nie były
+`readonly`).
+
+**3. Nowy pakiet `packages/persistence`** (wzorzec `packages/chronicle`):
+- `envelope.ts` -- `SaveGame` (SS32), świadomie SKONSOLIDOWANY:
+  `rngState`/`architectState`/`historicalState` (SS32's "rekomendowany
+  model") żyją razem wewnątrz `worldState: WorldRunnerState` zamiast
+  jako 4 osobne pola-duplikaty tego samego `WorldRunner.getState()` --
+  SS58 Canonical State samo już traktuje RNG i history anchors jako
+  część tego samego kanonicznego stanu co encje. `worldConfiguration`
+  pominięte z tego samego powodu (już wewnątrz `worldState.headless`).
+- `checksum.ts` -- World Checksum (reużycie `computeChecksum` z
+  `@first-cause/simulation`, bez `metadata.createdAt/savedAt`, SS87) +
+  Layer Checksums (population/economy/technology/causality/architect,
+  SS88, plus `chronicle` -- M19 wprowadziło realną, niezależną warstwę
+  historii wartą osobnego trackowania).
+- `compaction.ts` -- cienki wrapper na już-istniejący `pruneCausalMemory`
+  + `collectHistoricalAnchorFactIds` (ten sam most SS135, który
+  `WorldRunner.maybePruneCausalMemory` już ustanowił) -- kompaktacja
+  HISTORII CHRONICLE (CH-12) świadomie NIE jest tu robiona, bo CH-12 nie
+  istnieje (P1).
+- `migrations.ts` -- pełny framework (Version Compatibility Matrix SS39,
+  pipeline SS41, Migration Log SS43, SAVE-008 determinizm) z pustą
+  tabelą `MIGRATIONS` -- `SCHEMA_VERSION` nigdy się nie zmieniło od M3,
+  więc nie ma jeszcze czego migrować; mechanizm dowiedziony
+  identity-migration testem.
+- `atomic-write.ts` -- `.tmp` → `fsync` → `.bak` poprzedniego pliku →
+  atomic rename (SS47-49); `readSaveFile` rekalkuluje checksumę zamiast
+  ufać zapisanej wartości.
+- `save-load.ts` -- `saveGame()`/`loadGame()`, kompaktacja domyślnie
+  włączona przy save (SS72/PERF-007: historia to dominujące ryzyko
+  rozmiaru, nie coś opt-in).
+
+**Testy (68 nowych w całym repo):** roundtrip per warstwa (causality,
+4 rejestry chronicle), `WorldRunner` roundtrip przez realną checksumę
+(nie tylko `toEqual`), **Save/Load Determinism Test dokładnie wg SS84**
+(seed, N ticków, save, kontynuacja do M, checksum A; load, kontynuacja
+do M, checksum B; `A === B`) -- główny Acceptance Gate, przechodzi.
+Container Order Test (SS206), speed independence SAVE-005
+(`runTicks(100)` vs. 100×`step()`), atomic write corruption protection
+(przerwany zapis -- porzucony `.tmp` -- nigdy nie psuje ostatniego
+dobrego pliku; zmanipulowana zawartość bez przeliczonej checksumy jest
+wykrywana), `.bak` przy nadpisaniu. `pnpm typecheck/lint/test/build/
+test:e2e`: wszystkie PASS (892 testy w repo + 1 e2e).
+
+**Świadomie poza zakresem:** Electron IPC / UI zapisu-wczytywania (M21
+-- `WorldRunner` nadal niepodłączony do `apps/desktop`), kompaktacja
+historii Chronicle (CH-12, P1), binary serialization (decyzja dopiero po
+benchmarkach), Experiment Branching (TARGET), autosave
+scheduling/rotation jako polityka UX (prymityw `saveGame` gotowy,
+harmonogram to decyzja UI/M21), realna migracja `v1→v2` (nie ma jeszcze
+czego migrować -- zgodnie z warunkowym "jeśli wystąpi" tego dokumentu).
+
 ------------------------------------------------------------------------
 
 ## M21 --- UI Vertical Slice
@@ -3723,13 +3810,15 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-20: M0, M0.1 Audit Fixes oraz M1--M19 ukończone (M12-M14
+Stan na 2026-09-20: M0, M0.1 Audit Fixes oraz M1--M20 ukończone (M12-M14
 dodatkowo przeszły pełny audyt post-implementacyjny i naprawę -- patrz
 M14's sekcja "Audyt post-implementacyjny"; M15's sekcja "Wyniki
 wykonania" opisuje implementację Discovery Engine/Diffusion/Adoption;
-M19's sekcja "Wyniki wykonania" opisuje zakres P0 Chronicle i 7
-świadomie niepodłączonych event types). M20 odblokowany. **Ten dokument
-jest żywy --- po ukończeniu każdego
+M19's sekcja "Wyniki wykonania" opisuje Chronicle -- wszystkie 15/15
+event types VS mają dziś detektor po follow-upach tego samego dnia;
+M20's sekcja "Wyniki wykonania" opisuje pełny `WorldRunner.getState()/
+fromState()` roundtrip i nowy pakiet `packages/persistence`). M21
+odblokowany. **Ten dokument jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -3756,8 +3845,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M17         DONE      P0          L           HIGH          M16
   M18         DONE      P0          M           MEDIUM        M17
   M19         DONE      P0          M/L         MEDIUM        M18
-  M20         READY     P0          M           MEDIUM-HIGH   M19
-  M21         BACKLOG   P0          L           MEDIUM        M20
+  M20         DONE      P0          M           MEDIUM-HIGH   M19
+  M21         READY     P0          L           MEDIUM        M20
   M22         BACKLOG   P0          L           HIGH          M21
   M23         BACKLOG   P0          M           HIGH          M22
   M24         BACKLOG   P0          M/L         MEDIUM-HIGH   M23
@@ -3798,17 +3887,20 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M20 — Save/Load (pełna integracja)**, READY -- save/load
-obejmuje cały World State ze wszystkich milestone'ów M0--M19, z pełnymi
-wersjami, migracjami i kompaktacją historii przyczynowej. M0, M0.1 oraz
-M1--M19 są DONE (M12-M14 dodatkowo przeszły pełną naprawę audytu
-post-implementacyjnego, patrz M14's sekcja; M15's implementacja Discovery
-Engine/Diffusion/Adoption, M16's implementacja Architect, M17's pełna
-integracja Causality Engine, M18's WHY?/Butterfly/WHY NOT? i M19's
-Chronicle P0 opisane w ich sekcjach "Wyniki wykonania", M15-M16 dodatkowo
-z dopisanym addendum po remediacji niezależnego audytu M15-M16 z
-2026-09-19 -- patrz też `CHANGELOG.md`). Kolejne milestone’y rozpoczynają
-się po odbiorze ich zależności.
+Następny krok: **M21 — UI Vertical Slice**, READY -- pełny, spójny UI na
+stabilnych Read Models (World Command Center, Living Atlas, Region
+Detail, Economy/Market/Company, Technology, WHY?, Chronicle, Architect
+Panel, Butterfly Effect), pierwszy milestone podłączający `WorldRunner`
+do `apps/desktop`. M0, M0.1 oraz M1--M20 są DONE (M12-M14 dodatkowo
+przeszły pełną naprawę audytu post-implementacyjnego, patrz M14's
+sekcja; M15's implementacja Discovery Engine/Diffusion/Adoption, M16's
+implementacja Architect, M17's pełna integracja Causality Engine, M18's
+WHY?/Butterfly/WHY NOT?, M19's Chronicle (wszystkie 15/15 event types) i
+M20's `WorldRunner.getState()/fromState()` + `packages/persistence`
+opisane w ich sekcjach "Wyniki wykonania", M15-M16 dodatkowo z dopisanym
+addendum po remediacji niezależnego audytu M15-M16 z 2026-09-19 -- patrz
+też `CHANGELOG.md`). Kolejne milestone’y rozpoczynają się po odbiorze ich
+zależności.
 
 ------------------------------------------------------------------------
 

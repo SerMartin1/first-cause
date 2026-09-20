@@ -121,6 +121,24 @@ export class ActiveProcessRegistry {
   all(): readonly ActiveProcess[] {
     return [...this.processes.values()].sort((a, b) => a.processKey.localeCompare(b.processKey));
   }
+
+  /** M20 (SS58 Canonical State / SS200 Persistence Counters): an open process's `accumulatedMagnitude`/`lastSignalTick`/`startTick` are exactly the kind of "condition must persist N ticks" state a save must carry -- not rebuildable without replaying the full fact history. */
+  getState(): ActiveProcessRegistryState {
+    return { processes: this.all() };
+  }
+
+  static fromState(state: ActiveProcessRegistryState): ActiveProcessRegistry {
+    const registry = new ActiveProcessRegistry();
+    for (const process of state.processes) {
+      registry.processes.set(process.processKey, process);
+    }
+    return registry;
+  }
+}
+
+/** M20: `ActiveProcessRegistry.getState()`/`static fromState()` round-trip shape. */
+export interface ActiveProcessRegistryState {
+  readonly processes: readonly ActiveProcess[];
 }
 
 export function createActiveProcessRegistry(): ActiveProcessRegistry {

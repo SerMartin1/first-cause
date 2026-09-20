@@ -178,6 +178,31 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/persistence:
+    dependencies:
+      '@first-cause/causality':
+        specifier: workspace:*
+        version: link:../causality
+      '@first-cause/chronicle':
+        specifier: workspace:*
+        version: link:../chronicle
+      '@first-cause/content':
+        specifier: workspace:*
+        version: link:../content
+      '@first-cause/entities':
+        specifier: workspace:*
+        version: link:../entities
+      '@first-cause/simulation':
+        specifier: workspace:*
+        version: link:../simulation
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.1
+        version: 22.20.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/shared:
     devDependencies:
       typescript:

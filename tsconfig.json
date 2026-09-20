@@ -8,6 +8,7 @@
     { "path": "packages/entities" },
     { "path": "packages/worldgen" },
     { "path": "packages/causality" },
-    { "path": "packages/chronicle" }
+    { "path": "packages/chronicle" },
+    { "path": "packages/persistence" }
   ]
 }

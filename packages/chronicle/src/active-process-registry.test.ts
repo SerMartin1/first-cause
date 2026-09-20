@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createActiveProcessRegistry } from "./active-process-registry.js";
+import { ActiveProcessRegistry, createActiveProcessRegistry } from "./active-process-registry.js";
 
 describe("ActiveProcessRegistry", () => {
   it("opens a new process as EMERGING and renews it on a later signal instead of duplicating it", () => {
@@ -65,5 +65,17 @@ describe("ActiveProcessRegistry", () => {
 
     const exceeding = registry.findExceedingDuration(60, 60);
     expect(exceeding.map((p) => p.processKey)).toEqual(["migration_wave:old:s"]);
+  });
+
+  it("getState/fromState round-trips every process field, including accumulatedMagnitude (M20)", () => {
+    const registry = createActiveProcessRegistry();
+    registry.openOrRenew("migration_wave:r:s", "migration_wave", 0, "fact_0_0", 40);
+    registry.openOrRenew("migration_wave:r:s", "migration_wave", 5, "fact_5_0", 15);
+    registry.linkEntry("migration_wave:r:s", "chronicle_5_0");
+
+    const restored = ActiveProcessRegistry.fromState(registry.getState());
+    expect(restored.all()).toEqual(registry.all());
+    expect(restored.get("migration_wave:r:s")?.accumulatedMagnitude).toBe(55);
+    expect(restored.get("migration_wave:r:s")?.entryId).toBe("chronicle_5_0");
   });
 });

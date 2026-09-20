@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createChronicleEntryStore } from "./chronicle-entry-store.js";
+import { ChronicleEntryStore, createChronicleEntryStore } from "./chronicle-entry-store.js";
 import type { ChronicleCandidate, SignificanceBreakdown } from "./types.js";
 
 const SIGNIFICANCE: SignificanceBreakdown = {
@@ -75,5 +75,20 @@ describe("ChronicleEntryStore", () => {
     expect(updated.historicalAnchor).toBe(true);
     expect(updated.turningPoint).toBe(true);
     expect(updated.primaryFactRefs).toEqual(entry.primaryFactRefs);
+  });
+
+  it("getState/fromState round-trips entries and the aggregationKey index, so a later candidate still merges into the restored entry (M20)", () => {
+    const store = createChronicleEntryStore();
+    const first = store.upsert(makeCandidate({ id: "c1", tick: 0 }), PRESENTATION);
+
+    const restored = ChronicleEntryStore.fromState(store.getState());
+    expect(restored.all()).toEqual(store.all());
+
+    const merged = restored.upsert(
+      makeCandidate({ id: "c2", tick: 4, factRefs: ["fact_4_0"], causalAnchors: ["fact_4_0"] }),
+      PRESENTATION,
+    );
+    expect(merged.id).toBe(first.id); // same aggregationKey -> merges, doesn't duplicate
+    expect(restored.size).toBe(1);
   });
 });

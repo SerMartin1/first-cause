@@ -72,6 +72,33 @@ export class CausalEdgeStore {
   get size(): number {
     return this.edges.length;
   }
+
+  /** M20: `outgoing`/`incoming` are Derived State (SAVE-009) -- only `edges` + the sequence counter are canonical. */
+  getState(): CausalEdgeStoreState {
+    return { edges: this.edges.slice(), nextSequence: this.nextSequence };
+  }
+
+  /** Direct restore (not a replay through `.add`, which would re-run temporal-ordering/self-loop validation that already-saved edges don't need re-checked): re-seats `state.edges` verbatim and rebuilds the `outgoing`/`incoming` indices from them. */
+  static fromState(state: CausalEdgeStoreState): CausalEdgeStore {
+    const store = new CausalEdgeStore();
+    store.nextSequence = state.nextSequence;
+    for (const edge of state.edges) {
+      store.edges.push(edge);
+      const outList = store.outgoing.get(edge.sourceFactId) ?? [];
+      outList.push(edge);
+      store.outgoing.set(edge.sourceFactId, outList);
+      const inList = store.incoming.get(edge.targetFactId) ?? [];
+      inList.push(edge);
+      store.incoming.set(edge.targetFactId, inList);
+    }
+    return store;
+  }
+}
+
+/** M20: `CausalEdgeStore.getState()`/`static fromState()` round-trip shape. */
+export interface CausalEdgeStoreState {
+  readonly edges: readonly CausalEdge[];
+  readonly nextSequence: number;
 }
 
 export function createCausalEdgeStore(): CausalEdgeStore {

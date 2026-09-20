@@ -10,6 +10,49 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-20
 
+- **M20 -- Save/Load (pełna integracja).** Save/load obejmuje teraz
+  CAŁY `WorldRunner` (WorldState + Causality + Chronicle + RNG), nie
+  tylko `HeadlessRunner`'s core (M1) i `WorldState`, które już miały
+  roundtrip wcześniej.
+  - **`packages/causality`/`packages/chronicle`:** nowe
+    `getState()`/`static fromState()` na `FactStore`/`CausalEdgeStore`
+    (bezpośrednie przywrócenie z jawnie zachowanym `nextSequence`, nie
+    replay przez `.emit()`/`.add()`) oraz na
+    `NoveltyRegistry`/`MilestoneRegistry`/`ActiveProcessRegistry`/
+    `ChronicleEntryStore` (SS200 Persistence Counters).
+  - **`packages/simulation`'s `WorldRunner`:** nowe
+    `getState()`/`static fromState()`, wzorem już istniejącego
+    `HeadlessRunner`. `latestFactIdByEntityAndType` świadomie
+    niezapisywane (Derived State, SAVE-009) -- odtwarzane tą samą pętlą
+    co `recordFacts()`. Pola runnera przestały być `readonly`, żeby
+    `fromState` mogło podmienić świeżo skonstruowaną instancję na
+    właściwie przywróconą.
+  - **Nowy pakiet `packages/persistence`:** `envelope.ts` (SaveGame,
+    SS32, świadomie skonsolidowany -- rng/architect/historical state
+    żyją razem w `worldState: WorldRunnerState`, nie jako 4 osobne
+    duplikaty), `checksum.ts` (World + Layer Checksums, reużycie
+    `computeChecksum`), `compaction.ts` (cienki wrapper na już-istniejący
+    `pruneCausalMemory`), `migrations.ts` (pełny framework Version
+    Compatibility Matrix/pipeline/log, pusta tabela migratorów --
+    `SCHEMA_VERSION` nigdy się nie zmieniło), `atomic-write.ts`
+    (`.tmp` → `fsync` → `.bak` → atomic rename), `save-load.ts`
+    (`saveGame()`/`loadGame()`).
+  - **Testy (68 nowych):** roundtrip per warstwa, `WorldRunner`
+    roundtrip przez realną checksumę, **Save/Load Determinism Test
+    dokładnie wg SS84** (seed, N ticków, save, kontynuacja, checksum A;
+    load, kontynuacja, checksum B; `A === B`) -- główny Acceptance Gate,
+    PASS. Container Order Test, speed independence (SAVE-005), atomic
+    write corruption protection (przerwany zapis nigdy nie psuje
+    ostatniego dobrego pliku; zmanipulowana zawartość jest wykrywana).
+    `pnpm typecheck/lint/test/build/test:e2e`: wszystkie PASS (892 testy
+    w repo + 1 e2e).
+  - **Świadomie poza zakresem:** Electron IPC/UI (M21 -- `WorldRunner`
+    nadal niepodłączony do `apps/desktop`), kompaktacja historii
+    Chronicle (CH-12, P1), binary serialization, Experiment Branching,
+    autosave scheduling jako polityka UX, realna migracja `v1→v2` (nie
+    ma jeszcze czego migrować).
+  - Szczegóły: roadmapa "M20 --- Wyniki wykonania".
+
 - **M19 Chronicle -- podłączenie `regional_boom`/`regional_bust` (7 z
   7, WSZYSTKIE 15 event types VS mają teraz pełny detektor).** Na
   wyraźną prośbę użytkownika. Najbardziej niepewny kalibracyjnie

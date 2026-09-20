@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFactIndices, createFactStore } from "./fact-store.js";
+import { buildFactIndices, createFactStore, FactStore } from "./fact-store.js";
 
 const RESOURCE_DISCOVERED = {
   type: "resource_discovered",
@@ -46,6 +46,31 @@ describe("FactStore.emit", () => {
     store.emit(0, RESOURCE_DISCOVERED);
     store.emit(1, RESOURCE_DISCOVERED);
     expect(store.all()).toHaveLength(2);
+  });
+});
+
+describe("FactStore.getState / fromState (M20)", () => {
+  it("round-trips facts and the sequence counter", () => {
+    const store = createFactStore();
+    store.emit(0, RESOURCE_DISCOVERED);
+    store.emit(0, RESOURCE_DISCOVERED);
+    const state = store.getState();
+
+    const restored = FactStore.fromState(state);
+    expect(restored.all()).toEqual(store.all());
+    expect(restored.size).toBe(2);
+  });
+
+  it("a fresh emit() after restore never reuses a restored id", () => {
+    const store = createFactStore();
+    store.emit(0, RESOURCE_DISCOVERED);
+    store.emit(0, RESOURCE_DISCOVERED);
+    const restored = FactStore.fromState(store.getState());
+
+    const next = restored.emit(1, RESOURCE_DISCOVERED);
+    expect(restored.all().map((f) => f.id)).toEqual(["fact_0_0", "fact_0_1", next.id]);
+    expect(next.id).not.toBe("fact_0_0");
+    expect(next.id).not.toBe("fact_0_1");
   });
 });
 
