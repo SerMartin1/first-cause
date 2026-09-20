@@ -2997,6 +2997,85 @@ spec).
 **Checkpoint:** **CP3 --- Explainable World** i **CP5 --- Architect
 Playable** (wraz z M16+M17) osiągnięte po tym milestone.
 
+### M18 --- Wyniki wykonania (2026-09-20)
+
+**Status: DONE.**
+
+**CE-08 WHY? (`packages/causality/src/why-query.ts`):** `explainWhy` --
+czysta funkcja nad już-istniejącym grafem (`CausalEdge[]`/
+`SimulationFact[]`), zero nowego stanu/symulacji kontrfaktycznej (SS0).
+Level 1 (Immediate): przyczyny dzielone na `primaryCauses`/
+`significantCauses` (pozytywne, band z `causal-strength.ts`) i
+`limitingFactors` (negatywne, CAUS-006) -- trywialne (TRACE-band)
+pozytywne przyczyny są odrzucane wprost ("WHY? noise test"), a łączna
+lista primary+significant jest ograniczona do 5 (`MAX_WHY_CAUSES_TODO_TUNING`,
+CAUS-006 "2--5 głównych przyczyn"). Level 2 (Chain): `deeperPaths`, jeden
+hop dalej od każdej pokazanej Level-1 przyczyny, z Duplicate Path
+Suppression (SS72 -- ścieżki dzielące ten sam root+mechanism kolapsują do
+jednej, najsilniejszej). Level 3/4 (Historical/Architect) to "na żądanie"
+(CAUS-006) -- wywołujący po prostu woła `explainWhy` ponownie z nowym
+`targetFactId`, zamiast tej samej funkcji rekurencyjnie schodzącej w
+nieskończoność. `architectConnections` zbiera bezpośrednie Root Facty
+(`fact.architect`) napotkane w obliczonym oknie. `confidence` to
+świadomy uproszczony proxy (średnia `strength` pokazanych przyczyn) --
+SS15's pełny epistemiczny model Confidence nie jest jeszcze nigdzie w
+tym kodzie liczony (ten sam rodzaj odłożenia co `fact.ts`'s
+`significance`/`retention`).
+
+**Butterfly Effect (`packages/simulation/src/systems/architect/butterfly.ts`,
+moduł `architect/butterfly`):** `queryButterflyEffect` + `getInterventionConsequences`
+(SS47's dokładna nazwa) -- forward BFS od `rootFactIds` interwencji w
+JEDNYM przebiegu po `facts` w kolejności emisji (ten sam porządek, który
+`CausalEdgeStore` już wymusza), więc wpływ każdego poprzednika jest
+finalny, zanim przetworzymy jego krawędzie wychodzące. Liczy WŁASNĄ
+ścieżkę wpływu tej jednej interwencji (reużywa `computeChildInfluence`/
+`combineInfluences` z M17), niezależnie od `WorldRunner.architectInfluence`
+(który scala WSZYSTKIE interwencje naraz, SS39). Anti-Butterfly Explosion
+(SS49): decay per-hop (`PersistenceModifier`), minimum contribution
+threshold (ścieżka poniżej progu MINOR przestaje się propagować),
+significance threshold (`EffectScore` poniżej TRACE odrzucany --
+`isAnchor` jako TODO tuning proxy Significance), twardy limit głębokości
+(`MAX_BUTTERFLY_DEPTH_TODO_TUNING`), independent-cause dilution (SS50 --
+wynika automatycznie z tego, że śledzimy tylko krawędzie osiągalne z
+roota). Wynik: `directEffects` (depth 1) + `majorConsequences`/
+`significantConsequences`/`minorConsequences` (SS41 ranking).
+
+**WHY NOT? (`packages/simulation/src/systems/economy/company-ai/why-not.ts`,
+CAUS-007):** `explainWhyNot` -- czysta funkcja nad `DecisionSnapshot`
+(nie nad grafem faktów, bo odrzucona decyzja nie tworzy faktu do
+przeszukania). Wymagało jednej celowej, minimalnej zmiany w
+`opportunity-scanner.ts`: `evaluateFounding` budował `DecisionSnapshot`
+tylko na ścieżce `founded === true` -- ścieżka HOLD zwracała
+`snapshot: undefined`, więc WHY NOT? nie miał z czego zbudować
+odpowiedzi na SS33's własny przykład ("Dlaczego nie powstała kopalnia?
+OpportunityScore 0.43, Required 0.60"). Teraz `snapshot` jest
+BEZWARUNKOWY (typ `DecisionSnapshot`, nie `| undefined`) -- ten sam
+kształt danych na obu ścieżkach, `selectedAction: "FOUND" | "HOLD"`.
+`FOUNDING_ACTIVATE_SCORE` wyeksportowany jako "Required" threshold, z
+którym caller porównuje `expectedActionScore`. Zero regresji -- żaden
+istniejący test nie zakładał `snapshot === undefined` na ścieżce HOLD.
+
+**Testy:** `why-query.test.ts` (6, syntetyczny kontrolowany graf --
+Immediate/noise/Chain z Duplicate Path Suppression/architectConnections/
+determinism/unknown-target), `butterfly.test.ts` (6, syntetyczny graf --
+direct effects/decay/anti-explosion x2/`getInterventionConsequences`/
+determinism), `why-not.test.ts` (2, realny `evaluateFounding` -- SS33-style
+przykład z realnym score gap i `opportunity-scanner.test.ts`'s nowy test
+"rejected decision still returns a real DecisionSnapshot"),
+`why-butterfly-acceptance.test.ts` (2, `packages/worldgen` -- WHY? na
+realnym grain_farm->watermill_milling łańcuchu z CE-12 Test 3/9, Butterfly
+na realnej `reveal_resource_deposit` interwencji na Black Mountain z CE-12
+Test 4, oba z assercją determinizmu). `pnpm typecheck/lint/test/build/
+test:e2e`: wszystkie PASS (784 testy w repo).
+
+**Świadomie poza zakresem tej implementacji:** pełne UI WHY?/Butterfly
+(widoki -- M21, roadmapa's własne "Poza zakresem"), Chronicle integration
+(M19), Experiment Mode/Divergence Point (SS77--79 -- post-VS, ten sam
+zakres co M17's "pełne Experiment Branching"), pełny epistemiczny model
+Confidence (SS15) i Recency/DurationModifier (SS41) -- oba zwinięte w
+uproszczone proxy (strength/hop-decay), udokumentowane wprost jako TODO
+tuning w kodzie, nie ostateczny model balansu.
+
 ------------------------------------------------------------------------
 
 ## M19 --- Chronicle
@@ -3558,8 +3637,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M15         DONE      P0          L           MEDIUM-HIGH   M14
   M16         DONE      P0          M           MEDIUM        M15
   M17         DONE      P0          L           HIGH          M16
-  M18         READY     P0          M           MEDIUM        M17
-  M19         BACKLOG   P0          M/L         MEDIUM        M18
+  M18         DONE      P0          M           MEDIUM        M17
+  M19         READY     P0          M/L         MEDIUM        M18
   M20         BACKLOG   P0          M           MEDIUM-HIGH   M19
   M21         BACKLOG   P0          L           MEDIUM        M20
   M22         BACKLOG   P0          L           HIGH          M21
@@ -3602,16 +3681,17 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M18 — WHY?**, READY -- pierwszy funkcjonalny Golden UI
-`WHY? / Causal Explorer` na prawdziwych danych, konsumujący realny graf
-`CausalEdge` dostarczony przez M17. M0, M0.1 oraz M1--M17 są DONE
+Następny krok: **M19 — Chronicle**, READY -- system wybiera i zapisuje
+historycznie istotne wydarzenia z oceną Historical Significance, na
+podstawie realnego grafu przyczynowego dostarczonego przez M17 i WHY?/
+Butterfly Query dostarczonych przez M18. M0, M0.1 oraz M1--M18 są DONE
 (M12-M14 dodatkowo przeszły pełną naprawę audytu post-implementacyjnego,
 patrz M14's sekcja; M15's implementacja Discovery Engine/Diffusion/
-Adoption, M16's implementacja Architect i M17's pełna integracja
-Causality Engine opisane w ich sekcjach "Wyniki wykonania", M15-M16
-dodatkowo z dopisanym addendum po remediacji niezależnego audytu
-M15-M16 z 2026-09-19 -- patrz też `CHANGELOG.md`). Kolejne milestone’y
-rozpoczynają się po odbiorze ich zależności.
+Adoption, M16's implementacja Architect, M17's pełna integracja Causality
+Engine i M18's WHY?/Butterfly/WHY NOT? opisane w ich sekcjach "Wyniki
+wykonania", M15-M16 dodatkowo z dopisanym addendum po remediacji
+niezależnego audytu M15-M16 z 2026-09-19 -- patrz też `CHANGELOG.md`).
+Kolejne milestone’y rozpoczynają się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
 

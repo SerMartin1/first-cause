@@ -52,7 +52,7 @@ import type { ProductionRecipe } from "../production.js";
  * dotąd dla nich, bez zmiany obserwowalnego zachowania dzisiejszego
  * contentu.
  */
-const FOUNDING_ACTIVATE_SCORE = 0.55; // TODO tuning -- max feasible pre-clamp score is ~0.9 (weights below), so this sits meaningfully under that ceiling
+export const FOUNDING_ACTIVATE_SCORE = 0.55; // TODO tuning -- max feasible pre-clamp score is ~0.9 (weights below), so this sits meaningfully under that ceiling; exported (M18) as the "Required" threshold WHY NOT? (`why-not.ts`) compares `opportunityScore` against
 const FOUNDING_DEACTIVATE_SCORE = 0.3; // TODO tuning
 const FOUNDING_COOLDOWN_TICKS = 12; // TODO tuning -- founding is at least as big/irreversible a decision as EXPAND (lifecycle-decision.ts uses the same 12)
 const FOUNDING_PERSISTENCE_TICKS = 6; // TODO tuning -- §84 "no instant entry"
@@ -165,7 +165,8 @@ export interface EvaluateFoundingResult {
   readonly founded: boolean;
   readonly opportunityScore: number;
   readonly companyDraft: FoundingCompanyDraft | undefined;
-  readonly snapshot: DecisionSnapshot | undefined;
+  /** M18: zawsze zdefiniowany -- także na ścieżce `founded === false` (WHY NOT?, patrz doc comment przy `buildFoundingSnapshot` niżej). */
+  readonly snapshot: DecisionSnapshot;
 }
 
 function primaryOutputQuantityPerBatch(recipe: ProductionRecipe): number {
@@ -307,6 +308,32 @@ export function evaluateFounding(input: EvaluateFoundingInput): EvaluateFounding
   state = updateEntrepreneurshipStreak(state, archetypeId, nowActive);
 
   const decisionType = `${ENTREPRENEURSHIP_DECISION_TYPE_PREFIX}:${archetypeId}`;
+  // M18 (WHY NOT?, CAUS-007): snapshot budowany BEZWARUNKOWO, nie tylko
+  // gdy `founded === true` -- SS33's przykład ("Dlaczego nie powstała
+  // kopalnia? OpportunityScore 0.43, Required 0.60") wymaga realnego
+  // `DecisionSnapshot` dla decyzji ODRZUCONEJ, nie tylko przyjętej.
+  // Przed tą zmianą `snapshot` był `undefined` na całej ścieżce HOLD --
+  // WHY NOT? nie miał z czego zbudować odpowiedzi.
+  const buildFoundingSnapshot = (selectedAction: "FOUND" | "HOLD") =>
+    buildDecisionSnapshot({
+      actorId: region.id,
+      tick,
+      decisionType,
+      options: [
+        { action: "HOLD", hardEligible: true, score: 0 },
+        { action: "FOUND", hardEligible, score: opportunityScore },
+      ],
+      selectedAction,
+      factors: [
+        { key: "demand_gap", contribution: input.demandGapSeverity },
+        { key: "expected_margin", contribution: marginPerBatchValue },
+        { key: "resource_access", contribution: resourceAccess },
+        { key: "labor_availability", contribution: laborAvailability },
+        { key: "competition", contribution: -competitionPenalty },
+        { key: "capital_requirement", contribution: -capitalPenalty },
+      ],
+    });
+
   if (
     nowActive &&
     hardEligible &&
@@ -339,24 +366,7 @@ export function evaluateFounding(input: EvaluateFoundingInput): EvaluateFounding
         initialCash: capitalRequirement,
         initialWageOffer: FOUNDING_INITIAL_WAGE_OFFER,
       },
-      snapshot: buildDecisionSnapshot({
-        actorId: region.id,
-        tick,
-        decisionType,
-        options: [
-          { action: "HOLD", hardEligible: true, score: 0 },
-          { action: "FOUND", hardEligible, score: opportunityScore },
-        ],
-        selectedAction: "FOUND",
-        factors: [
-          { key: "demand_gap", contribution: input.demandGapSeverity },
-          { key: "expected_margin", contribution: marginPerBatchValue },
-          { key: "resource_access", contribution: resourceAccess },
-          { key: "labor_availability", contribution: laborAvailability },
-          { key: "competition", contribution: -competitionPenalty },
-          { key: "capital_requirement", contribution: -capitalPenalty },
-        ],
-      }),
+      snapshot: buildFoundingSnapshot("FOUND"),
     };
   }
 
@@ -365,6 +375,6 @@ export function evaluateFounding(input: EvaluateFoundingInput): EvaluateFounding
     founded: false,
     opportunityScore,
     companyDraft: undefined,
-    snapshot: undefined,
+    snapshot: buildFoundingSnapshot("HOLD"),
   };
 }

@@ -239,4 +239,15 @@ describe("evaluateFounding (M12, AI-07 Entrepreneurship / Opportunity Scanner)",
     };
     expect(runUntilDecided(region(), wrongArchetype, 30).founded).toBe(false);
   });
+
+  it("M18 (WHY NOT?): a rejected decision still returns a real DecisionSnapshot -- HOLD, with the actual opportunity score and negative factors", () => {
+    // A marginal opportunity that clears no threshold on tick 1 (persistence
+    // not yet satisfied) -- mirrors the spec's own example (SS33: "Dlaczego
+    // nie powstała kopalnia? OpportunityScore 0.43, Required 0.60").
+    const result = evaluateFounding({ region: region(), tick: 1, ...ABUNDANT_CONDITIONS });
+
+    expect(result.founded).toBe(false);
+    expect(result.snapshot.selectedAction).toBe("HOLD");
+    expect(result.snapshot.causalContext.factors.length).toBeGreaterThan(0);
+  });
 });

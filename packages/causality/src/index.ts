@@ -6,3 +6,4 @@ export * from "./causal-strength.js";
 export * from "./architect-influence-propagation.js";
 export * from "./causal-memory.js";
 export * from "./causal-pruning.js";
+export * from "./why-query.js";

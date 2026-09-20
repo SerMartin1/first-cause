@@ -1251,10 +1251,9 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           // `DecisionSnapshot` (options/factors/selectedAction), ale
           // wcześniej nic go stąd nie odbierało -- fakt niósł tylko
           // istnienie 0->1, gubiąc rzeczywiste powody founding (CD
-          // AI-010/CAUS-001). `founded === true` gwarantuje
-          // `foundingResult.snapshot` jest zdefiniowany (evaluateFounding
-          // buduje go dokładnie w tej samej gałęzi).
-          const foundingSnapshot = foundingResult.snapshot!;
+          // AI-010/CAUS-001). M18: `snapshot` jest teraz zawsze zdefiniowany
+          // (także na ścieżce HOLD, dla WHY NOT?), więc bez non-null assercji.
+          const foundingSnapshot = foundingResult.snapshot;
           facts.push({
             type: "company_founded",
             subject: { entityType: "company", entityId: newCompanyId },

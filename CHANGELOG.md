@@ -10,6 +10,47 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-20
 
+- **M18 -- WHY?: query engine dla wyjaśnień przyczynowych, Butterfly
+  Effect i WHY NOT?.** Trzy nowe, czyste funkcje nad grafem z M17 --
+  żadna nowa symulacja/stan, tylko odpytanie już-istniejących danych
+  (SS0).
+  - **CE-08 WHY?** (`packages/causality/src/why-query.ts`, `explainWhy`)
+    -- Level 1 (Immediate: primary/significant/limiting factors, z
+    odrzuceniem trywialnych TRACE-band przyczyn i limitem 5, CAUS-006) +
+    Level 2 (Chain: `deeperPaths`, Duplicate Path Suppression SS72).
+    Level 3/4 ("na żądanie") -- wywołujący woła `explainWhy` ponownie na
+    faktu z `deeperPaths`/`architectConnections`.
+  - **Butterfly Effect** (`packages/simulation/src/systems/architect/
+    butterfly.ts`, `queryButterflyEffect`/`getInterventionConsequences`)
+    -- forward BFS od `rootFactIds` interwencji w jednym przebiegu po
+    faktach w kolejności emisji, licząca WŁASNĄ ścieżkę wpływu tej JEDNEJ
+    interwencji (nie scaloną `WorldRunner.architectInfluence`). Anti-
+    Butterfly Explosion (SS49): decay per-hop, minimum contribution
+    threshold, significance threshold, limit głębokości, independent-
+    cause dilution (automatyczna dzięki śledzeniu tylko krawędzi
+    osiągalnych z roota).
+  - **WHY NOT?** (`packages/simulation/src/systems/economy/company-ai/
+    why-not.ts`, `explainWhyNot`, CAUS-007) -- wymagało minimalnej,
+    celowej zmiany w `opportunity-scanner.ts`: `evaluateFounding`
+    budował `DecisionSnapshot` tylko przy `founded === true`; ścieżka
+    HOLD zwracała `snapshot: undefined`, więc SS33's własny przykład
+    ("Dlaczego nie powstała kopalnia? OpportunityScore 0.43, Required
+    0.60") nie miał z czego zbudować odpowiedzi. `snapshot` jest teraz
+    bezwarunkowy (`DecisionSnapshot`, nie `| undefined`) na obu
+    ścieżkach; `FOUNDING_ACTIVATE_SCORE` wyeksportowany jako "Required"
+    threshold. Zero regresji.
+  - **Testy:** `why-query.test.ts` (6), `butterfly.test.ts` (6),
+    `why-not.test.ts` (2) + nowy test w `opportunity-scanner.test.ts`,
+    `why-butterfly-acceptance.test.ts` (2, `packages/worldgen` -- WHY? na
+    realnym grain_farm->watermill_milling łańcuchu z CE-12, Butterfly na
+    realnej `reveal_resource_deposit` interwencji na Black Mountain z
+    CE-12 Test 4). `pnpm typecheck/lint/test/build/test:e2e` wszystkie
+    PASS (784/784 testów).
+  - **Świadomie poza zakresem:** pełne UI WHY?/Butterfly (M21), Chronicle
+    integration (M19), Experiment Mode/Divergence Point (post-VS), pełny
+    epistemiczny model Confidence (SS15)/Recency modifier (SS41) --
+    zwinięte w udokumentowane TODO-tuning proxy (strength/hop-decay).
+
 - **M17 -- Causality (pełna integracja): wszystkie systemy z M5--M16
   wpięte w realny graf przyczynowy.** Implementacja rozpoczęta
   2026-09-19, dokończona i zacommitowana dziś (weryfikacja/dokumentacja/
