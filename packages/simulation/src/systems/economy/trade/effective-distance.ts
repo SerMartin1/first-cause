@@ -1,6 +1,7 @@
 import type { Connection } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 import { assertFinite, assertNonNegative } from "../../../core/validation.js";
+import { directionalEdgeType, type PendingCausalLink } from "../../../core/causal-links.js";
 
 /**
  * Effective Distance (ECO-016, Simulation Model SS3.3, VS Spec SS16-18):
@@ -31,6 +32,8 @@ export interface UpdateEffectiveDistanceResult {
   readonly connection: Connection;
   readonly modifiers: EffectiveDistanceModifiers;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-04): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 export function updateEffectiveDistance(
@@ -85,6 +88,7 @@ export function updateEffectiveDistance(
   };
 
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
   if (effectiveDistance !== before) {
     facts.push({
       type: "effective_distance_changed",
@@ -92,11 +96,38 @@ export function updateEffectiveDistance(
       location: { regionId: connection.regionAId },
       values: { before, after: effectiveDistance, delta: effectiveDistance - before },
     });
+    // CE-04 (M17, FC-CORE-001): 5 niezależnych modyfikatorów, każdy z
+    // WŁASNYM znakiem -- 1.0 to neutralne, odchylenie od 1.0 to
+    // contribution (lepsza infrastruktura zawsze <1 -> DAMPENING
+    // dystansu; gorsze bezpieczeństwo/border friction zawsze >1 ->
+    // CONTRIBUTING do dystansu -- dokładnie kierunki, które FC-CORE-001
+    // wymaga).
+    const targetIndex = facts.length - 1;
+    const modifierFactors: readonly [string, number][] = [
+      ["terrain", terrain],
+      ["infrastructure", infrastructure],
+      ["border_friction", border],
+      ["security_risk", security],
+      ["seasonal", seasonal],
+    ];
+    for (const [key, modifier] of modifierFactors) {
+      const contribution = modifier - 1;
+      if (contribution === 0) continue;
+      causalLinks.push({
+        targetIndex,
+        source: { kind: "external", key: `connection:${connection.id}:${key}` },
+        type: directionalEdgeType(contribution),
+        factor: { key, contribution },
+        mechanism: `modyfikator "${key}" EffectiveDistance`,
+        system: "effective-distance",
+      });
+    }
   }
 
   return {
     connection: nextConnection,
     modifiers: { terrain, infrastructure, border, security, seasonal },
     facts,
+    causalLinks,
   };
 }

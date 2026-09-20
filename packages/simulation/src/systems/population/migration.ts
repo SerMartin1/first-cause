@@ -5,8 +5,9 @@ import {
   type Region,
   type Settlement,
 } from "@first-cause/entities";
-import type { FactInput, FactLocation } from "@first-cause/causality";
+import type { CausalFactor, FactInput, FactLocation } from "@first-cause/causality";
 import { InvariantViolationError, assertNonNegative } from "../../core/validation.js";
+import { offsetCausalLinks, type PendingCausalLink } from "../../core/causal-links.js";
 import type { RngStream } from "../../core/rng.js";
 import { clamp } from "../economy/company-ai/decision-framework.js";
 import { eligibleLaborForce } from "../economy/labor/employment.js";
@@ -102,6 +103,49 @@ export function computeMigrationAttraction(input: RegionMigrationSignalsInput): 
     0,
     1,
   );
+}
+
+/**
+ * CE-05 (M17): ten sam wzór co `computeMigrationAttraction`, ale jako 3
+ * niezależne, signed `CausalFactor` (jobs/wage dodatnie -- podnoszą
+ * atrakcyjność regionu; housing_cost ujemne -- to jedyny odejmowany
+ * składnik formuły) zamiast scalonego wyniku. Osobna funkcja, nie
+ * refaktor `computeMigrationAttraction` samego -- ten drugi ma dziś 29
+ * własnych testów i jest jedynym konsumentem `Region.cached.
+ * migrationAttraction`, więc zmiana jego sygnatury byłaby dużo szerszym
+ * ryzykiem niż warta tego dla samej dekompozycji przyczynowej.
+ */
+export function computeMigrationAttractionBreakdown(
+  input: RegionMigrationSignalsInput,
+): readonly CausalFactor[] {
+  const vacancies = assertNonNegative(
+    input.vacancies,
+    "computeMigrationAttractionBreakdown().vacancies",
+  );
+  const eligibleLaborForce = assertNonNegative(
+    input.eligibleLaborForce,
+    "computeMigrationAttractionBreakdown().eligibleLaborForce",
+  );
+  const averageWageOffer = assertNonNegative(
+    input.averageWageOffer,
+    "computeMigrationAttractionBreakdown().averageWageOffer",
+  );
+  const averageHousingCost = assertNonNegative(
+    input.averageHousingCost,
+    "computeMigrationAttractionBreakdown().averageHousingCost",
+  );
+
+  const vacancyRate =
+    eligibleLaborForce > 0 ? vacancies / eligibleLaborForce : vacancies > 0 ? 1 : 0;
+  const jobsScore = clamp(vacancyRate / VACANCY_RATE_TARGET, 0, 1);
+  const wageScore = clamp(averageWageOffer / WAGE_NORMALIZATION, 0, 1);
+  const housingPenalty = clamp(averageHousingCost / HOUSING_COST_NORMALIZATION, 0, 1);
+
+  return [
+    { key: "jobs", contribution: JOBS_WEIGHT * jobsScore },
+    { key: "wage", contribution: WAGE_WEIGHT * wageScore },
+    { key: "housing_cost", contribution: -HOUSING_COST_WEIGHT * housingPenalty },
+  ];
 }
 
 const DISTANCE_NORMALIZATION = 50; // TODO tuning -- EffectiveDistance tej wielkości już niemal zabija pull
@@ -273,12 +317,18 @@ export interface ApplyMigrationFlowInput {
   readonly tick: number;
   /** Kohorta w miejscu docelowym o tej samej tożsamości (`cohortSingleIdentityKey` -- rodzina + ageGroup), jeśli już istnieje -- inaczej powstaje nowa. */
   readonly existingDestinationCohort: PopulationCohort | undefined;
+  /** M17 (CE-05): rozkład atrakcyjności regionu ŹRÓDŁOWEGO -- powód wyjazdu to ODWROTNOŚĆ tego, co go trzyma (patrz `applyMigrationFlow`'s doc comment). */
+  readonly sourceAttractionBreakdown?: readonly CausalFactor[] | undefined;
+  /** Rozkład atrakcyjności regionu DOCELOWEGO -- powód przyjazdu, wprost. */
+  readonly destinationAttractionBreakdown?: readonly CausalFactor[] | undefined;
 }
 
 export interface ApplyMigrationFlowResult {
   readonly sourceCohort: PopulationCohort;
   readonly destinationCohort: PopulationCohort;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-05): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -402,6 +452,7 @@ export function applyMigrationFlow(
       sourceCohort: nextSourceCohort,
       destinationCohort: nextDestinationCohort,
       facts: [],
+      causalLinks: [],
     };
   }
 
@@ -428,10 +479,44 @@ export function applyMigrationFlow(
     },
   ];
 
+  // CE-05 (M17, Test 2 "Multi-causal Migration"): powód WYJAZDU to
+  // ODWROTNOŚĆ tego, co trzymało kohortę w regionie źródłowym (niskie
+  // jobs/wage tam -> POZYTYWNY powód wyjazdu; wysoki housing_cost tam
+  // -- już ujemny w `sourceAttractionBreakdown` -- też się odwraca na
+  // pozytywny powód wyjazdu). Powód PRZYJAZDU to rozkład regionu
+  // docelowego wprost -- jobs/wage tam CONTRIBUTING, housing_cost
+  // DAMPENING, dokładnie jak w SS25's przykładzie.
+  const causalLinks: PendingCausalLink[] = [];
+  for (const factor of input.sourceAttractionBreakdown ?? []) {
+    const outContribution = -factor.contribution;
+    causalLinks.push({
+      targetIndex: 0,
+      source: { kind: "external", key: `region:${sourceCohort.regionId}:${factor.key}` },
+      type: outContribution >= 0 ? "CONTRIBUTING" : "DAMPENING",
+      factor: { key: factor.key, contribution: outContribution },
+      mechanism: `atrakcyjność regionu źródłowego (${factor.key}) względem regionu docelowego`,
+      system: "migration",
+    });
+  }
+  for (const factor of input.destinationAttractionBreakdown ?? []) {
+    causalLinks.push({
+      targetIndex: 1,
+      source: {
+        kind: "external",
+        key: `region:${input.destinationRegionId}:${factor.key}`,
+      },
+      type: factor.contribution >= 0 ? "CONTRIBUTING" : "DAMPENING",
+      factor,
+      mechanism: `atrakcyjność regionu docelowego (${factor.key})`,
+      system: "migration",
+    });
+  }
+
   return {
     sourceCohort: nextSourceCohort,
     destinationCohort: nextDestinationCohort,
     facts,
+    causalLinks,
   };
 }
 
@@ -481,11 +566,17 @@ export interface RunMigrationPassInput {
   readonly tick: number;
   /** Strumień RNG "migration" (SAVE-003), scope'owany per źródłowa kohorta. */
   readonly rng: (scopeId: string) => RngStream;
+  /** M17 (CE-05): rozkład `computeMigrationAttractionBreakdown` per region, policzony przez `economy-tick.ts`'s krok 9.5 razem ze scalarem cache'owanym w `Region.cached.migrationAttraction`. */
+  readonly migrationAttractionBreakdownByRegionId?: Readonly<
+    Record<string, readonly CausalFactor[]>
+  >;
 }
 
 export interface RunMigrationPassResult {
   readonly populationCohorts: Readonly<Record<string, PopulationCohort>>;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-05): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -510,6 +601,8 @@ export function runMigrationPass(input: RunMigrationPassInput): RunMigrationPass
   const { regions, connections, settlements, tick, rng } = input;
   const cohorts: Record<string, PopulationCohort> = { ...input.populationCohorts };
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
+  const breakdownByRegionId = input.migrationAttractionBreakdownByRegionId ?? {};
 
   const settlementPopulationById = new Map<string, number>();
   // Klucz MUSI zawierać `ageGroup` (patrz `cohortSingleIdentityKey`'s doc
@@ -605,6 +698,8 @@ export function runMigrationPass(input: RunMigrationPassInput): RunMigrationPass
         destinationSettlementId: destinationChoice.settlementId,
         tick,
         existingDestinationCohort,
+        sourceAttractionBreakdown: breakdownByRegionId[regionId],
+        destinationAttractionBreakdown: breakdownByRegionId[destinationRegionId],
       });
 
       cohorts[cohortId] = flowResult.sourceCohort;
@@ -628,9 +723,13 @@ export function runMigrationPass(input: RunMigrationPassInput): RunMigrationPass
             migrantCount,
         );
       }
-      facts.push(...flowResult.facts);
+      {
+        const baseIndex = facts.length;
+        facts.push(...flowResult.facts);
+        causalLinks.push(...offsetCausalLinks(flowResult.causalLinks, baseIndex));
+      }
     }
   }
 
-  return { populationCohorts: cohorts, facts };
+  return { populationCohorts: cohorts, facts, causalLinks };
 }

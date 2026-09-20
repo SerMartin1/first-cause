@@ -2864,6 +2864,80 @@ Experiment Branching (post-VS, `SAVE-011` TARGET).
 zwłaszcza §1--60, §101--104), `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (CAUS-001--010).
 
+### M17 --- Wyniki wykonania (2026-09-20)
+
+**Status: DONE.**
+
+**Fundament (`packages/causality/src/`):** `causal-edge.ts`
+(`CausalEdge`/`CausalEdgeType`/`CausalFactor`), `causal-edge-store.ts`
+(`CausalEdgeStore` -- indeksy incoming/outgoing, CE-03), `causal-strength.ts`
+(progi PRIMARY/SIGNIFICANT/MINOR/TRACE z contribution factorów),
+`architect-influence-propagation.ts` (`computeChildInfluence`/
+`combineInfluences` -- decay + dilution przy niezależnych przyczynach,
+CE-07), `causal-memory.ts` (klasyfikacja HOT/WARM/PERMANENT, `isAnchor`),
+`causal-pruning.ts` (`pruneCausalMemory` -- backward reachability od
+anchors, CAUS-010, CE-09) -- każdy moduł z własnymi testami
+jednostkowymi.
+
+**Plumbing (`packages/simulation/src/core/`):** `causal-links.ts`
+(`PendingCausalLink`, `offsetCausalLinks`, `directionalEdgeType`),
+`causal-resolution.ts` (`resolveTickCausality` -- zamienia
+`PendingCausalLink[]` zebrane w trakcie ticku na realne `CausalEdge` w
+`CausalEdgeStore` i propaguje Architect Influence po realnym grafie).
+`economy-tick.ts` dostał nowe pole wyniku `causalLinks` i nowy input
+`priorFactIndex?: Record<string, string>` (klucz
+`"${entityType}:${entityId}:${type}"` -- **musi** zawierać `type`, bo bez
+niego "najnowszy fakt tej encji" po cichu podmienia się na niezwiązany
+fakt tej samej encji przy resolutcji edge'y wstecznych). `world-runner.ts`
+utrzymuje teraz `causalEdgeStore`/`architectInfluenceByFactId`/
+`factsById`/`latestFactIdByEntityAndType` między tickami i dostał nową
+metodę `applyIntervention()` -- most między Architect (M16) a tym samym
+grafem przyczynowym, którym przechodzi `step()`; opcjonalny
+`causalPruneIntervalTicks` istnieje i jest przetestowany, ale wyłączony
+domyślnie (`undefined`) -- częstotliwość pruningu to TODO tuning, brak
+benchmarków na razie.
+
+**Integracja przez wszystkie 11 grup systemów (CE-04--CE-07):**
+Market/Price, Production + bottleneck, Labor, Company AI decisions
+(naprawiony most `DecisionSnapshot.causalContext.factors`, dotąd
+odrzucany), Population, Migration (refaktor
+`computeMigrationAttractionBreakdown` na multi-factor breakdown),
+Settlement (refaktor `computeSettlementPressureBreakdown`), Resources,
+Technology (pełny łańcuch knowledge → eligible → occurred →
+available/diffused → adoption), Architect (Root Fact + `WorldRunner.
+applyIntervention` most), Trade. Każda grupa zweryfikowana `pnpm
+build:packages` + `pnpm test` PASS przed przejściem do kolejnej -- zero
+regresji przez cały rollout. Nie każdy z ~27 typów faktów ma bogaty
+multi-factor breakdown -- część (np. `housing_pressure_started`,
+`congestion_started`, demografia) ma jeden jasny czynnik
+`STRUCTURAL`/`TRIGGERING`, świadomie (CAUS-003: nie wymyślamy
+wieloprzyczynowości, której formuła nie ma).
+
+**Testy (CE-12, Acceptance Gate):** 10/10 testów akceptacyjnych --
+`packages/worldgen/src/fixtures/causality-acceptance.test.ts` (Testy
+3, 4, 5, 6, 7, 9, 10), Test 1 w `price-adjustment.test.ts`, Test 2 w
+`migration.test.ts`, Test 8 w `settlements.test.ts`. Testy 3 i 9
+przeprojektowane w trakcie implementacji: Black Mountain nie ma
+contentu konsumującego `iron_ore` wprost, a RNG-gated breakthrough
+discovery nie da się przetestować deterministycznie bez ustawienia
+stanu z góry -- ostateczne testy startują discovery jako `KNOWN` i
+sprawdzają deterministyczny, organiczny łańcuch
+availability→adoption zamiast samego RNG rolla. `pnpm
+typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS (767 testów
+w repo).
+
+**Świadomie poza zakresem tej implementacji:** `causalPruneIntervalTicks`
+zaimplementowany i przetestowany, ale żaden istniejący caller go nie
+włącza -- częstotliwość to TODO tuning. `priorFactIndex`/
+`latestFactIdByEntityAndType` śledzi tylko NAJNOWSZY fakt per
+(entityType, entityId, type), nie pełną historię -- wystarcza dla
+dzisiejszych łańcuchów (Discovery→PM adoption,
+resource_discovered→resource_access), ale rozszerzenie będzie
+potrzebne, gdyby przyszły system musiał cytować starszy, nie najnowszy
+fakt tego samego typu tej samej encji. CE-08 WHY? → M18, CE-10
+Chronicle handoff → M19, pełne Experiment Branching → post-VS
+(zgodnie z zakresem zaplanowanym wyżej).
+
 ------------------------------------------------------------------------
 
 ## M18 --- WHY?
@@ -3483,8 +3557,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M14         DONE      P0          S/M         MEDIUM        M13
   M15         DONE      P0          L           MEDIUM-HIGH   M14
   M16         DONE      P0          M           MEDIUM        M15
-  M17         READY     P0          L           HIGH          M16
-  M18         BACKLOG   P0          M           MEDIUM        M17
+  M17         DONE      P0          L           HIGH          M16
+  M18         READY     P0          M           MEDIUM        M17
   M19         BACKLOG   P0          M/L         MEDIUM        M18
   M20         BACKLOG   P0          M           MEDIUM-HIGH   M19
   M21         BACKLOG   P0          L           MEDIUM        M20
@@ -3528,14 +3602,14 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M17 — Causality (pełna integracja)**, READY -- wszystkie
-systemy z M5--M16 w pełni zintegrowane z Causality Engine, każda znacząca
-mutacja tworzy `SimulationFact` z poprawnymi `causes`/`effects`, fundament
-grafu przyczynowego dla WHY/Chronicle. M0, M0.1 oraz M1--M16 są DONE
+Następny krok: **M18 — WHY?**, READY -- pierwszy funkcjonalny Golden UI
+`WHY? / Causal Explorer` na prawdziwych danych, konsumujący realny graf
+`CausalEdge` dostarczony przez M17. M0, M0.1 oraz M1--M17 są DONE
 (M12-M14 dodatkowo przeszły pełną naprawę audytu post-implementacyjnego,
 patrz M14's sekcja; M15's implementacja Discovery Engine/Diffusion/
-Adoption i M16's implementacja Architect opisane w ich sekcjach "Wyniki
-wykonania", obie z dopisanym addendum po remediacji niezależnego audytu
+Adoption, M16's implementacja Architect i M17's pełna integracja
+Causality Engine opisane w ich sekcjach "Wyniki wykonania", M15-M16
+dodatkowo z dopisanym addendum po remediacji niezależnego audytu
 M15-M16 z 2026-09-19 -- patrz też `CHANGELOG.md`). Kolejne milestone’y
 rozpoczynają się po odbiorze ich zależności.
 

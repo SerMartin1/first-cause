@@ -1,26 +1,27 @@
+import type { CausalFactor } from "@first-cause/causality";
+
 /**
  * DecisionSnapshot + CausalContext (AI-10, AI Decision Model SS67-70).
- * SS68 lists which decisions require one in VS: company_founding (M12),
- * company_expansion, company_contraction, company_closure,
- * production_method_adoption -- `lifecycle-decision.ts` and
- * `pm-adoption.ts` are the M11 producers. This module only shapes the
- * data; feeding it into the Causality Engine's real fact/edge graph is
- * M17 "Causality (pełna integracja)" -- SS69's `causalContext.factors`
- * are recorded here as plain data a future consumer can turn into
- * `CausalEdge`s, not wired into one yet (AI-11 "Debug Inspector" is
- * satisfied by this being a real, inspectable return value from every
- * decision function -- there is no separate inspector UI/read-model in
- * Simulation Core, which never renders anything, DATA-007).
+ * SS68 wymienia, które decyzje wymagają jednego w VS: company_founding
+ * (M12), company_expansion, company_contraction, company_closure,
+ * production_method_adoption -- `lifecycle-decision.ts` i
+ * `pm-adoption.ts` to producenci z M11. `CausalFactor` przeniesione do
+ * `@first-cause/causality` w M17 (to ta sama atomowa jednostka "dlaczego",
+ * którą konsumuje rozwiązywanie `CausalEdge`) -- re-eksportowane tutaj,
+ * żeby istniejące importy `CausalFactor` z tego modułu wciąż działały.
+ * Doprowadzenie `causalContext.factors` do realnego grafu faktów/edges
+ * to M17's `PendingCausalLink` (`core/economy-tick.ts`), wpięte w
+ * każdym miejscu wywołania tego modułu (AI-11 "Debug Inspector" jest
+ * spełnione przez to, że to jest realna, przeglądalna wartość zwrotna z
+ * każdej funkcji decyzyjnej -- nie ma osobnego UI inspektora/read-modelu
+ * w Simulation Core, które niczego nie renderuje, DATA-007).
  */
+export type { CausalFactor };
+
 export interface DecisionOption {
   readonly action: string;
   readonly hardEligible: boolean;
   readonly score: number;
-}
-
-export interface CausalFactor {
-  readonly key: string;
-  readonly contribution: number;
 }
 
 export interface DecisionSnapshot {

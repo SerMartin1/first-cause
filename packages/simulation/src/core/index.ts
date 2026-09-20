@@ -11,3 +11,5 @@ export * from "./time.js";
 export * from "./runner.js";
 export * from "./economy-tick.js";
 export * from "./world-runner.js";
+export * from "./causal-links.js";
+export * from "./causal-resolution.js";

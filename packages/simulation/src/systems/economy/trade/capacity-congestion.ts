@@ -1,6 +1,7 @@
 import type { Connection } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 import { assertNonNegative } from "../../../core/validation.js";
+import type { PendingCausalLink } from "../../../core/causal-links.js";
 
 /**
  * Route capacity & congestion (Simulation Model SS28 `TradeDemand >
@@ -29,6 +30,8 @@ export interface EvaluateCapacityCongestionResult {
   /** >= 1: the multiplier `trade/flows.ts` applies to TransportCost. */
   readonly congestionModifier: number;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-04): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 export function evaluateCapacityCongestion(
@@ -56,6 +59,7 @@ export function evaluateCapacityCongestion(
   };
 
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
   if (congestion > 0 && beforeCongestion === 0) {
     facts.push({
       type: "congestion_started",
@@ -63,7 +67,18 @@ export function evaluateCapacityCongestion(
       location: { regionId: connection.regionAId },
       values: { before: beforeCongestion, after: congestion, delta: congestion },
     });
+    // CE-04 (M17): jedna, jasna przyczyna -- desiredFlow przekroczył
+    // NORMAL_UTILIZATION udziału capacity (formuła to jeden ratio, nie
+    // wymyślam tu wieloprzyczynowości, której nie ma, CAUS-003).
+    causalLinks.push({
+      targetIndex: facts.length - 1,
+      source: { kind: "external", key: `connection:${connection.id}:utilization` },
+      type: "TRIGGERING",
+      factor: { key: "utilization_exceeds_normal", contribution: 1 },
+      mechanism: "desiredFlow przekroczył normalne wykorzystanie capacity połączenia",
+      system: "capacity-congestion",
+    });
   }
 
-  return { connection: nextConnection, cappedFlow, congestionModifier, facts };
+  return { connection: nextConnection, cappedFlow, congestionModifier, facts, causalLinks };
 }

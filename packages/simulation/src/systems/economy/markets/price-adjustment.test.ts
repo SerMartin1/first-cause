@@ -185,6 +185,38 @@ describe("updateMarketGood", () => {
     expect(facts.some((fact) => fact.type === "shortage_started")).toBe(true);
   });
 
+  it("CE-12 Test 1 (Price WHY?, §89): a supply drop with stable demand produces a price_changed fact whose dominant causal factor is supply, not demand", () => {
+    let market = seedMarket("iron_ore", 10);
+    // Ustala baseline (reference) na supply=20 przez kilka balansowanych ticków.
+    for (let tick = 0; tick < 3; tick++) {
+      const result = updateMarketGood({
+        market,
+        goodId: "iron_ore",
+        supply: 20,
+        demandSources: { companies: 20 },
+        inventory: 0,
+      });
+      market = result.market;
+    }
+
+    // Wymuszony spadek supply, demand bez zmian.
+    const { causalLinks } = updateMarketGood({
+      market,
+      goodId: "iron_ore",
+      supply: 5,
+      demandSources: { companies: 20 },
+      inventory: 0,
+    });
+
+    const supplyLink = causalLinks.find((link) => link.factor.key === "supply");
+    const demandLink = causalLinks.find((link) => link.factor.key === "demand");
+    expect(supplyLink).toBeDefined();
+    expect(supplyLink!.type).toBe("CONTRIBUTING"); // spadek supply podnosi cenę
+    expect(Math.abs(supplyLink!.factor.contribution)).toBeGreaterThan(
+      Math.abs(demandLink?.factor.contribution ?? 0),
+    );
+  });
+
   it("emits no facts on a tick where nothing changes (balanced market)", () => {
     const market = seedMarket("grain", 10);
     const { facts } = updateMarketGood({

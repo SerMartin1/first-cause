@@ -1,6 +1,7 @@
 import type { CohortNeeds, PopulationCohort } from "@first-cause/entities";
 import type { FactInput, FactLocation } from "@first-cause/causality";
 import { assertNonNegative } from "../../core/validation.js";
+import { directionalEdgeType, type PendingCausalLink } from "../../core/causal-links.js";
 import type { NeedSpendingCategory, SpendingCategory } from "./consumption.js";
 
 /**
@@ -74,7 +75,18 @@ export interface ApplyNeedsSatisfactionInput {
 export interface ApplyNeedsSatisfactionResult {
   readonly cohort: PopulationCohort;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-05): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
+
+const NEEDS_TIERS = [
+  "survival",
+  "basic",
+  "services",
+  "comfort",
+  "prosperity",
+  "modern",
+] as const;
 
 export function applyNeedsSatisfaction(
   input: ApplyNeedsSatisfactionInput,
@@ -84,6 +96,7 @@ export function applyNeedsSatisfaction(
   const nextCohort: PopulationCohort = { ...cohort, needs };
 
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
   if (needs.totalSatisfaction !== cohort.needs.totalSatisfaction) {
     facts.push({
       type: "needs_satisfaction_changed",
@@ -95,7 +108,26 @@ export function applyNeedsSatisfaction(
         delta: needs.totalSatisfaction - cohort.needs.totalSatisfaction,
       },
     });
+    // CE-05 (M17): `totalSatisfaction` to zwykła średnia z 6 poziomów
+    // (patrz `computeNeedsSatisfaction` powyżej) -- naturalny rozkład to
+    // udział KAŻDEGO poziomu w zmianie tej średniej, z własnym znakiem
+    // (poziom, który się poprawił, jest CONTRIBUTING; poziom, który się
+    // pogorszył, jest DAMPENING, nawet jeśli netto satysfakcja wzrosła --
+    // dokładnie przykład housing cost z SS25).
+    const targetIndex = facts.length - 1;
+    for (const tier of NEEDS_TIERS) {
+      const tierDelta = needs[tier] - cohort.needs[tier];
+      if (tierDelta === 0) continue;
+      causalLinks.push({
+        targetIndex,
+        source: { kind: "external", key: `cohort:${cohort.id}:needs:${tier}` },
+        type: directionalEdgeType(tierDelta),
+        factor: { key: tier, contribution: tierDelta / NEEDS_TIERS.length },
+        mechanism: `poziom potrzeb "${tier}" zmienił swój udział w satysfakcji`,
+        system: "needs-satisfaction",
+      });
+    }
   }
 
-  return { cohort: nextCohort, facts };
+  return { cohort: nextCohort, facts, causalLinks };
 }

@@ -1,6 +1,7 @@
 import type { Settlement, SettlementStage } from "@first-cause/entities";
-import type { FactInput } from "@first-cause/causality";
+import type { CausalFactor, FactInput } from "@first-cause/causality";
 import { assertNonNegative } from "../../core/validation.js";
+import { directionalEdgeType, type PendingCausalLink } from "../../core/causal-links.js";
 import { clamp } from "../economy/company-ai/decision-framework.js";
 import { updateSettlementHousing } from "./housing.js";
 
@@ -173,6 +174,75 @@ export function computeSettlementPressure(input: SettlementSignals): SettlementP
   return { urbanizationPressure, declinePressure };
 }
 
+/**
+ * CE-05 (M17): ten sam wzór co `computeSettlementPressure`, ale jako
+ * niezależne, signed `CausalFactor` -- osobna funkcja, nie refaktor
+ * `computeSettlementPressure` samego (ten drugi jest wołany bezpośrednio
+ * przez `settlements.test.ts`, zmiana jego sygnatury byłaby szerszym
+ * ryzykiem niż warta tego dla samej dekompozycji). `urbanization` niesie
+ * czynniki `SettlementPressure.urbanizationPressure` (population/jobs/
+ * trade/infrastructure/housing_demand dodatnie, constraints ujemne --
+ * dokładnie ta para realizująca Urban Crisis, SS25's "housing cost -0.28"
+ * odpowiednik); `decline` niesie czynniki `declinePressure`.
+ */
+export function computeSettlementPressureBreakdown(
+  input: SettlementSignals,
+): { readonly urbanization: readonly CausalFactor[]; readonly decline: readonly CausalFactor[] } {
+  const population = assertNonNegative(
+    input.population,
+    "computeSettlementPressureBreakdown().population",
+  );
+  const employment = assertNonNegative(
+    input.employment,
+    "computeSettlementPressureBreakdown().employment",
+  );
+  const housingCapacity = assertNonNegative(
+    input.housingCapacity,
+    "computeSettlementPressureBreakdown().housingCapacity",
+  );
+
+  const nextStage = NEXT_SETTLEMENT_STAGE[input.stage];
+  const advanceTarget = nextStage ? STAGE_POPULATION_THRESHOLD[nextStage] : undefined;
+  const populationScore =
+    advanceTarget === undefined
+      ? 1
+      : advanceTarget > 0
+        ? clamp(population / advanceTarget, 0, 1)
+        : population > 0
+          ? 1
+          : 0;
+  const jobsScore = population > 0 ? clamp(employment / population, 0, 1) : 0;
+  const tradeScore = clamp(input.tradeUtilization, 0, 1);
+  const infrastructureScore = clamp(
+    input.infrastructureLevel / INFRASTRUCTURE_NORMALIZATION,
+    0,
+    1,
+  );
+  const occupancyRatio =
+    housingCapacity > 0 ? population / housingCapacity : population > 0 ? 2 : 0;
+  const housingDemandScore = clamp(occupancyRatio, 0, 1);
+  const constraintsScore = clamp(occupancyRatio - 1, 0, 1);
+
+  const currentStageThreshold = STAGE_POPULATION_THRESHOLD[input.stage];
+  const declinePopulationDeficit =
+    currentStageThreshold > 0 ? clamp(1 - population / currentStageThreshold, 0, 1) : 0;
+
+  return {
+    urbanization: [
+      { key: "population", contribution: POPULATION_WEIGHT * populationScore },
+      { key: "jobs", contribution: JOBS_WEIGHT * jobsScore },
+      { key: "trade", contribution: TRADE_WEIGHT * tradeScore },
+      { key: "infrastructure", contribution: INFRASTRUCTURE_WEIGHT * infrastructureScore },
+      { key: "housing_demand", contribution: HOUSING_DEMAND_WEIGHT * housingDemandScore },
+      { key: "constraints", contribution: -CONSTRAINTS_WEIGHT * constraintsScore },
+    ],
+    decline: [
+      { key: "population_deficit", contribution: 0.6 * declinePopulationDeficit },
+      { key: "low_employment", contribution: 0.4 * (1 - jobsScore) },
+    ],
+  };
+}
+
 const STAGE_ADVANCE_THRESHOLD = 0.6; // TODO tuning
 const STAGE_DECLINE_THRESHOLD = 0.6; // TODO tuning
 const STAGE_PERSISTENCE_TICKS = 6; // TODO tuning -- FC-SETTLEMENT-002 "nie może zależeć wyłącznie od jednego przypadkowego ticka"
@@ -194,6 +264,8 @@ export interface EvaluateSettlementGrowthResult {
   readonly settlement: Settlement;
   readonly pressure: SettlementPressure;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-05): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -219,6 +291,7 @@ export function evaluateSettlementGrowth(
   });
   settlement = { ...settlement, housing: housingResult.housing };
   const facts: FactInput<number>[] = [...housingResult.facts];
+  const causalLinks: PendingCausalLink[] = [...housingResult.causalLinks];
 
   const pressure = computeSettlementPressure({
     ...signals,
@@ -287,7 +360,27 @@ export function evaluateSettlementGrowth(
         delta: stageDelta(input.settlement.stage, nextStage),
       },
     });
+    // CE-05 (M17): zmiana stage nie może wynikać WYŁĄCZNIE z population
+    // count (§67), gdy formuła miksuje kilka wejść -- wszystkie muszą
+    // trafić do grafu, nie tylko dominujący. Kierunek (awans/spadek)
+    // decyduje, którego rozkładu użyć.
+    const targetIndex = facts.length - 1;
+    const breakdown = computeSettlementPressureBreakdown({
+      ...signals,
+      housingCapacity: settlement.housing.capacity,
+    });
+    const factors = nextStage === nextStageUp ? breakdown.urbanization : breakdown.decline;
+    for (const factor of factors) {
+      causalLinks.push({
+        targetIndex,
+        source: { kind: "external", key: `settlement:${settlement.id}:${factor.key}` },
+        type: directionalEdgeType(factor.contribution),
+        factor,
+        mechanism: `SettlementPressure: ${factor.key}`,
+        system: "settlements",
+      });
+    }
   }
 
-  return { settlement, pressure, facts };
+  return { settlement, pressure, facts, causalLinks };
 }

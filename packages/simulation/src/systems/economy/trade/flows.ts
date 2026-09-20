@@ -1,6 +1,7 @@
 import type { Connection, MarketGoodState } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 import { assertFinite, assertNonNegative } from "../../../core/validation.js";
+import { offsetCausalLinks, type PendingCausalLink } from "../../../core/causal-links.js";
 import type { TransportModeProfile } from "../transport/modes.js";
 import { updateEffectiveDistance } from "./effective-distance.js";
 import { evaluateCapacityCongestion } from "./capacity-congestion.js";
@@ -47,6 +48,8 @@ export interface EvaluateTradeFlowResult {
   readonly importedCost: number;
   readonly feasible: boolean;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-04): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 export function evaluateTradeFlow(
@@ -95,11 +98,18 @@ export function evaluateTradeFlow(
     ? Math.min(desiredImportQuantity, congestion.cappedFlow, exportableSurplus)
     : 0;
 
+  const facts = [...distance.facts, ...congestion.facts];
+  const causalLinks = [
+    ...distance.causalLinks,
+    ...offsetCausalLinks(congestion.causalLinks, distance.facts.length),
+  ];
+
   return {
     connection: congestion.connection,
     importedQuantity,
     importedCost,
     feasible,
-    facts: [...distance.facts, ...congestion.facts],
+    facts,
+    causalLinks,
   };
 }

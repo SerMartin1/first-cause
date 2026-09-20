@@ -6,6 +6,7 @@ import {
   assertPositive,
   InvariantViolationError,
 } from "../../../core/validation.js";
+import { directionalEdgeType, type PendingCausalLink } from "../../../core/causal-links.js";
 import { aggregateDemand } from "./demand-aggregation.js";
 import { classifyShortageSurplus } from "./shortage-surplus.js";
 
@@ -117,6 +118,8 @@ export interface UpdateMarketGoodInput {
 export interface UpdateMarketGoodResult {
   readonly market: Market;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-04): `targetIndex`/`sameBatch.index` są względne do WŁASNEJ tablicy `facts` tego wyniku -- wywołujący przesuwa je (`offsetCausalLinks`) przed scaleniem do większej, tick-wide tablicy. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -202,6 +205,7 @@ export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGood
   };
 
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
   const location = { regionId: market.regionId };
   const subject = { entityType: "marketGood", entityId: `${market.id}:${goodId}` };
 
@@ -216,6 +220,51 @@ export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGood
         delta: localPrice - existing.localPrice,
       },
     });
+
+    // CE-04 (M17): rozkłada ruch ceny na niezależne czynniki (Causality
+    // Engine Spec SS64 -- `price_changed` musi umieć powiedzieć, czy
+    // stoi za nim spadek podaży, skok popytu czy bufor inventory, nie
+    // tylko "demand != supply"). `reference` to już policzona wyżej
+    // baseline NormalSupply; znak każdego czynnika to JEGO WŁASNY
+    // kierunkowy nacisk (popyt powyżej baseline -> podnosi cenę; podaż
+    // poniżej baseline -> podnosi cenę; jakiekolwiek inventory -> zawsze
+    // obniża cenę, istnieje właśnie by buforować niedobór) -- niezależnie
+    // od innych czynników czy netto delty. `external`: żaden fakt
+    // wyższego poziomu jeszcze nie reprezentuje "obserwowanego tego ticka
+    // popytu/podaży/inventory" (grupy rollout #2/#8 -- Resources/
+    // Production -- pozwolą w przyszłym przebiegu podnieść źródło
+    // `supply` do realnego `priorFact`, gdy te systemy zaczną emitować
+    // własne fakty).
+    const targetIndex = facts.length - 1;
+    const demandContribution = clamp((demand - reference) / Math.max(reference, 1), -1, 1);
+    causalLinks.push({
+      targetIndex,
+      source: { kind: "external", key: `market:${market.id}:${goodId}:demand` },
+      type: directionalEdgeType(demandContribution),
+      factor: { key: "demand", contribution: demandContribution },
+      mechanism: "demand relative to the rolling NormalSupply baseline",
+      system: "price-adjustment",
+    });
+    const supplyContribution = clamp((reference - supply) / Math.max(reference, 1), -1, 1);
+    causalLinks.push({
+      targetIndex,
+      source: { kind: "external", key: `market:${market.id}:${goodId}:supply` },
+      type: directionalEdgeType(supplyContribution),
+      factor: { key: "supply", contribution: supplyContribution },
+      mechanism: "supply relative to the rolling NormalSupply baseline",
+      system: "price-adjustment",
+    });
+    if (inventory > 0) {
+      const inventoryContribution = -clamp(inventory / Math.max(reference, 1), 0, 1);
+      causalLinks.push({
+        targetIndex,
+        source: { kind: "external", key: `market:${market.id}:${goodId}:inventory` },
+        type: "DAMPENING",
+        factor: { key: "inventory_buffer", contribution: inventoryContribution },
+        mechanism: "regional inventory buffers shortage before it reaches price pressure",
+        system: "price-adjustment",
+      });
+    }
   }
   if (shortageSeverity > 0 && existing.shortageSeverity === 0) {
     facts.push({
@@ -228,7 +277,15 @@ export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGood
         delta: shortageSeverity,
       },
     });
+    causalLinks.push({
+      targetIndex: facts.length - 1,
+      source: { kind: "external", key: `market:${market.id}:${goodId}:demand` },
+      type: "CONTRIBUTING",
+      factor: { key: "demand_exceeds_effective_supply", contribution: 1 },
+      mechanism: "demand exceeded supply plus the inventory buffer this tick",
+      system: "price-adjustment",
+    });
   }
 
-  return { market: nextMarket, facts };
+  return { market: nextMarket, facts, causalLinks };
 }

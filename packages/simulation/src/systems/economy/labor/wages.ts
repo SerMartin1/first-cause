@@ -2,6 +2,7 @@ import type { Company } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 import { roundMoney } from "../../../core/rounding.js";
 import { assertNonNegative, assertPositive } from "../../../core/validation.js";
+import { directionalEdgeType, type PendingCausalLink } from "../../../core/causal-links.js";
 import { classifyShortageSurplus } from "../markets/shortage-surplus.js";
 
 /**
@@ -39,6 +40,8 @@ export interface AdjustWageOfferResult {
   /** In [0, 1] -- 0 whenever available labor already covers vacancies. */
   readonly laborShortageSeverity: number;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-04): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -84,6 +87,7 @@ export function adjustWageOffer(input: AdjustWageOfferInput): AdjustWageOfferRes
   };
 
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
   if (nextWageOffer !== wageOffer) {
     facts.push({
       type: "wage_offer_changed",
@@ -95,7 +99,35 @@ export function adjustWageOffer(input: AdjustWageOfferInput): AdjustWageOfferRes
         delta: nextWageOffer - wageOffer,
       },
     });
+    // CE-04 (M17): ten sam demand/supply rozkład co `price-adjustment.ts`
+    // -- wakaty (demand) i dostępna praca (supply) -- płaca reaguje na
+    // ten sam mechanizm niedoboru/nadwyżki (`classifyShortageSurplus`,
+    // reużyte z M8), więc te dwa czynniki są dokładnym labor-market
+    // odpowiednikiem demand/supply przy cenach dóbr.
+    const targetIndex = facts.length - 1;
+    const vacancyContribution = clamp((vacancies - reference) / reference, -1, 1);
+    causalLinks.push({
+      targetIndex,
+      source: { kind: "external", key: `company:${company.id}:vacancies` },
+      type: directionalEdgeType(vacancyContribution),
+      factor: { key: "vacancies", contribution: vacancyContribution },
+      mechanism: "wakaty względem dostępnej siły roboczej tego poziomu umiejętności",
+      system: "wages",
+    });
+    const availableLaborContribution = clamp(
+      -(availableLabor - reference) / reference,
+      -1,
+      1,
+    );
+    causalLinks.push({
+      targetIndex,
+      source: { kind: "external", key: `company:${company.id}:available_labor` },
+      type: directionalEdgeType(availableLaborContribution),
+      factor: { key: "available_labor", contribution: availableLaborContribution },
+      mechanism: "dostępna, bezrobotna siła robocza względem wakatów",
+      system: "wages",
+    });
   }
 
-  return { company: nextCompany, laborShortageSeverity, facts };
+  return { company: nextCompany, laborShortageSeverity, facts, causalLinks };
 }

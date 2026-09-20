@@ -1,6 +1,7 @@
 import type { AgeGroup, PopulationCohort } from "@first-cause/entities";
 import type { FactInput, FactLocation } from "@first-cause/causality";
 import { assertNonNegative } from "../../core/validation.js";
+import type { PendingCausalLink } from "../../core/causal-links.js";
 import type { RngStream } from "../../core/rng.js";
 import { eligibleLaborForce } from "../economy/labor/employment.js";
 import {
@@ -109,6 +110,8 @@ export interface ApplyMonthlyDemographyInput {
 export interface ApplyMonthlyDemographyResult {
   readonly cohorts: readonly PopulationCohort[];
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-05): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 function cohortLocation(cohort: PopulationCohort): FactLocation {
@@ -226,6 +229,7 @@ export function applyMonthlyDemography(
 
   const nextCohorts: PopulationCohort[] = [];
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
 
   for (const ageGroup of AGE_GROUP_ORDER) {
     const cohort = family[ageGroup];
@@ -249,14 +253,51 @@ export function applyMonthlyDemography(
 
     nextCohorts.push({ ...cohort, population: after, employment: employmentAfter });
     const fact = populationFact(cohort, before, after);
-    if (fact) facts.push(fact);
+    let populationFactIndex: number | undefined;
+    if (fact) {
+      facts.push(fact);
+      populationFactIndex = facts.length - 1;
+      // CE-05 (M17): urodzenia/śmierci/starzenie to strukturalny,
+      // tła-owy proces demograficzny (roczne stopy, SS4.5), nie decyzja
+      // reagująca na warunki tego ticka -- jeden czynnik STRUCTURAL,
+      // nie wymyślona wieloprzyczynowość tam, gdzie jej nie ma
+      // (CAUS-003).
+      causalLinks.push({
+        targetIndex: populationFactIndex,
+        source: { kind: "external", key: `cohort:${cohort.id}:demographic_rate` },
+        type: "STRUCTURAL",
+        factor: {
+          key: fact.type === "population_increased" ? "birth_rate" : "death_rate",
+          contribution: Math.sign(after - before),
+        },
+        mechanism: "roczna stopa urodzeń/śmierci/starzenia, skonwertowana na miesięczne prawdopodobieństwo",
+        system: "demography",
+      });
+    }
     const employmentFact = employmentReconciliationFact(
       cohort,
       employmentBefore,
       employmentAfter,
     );
-    if (employmentFact) facts.push(employmentFact);
+    if (employmentFact) {
+      facts.push(employmentFact);
+      const employmentTargetIndex = facts.length - 1;
+      causalLinks.push({
+        targetIndex: employmentTargetIndex,
+        source:
+          populationFactIndex !== undefined
+            ? { kind: "sameBatch", index: populationFactIndex }
+            : { kind: "external", key: `cohort:${cohort.id}:aging_out_of_working_age` },
+        type: "TRIGGERING",
+        factor: {
+          key: "population_change",
+          contribution: Math.sign(employmentAfter - employmentBefore),
+        },
+        mechanism: "zmiana populacji (śmierć/starzenie się poza wiek produkcyjny) wymusiła uzgodnienie zatrudnienia",
+        system: "demography",
+      });
+    }
   }
 
-  return { cohorts: nextCohorts, facts };
+  return { cohorts: nextCohorts, facts, causalLinks };
 }

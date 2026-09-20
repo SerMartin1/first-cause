@@ -13,7 +13,12 @@ import {
   type TechnologyState,
   type WorldState,
 } from "@first-cause/entities";
-import type { FactInput } from "@first-cause/causality";
+import type { CausalFactor, FactInput } from "@first-cause/causality";
+import {
+  directionalEdgeType,
+  offsetCausalLinks,
+  type PendingCausalLink,
+} from "./causal-links.js";
 import { sortedEntries } from "./determinism.js";
 import { advanceCalendarDate } from "./time.js";
 import type { RngStream } from "./rng.js";
@@ -22,6 +27,7 @@ import { applyMonthlyDemography } from "../systems/population/demography.js";
 import { applyHouseholdConsumption } from "../systems/population/consumption.js";
 import {
   computeMigrationAttraction,
+  computeMigrationAttractionBreakdown,
   runMigrationPass,
 } from "../systems/population/migration.js";
 import { evaluateSettlementGrowth } from "../systems/society/settlements.js";
@@ -58,6 +64,7 @@ import {
   evaluateFounding,
 } from "../systems/economy/company-ai/index.js";
 import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js";
+import type { DecisionSnapshot } from "../systems/economy/company-ai/decision-snapshot.js";
 import { accumulateRegionalKnowledge } from "../systems/technology/knowledge.js";
 import {
   evaluateBreakthroughs,
@@ -219,11 +226,29 @@ export interface RunEconomyTickInput {
    * Domyślnie `{}`.
    */
   readonly requiredDiscoveryIdsByMethodId?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * M17 (CE-07): `"${entityType}:${entityId}:${type}" -> najnowszy fact
+   * id`, narastająco budowane przez `WorldRunner` z KAŻDEGO ticka (nie
+   * tylko tego, jeszcze niewyemitowanego) -- pozwala systemom cytować
+   * realny, cross-tickowy fakt (np. Root Fact interwencji Architekta,
+   * `discovery_became_available`) jako `{kind: "priorFact"}` źródło,
+   * zamiast zawsze `external`. Klucz MUSI zawierać `type` (nie tylko
+   * encję) -- inaczej "najnowszy fakt tej encji" po cichu wskazuje na
+   * jakiś PÓŹNIEJSZY, niezwiązany typ faktu tej samej encji (np.
+   * `technology_adoption_increased` nadpisujący `discovery_became_
+   * available`). Bez tego Architect Influence (CE-07, Test 4 Butterfly
+   * Effect) nigdy nie miałby żadnej realnej krawędzi do propagacji przez
+   * zwykłe ticki -- domyślnie `{}` (pełna wsteczna zgodność dla każdego
+   * caller'a, który tego nie poda).
+   */
+  readonly priorFactIndex?: Readonly<Record<string, string>>;
 }
 
 export interface RunEconomyTickResult {
   readonly worldState: WorldState;
   readonly facts: readonly FactInput[];
+  /** M17 (CE-04..CE-07): rozwiązywane na realne `CausalEdge` przez `core/causal-resolution.ts`, wołane z `WorldRunner.step()`, gdy `facts` ma już realne, przydzielone przez store id. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 function recipeCost(
@@ -317,6 +342,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   const discoveryEligibilityRulesById = input.discoveryEligibilityRulesById ?? {};
   const knowledgeDomainIds = input.knowledgeDomainIds ?? [];
   const requiredDiscoveryIdsByMethodId = input.requiredDiscoveryIdsByMethodId ?? {};
+  const priorFactIndex = input.priorFactIndex ?? {};
 
   const regions: Record<string, Region> = { ...worldState.regions };
   const companies: Record<string, Company> = { ...worldState.companies };
@@ -334,6 +360,12 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     ...worldState.technologyStates,
   };
   const facts: FactInput[] = [];
+  const causalLinks: PendingCausalLink[] = [];
+  const migrationAttractionBreakdownByRegionId: Record<string, readonly CausalFactor[]> = {};
+  // CE-06 (M17, Test 9): `discoveryId -> outer fact index` per region,
+  // dla `discovery_became_available` -- krok 3's PM adoption (poniżej)
+  // linkuje do TEGO, nigdy bezpośrednio do `discovery_occurred`.
+  const availableFactIndexByRegionAndDiscovery: Record<string, Record<string, number>> = {};
 
   const regionIds = Object.keys(worldState.regions).sort();
 
@@ -374,7 +406,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       for (const cohort of demographyResult.cohorts) {
         nextCohorts[cohort.id] = cohort;
       }
-      facts.push(...demographyResult.facts);
+      {
+        const baseIndex = facts.length;
+        facts.push(...demographyResult.facts);
+        causalLinks.push(...offsetCausalLinks(demographyResult.causalLinks, baseIndex));
+      }
     }
     populationCohorts = nextCohorts;
   }
@@ -412,6 +448,14 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
 
       const rng = discoveryRng(regionId);
 
+      // CE-06 (M17): łańcuch knowledge -> eligible -> occurred ->
+      // available/diffused jest z natury sekwencją tego samego ticka --
+      // każdy krok linkuje do faktu POPRZEDNIEGO kroku przez `sameBatch`
+      // (indeksy w OUTER `facts`, śledzone tu w miejscu, bo tylko
+      // orchestrator zna oba końce). Test 9 (§97): `technology_adoption_
+      // increased` (adoption.ts, poniżej) MUSI linkować do `discovery_
+      // became_available`, NIGDY bezpośrednio do `discovery_occurred`.
+      const knowledgeFactIndexByDomainId: Record<string, number> = {};
       const knowledgeResult = accumulateRegionalKnowledge({
         technologyState,
         domainIds: knowledgeDomainIds,
@@ -419,14 +463,49 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         rng,
       });
       technologyState = knowledgeResult.technologyState;
-      facts.push(...knowledgeResult.facts);
+      for (const fact of knowledgeResult.facts) {
+        facts.push(fact);
+        knowledgeFactIndexByDomainId[fact.subject.entityId] = facts.length - 1;
+      }
 
       const eligibilityResult = updateEligibility(
         technologyState,
         discoveryEligibilityRulesById,
       );
       technologyState = eligibilityResult.technologyState;
-      facts.push(...eligibilityResult.facts);
+      const eligibleFactIndexByDiscoveryId: Record<string, number> = {};
+      for (const fact of eligibilityResult.facts) {
+        facts.push(fact);
+        const discoveryId = fact.subject.entityId;
+        eligibleFactIndexByDiscoveryId[discoveryId] = facts.length - 1;
+        const primaryDomainId = discoveryEligibilityRulesById[discoveryId]?.primaryDomainId;
+        const knowledgeIndex =
+          primaryDomainId !== undefined
+            ? knowledgeFactIndexByDomainId[primaryDomainId]
+            : undefined;
+        // CE-06/CE-07: `knowledge_increased` może pochodzić z TEGO ticka
+        // (`sameBatch`) albo z wcześniejszego -- naturalnej akumulacji
+        // ALBO Architect `knowledge_injection` (ten sam typ/subject faktu,
+        // patrz `interventions.ts`) -- `priorFactIndex` jako fallback,
+        // żeby Root Fact interwencji mógł realnie zasilić eligibility.
+        const priorKnowledgeFactId =
+          primaryDomainId !== undefined
+            ? priorFactIndex[`knowledge_domain:${primaryDomainId}:knowledge_increased`]
+            : undefined;
+        causalLinks.push({
+          targetIndex: facts.length - 1,
+          source:
+            knowledgeIndex !== undefined
+              ? { kind: "sameBatch", index: knowledgeIndex }
+              : priorKnowledgeFactId !== undefined
+                ? { kind: "priorFact", factId: priorKnowledgeFactId }
+                : { kind: "external", key: `knowledge_domain:${primaryDomainId}` },
+          type: "ENABLING",
+          factor: { key: "knowledge_threshold", contribution: 1 },
+          mechanism: "wiedza regionu przekroczyła próg tieru tego odkrycia",
+          system: "technology-discoveries",
+        });
+      }
 
       const diffusionSignals = computeDiffusionPressure(
         regionId,
@@ -446,15 +525,91 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         diffusionPressureByDiscoveryId,
       });
       technologyState = breakthroughResult.technologyState;
-      facts.push(...breakthroughResult.facts);
+      const occurredFactIndexByDiscoveryId: Record<string, number> = {};
+      for (const fact of breakthroughResult.facts) {
+        facts.push(fact);
+        const discoveryId = fact.subject.entityId;
+        occurredFactIndexByDiscoveryId[discoveryId] = facts.length - 1;
+        const eligibleIndex = eligibleFactIndexByDiscoveryId[discoveryId];
+        causalLinks.push({
+          targetIndex: facts.length - 1,
+          source:
+            eligibleIndex !== undefined
+              ? { kind: "sameBatch", index: eligibleIndex }
+              : { kind: "external", key: `discovery:${discoveryId}:eligible` },
+          type: "TRIGGERING",
+          factor: { key: "eligibility", contribution: 1 },
+          mechanism: "odkrycie było eligible, gdy zaszedł breakthrough (seeded probability)",
+          system: "technology-discoveries",
+        });
+        const pressure = diffusionPressureByDiscoveryId[discoveryId] ?? 0;
+        if (pressure > 0) {
+          causalLinks.push({
+            targetIndex: facts.length - 1,
+            source: { kind: "external", key: `discovery:${discoveryId}:diffusion_pressure` },
+            type: "AMPLIFYING",
+            factor: { key: "diffusion_pressure", contribution: pressure },
+            mechanism: "presja dyfuzji z połączonych regionów podniosła szansę breakthroughu",
+            system: "technology-discoveries",
+          });
+        }
+      }
 
       const availabilityResult = growAvailability(technologyState, diffusionSignals);
       technologyState = availabilityResult.technologyState;
-      facts.push(...availabilityResult.facts);
+      const availableFactIndexByDiscoveryId: Record<string, number> = {};
+      for (const fact of availabilityResult.facts) {
+        facts.push(fact);
+        const discoveryId = fact.subject.entityId;
+        if (fact.type === "discovery_diffused") {
+          causalLinks.push({
+            targetIndex: facts.length - 1,
+            source: {
+              kind: "external",
+              key: `discovery:${discoveryId}:neighbor_diffusion_pressure`,
+            },
+            type: "AMPLIFYING",
+            factor: { key: "diffusion_pressure", contribution: 1 },
+            mechanism: "presja dyfuzji z połączonych regionów zwiększyła availability",
+            system: "technology-diffusion",
+          });
+          continue;
+        }
+        if (fact.type !== "discovery_became_available") continue;
+        availableFactIndexByDiscoveryId[discoveryId] = facts.length - 1;
+        const occurredIndex = occurredFactIndexByDiscoveryId[discoveryId];
+        causalLinks.push({
+          targetIndex: facts.length - 1,
+          source:
+            occurredIndex !== undefined
+              ? { kind: "sameBatch", index: occurredIndex }
+              : { kind: "external", key: `discovery:${discoveryId}:occurred` },
+          type: "DIRECT",
+          factor: { key: "known_discovery", contribution: 1 },
+          mechanism: "odkrycie znane (KNOWN) w regionie źródłowym rozprzestrzenia się jako dostępne",
+          system: "technology-diffusion",
+        });
+      }
+      availableFactIndexByRegionAndDiscovery[regionId] = availableFactIndexByDiscoveryId;
 
       const populationAccessResult = applyPopulationAccess(technologyState);
       technologyState = populationAccessResult.technologyState;
-      facts.push(...populationAccessResult.facts);
+      for (const fact of populationAccessResult.facts) {
+        facts.push(fact);
+        const discoveryId = fact.subject.entityId;
+        const availableIndex = availableFactIndexByDiscoveryId[discoveryId];
+        causalLinks.push({
+          targetIndex: facts.length - 1,
+          source:
+            availableIndex !== undefined
+              ? { kind: "sameBatch", index: availableIndex }
+              : { kind: "external", key: `discovery:${discoveryId}:available` },
+          type: "STRUCTURAL",
+          factor: { key: "population_access_growth", contribution: 1 },
+          mechanism: "odkrycie dostępne/przyjęte -- populacja stopniowo zyskuje do niego dostęp",
+          system: "technology-adoption",
+        });
+      }
 
       technologyStates[technologyStateId] = technologyState;
     }
@@ -477,6 +632,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     const companyDemandByGood: Record<string, number> = {};
     const householdDemandByGood: Record<string, number> = {};
     const industryAdoptionEvents: IndustryAdoptionEvent[] = [];
+    // CE-06 (M17, Test 9): `discoveryId -> outer fact index` faktu
+    // `production_method_adopted`, który wygenerował ten event -- krok
+    // "Zastosuj industry adoption" (poniżej) linkuje `technology_
+    // adoption_increased` do TEGO, nie do samego `discovery_occurred`.
+    const productionMethodAdoptedFactIndexByDiscoveryId: Record<string, number> = {};
 
     for (const companyId of companyIds) {
       let company = companies[companyId]!;
@@ -556,6 +716,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       const demandPersistenceScore = primaryOutputGoodId
         ? (market?.goods[primaryOutputGoodId]?.shortageSeverity ?? 0)
         : 0;
+      const companyBeforeLifecycle = company;
       const lifecycleDecision = decideLifecycle({
         company,
         tick,
@@ -565,6 +726,50 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         capitalCost: EXPANSION_CAPITAL_COST,
       });
       company = lifecycleDecision.company;
+
+      // CE-04 (M17): audytowe -- `decideLifecycle` liczy `snapshot`
+      // (`causalContext.factors`) od M11, ale nic go dotąd nie
+      // konsumowało: EXPAND/CONTRACT/CLOSE nie emitowały żadnego faktu w
+      // ogóle. `snapshot.causalContext.factors` to dokładnie ten
+      // wieloprzyczynowy rozkład, który ta decyzja potrzebuje --
+      // `external`, bo to są zaobserwowane warunki (demand persistence,
+      // margin, utilization, cash runway), nie inne fakty.
+      if (lifecycleDecision.snapshot) {
+        const snapshot = lifecycleDecision.snapshot;
+        const factType =
+          lifecycleDecision.action === "EXPAND"
+            ? "company_expanded"
+            : lifecycleDecision.action === "CONTRACT"
+              ? "company_contracted"
+              : "company_closed";
+        const values =
+          lifecycleDecision.action === "CLOSE"
+            ? { before: 1, after: 0 }
+            : {
+                before: companyBeforeLifecycle.production.capacity,
+                after: company.production.capacity,
+                delta:
+                  company.production.capacity -
+                  companyBeforeLifecycle.production.capacity,
+              };
+        facts.push({
+          type: factType,
+          subject: { entityType: "company", entityId: company.id },
+          location: { regionId: company.regionId },
+          values,
+        });
+        const targetIndex = facts.length - 1;
+        for (const factor of snapshot.causalContext.factors) {
+          causalLinks.push({
+            targetIndex,
+            source: { kind: "external", key: `company:${company.id}:${factor.key}` },
+            type: directionalEdgeType(factor.contribution),
+            factor,
+            mechanism: `${snapshot.decisionType}: ${factor.key}`,
+            system: "lifecycle-decision",
+          });
+        }
+      }
 
       const candidateMethodId = company.production.productionMethodId
         ? pmCandidates[company.production.productionMethodId]
@@ -606,6 +811,64 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           for (const discoveryId of requiredDiscoveryIds) {
             industryAdoptionEvents.push({ discoveryId });
           }
+          // CE-04/CE-06 (M17, Test 9): pierwszy fakt dla PM adoption --
+          // dotąd nic go nie emitowało, mimo że `evaluatePmAdoption` liczy
+          // `snapshot` od M11. Czynniki finansowe/marżowe (`external`) +
+          // discovery/availability (`sameBatch`, gdy ta sama technologia
+          // stała się AVAILABLE w TYM regionie w TYM ticku) -- productivity
+          // musi iść przez TĘ decyzję, NIGDY bezpośrednio discovery ->
+          // productivity.
+          if (pmResult.snapshot) {
+            const snapshot = pmResult.snapshot;
+            facts.push({
+              type: "production_method_adopted",
+              subject: { entityType: "company", entityId: company.id },
+              location: { regionId: company.regionId },
+              values: {
+                before: recipe.productionMethodId,
+                after: candidateRecipe.productionMethodId,
+              },
+            });
+            const targetIndex = facts.length - 1;
+            for (const factor of snapshot.causalContext.factors) {
+              causalLinks.push({
+                targetIndex,
+                source: { kind: "external", key: `company:${company.id}:${factor.key}` },
+                type: directionalEdgeType(factor.contribution),
+                factor,
+                mechanism: `${snapshot.decisionType}: ${factor.key}`,
+                system: "pm-adoption",
+              });
+            }
+            for (const discoveryId of requiredDiscoveryIds) {
+              // CE-06: `discovery_became_available` prawie na pewno padło
+              // w JAKIMŚ WCZEŚNIEJSZYM ticku, nie tym samym, w którym AI-08
+              // faktycznie przyjmuje metodę (persistence/cooldown gate'y w
+              // pm-adoption.ts wymagają wielu ticków) -- `sameBatch` (ten
+              // sam tick) to tylko rzadki, szczęśliwy przypadek; ogólny
+              // przypadek to cross-tickowy `priorFactIndex` (WorldRunner's
+              // `latestFactIdByEntity`, klucz `discovery:<id>` z tego
+              // samego faktu subject).
+              const availableIndex =
+                availableFactIndexByRegionAndDiscovery[regionId]?.[discoveryId];
+              const priorAvailableFactId =
+                priorFactIndex[`discovery:${discoveryId}:discovery_became_available`];
+              causalLinks.push({
+                targetIndex,
+                source:
+                  availableIndex !== undefined
+                    ? { kind: "sameBatch", index: availableIndex }
+                    : priorAvailableFactId !== undefined
+                      ? { kind: "priorFact", factId: priorAvailableFactId }
+                      : { kind: "external", key: `discovery:${discoveryId}:available` },
+                type: "ENABLING",
+                factor: { key: `discovery:${discoveryId}`, contribution: 1 },
+                mechanism: "technologia wymagana przez tę metodę produkcji jest dostępna w regionie",
+                system: "pm-adoption",
+              });
+              productionMethodAdoptedFactIndexByDiscoveryId[discoveryId] = targetIndex;
+            }
+          }
         }
       }
 
@@ -620,7 +883,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       if (company.workforce.wageOffer > 0) {
         const wageResult = adjustWageOffer({ company, availableLabor });
         company = wageResult.company;
-        facts.push(...wageResult.facts);
+        {
+          const baseIndex = facts.length;
+          facts.push(...wageResult.facts);
+          causalLinks.push(...offsetCausalLinks(wageResult.causalLinks, baseIndex));
+        }
       }
 
       // Audytowe P1 ("layoff nie rozlicza poprawnie pozostałej płacy"):
@@ -651,7 +918,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           const matchResult = matchEmployment({ company, cohort });
           company = matchResult.company;
           populationCohorts[cohortId] = matchResult.cohort;
-          facts.push(...matchResult.facts);
+          {
+            const baseIndex = facts.length;
+            facts.push(...matchResult.facts);
+            causalLinks.push(...offsetCausalLinks(matchResult.causalLinks, baseIndex));
+          }
         }
       } else if (laborDecision.action === "LAYOFF" && laborDecision.layoffTarget > 0) {
         let remaining = laborDecision.layoffTarget;
@@ -667,7 +938,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           const layoffResult = layoffWorkers({ company, cohort, count });
           company = layoffResult.company;
           populationCohorts[cohortId] = layoffResult.cohort;
-          facts.push(...layoffResult.facts);
+          {
+            const baseIndex = facts.length;
+            facts.push(...layoffResult.facts);
+            causalLinks.push(...offsetCausalLinks(layoffResult.causalLinks, baseIndex));
+          }
           remaining -= count;
         }
       }
@@ -706,7 +981,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         for (const deposit of Object.values(productionResult.resourceDeposits)) {
           resourceDeposits[deposit.id] = deposit;
         }
-        facts.push(...productionResult.facts);
+        {
+          const baseIndex = facts.length;
+          facts.push(...productionResult.facts);
+          causalLinks.push(...offsetCausalLinks(productionResult.causalLinks, baseIndex));
+        }
 
         for (const [goodId, quantityPerBatch] of Object.entries(
           recipe.goodOutputsPerBatch,
@@ -783,7 +1062,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           },
         });
         cohort = consumptionResult.cohort;
-        facts.push(...consumptionResult.facts);
+        {
+          const baseIndex = facts.length;
+          facts.push(...consumptionResult.facts);
+          causalLinks.push(...offsetCausalLinks(consumptionResult.causalLinks, baseIndex));
+        }
 
         if (survivalPrice !== undefined && regionInventoryId) {
           const desiredQuantity = consumptionResult.spent.survival / survivalPrice;
@@ -824,7 +1107,9 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           inventory: regionInventory?.items[goodId]?.quantity ?? 0,
         });
         market = updateResult.market;
+        const baseIndex = facts.length;
         facts.push(...updateResult.facts);
+        causalLinks.push(...offsetCausalLinks(updateResult.causalLinks, baseIndex));
       }
       markets[marketId] = market;
     }
@@ -969,12 +1254,45 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           // AI-010/CAUS-001). `founded === true` gwarantuje
           // `foundingResult.snapshot` jest zdefiniowany (evaluateFounding
           // buduje go dokładnie w tej samej gałęzi).
+          const foundingSnapshot = foundingResult.snapshot!;
           facts.push({
             type: "company_founded",
             subject: { entityType: "company", entityId: newCompanyId },
             location: { regionId },
-            values: { before: undefined, after: foundingResult.snapshot },
+            values: { before: undefined, after: foundingSnapshot },
           });
+          // CE-04 (M17): ten fakt już niósł `snapshot` jako swoją wartość
+          // (audytowa naprawa P1-02), ale nikt nie zamieniał
+          // `causalContext.factors` na edges -- to domyka tamten most.
+          const targetIndex = facts.length - 1;
+          // CE-07 (M17, Test 4 Butterfly Effect): "resource_access" jest
+          // jedynym z tych czynników, który wskazuje na KONKRETNĄ encję
+          // (depozyt) -- jeśli ten depozyt ma już jakiś fakt (np. `resource_
+          // discovered` z interwencji Architekta), cytuj go realnie
+          // (`priorFact`), żeby wpływ mógł faktycznie propagować się przez
+          // ten łańcuch, zamiast zawsze `external`.
+          const primaryRequiredResourceId = Object.keys(recipe.resourceInputsPerBatch).sort()[0];
+          const primaryDepositId = primaryRequiredResourceId
+            ? depositIdByResource.get(primaryRequiredResourceId)
+            : undefined;
+          const depositFactId = primaryDepositId
+            ? (priorFactIndex[`resourceDeposit:${primaryDepositId}:resource_assessed`] ??
+              priorFactIndex[`resourceDeposit:${primaryDepositId}:resource_discovered`])
+            : undefined;
+          for (const factor of foundingSnapshot.causalContext.factors) {
+            const source =
+              factor.key === "resource_access" && depositFactId !== undefined
+                ? ({ kind: "priorFact", factId: depositFactId } as const)
+                : ({ kind: "external", key: `region:${regionId}:${factor.key}` } as const);
+            causalLinks.push({
+              targetIndex,
+              source,
+              type: directionalEdgeType(factor.contribution),
+              factor,
+              mechanism: `${foundingSnapshot.decisionType}: ${factor.key}`,
+              system: "opportunity-scanner",
+            });
+          }
         }
       }
     }
@@ -1010,13 +1328,18 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
             ) / settlementIdsInRegion.length
           : 0;
 
-      const migrationAttraction = computeMigrationAttraction({
+      const migrationSignals = {
         vacancies,
         eligibleLaborForce: regionEligibleLaborForce,
         averageWageOffer: wageWeight > 0 ? wageWeightedSum / wageWeight : 0,
         averageHousingCost,
-      });
+      };
+      const migrationAttraction = computeMigrationAttraction(migrationSignals);
       region = { ...region, cached: { ...region.cached, migrationAttraction } };
+      // M17 (CE-05): sam rozkład na czynniki -- patrz `runMigrationPass`
+      // (krok 11), gdzie faktycznie staje się `CausalEdge`.
+      migrationAttractionBreakdownByRegionId[regionId] =
+        computeMigrationAttractionBreakdown(migrationSignals);
     }
 
     // M15: zastosuj zdarzenia industry adoption tego regionu (zebrane
@@ -1030,7 +1353,25 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           industryAdoptionEvents,
         );
         technologyStates[technologyStateId] = industryAdoptionResult.technologyState;
-        facts.push(...industryAdoptionResult.facts);
+        for (const fact of industryAdoptionResult.facts) {
+          facts.push(fact);
+          // CE-06 (M17, Test 9): NIGDY bezpośrednio discovery_occurred ->
+          // productivity -- ta krawędź zawsze przechodzi przez faktyczną
+          // decyzję AI-08 (`production_method_adopted`).
+          const discoveryId = fact.subject.entityId;
+          const adoptedIndex = productionMethodAdoptedFactIndexByDiscoveryId[discoveryId];
+          causalLinks.push({
+            targetIndex: facts.length - 1,
+            source:
+              adoptedIndex !== undefined
+                ? { kind: "sameBatch", index: adoptedIndex }
+                : { kind: "external", key: `discovery:${discoveryId}:production_method_adopted` },
+            type: "DIRECT",
+            factor: { key: "industry_adoption", contribution: 1 },
+            mechanism: "AI-08 przyjęło production method zagate'owaną tym odkryciem",
+            system: "technology-adoption",
+          });
+        }
       }
     }
 
@@ -1067,6 +1408,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         markets,
         inventories,
         facts,
+        causalLinks,
       });
       connection = tradeOneDirection({
         connection,
@@ -1079,6 +1421,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         markets,
         inventories,
         facts,
+        causalLinks,
       });
     }
     connections[connectionId] = connection;
@@ -1100,9 +1443,14 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     populationCohorts,
     tick,
     rng: migrationRng,
+    migrationAttractionBreakdownByRegionId,
   });
   populationCohorts = migrationResult.populationCohorts;
-  facts.push(...migrationResult.facts);
+  {
+    const baseIndex = facts.length;
+    facts.push(...migrationResult.facts);
+    causalLinks.push(...offsetCausalLinks(migrationResult.causalLinks, baseIndex));
+  }
 
   // 11.5 Uzgodnienie zatrudnienia firm z realną podażą pracy regionu
   // (audytowe P0-05, "Company headcount reconciliation"). Migracja (krok
@@ -1165,7 +1513,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           const layoffResult = layoffWorkers({ company, cohort, count });
           company = layoffResult.company;
           populationCohorts[cohortId] = layoffResult.cohort;
-          facts.push(...layoffResult.facts);
+          {
+            const baseIndex = facts.length;
+            facts.push(...layoffResult.facts);
+            causalLinks.push(...offsetCausalLinks(layoffResult.causalLinks, baseIndex));
+          }
           excess -= count;
         }
         companies[companyId] = company;
@@ -1258,7 +1610,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         ...growthResult.settlement,
         economy: { ...growthResult.settlement.economy, employment },
       };
-      facts.push(...growthResult.facts);
+      {
+        const baseIndex = facts.length;
+        facts.push(...growthResult.facts);
+        causalLinks.push(...offsetCausalLinks(growthResult.causalLinks, baseIndex));
+      }
       urbanizationPressureSum += growthResult.pressure.urbanizationPressure;
     }
 
@@ -1308,7 +1664,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     interventions: Object.values(worldState.interventions),
   });
 
-  return { worldState: nextWorldState, facts };
+  return { worldState: nextWorldState, facts, causalLinks };
 }
 
 function evaluatePmAdoptionSafely(args: {
@@ -1317,12 +1673,16 @@ function evaluatePmAdoptionSafely(args: {
   readonly currentRecipe: ProductionRecipe;
   readonly candidateRecipe: ProductionRecipe;
   readonly prices: Readonly<Record<string, number>>;
-}): { readonly company: Company; readonly adopted: boolean } {
+}): {
+  readonly company: Company;
+  readonly adopted: boolean;
+  readonly snapshot: DecisionSnapshot | undefined;
+} {
   // conversionCost stays 0 (TODO tuning/content -- no cost model exists
   // yet for switching production methods); evaluatePmAdoption itself
   // still enforces cooldown/persistence/hard eligibility on cash.
   const result = evaluatePmAdoption({ ...args, conversionCost: 0 });
-  return { company: result.company, adopted: result.adopted };
+  return { company: result.company, adopted: result.adopted, snapshot: result.snapshot };
 }
 
 interface TradeOneDirectionArgs {
@@ -1336,6 +1696,7 @@ interface TradeOneDirectionArgs {
   readonly markets: Record<string, Market>;
   readonly inventories: Record<string, Inventory>;
   readonly facts: FactInput[];
+  readonly causalLinks: PendingCausalLink[];
 }
 
 /** Ocenia i fizycznie rozlicza jeden kierunek handlu (importer = strona przekazana jako "importing"). */
@@ -1352,7 +1713,11 @@ function tradeOneDirection(args: TradeOneDirectionArgs): Connection {
     transportMode: args.transportMode,
     desiredImportQuantity,
   });
-  args.facts.push(...tradeResult.facts);
+  {
+    const baseIndex = args.facts.length;
+    args.facts.push(...tradeResult.facts);
+    args.causalLinks.push(...offsetCausalLinks(tradeResult.causalLinks, baseIndex));
+  }
 
   if (
     tradeResult.importedQuantity > 0 &&

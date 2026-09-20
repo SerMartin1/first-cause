@@ -1,6 +1,7 @@
 import type { PopulationCohort } from "@first-cause/entities";
 import type { FactInput, FactLocation } from "@first-cause/causality";
 import { assertNonNegative } from "../../core/validation.js";
+import { directionalEdgeType, type PendingCausalLink } from "../../core/causal-links.js";
 
 /**
  * Household income & consumption (Simulation Model SS26 "Household
@@ -103,6 +104,8 @@ export interface ApplyHouseholdConsumptionResult {
   readonly cohort: PopulationCohort;
   readonly spent: Readonly<Record<SpendingCategory, number>>;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-05): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -132,6 +135,7 @@ export function applyHouseholdConsumption(
   };
 
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
   if (nextCohort.consumptionBudget !== cohort.consumptionBudget) {
     facts.push({
       type: "consumption_budget_changed",
@@ -143,7 +147,26 @@ export function applyHouseholdConsumption(
         delta: nextCohort.consumptionBudget - cohort.consumptionBudget,
       },
     });
+    // CE-05 (M17): dochód to Wages (`employment * averageIncome`, patrz
+    // doc comment modułu) -- dwa niezależne czynniki, każdy z własnym
+    // znakiem (kohorta mogła zyskać zatrudnienie, ale stracić na
+    // stawce, albo odwrotnie). `external`: żaden z dwóch nie ma dziś
+    // własnego faktu bezpośrednio referencyjnego stąd (TODO: podłączyć
+    // do realnego `employment_changed`/`wage_offer_changed` przez
+    // `priorFactIndex`, gdy ten mechanizm powstanie).
+    const targetIndex = facts.length - 1;
+    const delta = nextCohort.consumptionBudget - cohort.consumptionBudget;
+    if (delta !== 0) {
+      causalLinks.push({
+        targetIndex,
+        source: { kind: "external", key: `cohort:${cohort.id}:employment` },
+        type: directionalEdgeType(delta),
+        factor: { key: "employment", contribution: Math.sign(delta) },
+        mechanism: "dochód gospodarstwa domowego to zatrudnienie razy średnia stawka",
+        system: "consumption",
+      });
+    }
   }
 
-  return { cohort: nextCohort, spent, facts };
+  return { cohort: nextCohort, spent, facts, causalLinks };
 }

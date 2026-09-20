@@ -1,6 +1,7 @@
 import type { Settlement, SettlementHousing } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 import { assertNonNegative } from "../../core/validation.js";
+import type { PendingCausalLink } from "../../core/causal-links.js";
 
 /**
  * Housing (SET-003, World Generation Spec §20, `society/housing`, M14).
@@ -121,6 +122,8 @@ export interface UpdateSettlementHousingInput {
 export interface UpdateSettlementHousingResult {
   readonly housing: SettlementHousing;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-05): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /** Spina wzrost capacity + pressure + cost w jedno wywołanie na settlement na tick. */
@@ -146,6 +149,7 @@ export function updateSettlementHousing(
   const cost = adjustHousingCost({ currentCost: settlement.housing.cost, pressure });
 
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
   if (pressure > 0 && settlement.housing.pressure === 0) {
     facts.push({
       type: "housing_pressure_started",
@@ -153,7 +157,19 @@ export function updateSettlementHousing(
       location: { regionId: settlement.regionId, settlementId: settlement.id },
       values: { before: settlement.housing.pressure, after: pressure, delta: pressure },
     });
+    // CE-05 (M17): jedna, jasna przyczyna -- populacja przerosła
+    // capacity szybciej niż `HOUSING_CONSTRUCTION_RATE` nadążył (Urban
+    // Crisis, patrz doc comment modułu) -- nie wymyślam tu wieloprzyczynowości,
+    // której formuła nie ma (CAUS-003).
+    causalLinks.push({
+      targetIndex: facts.length - 1,
+      source: { kind: "external", key: `settlement:${settlement.id}:population_growth` },
+      type: "TRIGGERING",
+      factor: { key: "population_exceeds_capacity", contribution: 1 },
+      mechanism: "populacja przerosła housing.capacity szybciej niż budowa nadążyła",
+      system: "housing",
+    });
   }
 
-  return { housing: { capacity, cost, pressure }, facts };
+  return { housing: { capacity, cost, pressure }, facts, causalLinks };
 }

@@ -1,9 +1,38 @@
 import type { Company, Inventory, ResourceDeposit } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 import { assertNonNegative, InvariantViolationError } from "../../core/validation.js";
+import { offsetCausalLinks, type PendingCausalLink } from "../../core/causal-links.js";
 import { extractFromDeposit } from "../resources/extraction.js";
 import { addToInventory, removeFromInventory } from "./inventory.js";
 import { applyProductionToCompany } from "./companies.js";
+
+/**
+ * CE-04 (M17, Causality Engine Spec SS63): jaki rodzaj wejścia faktycznie
+ * ograniczył `batches` tego ticka -- `CAPACITY` to własny, zadeklarowany
+ * sufit firmy (nie jest interesującym przyczynowo ograniczeniem sam z
+ * siebie); resztę to realne, zewnętrzne limity warte ujawnienia
+ * (`production_bottleneck_identified`, poniżej). `ENERGY`/`TRANSPORT`
+ * nie są jeszcze modelowane jako własne wejścia (brak systemu energii,
+ * brak per-firmowego kosztu transportu w tej funkcji) -- wymienione
+ * tutaj, żeby przyszły system rozszerzający ten bag nigdy nie musiał
+ * wymyślać nowego słownictwa, zgodnie z pełną 6-elementową taksonomią
+ * §63.
+ */
+export type ProductionConstraintType =
+  | "CAPACITY"
+  | "LABOR"
+  | "INPUT"
+  | "DEMAND"
+  | "ENERGY"
+  | "TRANSPORT";
+
+/** Nazwane inaczej niż `company-ai/production-decision.ts`'s własne (prostsze, 3-wartościowe) `ProductionBottleneck` -- to jest CE-04's bogatszy, przyczynowy odpowiednik, nie ten sam koncept. */
+export interface ProductionConstraint {
+  readonly type: ProductionConstraintType;
+  /** Który konkretny resource/good id był wiążący, dla ograniczenia `INPUT` -- `"capacity"`/`"employees"` dla dwóch pozostałych kandydatów, które ta funkcja faktycznie liczy. */
+  readonly variable: string;
+  readonly batches: number;
+}
 
 /**
  * Production (Simulation Model, Production-Economy-Master SS11, ECO-007
@@ -76,6 +105,8 @@ export interface RunProductionResult {
   readonly resourceDeposits: Readonly<Record<string, ResourceDeposit>>;
   readonly batches: number;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-04): `targetIndex`/`sameBatch.index` są względne do WŁASNEJ tablicy `facts` tego wyniku -- patrz `offsetCausalLinks` w `causal-links.ts`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -242,6 +273,59 @@ function computeBatches(input: RunProductionInput): number {
   return Math.max(0, batches);
 }
 
+/**
+ * Te same kandydujące limity, z których `computeBatches` już bierze
+ * minimum, ale zachowane jako pojedynczo oznaczone liczby, nie
+ * scalone -- deterministyczny tie-break: iteruje resource/good id w
+ * sortowanej kolejności, pierwszy (najmniejszy) kandydat wygrywa,
+ * `CAPACITY` zawsze liczone pierwsze, więc realny remis z capacity
+ * faworyzuje bardziej informacyjną (nie-capacity) etykietę, tak samo
+ * jak ta funkcja już listuje kandydatów w porządku priorytetu.
+ */
+function identifyProductionConstraint(input: RunProductionInput): ProductionConstraint {
+  const { company, recipe } = input;
+  const candidates: ProductionConstraint[] = [
+    {
+      type: "CAPACITY",
+      variable: "capacity",
+      batches: Math.floor(company.production.capacity * company.production.utilization),
+    },
+  ];
+  if (recipe.employeesPerBatch > 0) {
+    candidates.push({
+      type: "LABOR",
+      variable: "employees",
+      batches: maxBatchesFor(company.workforce.employees, recipe.employeesPerBatch),
+    });
+  }
+  for (const resourceId of Object.keys(recipe.resourceInputsPerBatch).sort()) {
+    const quantityPerBatch = recipe.resourceInputsPerBatch[resourceId]!;
+    if (quantityPerBatch === 0) continue;
+    const available = input.resourceDeposits[resourceId]?.stock.quantity ?? 0;
+    candidates.push({
+      type: "INPUT",
+      variable: resourceId,
+      batches: maxBatchesFor(available, quantityPerBatch),
+    });
+  }
+  for (const goodId of Object.keys(recipe.goodInputsPerBatch).sort()) {
+    const quantityPerBatch = recipe.goodInputsPerBatch[goodId]!;
+    if (quantityPerBatch === 0) continue;
+    const available = input.inventory.items[goodId]?.quantity ?? 0;
+    candidates.push({
+      type: "INPUT",
+      variable: goodId,
+      batches: maxBatchesFor(available, quantityPerBatch),
+    });
+  }
+
+  let binding = candidates[0]!;
+  for (const candidate of candidates.slice(1)) {
+    if (candidate.batches < binding.batches) binding = candidate;
+  }
+  return binding;
+}
+
 export function runProduction(input: RunProductionInput): RunProductionResult {
   const { company, recipe } = input;
   const batches = computeBatches(input);
@@ -249,7 +333,40 @@ export function runProduction(input: RunProductionInput): RunProductionResult {
   let inventory = input.inventory;
   const resourceDeposits: Record<string, ResourceDeposit> = { ...input.resourceDeposits };
   const facts: FactInput<number>[] = [];
+  const causalLinks: PendingCausalLink[] = [];
   const inputRequirements: Record<string, number> = {};
+
+  // CE-04 (M17): ujawnij to tylko wtedy, gdy coś INNEGO niż własny,
+  // zadeklarowany sufit capacity/utilization firmy faktycznie
+  // ograniczyło output -- firma po prostu ograniczona własnym capacity
+  // z definicji nie jest przyczynowo interesującym bottleneckiem; firma,
+  // która CHCE działać na capacity, ale nie może (niedobór pracy/
+  // zasobu/dobra), jest dokładnie tym sygnałem, którego potrzebuje
+  // Resource Bust (CE-12 Test 10) i podobne łańcuchy.
+  const capacityBatches = Math.floor(
+    company.production.capacity * company.production.utilization,
+  );
+  const bottleneck = identifyProductionConstraint(input);
+  if (bottleneck.type !== "CAPACITY" && bottleneck.batches < capacityBatches) {
+    facts.push({
+      type: "production_bottleneck_identified",
+      subject: { entityType: "company", entityId: company.id },
+      location: { regionId: company.regionId },
+      values: {
+        before: capacityBatches,
+        after: bottleneck.batches,
+        delta: bottleneck.batches - capacityBatches,
+      },
+    });
+    causalLinks.push({
+      targetIndex: facts.length - 1,
+      source: { kind: "external", key: `${bottleneck.type.toLowerCase()}:${bottleneck.variable}` },
+      type: "CONSTRAINING",
+      factor: { key: bottleneck.variable, contribution: -1 },
+      mechanism: `${bottleneck.type} (${bottleneck.variable}) limited production to ${bottleneck.batches} batches, below the ${capacityBatches}-batch capacity ceiling`,
+      system: "production",
+    });
+  }
 
   for (const [resourceId, quantityPerBatch] of Object.entries(
     recipe.resourceInputsPerBatch,
@@ -262,7 +379,11 @@ export function runProduction(input: RunProductionInput): RunProductionResult {
     const deposit = resourceDeposits[resourceId]!;
     const extraction = extractFromDeposit(deposit, { tick: input.tick, amount });
     resourceDeposits[resourceId] = extraction.deposit;
-    facts.push(...extraction.facts);
+    {
+      const baseIndex = facts.length;
+      facts.push(...extraction.facts);
+      causalLinks.push(...offsetCausalLinks(extraction.causalLinks, baseIndex));
+    }
     inputRequirements[resourceId] =
       (inputRequirements[resourceId] ?? 0) + extraction.extracted;
   }
@@ -295,5 +416,5 @@ export function runProduction(input: RunProductionInput): RunProductionResult {
     inputRequirements,
   });
 
-  return { company: nextCompany, inventory, resourceDeposits, batches, facts };
+  return { company: nextCompany, inventory, resourceDeposits, batches, facts, causalLinks };
 }

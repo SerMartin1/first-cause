@@ -8,6 +8,59 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-09-20
+
+- **M17 -- Causality (pełna integracja): wszystkie systemy z M5--M16
+  wpięte w realny graf przyczynowy.** Implementacja rozpoczęta
+  2026-09-19, dokończona i zacommitowana dziś (weryfikacja/dokumentacja/
+  commit -- kod i testy były gotowe wczoraj, patrz poniżej).
+  - **Fundament** (`packages/causality/src/`): `causal-edge.ts`
+    (`CausalEdge`/`CausalEdgeType`/`CausalFactor`), `causal-edge-store.ts`
+    (indeksy incoming/outgoing, CE-03), `causal-strength.ts` (progi
+    PRIMARY/SIGNIFICANT/MINOR/TRACE), `architect-influence-propagation.ts`
+    (decay + dilution przy niezależnych przyczynach, CE-07),
+    `causal-memory.ts` (HOT/WARM/PERMANENT, `isAnchor`),
+    `causal-pruning.ts` (`pruneCausalMemory`, backward reachability od
+    anchors, CAUS-010, CE-09).
+  - **Plumbing** (`packages/simulation/src/core/`): `causal-links.ts`,
+    `causal-resolution.ts` (`resolveTickCausality`). `economy-tick.ts`:
+    nowe pole wyniku `causalLinks`, nowy input `priorFactIndex?:
+    Record<string, string>` (klucz musi zawierać `type`, inaczej
+    "najnowszy fakt tej encji" cicho podmienia się na niezwiązany fakt
+    tej samej encji). `world-runner.ts`: `causalEdgeStore`/
+    `architectInfluenceByFactId`/`factsById`/
+    `latestFactIdByEntityAndType` trwałe między tickami, nowa metoda
+    `applyIntervention()` -- most Architect (M16) -> ten sam graf
+    przyczynowy co `step()`; opcjonalny `causalPruneIntervalTicks`
+    zaimplementowany i przetestowany, ale wyłączony domyślnie (TODO
+    tuning częstotliwości).
+  - **Rollout CE-04--CE-07 przez wszystkie 11 grup systemów**: Market/
+    Price, Production + bottleneck, Labor, Company AI decisions
+    (naprawiony most `DecisionSnapshot.causalContext.factors`, dotąd
+    odrzucany), Population, Migration (`computeMigrationAttractionBreakdown`
+    jako multi-factor breakdown), Settlement
+    (`computeSettlementPressureBreakdown`), Resources, Technology (pełny
+    łańcuch knowledge -> eligible -> occurred -> available/diffused ->
+    adoption), Architect (Root Fact + `applyIntervention` most), Trade.
+    Zero regresji przez cały rollout (`pnpm build:packages` + `pnpm test`
+    PASS po każdej grupie).
+  - **10/10 testów akceptacyjnych CE-12**
+    (`packages/worldgen/src/fixtures/causality-acceptance.test.ts` --
+    Testy 3,4,5,6,7,9,10 -- plus Test 1 w `price-adjustment.test.ts`,
+    Test 2 w `migration.test.ts`, Test 8 w `settlements.test.ts`). Testy
+    3 i 9 przeprojektowane w trakcie: Black Mountain nie ma contentu
+    konsumującego `iron_ore` wprost, a RNG-gated breakthrough discovery
+    nie da się przetestować deterministycznie bez ustawienia stanu z
+    góry -- finalne testy startują discovery jako `KNOWN` i sprawdzają
+    deterministyczny łańcuch availability->adoption.
+  - **Dokumentacja**: `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
+    -- nowa sekcja "M17 -- Wyniki wykonania", `M17 READY` -> `DONE` w
+    tabeli statusów (sekcja 12), `M18 BACKLOG` -> `READY`, "Następny
+    krok" (sekcja 14) z M17 -> M18 WHY?.
+  - Weryfikacja: `pnpm typecheck/lint/test/build/test:e2e` wszystkie
+    PASS (767/767 testów, 106 plików; lint 0 błędów, 1 wcześniej znany
+    warning w `reference-field.ts`, niezwiązany z M17).
+
 ## 2026-09-19
 
 - **Remediacja audytu M15-M16 (gotowość do M17: Causality).** Niezależny

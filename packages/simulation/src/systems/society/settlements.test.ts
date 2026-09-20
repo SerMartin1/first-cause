@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createSettlement, type Settlement } from "@first-cause/entities";
 import {
   computeSettlementPressure,
+  computeSettlementPressureBreakdown,
   evaluateSettlementGrowth,
   SETTLEMENT_STAGE_ORDER,
   STAGE_POPULATION_THRESHOLD,
@@ -46,6 +47,29 @@ describe("computeSettlementPressure (FC-SETTLEMENT-001)", () => {
       housingCapacity: 20, // far below population
     });
     expect(overcrowded.urbanizationPressure).toBeLessThan(withRoom.urbanizationPressure);
+  });
+
+  it("CE-12 Test 8 (WHY? Negative Factor, §96): housing_demand/constraints stay correctly signed even when the region still grows overall (net-positive urbanizationPressure)", () => {
+    const signals = {
+      stage: "CAMP" as const,
+      population: 100,
+      employment: 90, // strong jobs signal keeps net pressure positive
+      tradeUtilization: 0.9,
+      infrastructureLevel: 5,
+      housingCapacity: 20, // severe overcrowding -- occupancyRatio = 5x
+    };
+    const pressure = computeSettlementPressure(signals);
+    const breakdown = computeSettlementPressureBreakdown(signals);
+
+    // Region still nets positive urbanizationPressure overall (jobs/trade/infra dominate)...
+    expect(pressure.urbanizationPressure).toBeGreaterThan(0);
+    // ...but housing overcrowding must NEVER read as a positive/contributing
+    // factor just because the net effect happens to be growth -- SS25's own
+    // example (housing cost -0.28 in a growing region).
+    const constraints = breakdown.urbanization.find((f) => f.key === "constraints")!;
+    expect(constraints.contribution).toBeLessThan(0);
+    const housingDemand = breakdown.urbanization.find((f) => f.key === "housing_demand")!;
+    expect(housingDemand.contribution).toBeGreaterThan(0); // demand itself (occupancy) is a real positive signal, distinct from the overcrowding penalty
   });
 
   it("gives METROPOLIS (no further stage) a defined, non-throwing result", () => {

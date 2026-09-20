@@ -279,6 +279,47 @@ describe("applyMigrationFlow (FC-MIGRATION-005 accounting)", () => {
     expect(-outFact.values.delta!).toBe(inFact.values.delta); // OutMigration === InMigration
   });
 
+  it("CE-12 Test 2 (Multi-causal Migration, §90): jobs/wage are positive (CONTRIBUTING) causes, housing_cost is negative (DAMPENING), ranked by contribution magnitude", () => {
+    const sourceCohort = buildCohort({ population: 100, employment: 20 });
+
+    const result = applyMigrationFlow({
+      sourceCohort,
+      migrantCount: 10,
+      destinationRegionId: "region_b",
+      destinationSettlementId: undefined,
+      tick: 5,
+      existingDestinationCohort: undefined,
+      sourceAttractionBreakdown: [
+        { key: "jobs", contribution: 0.1 },
+        { key: "wage", contribution: 0.05 },
+        { key: "housing_cost", contribution: -0.05 },
+      ],
+      destinationAttractionBreakdown: [
+        { key: "jobs", contribution: 0.3 },
+        { key: "wage", contribution: 0.15 },
+        { key: "housing_cost", contribution: -0.2 },
+      ],
+    });
+
+    const inFactIndex = result.facts.findIndex((f) => f.type === "population_migrated_in");
+    const inLinks = result.causalLinks.filter((link) => link.targetIndex === inFactIndex);
+    const jobsLink = inLinks.find((link) => link.factor.key === "jobs")!;
+    const wageLink = inLinks.find((link) => link.factor.key === "wage")!;
+    const housingLink = inLinks.find((link) => link.factor.key === "housing_cost")!;
+
+    expect(jobsLink.type).toBe("CONTRIBUTING");
+    expect(wageLink.type).toBe("CONTRIBUTING");
+    expect(housingLink.type).toBe("DAMPENING");
+    expect(housingLink.factor.contribution).toBeLessThan(0);
+    // Ranking zgodny z contributions: jobs (0.3) > housing_cost (|-0.2|) > wage (0.15).
+    expect(Math.abs(jobsLink.factor.contribution)).toBeGreaterThan(
+      Math.abs(housingLink.factor.contribution),
+    );
+    expect(Math.abs(housingLink.factor.contribution)).toBeGreaterThan(
+      Math.abs(wageLink.factor.contribution),
+    );
+  });
+
   it("merges into an existing destination cohort of the same identity instead of creating a duplicate", () => {
     const sourceCohort = buildCohort({ population: 100, employment: 0 });
     const existingDestinationCohort = buildCohort({

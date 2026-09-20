@@ -5,6 +5,7 @@ import {
   assertNonNegative,
   assertPositive,
 } from "../../../core/validation.js";
+import type { PendingCausalLink } from "../../../core/causal-links.js";
 
 /**
  * Employment matching (Simulation Model SS11 "Employment & Wages", VS
@@ -62,6 +63,8 @@ export interface MatchEmploymentResult {
   /** How many workers this call actually hired (0 when nothing matched). */
   readonly hired: number;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-04): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -96,7 +99,7 @@ export function matchEmployment(input: MatchEmploymentInput): MatchEmploymentRes
 
   const hired = Math.min(vacancies, skillCap, available);
   if (hired <= 0) {
-    return { company, cohort, hired: 0, facts: [] };
+    return { company, cohort, hired: 0, facts: [], causalLinks: [] };
   }
 
   const wageOffer = assertPositive(
@@ -135,8 +138,32 @@ export function matchEmployment(input: MatchEmploymentInput): MatchEmploymentRes
       values: { before: priorEmployment, after: nextEmployment, delta: hired },
     },
   ];
+  // CE-04 (M17): dwa niezależne warunki musiały być prawdziwe naraz, żeby
+  // to zatrudnienie zaszło -- wolne wakaty firmy i dostępna, bezrobotna
+  // siła robocza tej kohorty. `external`: żadna z dwóch stron nie ma
+  // dziś własnego faktu ("vacancies_opened" nie istnieje jeszcze) --
+  // TODO: podłączyć do realnego faktu, gdy company-ai/labor-decision.ts
+  // zacznie emitować swój własny.
+  const causalLinks: PendingCausalLink[] = [
+    {
+      targetIndex: 0,
+      source: { kind: "external", key: `company:${company.id}:vacancies` },
+      type: "ENABLING",
+      factor: { key: "vacancies", contribution: 1 },
+      mechanism: "firma miała wolne wakaty na ten poziom umiejętności",
+      system: "employment",
+    },
+    {
+      targetIndex: 0,
+      source: { kind: "external", key: `cohort:${cohort.id}:available_workers` },
+      type: "ENABLING",
+      factor: { key: "available_workers", contribution: 1 },
+      mechanism: "kohorta miała dostępnych, bezrobotnych pracowników tego poziomu umiejętności",
+      system: "employment",
+    },
+  ];
 
-  return { company: nextCompany, cohort: nextCohort, hired, facts };
+  return { company: nextCompany, cohort: nextCohort, hired, facts, causalLinks };
 }
 
 export interface LayoffWorkersInput {
@@ -150,6 +177,8 @@ export interface LayoffWorkersResult {
   readonly company: Company;
   readonly cohort: PopulationCohort;
   readonly facts: readonly FactInput<number>[];
+  /** M17 (CE-04): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
+  readonly causalLinks: readonly PendingCausalLink[];
 }
 
 /**
@@ -166,7 +195,7 @@ export interface LayoffWorkersResult {
 export function layoffWorkers(input: LayoffWorkersInput): LayoffWorkersResult {
   const { company, cohort } = input;
   const count = assertNonNegative(input.count, "layoffWorkers().count");
-  if (count === 0) return { company, cohort, facts: [] };
+  if (count === 0) return { company, cohort, facts: [], causalLinks: [] };
 
   if (count > company.workforce.employees) {
     throw new InvariantViolationError(
@@ -195,6 +224,18 @@ export function layoffWorkers(input: LayoffWorkersInput): LayoffWorkersResult {
       values: { before: priorEmployment, after: nextEmployment, delta: -count },
     },
   ];
+  // CE-04 (M17): zwolnienie zawsze DAMPENING wobec zatrudnienia -- decyzja
+  // firmy (AI-08/M11 `labor-decision.ts`), nie decyzja kohorty.
+  const causalLinks: PendingCausalLink[] = [
+    {
+      targetIndex: 0,
+      source: { kind: "external", key: `company:${company.id}:layoff_decision` },
+      type: "DAMPENING",
+      factor: { key: "layoff", contribution: -1 },
+      mechanism: "firma zredukowała liczbę pracowników tej kohorty",
+      system: "employment",
+    },
+  ];
 
-  return { company: nextCompany, cohort: nextCohort, facts };
+  return { company: nextCompany, cohort: nextCohort, facts, causalLinks };
 }
