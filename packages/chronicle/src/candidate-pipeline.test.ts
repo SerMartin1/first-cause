@@ -488,4 +488,138 @@ describe("buildChronicleCandidates", () => {
     // Same aggregationKey as the first episode -- chronicle-entry-store.ts folds them into one entry.
     expect(secondResolution[0]!.aggregationKey).toBe(firstResolution[0]!.aggregationKey);
   });
+
+  describe("regional_boom / regional_bust", () => {
+    const boomBustEventTypes = () =>
+      DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+        makeEventType({ id: "regional_boom", category: "economy", candidateThreshold: 5, baseSignificance: 30 }),
+        makeEventType({ id: "regional_bust", category: "economy", candidateThreshold: 5, baseSignificance: 30 }),
+      ]);
+    const employmentFact = (id: string, tick: number, regionId: string, before: number, after: number) =>
+      makeFact({
+        id,
+        type: "employment_changed",
+        tick,
+        subject: { entityType: "company", entityId: "co_1" },
+        location: { regionId },
+        values: { before, after },
+      });
+    const context = { regionPopulation: (regionId: string) => (regionId === "region_1" ? 1000 : undefined) };
+
+    it("a sustained positive employment trend resolves as regional_boom, not regional_bust", () => {
+      const eventTypes = boomBustEventTypes();
+      const activeProcessRegistry = createActiveProcessRegistry();
+      buildChronicleCandidates({
+        facts: [employmentFact("fact_0_0", 0, "region_1", 0, 400)], // +400/1000 population = strong positive pulse
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: 0,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        context,
+      });
+      const resolved = buildChronicleCandidates({
+        facts: [],
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: 10,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        regionalPulseSilenceTicks: 6,
+        context,
+      });
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0]).toMatchObject({ eventType: "regional_boom", regionRefs: ["region_1"] });
+    });
+
+    it("a sustained negative employment trend resolves as regional_bust, not regional_boom", () => {
+      const eventTypes = boomBustEventTypes();
+      const activeProcessRegistry = createActiveProcessRegistry();
+      buildChronicleCandidates({
+        facts: [employmentFact("fact_0_0", 0, "region_1", 400, 0)], // -400/1000 population
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: 0,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        context,
+      });
+      const resolved = buildChronicleCandidates({
+        facts: [],
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: 10,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        regionalPulseSilenceTicks: 6,
+        context,
+      });
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0]).toMatchObject({ eventType: "regional_bust", regionRefs: ["region_1"] });
+    });
+
+    it("a pulse that nets out to exactly 0 fires neither event (SS103 silence is valid)", () => {
+      const eventTypes = boomBustEventTypes();
+      const activeProcessRegistry = createActiveProcessRegistry();
+      buildChronicleCandidates({
+        facts: [
+          employmentFact("fact_0_0", 0, "region_1", 0, 100),
+          employmentFact("fact_0_1", 0, "region_1", 100, 0),
+        ],
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: 0,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        context,
+      });
+      const resolved = buildChronicleCandidates({
+        facts: [],
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: 10,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        regionalPulseSilenceTicks: 6,
+        context,
+      });
+      expect(resolved).toEqual([]);
+    });
+
+    it("a weak, below-threshold pulse produces no candidate at all", () => {
+      const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+        makeEventType({ id: "regional_boom", category: "economy", candidateThreshold: 99, baseSignificance: 0 }),
+        makeEventType({ id: "regional_bust", category: "economy", candidateThreshold: 99, baseSignificance: 0 }),
+      ]);
+      const activeProcessRegistry = createActiveProcessRegistry();
+      buildChronicleCandidates({
+        facts: [employmentFact("fact_0_0", 0, "region_1", 0, 1)], // negligible relative to population 1000
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: 0,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        context,
+      });
+      const resolved = buildChronicleCandidates({
+        facts: [],
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: 10,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        regionalPulseSilenceTicks: 6,
+        context,
+      });
+      expect(resolved).toEqual([]);
+    });
+  });
 });

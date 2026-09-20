@@ -3178,9 +3178,9 @@ EN/PL w `locales/*/common.json` w `content/eventTypes/`,
 składniki 0..1, baseline (SS23) jako mały stały udział, progi kategorii
 Trace/.../World-Defining jako `SIGNIFICANCE_CATEGORY_THRESHOLDS_TODO_TUNING`.
 
-**CH-03 Candidate Pipeline (`candidate-pipeline.ts`):** z 15 event types
-VS, **13 ma pełny detektor end-to-end** (stan po follow-upach tego
-samego dnia, patrz `CHANGELOG.md`) na realnych typach faktów już
+**CH-03 Candidate Pipeline (`candidate-pipeline.ts`):** wszystkie **15/15
+event types VS mają pełny detektor end-to-end** (stan po follow-upach
+tego samego dnia, patrz `CHANGELOG.md`) na realnych typach faktów już
 emitowanych przez `packages/simulation`: `resource_discovered`,
 `company_founded`, `company_major_expansion` <- `company_expanded`,
 `company_closed`, `settlement_stage_changed`, `discovery_occurred`,
@@ -3196,14 +3196,18 @@ zamiast własnej logiki grafowej, okresowy `WorldRunner.
 maybeRunInterventionLegacy`, domyślnie wyłączony), `trade_route_emerged`
 (nowy fakt `trade_flow_active` z `economy-tick.ts`, akumulator ze
 STABILNYM `aggregationKey` bez komponentu okna -- szlak handlowy to
-jeden trwały wpis aktualizowany w miejscu, nie seria epizodów). **2
-pozostają świadomie NIEpodłączone** (content + szablony gotowe, brak
-detektora): `regional_boom`/`regional_bust` (SS35-38 -- każdy wymaga
-własnego kalibrowanego kompozytowego wskaźnika, nie zgadywanego;
-AGENTS.md "nie wymyślaj mechaniki, oznacz TODO"). `causalImpact` dla
-fact-driven detektorów liczony jako bounded 1-hop suma `|contribution|`
-wychodzących krawędzi (SS115/117
-anti-explosion), nie pełny propagation graph -- to CH-09 (P1).
+jeden trwały wpis aktualizowany w miejscu, nie seria epizodów),
+`regional_boom`/`regional_bust` (najbardziej niepewny kalibracyjnie z
+całej piętnastki -- kompozytowy "regional pulse" sumujący znormalizowane
+delty `employment_changed`/`population_migrated_in`/`_out`/
+`production_utilization_changed` per region per tick; znak skumulowanej
+sumy przy rozwiązaniu procesu decyduje boom vs. bust; KAŻDA stała
+wagowa jawnie `_TODO_TUNING`, brak Significance Calibration Dataset
+SS191 -- to jedyny detektor bez jakiejkolwiek walidacji na realnych
+danych symulacji). `causalImpact` dla fact-driven detektorów liczony
+jako bounded 1-hop suma `|contribution|` wychodzących krawędzi
+(SS115/117 anti-explosion), nie pełny propagation graph -- to CH-09
+(P1).
 
 **CH-04 Aggregation (`aggregation.ts`) + CH-05 Entry Storage
 (`chronicle-entry-store.ts`):** within-batch grouping po `aggregationKey`
@@ -3253,11 +3257,14 @@ dowodzi realnego podłączenia w `WorldRunner` (`step()` i
 typecheck/lint/test/build`: wszystkie PASS (836 testów w repo).
 
 **Świadomie poza zakresem tej implementacji:** CH-08 Historical Threads,
-CH-09 Retrospective Significance, CH-10 Turning Points, CH-11 Architect
-Legacy, CH-12 Historical Compression (P1, roadmapa's własne "nie
-blokują VS"), 7 niepodłączonych event types wymienionych wyżej, Era
-Detection (TARGET), Generated Narrative/LLM layer (SS70-72 --
-template-first wystarcza), UI Chronicle (`FCChronicleEntry` itd. -- M21).
+CH-09 Retrospective Significance, CH-10 Turning Points, CH-12 Historical
+Compression (P1, roadmapa's własne "nie blokują VS"); CH-11 Architect
+Legacy jest częściowo wdrożone (patrz follow-up tego samego dnia niżej
+-- `intervention_major_consequence` działa, ale pełna retrospektywna
+"legacy po dekadach" pozostaje uproszczona do okresowego re-checku, nie
+prawdziwej historycznej narracji). Era Detection (TARGET), Generated
+Narrative/LLM layer (SS70-72 -- template-first wystarcza), UI Chronicle
+(`FCChronicleEntry` itd. -- M21).
 
 ------------------------------------------------------------------------
 

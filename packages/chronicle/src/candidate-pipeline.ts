@@ -31,24 +31,22 @@ import type { ChronicleCandidate, GeographicScope } from "./types.js";
  * Content authors can add more `EventTypeDefinition`s freely; only a
  * fact type this pipeline can genuinely observe belongs on the left.
  *
- * NOT included here (defined as content, ready for a future detector,
- * intentionally not wired to a candidate yet -- see spec SS35-38,
- * AGENTS.md "nie wymyślaj mechaniki, oznacz TODO"): `regional_boom`/
- * `regional_bust` (genuine multi-signal composite trend detectors --
- * need their own calibrated indicator, not a single raw fact), and
- * `intervention_major_consequence` (Architect Legacy, CH-11, P1 --
- * belongs on top of `queryButterflyEffect`/M18, not this table; wired
- * separately, see `intervention-legacy.ts`).
+ * NOT included here: `intervention_major_consequence` (Architect
+ * Legacy, CH-11, P1 -- belongs on top of `queryButterflyEffect`/M18, not
+ * this table; wired separately, see `intervention-legacy.ts`).
  *
- * `shortage_resolved`/`migration_wave`/`trade_route_emerged` ARE wired,
- * but through `ActiveProcessRegistry` accumulation/silence detection
- * below, not this table (no single raw fact represents "resolved"/"a
- * sustained wave"/"a persistent route"). `technology_adoption_wave`
- * relies entirely on CH-04 aggregation (`aggregationPolicy.scope:
- * "entity"` in content, i.e. per `discoveryId`) to fold repeated
- * `technology_adoption_increased` ticks for the SAME discovery into one
- * entry -- never across different discoveries, which would be exactly
- * the false aggregation SS30 forbids.
+ * `shortage_resolved`/`migration_wave`/`trade_route_emerged`/
+ * `regional_boom`/`regional_bust` ARE wired, but through
+ * `ActiveProcessRegistry` accumulation/silence detection below, not this
+ * table (none of them is represented by a single raw fact --
+ * "resolved"/"a sustained wave"/"a persistent route"/"a regional trend"
+ * are all patterns over several ticks' worth of facts, SS35-38, AGENTS.md
+ * "nie wymyślaj mechaniki, oznacz TODO" for every constant governing how
+ * each pattern is detected). `technology_adoption_wave` relies entirely
+ * on CH-04 aggregation (`aggregationPolicy.scope: "entity"` in content,
+ * i.e. per `discoveryId`) to fold repeated `technology_adoption_increased`
+ * ticks for the SAME discovery into one entry -- never across different
+ * discoveries, which would be exactly the false aggregation SS30 forbids.
  */
 const RAW_FACT_TYPE_TO_EVENT_TYPE_TODO_TUNING: Readonly<Record<string, string>> = {
   resource_discovered: "resource_discovered",
@@ -90,6 +88,41 @@ const TRADE_ROUTE_MAX_DURATION_TICKS_TODO_TUNING = 60;
 const TRADE_ROUTE_DURATION_SATURATION_TICKS_TODO_TUNING = 36;
 /** Fallback absolute scale for `magnitude` -- accumulated flow volume across an episode reaching this saturates to `1` (TODO tuning: no per-good/per-region context hook exists yet for a more relative denominator). */
 const TRADE_ROUTE_FALLBACK_SCALE_TODO_TUNING = 2000;
+
+/**
+ * `regional_boom`/`regional_bust` (SS36-37): the least calibrated
+ * detector in this pipeline -- there is no single raw fact for "boom",
+ * only a composite read over several already-flowing fact types. Every
+ * constant here is a first-guess placeholder pending a real Significance
+ * Calibration Dataset (SS191), flagged rather than silently assumed
+ * correct (AGENTS.md "nie wymyślaj mechaniki, oznacz TODO").
+ *
+ * `computeRegionalPulseDeltas` sums, PER REGION PER TICK: `employment_
+ * changed` and `population_migrated_in`/`_out` deltas normalized against
+ * `ChronicleContext.regionPopulation` (same ratio convention as
+ * `migration_wave`), plus `production_utilization_changed` deltas
+ * (already `0..1`-scale per company, down-weighted so a handful of
+ * ordinary utilization ticks in an active region don't dwarf the other
+ * two signals). The SIGNED running total (`ActiveProcessRegistry.
+ * accumulatedMagnitude`) determines which event fires at resolution:
+ * positive -> `regional_boom`, negative -> `regional_bust`, exactly zero
+ * -> neither (SS103 silence is valid).
+ */
+const REGIONAL_PULSE_SILENCE_TICKS_TODO_TUNING = 6;
+/** Forces a periodic assessment (like `trade_route`'s cap) instead of letting one region's pulse process run forever in an always-active economy -- 5 years at monthly VS ticks. */
+const REGIONAL_PULSE_MAX_DURATION_TICKS_TODO_TUNING = 60;
+const REGIONAL_PULSE_DURATION_SATURATION_TICKS_TODO_TUNING = 36;
+/** Down-weights `production_utilization_changed`'s already-`0..1`-scale per-company deltas so they read comparably to the population-ratio signals, not dominate them. */
+const REGIONAL_PULSE_PRODUCTION_WEIGHT_TODO_TUNING = 0.1;
+/** Accumulated |pulse| reaching this saturates `magnitude` to `1`. */
+const REGIONAL_PULSE_SATURATION_TODO_TUNING = 1;
+
+const REGIONAL_PULSE_FACT_TYPES: ReadonlySet<string> = new Set([
+  "employment_changed",
+  "production_utilization_changed",
+  "population_migrated_in",
+  "population_migrated_out",
+]);
 
 /** Exported for `intervention-legacy.ts` -- same duration-classification proxy, one shared table. */
 export const DURATION_COMPONENT_TODO_TUNING: Readonly<Record<DurationState, number>> = {
@@ -144,6 +177,8 @@ export interface BuildChronicleCandidatesInput {
   readonly migrationWaveMaxDurationTicks?: number;
   readonly tradeRouteSilenceTicks?: number;
   readonly tradeRouteMaxDurationTicks?: number;
+  readonly regionalPulseSilenceTicks?: number;
+  readonly regionalPulseMaxDurationTicks?: number;
 }
 
 function determineScope(fact: SimulationFact): GeographicScope {
@@ -452,6 +487,88 @@ function buildTradeRouteCandidate(
   };
 }
 
+function regionalPulseProcessKey(regionId: string): string {
+  return `regional_pulse:${regionId}`;
+}
+
+function computeRegionalPulseDeltas(
+  facts: readonly SimulationFact[],
+  context: ChronicleContext | undefined,
+): Map<string, number> {
+  const deltas = new Map<string, number>();
+  const add = (regionId: string, amount: number): void => {
+    if (!Number.isFinite(amount) || amount === 0) return;
+    deltas.set(regionId, (deltas.get(regionId) ?? 0) + amount);
+  };
+
+  for (const fact of facts) {
+    if (!REGIONAL_PULSE_FACT_TYPES.has(fact.type)) continue;
+    const values = fact.values as { before?: unknown; after?: unknown };
+    if (typeof values.before !== "number" || typeof values.after !== "number") continue;
+    const delta = values.after - values.before;
+    const regionId = fact.location.regionId;
+
+    if (fact.type === "production_utilization_changed") {
+      add(regionId, delta * REGIONAL_PULSE_PRODUCTION_WEIGHT_TODO_TUNING);
+      continue;
+    }
+    // employment_changed, population_migrated_in/out: normalized as a
+    // share of the region's own population -- `population_migrated_out`
+    // is naturally already negative here (its `after` < `before` on the
+    // SOURCE region), so no extra sign-flip is needed.
+    const populationDenominator = context?.regionPopulation?.(regionId);
+    if (populationDenominator === undefined || populationDenominator <= 0) continue;
+    add(regionId, delta / populationDenominator);
+  }
+  return deltas;
+}
+
+function buildRegionalPulseCandidate(
+  process: ActiveProcess,
+  eventType: EventTypeDefinition,
+  tick: number,
+  nextId: () => string,
+): ChronicleCandidate | undefined {
+  const elapsedTicks = Math.max(1, tick - process.startTick);
+  const duration = Math.min(1, elapsedTicks / REGIONAL_PULSE_DURATION_SATURATION_TICKS_TODO_TUNING);
+  const magnitude = Math.min(1, Math.abs(process.accumulatedMagnitude) / REGIONAL_PULSE_SATURATION_TODO_TUNING);
+  const geographicScope = GEOGRAPHIC_SCOPE_COMPONENT_TODO_TUNING.REGIONAL;
+
+  const significance = computeSignificance({
+    magnitude,
+    duration,
+    populationAffected: geographicScope,
+    geographicScope,
+    novelty: 0,
+    causalImpact: 0,
+    contextualImportance: 0,
+    baseSignificance: eventType.baseSignificance,
+  });
+
+  if (significance.total < eventType.candidateThreshold) return undefined;
+
+  // processKey = `regional_pulse:<regionId>`.
+  const regionId = process.processKey.split(":")[1];
+
+  return {
+    id: nextId(),
+    factRefs: [process.rootFactId],
+    tick,
+    entityRefs: [],
+    regionRefs: regionId !== undefined ? [regionId] : [],
+    eventType: eventType.id,
+    category: eventType.category,
+    significance,
+    isFirstOccurrence: false,
+    scope: "REGIONAL",
+    durationState: eventType.durationPolicy,
+    causalAnchors: [process.rootFactId],
+    architectInfluence: 0,
+    aggregationKey: undefined,
+    status: "PENDING",
+  };
+}
+
 /**
  * CH-03: `SimulationFact[] -> ChronicleCandidate[]` (Candidate Schema
  * SS19). Mutates `noveltyRegistry`/`activeProcessRegistry` as a side
@@ -526,6 +643,21 @@ export function buildChronicleCandidates(
     }
   }
 
+  const regionalPulseDeltas = computeRegionalPulseDeltas(input.facts, input.context);
+  for (const [regionId, delta] of [...regionalPulseDeltas.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const anchorFact = input.facts.find(
+      (fact) => fact.location.regionId === regionId && REGIONAL_PULSE_FACT_TYPES.has(fact.type),
+    );
+    if (!anchorFact) continue; // defensive -- a nonzero delta always came from at least one such fact
+    input.activeProcessRegistry.openOrRenew(
+      regionalPulseProcessKey(regionId),
+      "regional_pulse",
+      input.currentTick,
+      anchorFact.id,
+      delta,
+    );
+  }
+
   const silenceTicks = input.shortageResolutionSilenceTicks ?? SHORTAGE_RESOLUTION_SILENCE_TICKS_TODO_TUNING;
   const resolvedEventType = input.eventTypes.get("shortage_resolved");
   if (resolvedEventType) {
@@ -583,6 +715,38 @@ export function buildChronicleCandidates(
     for (const process of [...resolvable.values()].sort((a, b) => a.processKey.localeCompare(b.processKey))) {
       input.activeProcessRegistry.advance(process.processKey, "RESOLVED", input.currentTick);
       const candidate = buildTradeRouteCandidate(process, tradeRouteEventType, input.currentTick, nextId);
+      if (candidate) candidates.push(candidate);
+    }
+  }
+
+  const regionalPulseSilenceTicks =
+    input.regionalPulseSilenceTicks ?? REGIONAL_PULSE_SILENCE_TICKS_TODO_TUNING;
+  const regionalPulseMaxDurationTicks =
+    input.regionalPulseMaxDurationTicks ?? REGIONAL_PULSE_MAX_DURATION_TICKS_TODO_TUNING;
+  const regionalBoomEventType = input.eventTypes.get("regional_boom");
+  const regionalBustEventType = input.eventTypes.get("regional_bust");
+  if (regionalBoomEventType || regionalBustEventType) {
+    const resolvable = new Map<string, ActiveProcess>();
+    for (const process of input.activeProcessRegistry.findStale(input.currentTick, regionalPulseSilenceTicks)) {
+      if (process.processType === "regional_pulse") resolvable.set(process.processKey, process);
+    }
+    for (const process of input.activeProcessRegistry.findExceedingDuration(
+      input.currentTick,
+      regionalPulseMaxDurationTicks,
+    )) {
+      if (process.processType === "regional_pulse") resolvable.set(process.processKey, process);
+    }
+    for (const process of [...resolvable.values()].sort((a, b) => a.processKey.localeCompare(b.processKey))) {
+      input.activeProcessRegistry.advance(process.processKey, "RESOLVED", input.currentTick);
+      // SS103 silence is valid: a pulse that nets out to exactly 0 fires neither event.
+      const eventType =
+        process.accumulatedMagnitude > 0
+          ? regionalBoomEventType
+          : process.accumulatedMagnitude < 0
+            ? regionalBustEventType
+            : undefined;
+      if (!eventType) continue;
+      const candidate = buildRegionalPulseCandidate(process, eventType, input.currentTick, nextId);
       if (candidate) candidates.push(candidate);
     }
   }

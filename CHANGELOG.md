@@ -10,6 +10,32 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-20
 
+- **M19 Chronicle -- podłączenie `regional_boom`/`regional_bust` (7 z
+  7, WSZYSTKIE 15 event types VS mają teraz pełny detektor).** Na
+  wyraźną prośbę użytkownika. Najbardziej niepewny kalibracyjnie
+  detektor z całej piętnastki -- jedyny bez żadnej weryfikacji na
+  realnych danych symulacji.
+  - **`candidate-pipeline.ts`'s `computeRegionalPulseDeltas`:**
+    kompozytowy "regional pulse" sumujący PER REGION PER TICK:
+    znormalizowane (względem `region.population.totalPopulation`)
+    delty `employment_changed` i `population_migrated_in`/`_out`, plus
+    down-weightowane (x0.1, `REGIONAL_PULSE_PRODUCTION_WEIGHT_TODO_TUNING`)
+    delty `production_utilization_changed`. Znak SKUMULOWANEJ sumy
+    (`ActiveProcessRegistry.accumulatedMagnitude`, ten sam rejestr co
+    `migration_wave`/`trade_route_emerged`, jeden proces `regional_pulse:
+    <regionId>` per region) przy rozwiązaniu (silence lub max-duration,
+    5 lat) decyduje `regional_boom` (dodatni) vs. `regional_bust`
+    (ujemny) vs. brak kandydata (dokładnie zero, SS103 silence is
+    valid).
+  - KAŻDA stała wagowa/progowa jest jawnie `_TODO_TUNING` z komentarzem
+    wyjaśniającym uproszczenie -- brak Significance Calibration Dataset
+    (SS191) na tym etapie, zgodnie z AGENTS.md "nie wymyślaj mechaniki,
+    oznacz TODO". To najbardziej prawdopodobny kandydat do rekalibracji
+    po pierwszych realnych przebiegach symulacji.
+  - Nowe testy: `candidate-pipeline.test.ts` (+4: boom, bust, zero-netto
+    brak zdarzenia, poniżej progu brak kandydata). `pnpm
+    typecheck/lint/test/build`: wszystkie PASS (860 testów w repo).
+
 - **M19 Chronicle -- podłączenie `trade_route_emerged` (5 z 7), na
   wyraźną prośbę użytkownika (potwierdzone przed dodaniem nowego faktu
   w gorącej ścieżce handlu).**
