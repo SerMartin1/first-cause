@@ -1,0 +1,13 @@
+{
+  "id": "discovery_occurred_default",
+  "factOrEventType": "discovery_occurred",
+  "titleKey": "content.chronicleTemplate.discovery_occurred_default.title",
+  "bodyKey": "content.chronicleTemplate.discovery_occurred_default.body",
+  "requiredData": [
+    "discoveryName",
+    "regionName",
+    "noveltyScope"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

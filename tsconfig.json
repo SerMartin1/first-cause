@@ -7,6 +7,7 @@
     { "path": "packages/simulation" },
     { "path": "packages/entities" },
     { "path": "packages/worldgen" },
-    { "path": "packages/causality" }
+    { "path": "packages/causality" },
+    { "path": "packages/chronicle" }
   ]
 }

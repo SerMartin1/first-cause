@@ -1,0 +1,20 @@
+{
+  "id": "trade_route_emerged",
+  "nameKey": "content.eventType.trade_route_emerged.name",
+  "category": "trade",
+  "baseSignificance": 25,
+  "candidateThreshold": 20,
+  "aggregationPolicy": {
+    "windowTicks": 6,
+    "scope": "region"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": true,
+    "scope": "world"
+  },
+  "durationPolicy": "STRUCTURAL",
+  "anchorPolicy": {
+    "alwaysAnchor": false
+  },
+  "implementationPhase": "VS"
+}

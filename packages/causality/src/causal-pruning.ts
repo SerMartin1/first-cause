@@ -17,6 +17,19 @@ export interface PruneCausalMemoryInput {
   readonly architectInfluenceByFactId: ReadonlyMap<string, number>;
   readonly currentTick: number;
   readonly hotWindowTicks?: number;
+  /**
+   * Additional must-keep fact IDs from a system outside `causality`
+   * itself -- today, `@first-cause/chronicle`'s `historical-anchor.ts`
+   * (Chronicle & Historical Significance Spec SS79-80/SS135: a Historic+
+   * entry's facts must survive pruning). Deliberately a separate field
+   * rather than folded into `architectInfluenceByFactId`: these facts
+   * are not Architect-influenced, and `why-query.ts`'s
+   * `architectConnectionFor` would misreport "connected to your
+   * intervention" for them if they were. `causality` stays unaware of
+   * `chronicle` -- the caller (`WorldRunner`) is the only thing that
+   * knows both.
+   */
+  readonly extraMustKeepFactIds?: ReadonlySet<string>;
 }
 
 export interface PruneCausalMemoryResult {
@@ -24,6 +37,8 @@ export interface PruneCausalMemoryResult {
   readonly edges: readonly CausalEdge[];
   readonly architectInfluenceByFactId: ReadonlyMap<string, number>;
 }
+
+const EMPTY_MUST_KEEP_SET: ReadonlySet<string> = new Set();
 
 function groupKey(fact: SimulationFact): string {
   return `${fact.subject.entityId}::${fact.type}`;
@@ -44,6 +59,7 @@ function computeMustKeepIds(
   facts: readonly SimulationFact[],
   edges: readonly CausalEdge[],
   architectInfluenceByFactId: ReadonlyMap<string, number>,
+  extraMustKeepFactIds: ReadonlySet<string>,
 ): Set<string> {
   const incomingBySource = new Map<string, string[]>();
   for (const edge of edges) {
@@ -55,7 +71,11 @@ function computeMustKeepIds(
   const mustKeep = new Set<string>();
   const queue: string[] = [];
   for (const fact of facts) {
-    if (isAnchor(fact) || (architectInfluenceByFactId.get(fact.id) ?? 0) > 0) {
+    if (
+      isAnchor(fact) ||
+      (architectInfluenceByFactId.get(fact.id) ?? 0) > 0 ||
+      extraMustKeepFactIds.has(fact.id)
+    ) {
       if (!mustKeep.has(fact.id)) {
         mustKeep.add(fact.id);
         queue.push(fact.id);
@@ -82,7 +102,12 @@ function computeMustKeepIds(
  */
 export function pruneCausalMemory(input: PruneCausalMemoryInput): PruneCausalMemoryResult {
   const hotWindowTicks = input.hotWindowTicks ?? HOT_WINDOW_TICKS_TODO_TUNING;
-  const mustKeep = computeMustKeepIds(input.facts, input.edges, input.architectInfluenceByFactId);
+  const mustKeep = computeMustKeepIds(
+    input.facts,
+    input.edges,
+    input.architectInfluenceByFactId,
+    input.extraMustKeepFactIds ?? EMPTY_MUST_KEEP_SET,
+  );
 
   const groups = new Map<string, SimulationFact[]>();
   const survivors: SimulationFact[] = [];

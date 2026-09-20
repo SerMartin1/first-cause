@@ -1,0 +1,13 @@
+{
+  "id": "technology_adoption_wave_default",
+  "factOrEventType": "technology_adoption_wave",
+  "titleKey": "content.chronicleTemplate.technology_adoption_wave_default.title",
+  "bodyKey": "content.chronicleTemplate.technology_adoption_wave_default.body",
+  "requiredData": [
+    "methodName",
+    "regionName",
+    "adoptionPercent"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

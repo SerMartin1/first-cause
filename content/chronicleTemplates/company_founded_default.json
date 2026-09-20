@@ -1,0 +1,13 @@
+{
+  "id": "company_founded_default",
+  "factOrEventType": "company_founded",
+  "titleKey": "content.chronicleTemplate.company_founded_default.title",
+  "bodyKey": "content.chronicleTemplate.company_founded_default.body",
+  "requiredData": [
+    "companyName",
+    "settlementName",
+    "sector"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

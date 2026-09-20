@@ -4,11 +4,15 @@ import { LocalizationKeySchema, OpenRecordSchema } from "./common.js";
 import type { ContentTypeSpec } from "./reference-field.js";
 
 /**
- * ChronicleTemplateDefinition (Content-Localization-Spec SS50). Unlike
- * every other type it has no `nameKey` -- it names a `titleKey`/`bodyKey`
- * pair instead, since a Chronicle entry is a title+body, not a single
- * display name. `factOrEventType` is a free string: the fact/event-type
- * vocabulary it names is not defined until M17/M20.
+ * ChronicleTemplateDefinition (Content-Localization-Spec SS50; consumed
+ * by Chronicle & Historical Significance Spec SS66-69 "Template-first"/
+ * "Data Payload", milestone M19, module CH-13). Unlike every other type
+ * it has no `nameKey` -- it names a `titleKey`/`bodyKey` pair instead,
+ * since a Chronicle entry is a title+body, not a single display name.
+ * `factOrEventType` is a free string matching an `EventTypeDefinition.id`
+ * (`event-type-definition.ts`) -- kept as a plain string rather than a
+ * `referenceFields` entry because a template may also target a raw
+ * `SimulationFact.type` that has no `EventTypeDefinition` of its own.
  */
 export const ChronicleTemplateDefinitionSchema = z.object({
   id: ContentIdSchema,

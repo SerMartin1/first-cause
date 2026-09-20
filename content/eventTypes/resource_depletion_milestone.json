@@ -1,0 +1,20 @@
+{
+  "id": "resource_depletion_milestone",
+  "nameKey": "content.eventType.resource_depletion_milestone.name",
+  "category": "resources",
+  "baseSignificance": 25,
+  "candidateThreshold": 20,
+  "aggregationPolicy": {
+    "windowTicks": 1,
+    "scope": "entity"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": false,
+    "scope": "world"
+  },
+  "durationPolicy": "STRUCTURAL",
+  "anchorPolicy": {
+    "alwaysAnchor": false
+  },
+  "implementationPhase": "VS"
+}

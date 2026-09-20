@@ -39,6 +39,8 @@ describe("content fixtures on disk (content/, locales/)", () => {
         discovery: readJsonDir("content/discoveries"),
         knowledgeDomain: readJsonDir("content/knowledgeDomains"),
         intervention: readJsonDir("content/interventions"),
+        eventType: readJsonDir("content/eventTypes"),
+        chronicleTemplate: readJsonDir("content/chronicleTemplates"),
       },
       locales: {
         en: readJson("locales/en/common.json"),
@@ -67,5 +69,9 @@ describe("content fixtures on disk (content/, locales/)", () => {
     expect(result.registries.knowledgeDomain?.has("science_society")).toBe(true);
     expect(result.registries.intervention?.has("reveal_resource_deposit")).toBe(true);
     expect(result.registries.intervention?.has("environmental_shock")).toBe(true);
+    expect(result.stats.eventType).toBe(15);
+    expect(result.stats.chronicleTemplate).toBe(15);
+    expect(result.registries.eventType?.has("settlement_stage_changed")).toBe(true);
+    expect(result.registries.chronicleTemplate?.has("discovery_occurred_default")).toBe(true);
   });
 });

@@ -116,7 +116,7 @@ const CASES = [
     valid: {
       id: "harvest_failure",
       nameKey: "content.event_type.harvest_failure.name",
-      category: "agriculture",
+      category: "resources",
       implementationPhase: "VS",
     },
     requiredFieldToOmit: "category",

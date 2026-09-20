@@ -10,6 +10,57 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-20
 
+- **M19 -- Chronicle: wybór i zapis historycznie istotnych wydarzeń
+  (Historical Significance), zakres P0.** Nowy pakiet
+  `packages/chronicle` (wzorzec `packages/causality`: moduł-na-plik,
+  `X_TODO_TUNING` stałe, czyste funkcje) implementujący CH-01...CH-07,
+  CH-13, CH-14 ze spec Chronicle & Historical Significance v0.1.
+  - **CH-01/CH-13** -- `packages/content`'s `eventType`/
+    `chronicleTemplate` (placeholdery od M2) dostały realne pola (SS126:
+    `baseSignificance`, `candidateThreshold`, `aggregationPolicy`,
+    `noveltyPolicy`, `durationPolicy`, `anchorPolicy`) i zamknięty enum
+    15 kategorii (SS21). 15 typów zdarzeń VS (SS151) + 15 szablonów +
+    klucze EN/PL w `content/eventTypes/`, `content/chronicleTemplates/`,
+    `locales/*/common.json`.
+  - **CH-02** (`significance.ts`) -- ważony model SS189, znormalizowane
+    składniki 0..1, NIE czyste mnożenie (SS190).
+  - **CH-03** (`candidate-pipeline.ts`) -- 8 z 15 event types ma pełny
+    detektor end-to-end na realnych faktach już emitowanych przez
+    `packages/simulation`; 7 pozostaje świadomie niepodłączonych
+    (`resource_depletion_milestone`, `migration_wave`, `regional_boom`,
+    `regional_bust`, `trade_route_emerged`, `intervention_major_consequence`
+    -- każdy wymaga własnego kalibrowanego detektora/danych, których dziś
+    nie ma; AGENTS.md "nie wymyślaj mechaniki, oznacz TODO"). Nowy
+    `ActiveProcessRegistry` (SS34 EMERGING->...->RESOLVED) obsługuje
+    `shortage_resolved` przez silence-detection.
+  - **CH-04/CH-05** (`aggregation.ts`, `chronicle-entry-store.ts`) --
+    within-batch grouping + cross-tick "Update Existing Entry" (SS64) po
+    `aggregationKey`. "Zakaz fałszywej agregacji" (SS30) strukturalny.
+  - **Historical Anchor** (`historical-anchor.ts`) -- integracja z
+    `@first-cause/causality`: `pruneCausalMemory` dostał nowe opcjonalne
+    pole `extraMustKeepFactIds` (Causality zostaje nieświadomy Chronicle).
+  - **CH-06/CH-07/CH-14** (`sensitivity.ts`, `chronicle-api.ts`) --
+    Concise/Standard/Detailed; `getEntityHistory` realizuje SS60
+    "Contextual Promotion" przez filtrowanie po encji zamiast osobnego
+    `contextualImportance` score (ten zostaje `0` w P0, udokumentowane).
+  - **Integracja `WorldRunner`** -- nowy krok `runChronicle` między
+    `resolveCausality` a `maybePruneCausalMemory`, wołany z `step()` I z
+    `applyIntervention()` (Root Fact interwencji Architekta inaczej
+    ominąłby Chronicle). Cała konfiguracja opcjonalna, zero zmiany
+    zachowania gdy nieustawiona.
+  - **Testy:** 48 w `packages/chronicle` (w tym integracyjny na realnym
+    contencie z dysku: source integrity, no forced drama, determinizm,
+    historical anchor przeżywa pruning), nowy test
+    `extraMustKeepFactIds` w `causal-pruning.test.ts`, nowy
+    `world-runner.chronicle.test.ts` (3). `pnpm typecheck/lint/test/build`:
+    wszystkie PASS (836 testów w repo).
+  - **Poza zakresem:** CH-08...CH-12 (Historical Threads, Retrospective
+    Significance, Turning Points, Architect Legacy, Historical
+    Compression -- P1, nie blokują VS), Era Detection, Generated
+    Narrative/LLM layer, UI Chronicle (M21). Szczegóły w
+    `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`'s "M19 -- Wyniki
+    wykonania".
+
 - **M18 -- WHY?: query engine dla wyjaśnień przyczynowych, Butterfly
   Effect i WHY NOT?.** Trzy nowe, czyste funkcje nad grafem z M17 --
   żadna nowa symulacja/stan, tylko odpytanie już-istniejących danych

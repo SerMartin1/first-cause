@@ -3151,6 +3151,105 @@ Era Detection (TARGET, nie VS).
 **Checkpoint:** **CP4 --- Historical World** osiągnięty po tym
 milestone.
 
+### M19 --- Wyniki wykonania (2026-09-20)
+
+**Status: DONE (P0 -- CH-01...CH-07, CH-13, CH-14).**
+
+**Nowy pakiet `packages/chronicle`** (wzorzec 1:1 z `packages/causality`:
+moduł-na-plik, `X_TODO_TUNING` stałe, czyste funkcje nad już-istniejącymi
+danymi). Zależy tylko od `@first-cause/causality` (typy faktu/edge) i
+`@first-cause/content` (rejestry `EventTypeDefinition`/
+`ChronicleTemplateDefinition`) -- świadomie BEZ `@first-cause/entities`,
+żeby `significance.ts` pozostał czystą funkcją testowalną bez
+uruchomionej symulacji (kontekst względnej wielkości/populacji wchodzi
+przez opcjonalny hook `ChronicleContext`, wypełniany przez wywołującego).
+
+**CH-01/CH-13 (`packages/content`):** `event-type-definition.ts` i
+`chronicle-template-definition.ts` (istniejące od M2 jako placeholdery)
+dostały realne pola ze spec SS126 (`baseSignificance`,
+`candidateThreshold`, `aggregationPolicy`, `noveltyPolicy`,
+`durationPolicy`, `anchorPolicy`) oraz zamknięty enum 15 kategorii Chronicle
+(SS21). 15 typów zdarzeń VS (SS151) + 15 szablonów + klucze
+EN/PL w `locales/*/common.json` w `content/eventTypes/`,
+`content/chronicleTemplates/`.
+
+**CH-02 Initial Significance (`significance.ts`):** ważony model SS189
+(`S = wM*M + ... + wX*X`, NIE czyste mnożenie -- SS190), znormalizowane
+składniki 0..1, baseline (SS23) jako mały stały udział, progi kategorii
+Trace/.../World-Defining jako `SIGNIFICANCE_CATEGORY_THRESHOLDS_TODO_TUNING`.
+
+**CH-03 Candidate Pipeline (`candidate-pipeline.ts`):** z 15 event types
+VS, **8 ma pełny detektor end-to-end** na realnych typach faktów już
+emitowanych przez `packages/simulation` (`resource_discovered`,
+`company_founded`, `company_major_expansion` <- `company_expanded`,
+`company_closed`, `settlement_stage_changed`, `discovery_occurred`,
+`shortage_started`, `shortage_resolved` -- ten ostatni przez
+`ActiveProcessRegistry` silence-detection, SS33, bo nie ma osobnego
+surowego faktu resolution). **7 pozostaje świadomie NIEpodłączonych**
+(content + szablony gotowe, brak detektora): `resource_depletion_milestone`
+(symulacja nie eksponuje jeszcze serii poziomu rezerw per-złoże, tylko
+terminalny `resource_depleted`), `migration_wave`/`regional_boom`/
+`regional_bust`/`trade_route_emerged` (SS35-38 -- każdy wymaga własnego
+kalibrowanego progu, nie zgadywanego; AGENTS.md "nie wymyślaj mechaniki,
+oznacz TODO"), `intervention_major_consequence` (Architect Legacy, CH-11,
+P1). `causalImpact` liczony jako bounded 1-hop suma `|contribution|`
+wychodzących krawędzi (SS115/117 anti-explosion), nie pełny propagation
+graph -- to CH-09 (P1).
+
+**CH-04 Aggregation (`aggregation.ts`) + CH-05 Entry Storage
+(`chronicle-entry-store.ts`):** within-batch grouping po `aggregationKey`
+(już koduje event type + scope + window, SS26) w `aggregation.ts`;
+cross-tick "Update Existing Entry" (SS64) w `ChronicleEntryStore.upsert`
+przez lookup po tym samym kluczu. "Zakaz fałszywej agregacji" (SS30) jest
+strukturalny -- nigdy osobny check.
+
+**Historical Anchor (`historical-anchor.ts`):** `shouldBeHistoricalAnchor`
+łączy content-driven `anchorPolicy.alwaysAnchor` z dynamicznymi regułami
+(Historic+/Turning Point/silny wpływ Architekta). Integracja z
+`@first-cause/causality`: `pruneCausalMemory` (`causal-pruning.ts`)
+dostał nowe opcjonalne pole `extraMustKeepFactIds` (Causality zostaje
+nieświadomy Chronicle -- adapter żyje w `WorldRunner`), świadomie NIE
+złączone z `architectInfluenceByFactId` (zepsułoby `why-query.ts`'s
+`architectConnections`).
+
+**CH-06 Sensitivity (`sensitivity.ts`) + CH-07/CH-14 API
+(`chronicle-api.ts`):** Concise/Standard/Detailed progi; `getEntityHistory`
+celowo POMIJA sensitivity -- to jest realny mechanizm SS60 "Contextual
+Promotion", nie osobny `contextualImportance` score (ten komponent
+zostaje `0` w P0, udokumentowane wprost w `significance.ts`).
+`getTopEvents`/`getHistoricalThread`/`getTurningPoints`/
+`getArchitectLegacy` (SS205) świadomie nieobecne -- potrzebują CH-08/10/11.
+
+**Integracja z `WorldRunner`
+(`packages/simulation/src/core/world-runner.ts`):** nowy krok
+`runChronicle` między `resolveCausality` a `maybePruneCausalMemory`
+(SS123-124), wołany zarówno z `step()` (zwykłe fakty), jak i z
+`applyIntervention()` (Root Fact interwencji Architekta -- inaczej
+ominąłby Chronicle całkowicie). Cała konfiguracja opcjonalna
+(`chronicleEventTypes`/`chronicleTemplates`/undefined = zero zmiany
+zachowania, ten sam kontrakt co `causalPruneIntervalTicks`). `dataPayload`
+zostaje `{}` na tym poziomie -- realne nazwy encji (`settlementName` itp.)
+wymagają lookupów `WorldState`, które `WorldRunner` celowo nie robi tu
+per-typ (byłby to dokładnie zakazany hardcode w generycznym silniku);
+to zadanie warstwy prezentacji (M21).
+
+**Testy:** 48 testów w `packages/chronicle` (jednostkowe per moduł +
+`pipeline.integration.test.ts` na realnym contencie z dysku: source
+integrity, no forced drama, determinizm, historical anchor przeżywa
+pruning mimo że `causality`'s własny `isAnchor()` by tego nie ochronił,
+mini-scenariusz w stylu Black Mountain). Nowy test w `causal-pruning.test.ts`
+dla `extraMustKeepFactIds`. Nowy `world-runner.chronicle.test.ts` (3 testy)
+dowodzi realnego podłączenia w `WorldRunner` (`step()` i
+`applyIntervention()`, przeżycie pruningu po 130 tickach). `pnpm
+typecheck/lint/test/build`: wszystkie PASS (836 testów w repo).
+
+**Świadomie poza zakresem tej implementacji:** CH-08 Historical Threads,
+CH-09 Retrospective Significance, CH-10 Turning Points, CH-11 Architect
+Legacy, CH-12 Historical Compression (P1, roadmapa's własne "nie
+blokują VS"), 7 niepodłączonych event types wymienionych wyżej, Era
+Detection (TARGET), Generated Narrative/LLM layer (SS70-72 --
+template-first wystarcza), UI Chronicle (`FCChronicleEntry` itd. -- M21).
+
 ------------------------------------------------------------------------
 
 ## M20 --- Save/Load (pełna integracja)
@@ -3608,11 +3707,13 @@ Small/Standard presety (World Generation Spec §55 MVP scope).
 
 # 12. Implementation Status
 
-Stan na 2026-09-19: M0, M0.1 Audit Fixes oraz M1--M15 ukończone (M12-M14
+Stan na 2026-09-20: M0, M0.1 Audit Fixes oraz M1--M19 ukończone (M12-M14
 dodatkowo przeszły pełny audyt post-implementacyjny i naprawę -- patrz
 M14's sekcja "Audyt post-implementacyjny"; M15's sekcja "Wyniki
-wykonania" opisuje implementację Discovery Engine/Diffusion/Adoption).
-M16 odblokowany. **Ten dokument jest żywy --- po ukończeniu każdego
+wykonania" opisuje implementację Discovery Engine/Diffusion/Adoption;
+M19's sekcja "Wyniki wykonania" opisuje zakres P0 Chronicle i 7
+świadomie niepodłączonych event types). M20 odblokowany. **Ten dokument
+jest żywy --- po ukończeniu każdego
 milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
 Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
 pozycji bez wyraźnego powodu (patrz sekcja 13).**
@@ -3638,8 +3739,8 @@ pozycji bez wyraźnego powodu (patrz sekcja 13).**
   M16         DONE      P0          M           MEDIUM        M15
   M17         DONE      P0          L           HIGH          M16
   M18         DONE      P0          M           MEDIUM        M17
-  M19         READY     P0          M/L         MEDIUM        M18
-  M20         BACKLOG   P0          M           MEDIUM-HIGH   M19
+  M19         DONE      P0          M/L         MEDIUM        M18
+  M20         READY     P0          M           MEDIUM-HIGH   M19
   M21         BACKLOG   P0          L           MEDIUM        M20
   M22         BACKLOG   P0          L           HIGH          M21
   M23         BACKLOG   P0          M           HIGH          M22
@@ -3681,17 +3782,17 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M19 — Chronicle**, READY -- system wybiera i zapisuje
-historycznie istotne wydarzenia z oceną Historical Significance, na
-podstawie realnego grafu przyczynowego dostarczonego przez M17 i WHY?/
-Butterfly Query dostarczonych przez M18. M0, M0.1 oraz M1--M18 są DONE
-(M12-M14 dodatkowo przeszły pełną naprawę audytu post-implementacyjnego,
-patrz M14's sekcja; M15's implementacja Discovery Engine/Diffusion/
-Adoption, M16's implementacja Architect, M17's pełna integracja Causality
-Engine i M18's WHY?/Butterfly/WHY NOT? opisane w ich sekcjach "Wyniki
-wykonania", M15-M16 dodatkowo z dopisanym addendum po remediacji
-niezależnego audytu M15-M16 z 2026-09-19 -- patrz też `CHANGELOG.md`).
-Kolejne milestone’y rozpoczynają się po odbiorze ich zależności.
+Następny krok: **M20 — Save/Load (pełna integracja)**, READY -- save/load
+obejmuje cały World State ze wszystkich milestone'ów M0--M19, z pełnymi
+wersjami, migracjami i kompaktacją historii przyczynowej. M0, M0.1 oraz
+M1--M19 są DONE (M12-M14 dodatkowo przeszły pełną naprawę audytu
+post-implementacyjnego, patrz M14's sekcja; M15's implementacja Discovery
+Engine/Diffusion/Adoption, M16's implementacja Architect, M17's pełna
+integracja Causality Engine, M18's WHY?/Butterfly/WHY NOT? i M19's
+Chronicle P0 opisane w ich sekcjach "Wyniki wykonania", M15-M16 dodatkowo
+z dopisanym addendum po remediacji niezależnego audytu M15-M16 z
+2026-09-19 -- patrz też `CHANGELOG.md`). Kolejne milestone’y rozpoczynają
+się po odbiorze ich zależności.
 
 ------------------------------------------------------------------------
 

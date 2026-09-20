@@ -1,0 +1,14 @@
+{
+  "id": "settlement_stage_changed_default",
+  "factOrEventType": "settlement_stage_changed",
+  "titleKey": "content.chronicleTemplate.settlement_stage_changed_default.title",
+  "bodyKey": "content.chronicleTemplate.settlement_stage_changed_default.body",
+  "requiredData": [
+    "settlementName",
+    "oldStage",
+    "newStage",
+    "mainDriver"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

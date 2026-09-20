@@ -1,0 +1,13 @@
+{
+  "id": "company_major_expansion_default",
+  "factOrEventType": "company_major_expansion",
+  "titleKey": "content.chronicleTemplate.company_major_expansion_default.title",
+  "bodyKey": "content.chronicleTemplate.company_major_expansion_default.body",
+  "requiredData": [
+    "companyName",
+    "settlementName",
+    "growthPercent"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

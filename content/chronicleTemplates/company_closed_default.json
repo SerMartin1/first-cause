@@ -1,0 +1,13 @@
+{
+  "id": "company_closed_default",
+  "factOrEventType": "company_closed",
+  "titleKey": "content.chronicleTemplate.company_closed_default.title",
+  "bodyKey": "content.chronicleTemplate.company_closed_default.body",
+  "requiredData": [
+    "companyName",
+    "settlementName",
+    "yearsActive"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "shortage_resolved",
+  "nameKey": "content.eventType.shortage_resolved.name",
+  "category": "resources",
+  "baseSignificance": 15,
+  "candidateThreshold": 15,
+  "aggregationPolicy": {
+    "windowTicks": 1,
+    "scope": "entity"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": false,
+    "scope": "world"
+  },
+  "durationPolicy": "SHORT",
+  "anchorPolicy": {
+    "alwaysAnchor": false
+  },
+  "implementationPhase": "VS"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "resource_discovered",
+  "nameKey": "content.eventType.resource_discovered.name",
+  "category": "resources",
+  "baseSignificance": 30,
+  "candidateThreshold": 20,
+  "aggregationPolicy": {
+    "windowTicks": 1,
+    "scope": "entity"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": true,
+    "scope": "region"
+  },
+  "durationPolicy": "INSTANTANEOUS",
+  "anchorPolicy": {
+    "alwaysAnchor": true
+  },
+  "implementationPhase": "VS"
+}

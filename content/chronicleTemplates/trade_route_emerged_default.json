@@ -1,0 +1,13 @@
+{
+  "id": "trade_route_emerged_default",
+  "factOrEventType": "trade_route_emerged",
+  "titleKey": "content.chronicleTemplate.trade_route_emerged_default.title",
+  "bodyKey": "content.chronicleTemplate.trade_route_emerged_default.body",
+  "requiredData": [
+    "originName",
+    "destinationName",
+    "primaryGood"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

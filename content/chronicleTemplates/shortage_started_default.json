@@ -1,0 +1,13 @@
+{
+  "id": "shortage_started_default",
+  "factOrEventType": "shortage_started",
+  "titleKey": "content.chronicleTemplate.shortage_started_default.title",
+  "bodyKey": "content.chronicleTemplate.shortage_started_default.body",
+  "requiredData": [
+    "goodName",
+    "settlementName",
+    "affectedPopulation"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

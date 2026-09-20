@@ -1,0 +1,13 @@
+{
+  "id": "resource_depletion_milestone_default",
+  "factOrEventType": "resource_depletion_milestone",
+  "titleKey": "content.chronicleTemplate.resource_depletion_milestone_default.title",
+  "bodyKey": "content.chronicleTemplate.resource_depletion_milestone_default.body",
+  "requiredData": [
+    "resourceName",
+    "settlementName",
+    "percentRemaining"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

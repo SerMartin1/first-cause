@@ -1,0 +1,13 @@
+{
+  "id": "regional_bust_default",
+  "factOrEventType": "regional_bust",
+  "titleKey": "content.chronicleTemplate.regional_bust_default.title",
+  "bodyKey": "content.chronicleTemplate.regional_bust_default.body",
+  "requiredData": [
+    "regionName",
+    "primaryCause",
+    "declinePercent"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

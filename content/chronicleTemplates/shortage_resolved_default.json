@@ -1,0 +1,14 @@
+{
+  "id": "shortage_resolved_default",
+  "factOrEventType": "shortage_resolved",
+  "titleKey": "content.chronicleTemplate.shortage_resolved_default.title",
+  "bodyKey": "content.chronicleTemplate.shortage_resolved_default.body",
+  "requiredData": [
+    "goodName",
+    "settlementName",
+    "durationTicks",
+    "resolutionMechanism"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

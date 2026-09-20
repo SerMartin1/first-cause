@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@first-cause/causality": "workspace:*",
+    "@first-cause/chronicle": "workspace:*",
+    "@first-cause/content": "workspace:*",
     "@first-cause/entities": "workspace:*",
     "@first-cause/shared": "workspace:*"
   },

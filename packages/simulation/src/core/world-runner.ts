@@ -8,6 +8,21 @@ import {
   type FactStore,
   type SimulationFact,
 } from "@first-cause/causality";
+import {
+  aggregateCandidates,
+  buildChronicleCandidates,
+  collectHistoricalAnchorFactIds,
+  createActiveProcessRegistry,
+  createChronicleEntryStore,
+  createNoveltyRegistry,
+  findTemplateForEventType,
+  shouldBeHistoricalAnchor,
+  type ActiveProcessRegistry,
+  type ChronicleEntry,
+  type ChronicleEntryStore,
+  type NoveltyRegistry,
+} from "@first-cause/chronicle";
+import type { ChronicleTemplateDefinition, DefinitionRegistry, EventTypeDefinition } from "@first-cause/content";
 import { createHeadlessRunner, type HeadlessRunnerConfig } from "./runner.js";
 import { runEconomyTick, type RunEconomyTickInput } from "./economy-tick.js";
 import { resolveTickCausality } from "./causal-resolution.js";
@@ -52,6 +67,20 @@ export interface WorldRunnerConfig extends HeadlessRunnerConfig {
    * nie ma.
    */
   readonly causalPruneIntervalTicks?: number;
+  /**
+   * M19 (CH-14): if set, `step()` runs the Chronicle Candidate Pipeline
+   * (`@first-cause/chronicle`) after Causality resolves each tick's facts
+   * (Chronicle & Historical Significance Spec SS123-124 "Chronicle jest
+   * warstwą po Causality Engine"). Undefined (default) = Chronicle stays
+   * fully inert, same "undefined = no behavior change" contract as every
+   * other optional content registry on this config (see
+   * `discoveryEligibilityRulesById` above).
+   */
+  readonly chronicleEventTypes?: DefinitionRegistry<EventTypeDefinition>;
+  /** Optional: resolves `titleKey`/`templateKey` from real `ChronicleTemplateDefinition` content instead of falling back to the bare event type id. */
+  readonly chronicleTemplates?: DefinitionRegistry<ChronicleTemplateDefinition>;
+  /** TODO tuning override for `candidate-pipeline.ts`'s shortage-resolution silence window -- see that file. */
+  readonly chronicleShortageResolutionSilenceTicks?: number;
 }
 
 export class WorldRunner {
@@ -77,6 +106,10 @@ export class WorldRunner {
    * zacytować.
    */
   private readonly latestFactIdByEntityAndType = new Map<string, string>();
+  /** M19: always constructed (cheap, empty when unused) -- only actually fed facts when `config.chronicleEventTypes` is set, see `runChronicle`. */
+  private readonly chronicleNoveltyRegistry: NoveltyRegistry = createNoveltyRegistry();
+  private readonly chronicleActiveProcessRegistry: ActiveProcessRegistry = createActiveProcessRegistry();
+  private readonly chronicleEntryStore: ChronicleEntryStore = createChronicleEntryStore();
 
   constructor(config: WorldRunnerConfig) {
     this.headless = createHeadlessRunner(config);
@@ -107,6 +140,11 @@ export class WorldRunner {
     return new Map(this.architectInfluenceByFactId);
   }
 
+  /** M19: empty for the lifetime of a runner constructed without `config.chronicleEventTypes`. */
+  get chronicleEntries(): readonly ChronicleEntry[] {
+    return this.chronicleEntryStore.all();
+  }
+
   private recordFacts(emitted: readonly SimulationFact[]): void {
     for (const fact of emitted) {
       this.factsById.set(fact.id, fact);
@@ -131,6 +169,51 @@ export class WorldRunner {
     this.architectInfluenceByFactId = new Map(result.architectInfluenceByFactId);
   }
 
+  /**
+   * M19 CH-03/CH-04/CH-05/CH-14: runs the Chronicle Candidate Pipeline
+   * over exactly this tick's new facts (registries carry the cross-tick
+   * state, mirroring `resolveCausality` above), then aggregates and
+   * upserts. A no-op when `config.chronicleEventTypes` is unset.
+   *
+   * `dataPayload` stays `{}` here deliberately: real entity names
+   * (`settlementName`, `companyName`, ...) need read-model lookups this
+   * generic engine method must not hardcode per event type (AGENTS.md
+   * "brak hardcode w generycznych systemach") -- filling them in is a
+   * presentation-layer concern for whichever caller also has both
+   * `WorldState` and localization content (M21), not `WorldRunner`.
+   */
+  private runChronicle(emittedFacts: readonly SimulationFact[], currentTick: number): void {
+    const eventTypes = this.config.chronicleEventTypes;
+    if (!eventTypes) return;
+
+    const candidates = buildChronicleCandidates({
+      facts: emittedFacts,
+      edges: this.causalEdgeStore.all(),
+      architectInfluenceByFactId: this.architectInfluenceByFactId,
+      eventTypes,
+      currentTick,
+      noveltyRegistry: this.chronicleNoveltyRegistry,
+      activeProcessRegistry: this.chronicleActiveProcessRegistry,
+      ...(this.config.chronicleShortageResolutionSilenceTicks !== undefined
+        ? { shortageResolutionSilenceTicks: this.config.chronicleShortageResolutionSilenceTicks }
+        : {}),
+    });
+    const { published } = aggregateCandidates(candidates);
+
+    for (const candidate of published) {
+      const template = this.config.chronicleTemplates
+        ? findTemplateForEventType(this.config.chronicleTemplates, candidate.eventType)
+        : undefined;
+      const entry = this.chronicleEntryStore.upsert(candidate, {
+        titleKey: template?.titleKey ?? candidate.eventType,
+        templateKey: template?.id ?? candidate.eventType,
+        dataPayload: {},
+      });
+      const alwaysAnchor = eventTypes.get(candidate.eventType)?.anchorPolicy.alwaysAnchor ?? false;
+      this.chronicleEntryStore.markHistoricalAnchor(entry.id, shouldBeHistoricalAnchor(entry, alwaysAnchor));
+    }
+  }
+
   private maybePruneCausalMemory(currentTick: number): void {
     const interval = this.config.causalPruneIntervalTicks;
     if (interval === undefined || interval <= 0) return;
@@ -141,6 +224,11 @@ export class WorldRunner {
       edges: this.causalEdgeStore.all(),
       architectInfluenceByFactId: this.architectInfluenceByFactId,
       currentTick,
+      // SS135: a Chronicle Historical Anchor's facts must survive pruning
+      // even when `@first-cause/causality`'s own `isAnchor()` alone would
+      // not protect them (`historical-anchor.ts`'s header explains why
+      // this is a separate field, not folded into `architectInfluenceByFactId`).
+      extraMustKeepFactIds: collectHistoricalAnchorFactIds(this.chronicleEntryStore.all()),
     });
 
     this.factsById.clear();
@@ -185,6 +273,11 @@ export class WorldRunner {
           this.architectInfluenceByFactId.set(fact.id, fact.architect.influenceStrength);
         }
       }
+      // M19: an intervention's Root Fact (e.g. `resource_discovered` from
+      // `reveal_resource_deposit`) is Chronicle-eligible the same as any
+      // ordinary tick fact -- it must not silently bypass the pipeline
+      // just because it arrived outside `step()`.
+      this.runChronicle(result.facts, this.headless.tick);
     }
     return result;
   }
@@ -241,6 +334,7 @@ export class WorldRunner {
     const emittedFacts = this.factStore.emitAll(this.headless.tick, result.facts);
     this.recordFacts(emittedFacts);
     this.resolveCausality(emittedFacts, result.causalLinks);
+    this.runChronicle(emittedFacts, this.headless.tick);
     this.maybePruneCausalMemory(this.headless.tick);
     this.headless.step();
   }

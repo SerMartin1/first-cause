@@ -1,0 +1,20 @@
+{
+  "id": "regional_bust",
+  "nameKey": "content.eventType.regional_bust.name",
+  "category": "economy",
+  "baseSignificance": 35,
+  "candidateThreshold": 30,
+  "aggregationPolicy": {
+    "windowTicks": 12,
+    "scope": "region"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": false,
+    "scope": "world"
+  },
+  "durationPolicy": "SUSTAINED",
+  "anchorPolicy": {
+    "alwaysAnchor": false
+  },
+  "implementationPhase": "VS"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "resource_discovered_default",
+  "factOrEventType": "resource_discovered",
+  "titleKey": "content.chronicleTemplate.resource_discovered_default.title",
+  "bodyKey": "content.chronicleTemplate.resource_discovered_default.body",
+  "requiredData": [
+    "resourceName",
+    "settlementName",
+    "regionName"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

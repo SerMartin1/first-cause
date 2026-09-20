@@ -1,0 +1,13 @@
+{
+  "id": "regional_boom_default",
+  "factOrEventType": "regional_boom",
+  "titleKey": "content.chronicleTemplate.regional_boom_default.title",
+  "bodyKey": "content.chronicleTemplate.regional_boom_default.body",
+  "requiredData": [
+    "regionName",
+    "primaryCause",
+    "growthPercent"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

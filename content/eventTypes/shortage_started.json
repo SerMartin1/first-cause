@@ -1,0 +1,20 @@
+{
+  "id": "shortage_started",
+  "nameKey": "content.eventType.shortage_started.name",
+  "category": "resources",
+  "baseSignificance": 20,
+  "candidateThreshold": 20,
+  "aggregationPolicy": {
+    "windowTicks": 1,
+    "scope": "entity"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": false,
+    "scope": "world"
+  },
+  "durationPolicy": "SHORT",
+  "anchorPolicy": {
+    "alwaysAnchor": false
+  },
+  "implementationPhase": "VS"
+}

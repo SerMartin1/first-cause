@@ -1,0 +1,13 @@
+{
+  "id": "migration_wave_default",
+  "factOrEventType": "migration_wave",
+  "titleKey": "content.chronicleTemplate.migration_wave_default.title",
+  "bodyKey": "content.chronicleTemplate.migration_wave_default.body",
+  "requiredData": [
+    "settlementName",
+    "migrantCount",
+    "primaryCause"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

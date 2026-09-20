@@ -1,0 +1,20 @@
+{
+  "id": "settlement_stage_changed",
+  "nameKey": "content.eventType.settlement_stage_changed.name",
+  "category": "settlement",
+  "baseSignificance": 40,
+  "candidateThreshold": 25,
+  "aggregationPolicy": {
+    "windowTicks": 1,
+    "scope": "entity"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": true,
+    "scope": "region"
+  },
+  "durationPolicy": "STRUCTURAL",
+  "anchorPolicy": {
+    "alwaysAnchor": true
+  },
+  "implementationPhase": "VS"
+}

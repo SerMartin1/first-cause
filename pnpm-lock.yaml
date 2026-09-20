@@ -133,6 +133,19 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/chronicle:
+    dependencies:
+      '@first-cause/causality':
+        specifier: workspace:*
+        version: link:../causality
+      '@first-cause/content':
+        specifier: workspace:*
+        version: link:../content
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/content:
     dependencies:
       zod:
@@ -176,6 +189,12 @@ importers:
       '@first-cause/causality':
         specifier: workspace:*
         version: link:../causality
+      '@first-cause/chronicle':
+        specifier: workspace:*
+        version: link:../chronicle
+      '@first-cause/content':
+        specifier: workspace:*
+        version: link:../content
       '@first-cause/entities':
         specifier: workspace:*
         version: link:../entities

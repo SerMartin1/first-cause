@@ -1,0 +1,20 @@
+{
+  "id": "migration_wave",
+  "nameKey": "content.eventType.migration_wave.name",
+  "category": "migration",
+  "baseSignificance": 25,
+  "candidateThreshold": 25,
+  "aggregationPolicy": {
+    "windowTicks": 12,
+    "scope": "region"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": false,
+    "scope": "world"
+  },
+  "durationPolicy": "SUSTAINED",
+  "anchorPolicy": {
+    "alwaysAnchor": false
+  },
+  "implementationPhase": "VS"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "company_major_expansion",
+  "nameKey": "content.eventType.company_major_expansion.name",
+  "category": "company",
+  "baseSignificance": 20,
+  "candidateThreshold": 25,
+  "aggregationPolicy": {
+    "windowTicks": 3,
+    "scope": "entity"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": false,
+    "scope": "world"
+  },
+  "durationPolicy": "SUSTAINED",
+  "anchorPolicy": {
+    "alwaysAnchor": false
+  },
+  "implementationPhase": "VS"
+}

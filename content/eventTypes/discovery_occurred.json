@@ -1,0 +1,20 @@
+{
+  "id": "discovery_occurred",
+  "nameKey": "content.eventType.discovery_occurred.name",
+  "category": "technology",
+  "baseSignificance": 35,
+  "candidateThreshold": 20,
+  "aggregationPolicy": {
+    "windowTicks": 1,
+    "scope": "entity"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": true,
+    "scope": "world"
+  },
+  "durationPolicy": "INSTANTANEOUS",
+  "anchorPolicy": {
+    "alwaysAnchor": true
+  },
+  "implementationPhase": "VS"
+}

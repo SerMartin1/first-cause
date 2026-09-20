@@ -129,6 +129,23 @@ describe("pruneCausalMemory", () => {
     expect(result.edges[0]!.targetFactId).not.toBe(compressedTargets[0]!.id);
   });
 
+  it("extraMustKeepFactIds protects a fact that isAnchor()/architect influence alone would not (e.g. a Chronicle historical anchor)", () => {
+    const factStore = createFactStore();
+    const chronicleAnchored = factStore.emit(0, MINOR_PRICE_TICK); // old, unremarkable, NOT an isAnchor() type
+    const facts = factStore.all();
+
+    const result = pruneCausalMemory({
+      facts,
+      edges: [],
+      architectInfluenceByFactId: new Map(),
+      currentTick: 1000,
+      hotWindowTicks: 120,
+      extraMustKeepFactIds: new Set([chronicleAnchored.id]),
+    });
+
+    expect(result.facts.map((f) => f.id)).toContain(chronicleAnchored.id);
+  });
+
   it("is a pure function: does not mutate its inputs", () => {
     const factStore = createFactStore();
     for (let tick = 0; tick < 3; tick++) {

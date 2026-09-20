@@ -1,0 +1,13 @@
+{
+  "id": "intervention_major_consequence_default",
+  "factOrEventType": "intervention_major_consequence",
+  "titleKey": "content.chronicleTemplate.intervention_major_consequence_default.title",
+  "bodyKey": "content.chronicleTemplate.intervention_major_consequence_default.body",
+  "requiredData": [
+    "regionName",
+    "consequenceDescription",
+    "causalDistance"
+  ],
+  "variants": {},
+  "implementationPhase": "VS"
+}

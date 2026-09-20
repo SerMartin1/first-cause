@@ -1,0 +1,20 @@
+{
+  "id": "company_founded",
+  "nameKey": "content.eventType.company_founded.name",
+  "category": "company",
+  "baseSignificance": 15,
+  "candidateThreshold": 15,
+  "aggregationPolicy": {
+    "windowTicks": 6,
+    "scope": "region"
+  },
+  "noveltyPolicy": {
+    "tracksFirst": true,
+    "scope": "settlement"
+  },
+  "durationPolicy": "SHORT",
+  "anchorPolicy": {
+    "alwaysAnchor": false
+  },
+  "implementationPhase": "VS"
+}
