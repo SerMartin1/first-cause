@@ -6,7 +6,7 @@
   "candidateThreshold": 25,
   "aggregationPolicy": {
     "windowTicks": 12,
-    "scope": "region"
+    "scope": "entity"
   },
   "noveltyPolicy": {
     "tracksFirst": false,

@@ -146,4 +146,50 @@ describe("WorldRunner Chronicle wiring", () => {
 
     expect(runner.facts.map((f) => f.id)).toContain(anchorFactId);
   });
+
+  it("maybeRunInterventionLegacy stays inert without chronicleInterventionLegacyIntervalTicks configured, even with a COMPLETED intervention on the books", () => {
+    const runner = createWorldRunner({
+      worldSeed: "s",
+      startYear: 1200,
+      worldState: buildState(),
+      chronicleEventTypes: buildEventTypes(),
+      // chronicleInterventionLegacyIntervalTicks intentionally omitted.
+    });
+    runner.applyIntervention(revealRule, {
+      instanceId: "intervention_001",
+      tick: 0,
+      target: { scopeType: "entity", entityIds: ["deposit_001"] },
+      parameters: {},
+    });
+    const entriesBeforeSteps = runner.chronicleEntries.length;
+    for (let i = 0; i < 10; i++) runner.step();
+    // No intervention_major_consequence entries appear -- the legacy check never ran.
+    expect(runner.chronicleEntries.filter((e) => e.eventType === "intervention_major_consequence")).toEqual([]);
+    expect(runner.chronicleEntries.length).toBe(entriesBeforeSteps);
+  });
+
+  it("maybeRunInterventionLegacy runs on the configured interval and reports no new consequences when Butterfly finds none (root fact alone, no descendants)", () => {
+    const runner = createWorldRunner({
+      worldSeed: "s",
+      startYear: 1200,
+      worldState: buildState(),
+      chronicleEventTypes: buildEventTypes(),
+      chronicleInterventionLegacyIntervalTicks: 5,
+    });
+    runner.applyIntervention(revealRule, {
+      instanceId: "intervention_001",
+      tick: 0,
+      target: { scopeType: "entity", entityIds: ["deposit_001"] },
+      parameters: {},
+    });
+    // 10 ticks with no further intervention activity: Butterfly has no
+    // downstream facts to find (buildEventTypes() only maps
+    // resource_discovered, so nothing else this world emits becomes a
+    // Chronicle-eligible fact either) -- the legacy check runs (at tick
+    // 5 and 10) but never crashes and never fabricates a consequence.
+    expect(() => {
+      for (let i = 0; i < 10; i++) runner.step();
+    }).not.toThrow();
+    expect(runner.chronicleEntries.filter((e) => e.eventType === "intervention_major_consequence")).toEqual([]);
+  });
 });

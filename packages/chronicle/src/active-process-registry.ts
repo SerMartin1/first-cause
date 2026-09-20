@@ -18,6 +18,14 @@ export interface ActiveProcess {
   readonly lastSignalTick: number;
   readonly rootFactId: string;
   readonly entryId: string | undefined;
+  /**
+   * Running total a detector accumulates across renewals via
+   * `openOrRenew`'s `magnitudeIncrement` -- e.g. cumulative net migrants
+   * for a `migration_wave` process. A detector that never passes an
+   * increment (e.g. `shortage`, which only cares about lifecycle state)
+   * simply leaves this at `0` -- it is never read for those processes.
+   */
+  readonly accumulatedMagnitude: number;
 }
 
 export class ActiveProcessRegistry {
@@ -32,11 +40,23 @@ export class ActiveProcessRegistry {
    * existing still-open one for the same `processKey`. A `RESOLVED`/
    * `HISTORICAL` process is never renewed -- a later signal starts a
    * fresh process instead (SS33 Trend End: the old process really ended).
+   * `magnitudeIncrement` (default `0`) adds to `accumulatedMagnitude` --
+   * seeded from it on open, summed on renewal.
    */
-  openOrRenew(processKey: string, processType: string, tick: number, rootFactId: string): ActiveProcess {
+  openOrRenew(
+    processKey: string,
+    processType: string,
+    tick: number,
+    rootFactId: string,
+    magnitudeIncrement = 0,
+  ): ActiveProcess {
     const existing = this.processes.get(processKey);
     if (existing && existing.state !== "RESOLVED" && existing.state !== "HISTORICAL") {
-      const renewed: ActiveProcess = { ...existing, lastSignalTick: tick };
+      const renewed: ActiveProcess = {
+        ...existing,
+        lastSignalTick: tick,
+        accumulatedMagnitude: existing.accumulatedMagnitude + magnitudeIncrement,
+      };
       this.processes.set(processKey, renewed);
       return renewed;
     }
@@ -48,6 +68,7 @@ export class ActiveProcessRegistry {
       lastSignalTick: tick,
       rootFactId,
       entryId: undefined,
+      accumulatedMagnitude: magnitudeIncrement,
     };
     this.processes.set(processKey, created);
     return created;
@@ -75,6 +96,24 @@ export class ActiveProcessRegistry {
           process.state !== "RESOLVED" &&
           process.state !== "HISTORICAL" &&
           currentTick - process.lastSignalTick >= silenceTicks,
+      )
+      .sort((a, b) => a.processKey.localeCompare(b.processKey));
+  }
+
+  /**
+   * Still-open processes running (since `startTick`) at least
+   * `maxDurationTicks`, regardless of how recently they were renewed --
+   * caps a process a detector keeps renewing indefinitely (e.g. decades
+   * of steady background migration) from growing into one unbounded
+   * "wave" that silence-detection (`findStale`) alone would never close.
+   */
+  findExceedingDuration(currentTick: number, maxDurationTicks: number): readonly ActiveProcess[] {
+    return [...this.processes.values()]
+      .filter(
+        (process) =>
+          process.state !== "RESOLVED" &&
+          process.state !== "HISTORICAL" &&
+          currentTick - process.startTick >= maxDurationTicks,
       )
       .sort((a, b) => a.processKey.localeCompare(b.processKey));
   }

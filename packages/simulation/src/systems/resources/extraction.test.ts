@@ -89,11 +89,13 @@ describe("extractFromDeposit -- extraction trend facts", () => {
   });
 
   it("emits extraction_increased when the rate rises", () => {
+    // 5 then 15 out of 100: ratio stays at 0.80, above every reserve
+    // milestone threshold -- isolates the rate signal from milestone facts.
     const first = extractFromDeposit(buildFiniteDeposit(100), {
       tick: 0,
-      amount: 10,
+      amount: 5,
     }).deposit;
-    const result = extractFromDeposit(first, { tick: 1, amount: 25 });
+    const result = extractFromDeposit(first, { tick: 1, amount: 15 });
     expect(result.facts.map((f) => f.type)).toEqual(["extraction_increased"]);
   });
 
@@ -113,5 +115,48 @@ describe("extractFromDeposit -- extraction trend facts", () => {
     }).deposit;
     const result = extractFromDeposit(first, { tick: 1, amount: 10 });
     expect(result.facts).toEqual([]);
+  });
+});
+
+describe("extractFromDeposit -- reserve milestones (M19 CH-03 resource_depletion_milestone)", () => {
+  it("emits resource_reserve_milestone when a single extraction crosses one threshold", () => {
+    // 100 -> 60: ratio 1.0 -> 0.6, crosses only the 0.75 threshold.
+    const result = extractFromDeposit(buildFiniteDeposit(100), { tick: 0, amount: 40 });
+    const milestones = result.facts.filter((f) => f.type === "resource_reserve_milestone");
+    expect(milestones).toHaveLength(1);
+    expect(milestones[0]).toMatchObject({
+      subject: { entityType: "resourceDeposit", entityId: "deposit_001" },
+      location: { regionId: "region_001" },
+      values: { before: 1, after: 0.75 },
+    });
+  });
+
+  it("emits one fact per threshold crossed when a single large extraction skips over several", () => {
+    // 100 -> 5: ratio 1.0 -> 0.05, crosses 0.75, 0.5, 0.25 and 0.1 all at once.
+    const result = extractFromDeposit(buildFiniteDeposit(100), { tick: 0, amount: 95 });
+    const milestones = result.facts.filter((f) => f.type === "resource_reserve_milestone");
+    expect(milestones.map((f) => f.values.after)).toEqual([0.75, 0.5, 0.25, 0.1]);
+  });
+
+  it("does not re-fire a threshold once already crossed, even across many later calls", () => {
+    let deposit = extractFromDeposit(buildFiniteDeposit(100), { tick: 0, amount: 40 }).deposit; // crosses 0.75
+    for (let tick = 1; tick <= 3; tick++) {
+      const result = extractFromDeposit(deposit, { tick, amount: 0 });
+      deposit = result.deposit;
+      expect(result.facts.filter((f) => f.type === "resource_reserve_milestone")).toEqual([]);
+    }
+  });
+
+  it("never fires for a renewable deposit", () => {
+    const renewable = createResourceDeposit({
+      id: "deposit_renewable",
+      resourceDefinitionId: "timber",
+      regionId: "region_001",
+      initialQuantity: 100,
+      renewable: true,
+      renewableState: { regenerationRate: 5, sustainableYield: 5, carryingCapacity: 100 },
+    });
+    const result = extractFromDeposit(renewable, { tick: 0, amount: 95 });
+    expect(result.facts.filter((f) => f.type === "resource_reserve_milestone")).toEqual([]);
   });
 });

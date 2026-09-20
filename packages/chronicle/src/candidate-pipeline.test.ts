@@ -210,4 +210,219 @@ describe("buildChronicleCandidates", () => {
     expect(resolutionCandidates[0]).toMatchObject({ eventType: "shortage_resolved", regionRefs: ["region_1"] });
     expect(activeProcessRegistry.get("shortage:region_1:market_1:grain")?.state).toBe("RESOLVED");
   });
+
+  it("maps resource_reserve_milestone facts to resource_depletion_milestone candidates", () => {
+    const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+      makeEventType({ id: "resource_depletion_milestone", candidateThreshold: 5 }),
+    ]);
+    const candidates = buildChronicleCandidates({
+      facts: [
+        makeFact({
+          id: "fact_0_0",
+          type: "resource_reserve_milestone",
+          tick: 0,
+          values: { before: 1, after: 0.75 },
+        }),
+      ],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 0,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry: createActiveProcessRegistry(),
+    });
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ eventType: "resource_depletion_milestone" });
+  });
+
+  it("maps technology_adoption_increased facts to technology_adoption_wave, folding repeated ticks of the SAME discovery via CH-04 but never merging a different discovery in (SS30 no false aggregation)", () => {
+    const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+      makeEventType({
+        id: "technology_adoption_wave",
+        category: "technology",
+        candidateThreshold: 5,
+        aggregationPolicy: { windowTicks: 12, scope: "entity" },
+      }),
+    ]);
+    const noveltyRegistry = createNoveltyRegistry();
+    const activeProcessRegistry = createActiveProcessRegistry();
+
+    const tick0 = buildChronicleCandidates({
+      facts: [
+        makeFact({
+          id: "fact_0_0",
+          type: "technology_adoption_increased",
+          tick: 0,
+          subject: { entityType: "discovery", entityId: "iron_working" },
+          values: { before: 0, after: 0.1 },
+        }),
+        makeFact({
+          id: "fact_0_1",
+          type: "technology_adoption_increased",
+          tick: 0,
+          subject: { entityType: "discovery", entityId: "watermill_milling" },
+          values: { before: 0, after: 0.1 },
+        }),
+      ],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 0,
+      noveltyRegistry,
+      activeProcessRegistry,
+    });
+    const tick4 = buildChronicleCandidates({
+      facts: [
+        makeFact({
+          id: "fact_4_0",
+          type: "technology_adoption_increased",
+          tick: 4,
+          subject: { entityType: "discovery", entityId: "iron_working" },
+          values: { before: 0.1, after: 0.2 },
+        }),
+      ],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 4,
+      noveltyRegistry,
+      activeProcessRegistry,
+    });
+
+    const allByEventType = [...tick0, ...tick4].filter((c) => c.eventType === "technology_adoption_wave");
+    const ironWorkingKeys = new Set(allByEventType.filter((c) => c.entityRefs.some((r) => r.entityId === "iron_working")).map((c) => c.aggregationKey));
+    const watermillKeys = new Set(allByEventType.filter((c) => c.entityRefs.some((r) => r.entityId === "watermill_milling")).map((c) => c.aggregationKey));
+    // Same discovery, same 12-tick window: both ticks share one aggregationKey.
+    expect(ironWorkingKeys.size).toBe(1);
+    // Different discovery: never shares iron_working's key, even in the same region/window.
+    for (const key of watermillKeys) expect(ironWorkingKeys.has(key)).toBe(false);
+  });
+
+  it("migration_wave: accumulates population_migrated_in across renewals and only emits a candidate once resolved (silence)", () => {
+    const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+      makeEventType({ id: "migration_wave", category: "migration", candidateThreshold: 5, baseSignificance: 25 }),
+    ]);
+    const activeProcessRegistry = createActiveProcessRegistry();
+    const migrationFact = (id: string, tick: number, migrants: number) =>
+      makeFact({
+        id,
+        type: "population_migrated_in",
+        tick,
+        subject: { entityType: "populationCohort", entityId: "cohort_dest" },
+        location: { regionId: "region_1", settlementId: "riverside" },
+        values: { before: 0, after: migrants },
+      });
+
+    const tick0 = buildChronicleCandidates({
+      facts: [migrationFact("fact_0_0", 0, 400)],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 0,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+      migrationWaveSilenceTicks: 6,
+    });
+    expect(tick0.some((c) => c.eventType === "migration_wave")).toBe(false); // no candidate yet -- still open
+    expect(activeProcessRegistry.get("migration_wave:region_1:riverside")?.accumulatedMagnitude).toBe(400);
+
+    const tick3 = buildChronicleCandidates({
+      facts: [migrationFact("fact_3_0", 3, 200)],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 3,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+      migrationWaveSilenceTicks: 6,
+    });
+    expect(tick3.some((c) => c.eventType === "migration_wave")).toBe(false);
+    expect(activeProcessRegistry.get("migration_wave:region_1:riverside")?.accumulatedMagnitude).toBe(600);
+
+    // Silence for 7 ticks (> 6) since the last signal at tick 3 -> resolves.
+    const tick10 = buildChronicleCandidates({
+      facts: [],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 10,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+      migrationWaveSilenceTicks: 6,
+    });
+    expect(tick10).toHaveLength(1);
+    expect(tick10[0]).toMatchObject({ eventType: "migration_wave", scope: "SETTLEMENT", regionRefs: ["region_1"] });
+    expect(activeProcessRegistry.get("migration_wave:region_1:riverside")?.state).toBe("RESOLVED");
+  });
+
+  it("migration_wave: uses ChronicleContext.regionPopulation to normalize magnitude when supplied", () => {
+    const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+      makeEventType({ id: "migration_wave", category: "migration", candidateThreshold: 1, baseSignificance: 0 }),
+    ]);
+    const activeProcessRegistry = createActiveProcessRegistry();
+    const migrationFact = makeFact({
+      id: "fact_0_0",
+      type: "population_migrated_in",
+      tick: 0,
+      subject: { entityType: "populationCohort", entityId: "cohort_dest" },
+      location: { regionId: "small_region" },
+      values: { before: 0, after: 350 }, // 350 / 700 population = 50% -> saturates magnitude to 1 at ratio 0.5
+    });
+    buildChronicleCandidates({
+      facts: [migrationFact],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 0,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+    });
+    const resolved = buildChronicleCandidates({
+      facts: [],
+      edges: EMPTY_EDGES,
+      architectInfluenceByFactId: EMPTY_INFLUENCE,
+      eventTypes,
+      currentTick: 20,
+      noveltyRegistry: createNoveltyRegistry(),
+      activeProcessRegistry,
+      migrationWaveSilenceTicks: 6,
+      context: { regionPopulation: (regionId) => (regionId === "small_region" ? 700 : undefined) },
+    });
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0]!.significance.magnitude).toBe(1);
+  });
+
+  it("migration_wave: findExceedingDuration force-resolves a process kept alive by continuous renewal", () => {
+    const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+      makeEventType({ id: "migration_wave", category: "migration", candidateThreshold: 1, baseSignificance: 30 }),
+    ]);
+    const activeProcessRegistry = createActiveProcessRegistry();
+    const migrationFact = (id: string, tick: number) =>
+      makeFact({
+        id,
+        type: "population_migrated_in",
+        tick,
+        subject: { entityType: "populationCohort", entityId: "cohort_dest" },
+        location: { regionId: "region_1" },
+        values: { before: 0, after: 10 },
+      });
+
+    // Renew every 5 ticks so it never goes silent, but let max duration (30) cap it.
+    const allCandidates: ReturnType<typeof buildChronicleCandidates>[number][] = [];
+    for (let tick = 0; tick <= 35; tick += 5) {
+      const candidates = buildChronicleCandidates({
+        facts: [migrationFact(`fact_${tick}_0`, tick)],
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: tick,
+        noveltyRegistry: createNoveltyRegistry(),
+        activeProcessRegistry,
+        migrationWaveSilenceTicks: 100, // never silent within this test
+        migrationWaveMaxDurationTicks: 30,
+      });
+      allCandidates.push(...candidates);
+    }
+    expect(allCandidates.some((c) => c.eventType === "migration_wave")).toBe(true);
+  });
 });

@@ -11,15 +11,19 @@ import {
 import {
   aggregateCandidates,
   buildChronicleCandidates,
+  buildInterventionConsequenceCandidates,
   collectHistoricalAnchorFactIds,
   createActiveProcessRegistry,
   createChronicleEntryStore,
+  createMilestoneRegistry,
   createNoveltyRegistry,
   findTemplateForEventType,
   shouldBeHistoricalAnchor,
   type ActiveProcessRegistry,
+  type ChronicleCandidate,
   type ChronicleEntry,
   type ChronicleEntryStore,
+  type MilestoneRegistry,
   type NoveltyRegistry,
 } from "@first-cause/chronicle";
 import type { ChronicleTemplateDefinition, DefinitionRegistry, EventTypeDefinition } from "@first-cause/content";
@@ -33,6 +37,7 @@ import {
   type ApplyArchitectInterventionResult,
 } from "../systems/architect/apply-intervention.js";
 import type { ArchitectInterventionRule } from "../systems/architect/definition.js";
+import { queryButterflyEffect } from "../systems/architect/butterfly.js";
 
 /**
  * Composes `HeadlessRunner` (M1: deterministic clock/RNG/command
@@ -81,6 +86,18 @@ export interface WorldRunnerConfig extends HeadlessRunnerConfig {
   readonly chronicleTemplates?: DefinitionRegistry<ChronicleTemplateDefinition>;
   /** TODO tuning override for `candidate-pipeline.ts`'s shortage-resolution silence window -- see that file. */
   readonly chronicleShortageResolutionSilenceTicks?: number;
+  /**
+   * M19 CH-11 (Architect Legacy, wired early): if set, `step()` re-runs
+   * `queryButterflyEffect` (M18) every N ticks for each `COMPLETED`
+   * intervention and turns any NEW `majorConsequences` into
+   * `intervention_major_consequence` candidates. Undefined (default) =
+   * never runs -- this is a real graph walk per completed intervention,
+   * not something to pay for unless the caller opts in. A configurable
+   * placeholder (AGENTS.md "nierozstrzygnięta wartość tuningowa"): the
+   * right cadence for catching consequences that only appear years later
+   * depends on benchmarks this milestone does not have.
+   */
+  readonly chronicleInterventionLegacyIntervalTicks?: number;
 }
 
 export class WorldRunner {
@@ -110,6 +127,8 @@ export class WorldRunner {
   private readonly chronicleNoveltyRegistry: NoveltyRegistry = createNoveltyRegistry();
   private readonly chronicleActiveProcessRegistry: ActiveProcessRegistry = createActiveProcessRegistry();
   private readonly chronicleEntryStore: ChronicleEntryStore = createChronicleEntryStore();
+  /** SS120 Milestone Registry, keyed `intervention:<interventionId>:<consequenceFactId>` -- prevents `maybeRunInterventionLegacy` from re-reporting the same Butterfly consequence every interval it stays MAJOR-tier. */
+  private readonly chronicleInterventionLegacyRegistry: MilestoneRegistry = createMilestoneRegistry();
 
   constructor(config: WorldRunnerConfig) {
     this.headless = createHeadlessRunner(config);
@@ -194,13 +213,26 @@ export class WorldRunner {
       currentTick,
       noveltyRegistry: this.chronicleNoveltyRegistry,
       activeProcessRegistry: this.chronicleActiveProcessRegistry,
+      // SS7 Relative Magnitude: `region.population.totalPopulation` is a
+      // live DATA-004 cache on `WorldState`, not a Chronicle-owned
+      // computation -- reading it here is a plain lookup, not the kind
+      // of per-event-type hardcode `runChronicle`'s own doc comment
+      // above warns against.
+      context: { regionPopulation: (regionId) => this.state.regions[regionId]?.population.totalPopulation },
       ...(this.config.chronicleShortageResolutionSilenceTicks !== undefined
         ? { shortageResolutionSilenceTicks: this.config.chronicleShortageResolutionSilenceTicks }
         : {}),
     });
     const { published } = aggregateCandidates(candidates);
+    this.publishChronicleCandidates(published, eventTypes);
+  }
 
-    for (const candidate of published) {
+  /** Shared by `runChronicle` and `maybeRunInterventionLegacy`: upserts each already-scored candidate into `chronicleEntryStore` and re-evaluates its Historical Anchor flag. */
+  private publishChronicleCandidates(
+    candidates: readonly ChronicleCandidate[],
+    eventTypes: DefinitionRegistry<EventTypeDefinition>,
+  ): void {
+    for (const candidate of candidates) {
       const template = this.config.chronicleTemplates
         ? findTemplateForEventType(this.config.chronicleTemplates, candidate.eventType)
         : undefined;
@@ -211,6 +243,50 @@ export class WorldRunner {
       });
       const alwaysAnchor = eventTypes.get(candidate.eventType)?.anchorPolicy.alwaysAnchor ?? false;
       this.chronicleEntryStore.markHistoricalAnchor(entry.id, shouldBeHistoricalAnchor(entry, alwaysAnchor));
+    }
+  }
+
+  /**
+   * M19 CH-11 (Architect Legacy, wired early -- see `chronicleInterventionLegacyIntervalTicks`).
+   * For each `COMPLETED` intervention, re-runs Butterfly over the
+   * runner's CURRENT full fact/edge set (not just this tick's new facts
+   * -- a consequence can surface many ticks after the intervention) and
+   * turns any not-yet-reported MAJOR-tier consequence into a candidate.
+   */
+  private maybeRunInterventionLegacy(currentTick: number): void {
+    const interval = this.config.chronicleInterventionLegacyIntervalTicks;
+    const eventTypes = this.config.chronicleEventTypes;
+    if (interval === undefined || interval <= 0 || !eventTypes) return;
+    if (currentTick % interval !== 0) return;
+
+    const facts = this.factStore.all();
+    const edges = this.causalEdgeStore.all();
+    const factsById = new Map(facts.map((fact) => [fact.id, fact] as const));
+
+    for (const intervention of Object.values(this.state.interventions)) {
+      if (intervention.status !== "COMPLETED" || intervention.rootFactIds.length === 0) continue;
+
+      const butterfly = queryButterflyEffect({ rootFactIds: intervention.rootFactIds, facts, edges });
+      const newMajorConsequences: { fact: SimulationFact; effectScore: number; causalDepth: number }[] = [];
+      for (const consequence of butterfly.majorConsequences) {
+        const fact = factsById.get(consequence.factId);
+        if (!fact) continue; // defensively: every Butterfly consequence should resolve, since it only walks facts already in `facts`
+        const alreadyReported = !this.chronicleInterventionLegacyRegistry.markReached(
+          `intervention:${intervention.id}:${consequence.factId}`,
+        );
+        if (alreadyReported) continue;
+        newMajorConsequences.push({ fact, effectScore: consequence.effectScore, causalDepth: consequence.causalDepth });
+      }
+      if (newMajorConsequences.length === 0) continue;
+
+      const candidates = buildInterventionConsequenceCandidates({
+        interventionId: intervention.id,
+        interventionRootFactId: intervention.rootFactIds[0]!,
+        newMajorConsequences,
+        eventTypes,
+        currentTick,
+      });
+      this.publishChronicleCandidates(candidates, eventTypes);
     }
   }
 
@@ -335,6 +411,7 @@ export class WorldRunner {
     this.recordFacts(emittedFacts);
     this.resolveCausality(emittedFacts, result.causalLinks);
     this.runChronicle(emittedFacts, this.headless.tick);
+    this.maybeRunInterventionLegacy(this.headless.tick);
     this.maybePruneCausalMemory(this.headless.tick);
     this.headless.step();
   }

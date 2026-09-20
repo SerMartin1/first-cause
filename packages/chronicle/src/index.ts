@@ -4,6 +4,7 @@ export * from "./novelty-registry.js";
 export * from "./milestone-registry.js";
 export * from "./active-process-registry.js";
 export * from "./candidate-pipeline.js";
+export * from "./intervention-legacy.js";
 export * from "./aggregation.js";
 export * from "./chronicle-entry-store.js";
 export * from "./historical-anchor.js";

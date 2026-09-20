@@ -40,4 +40,30 @@ describe("ActiveProcessRegistry", () => {
     registry.linkEntry("shortage:x:grain", "chronicle_0_0");
     expect(registry.get("shortage:x:grain")?.entryId).toBe("chronicle_0_0");
   });
+
+  it("seeds accumulatedMagnitude on open and sums it across renewals", () => {
+    const registry = createActiveProcessRegistry();
+    const opened = registry.openOrRenew("migration_wave:r:s", "migration_wave", 0, "fact_0_0", 40);
+    expect(opened.accumulatedMagnitude).toBe(40);
+    const renewed = registry.openOrRenew("migration_wave:r:s", "migration_wave", 5, "fact_5_0", 15);
+    expect(renewed.accumulatedMagnitude).toBe(55);
+  });
+
+  it("starting a fresh process after RESOLVED resets accumulatedMagnitude, not carried over", () => {
+    const registry = createActiveProcessRegistry();
+    registry.openOrRenew("migration_wave:r:s", "migration_wave", 0, "fact_0_0", 100);
+    registry.advance("migration_wave:r:s", "RESOLVED", 10);
+    const restarted = registry.openOrRenew("migration_wave:r:s", "migration_wave", 20, "fact_20_0", 5);
+    expect(restarted.accumulatedMagnitude).toBe(5);
+  });
+
+  it("findExceedingDuration returns still-open processes running at least maxDurationTicks, even if recently renewed", () => {
+    const registry = createActiveProcessRegistry();
+    registry.openOrRenew("migration_wave:old:s", "migration_wave", 0, "fact_0_0");
+    registry.openOrRenew("migration_wave:old:s", "migration_wave", 59, "fact_59_0"); // renewed recently, but started long ago
+    registry.openOrRenew("migration_wave:new:s", "migration_wave", 55, "fact_55_0"); // started recently
+
+    const exceeding = registry.findExceedingDuration(60, 60);
+    expect(exceeding.map((p) => p.processKey)).toEqual(["migration_wave:old:s"]);
+  });
 });

@@ -10,6 +10,47 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 
 ## 2026-09-20
 
+- **M19 Chronicle -- podłączenie 4 z 7 wcześniej niepodłączonych event
+  types** (`resource_depletion_milestone`, `technology_adoption_wave`,
+  `migration_wave`, `intervention_major_consequence`) -- follow-up do
+  M19 P0 z tego samego dnia, na wyraźną prośbę użytkownika.
+  - **`resource_depletion_milestone`** -- `packages/simulation`'s
+    `extraction.ts` zyskał `reserveMilestoneFacts` (nowy fakt
+    `resource_reserve_milestone`): przy przekroczeniu 75/50/25/10%
+    pozostałych rezerw depozytu (tylko nieodnawialne złoża), porównanie
+    before/after bez dodatkowego stanu. Wpięte 1:1 do Chronicle.
+  - **`technology_adoption_wave`** -- wpięte 1:1 (`technology_adoption_
+    increased` -> `technology_adoption_wave`), z poprawką
+    `aggregationPolicy.scope` na `"entity"` (per `discoveryId`, nie
+    `"region"` -- inaczej agregacja łączyłaby niepowiązane technologie w
+    jeden wpis, dokładnie ten rodzaj fałszywej agregacji, którego SS30
+    zabrania).
+  - **`migration_wave`** -- nowy akumulacyjny detektor w
+    `candidate-pipeline.ts` na bazie rozszerzonego
+    `ActiveProcessRegistry` (`accumulatedMagnitude` sumowany przez
+    kolejne odnowienia, `findExceedingDuration` jako twardy limit czasu
+    trwania procesu obok istniejącego silence-detection). Magnitude
+    normalizowana względem populacji regionu przez nowy
+    `ChronicleContext.regionPopulation` hook, wpięty w `WorldRunner` do
+    żywego `region.population.totalPopulation`.
+  - **`intervention_major_consequence`** -- nowy moduł
+    `packages/chronicle/src/intervention-legacy.ts`
+    (`buildInterventionConsequenceCandidates`), reużywający gotowy
+    `queryButterflyEffect`/`getInterventionConsequences` z M18 zamiast
+    nowej logiki grafowej. `WorldRunner` dostał opcjonalny okresowy
+    `maybeRunInterventionLegacy` (config
+    `chronicleInterventionLegacyIntervalTicks`, domyślnie wyłączone) z
+    dedykowanym `MilestoneRegistry` chroniącym przed powtórnym
+    zgłoszeniem tej samej konsekwencji.
+  - **Świadomie wciąż niepodłączone:** `trade_route_emerged`,
+    `regional_boom`, `regional_bust` -- najbardziej niepewne
+    kalibracyjnie z całej siódemki (patrz konwersacja/roadmapa).
+  - Nowe testy: `extraction.test.ts` (+4), `active-process-registry.
+    test.ts` (+3), `candidate-pipeline.test.ts` (+3), `intervention-
+    legacy.test.ts` (nowy plik, 3), `world-runner.chronicle.test.ts`
+    (+2). `pnpm typecheck/lint/test/build`: wszystkie PASS (853 testów w
+    repo).
+
 - **M19 -- Chronicle: wybór i zapis historycznie istotnych wydarzeń
   (Historical Significance), zakres P0.** Nowy pakiet
   `packages/chronicle` (wzorzec `packages/causality`: moduł-na-plik,

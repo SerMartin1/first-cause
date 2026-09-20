@@ -27,6 +27,48 @@ export interface ExtractFromDepositResult {
   readonly causalLinks: readonly PendingCausalLink[];
 }
 
+/**
+ * Chronicle & Historical Significance Spec SS44/SS151 (`resource_
+ * depletion_milestone`): fractions of `stock.initialQuantity` remaining
+ * at which a finite deposit's decline becomes historically checkable.
+ * Renewable deposits never fire this (they regenerate toward
+ * `carryingCapacity`, "depletion" is not a meaningful concept for them --
+ * same `!deposit.renewable` gate as `newlyDepleted` below). A
+ * configurable placeholder (AGENTS.md "nierozstrzygnięta wartość
+ * tuningowa"), not a final balance decision.
+ */
+const RESERVE_MILESTONE_THRESHOLDS_TODO_TUNING = [0.75, 0.5, 0.25, 0.1] as const;
+
+/**
+ * Every threshold the deposit's remaining-reserve ratio crossed
+ * DOWNWARD this call (strict-before/`<=`-after, so landing exactly on a
+ * threshold fires once, never again on a later call that stays there).
+ * A single large extraction can cross several thresholds at once -- all
+ * of them are reported, none silently skipped.
+ */
+function reserveMilestoneFacts(
+  deposit: ResourceDeposit,
+  beforeQuantity: number,
+  afterQuantity: number,
+): FactInput<number>[] {
+  if (deposit.renewable || deposit.stock.initialQuantity <= 0) return [];
+  const beforeRatio = beforeQuantity / deposit.stock.initialQuantity;
+  const afterRatio = afterQuantity / deposit.stock.initialQuantity;
+
+  const facts: FactInput<number>[] = [];
+  for (const threshold of RESERVE_MILESTONE_THRESHOLDS_TODO_TUNING) {
+    if (beforeRatio > threshold && afterRatio <= threshold) {
+      facts.push({
+        type: "resource_reserve_milestone",
+        subject: { entityType: "resourceDeposit", entityId: deposit.id },
+        location: { regionId: deposit.regionId },
+        values: { before: beforeRatio, after: threshold },
+      });
+    }
+  }
+  return facts;
+}
+
 function extractionTrendFact(
   deposit: ResourceDeposit,
   after: number,
@@ -79,6 +121,20 @@ export function extractFromDeposit(
   const trendFact = extractionTrendFact(deposit, extracted);
   const facts: FactInput<number>[] = trendFact ? [trendFact] : [];
   const causalLinks: PendingCausalLink[] = [];
+
+  for (const milestoneFact of reserveMilestoneFacts(deposit, availableQuantity, newQuantity)) {
+    facts.push(milestoneFact);
+    causalLinks.push({
+      targetIndex: facts.length - 1,
+      source: trendFact
+        ? { kind: "sameBatch", index: facts.indexOf(trendFact) }
+        : { kind: "external", key: `resourceDeposit:${deposit.id}:cumulative_extraction` },
+      type: "TRIGGERING",
+      factor: { key: "cumulative_extraction", contribution: 1 },
+      mechanism: "kumulatywne wydobycie zmniejszyło rezerwy poniżej progu",
+      system: "extraction",
+    });
+  }
 
   if (newlyDepleted) {
     facts.push({

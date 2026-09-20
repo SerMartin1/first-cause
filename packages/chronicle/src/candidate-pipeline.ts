@@ -32,25 +32,34 @@ import type { ChronicleCandidate, GeographicScope } from "./types.js";
  * fact type this pipeline can genuinely observe belongs on the left.
  *
  * NOT included here (defined as content, ready for a future detector,
- * intentionally not wired to a candidate yet -- see spec SS35-38, SS44,
- * AGENTS.md "nie wymyślaj mechaniki, oznacz TODO"):
- * `resource_depletion_milestone` (needs a per-deposit reserve-ratio
- * series the simulation doesn't expose yet beyond the single terminal
- * `resource_depleted`), `migration_wave`/`regional_boom`/`regional_bust`/
- * `trade_route_emerged` (genuine multi-signal trend detectors, SS35-38 --
- * each needs its own calibrated threshold, not a guess), and
- * `intervention_major_consequence` (Architect Legacy, CH-11, P1).
- * `shortage_resolved` IS wired, but through `ActiveProcessRegistry`
- * silence detection below, not this table (no raw fact for "resolved").
+ * intentionally not wired to a candidate yet -- see spec SS35-38,
+ * AGENTS.md "nie wymyślaj mechaniki, oznacz TODO"): `regional_boom`/
+ * `regional_bust`/`trade_route_emerged` (genuine multi-signal trend
+ * detectors -- each needs its own calibrated threshold/accumulator, not
+ * a single raw fact), and `intervention_major_consequence` (Architect
+ * Legacy, CH-11, P1 -- belongs on top of `queryButterflyEffect`/M18, not
+ * this table).
+ *
+ * `shortage_resolved`/`migration_wave` ARE wired, but through
+ * `ActiveProcessRegistry` accumulation/silence detection below, not this
+ * table (no single raw fact represents "resolved"/"a sustained wave").
+ * `technology_adoption_wave` relies entirely on CH-04 aggregation
+ * (`aggregationPolicy.scope: "entity"` in content, i.e. per
+ * `discoveryId`) to fold repeated `technology_adoption_increased` ticks
+ * for the SAME discovery into one entry -- never across different
+ * discoveries, which would be exactly the false aggregation SS30
+ * forbids.
  */
 const RAW_FACT_TYPE_TO_EVENT_TYPE_TODO_TUNING: Readonly<Record<string, string>> = {
   resource_discovered: "resource_discovered",
+  resource_reserve_milestone: "resource_depletion_milestone",
   company_founded: "company_founded",
   company_expanded: "company_major_expansion",
   company_closed: "company_closed",
   shortage_started: "shortage_started",
   settlement_stage_changed: "settlement_stage_changed",
   discovery_occurred: "discovery_occurred",
+  technology_adoption_increased: "technology_adoption_wave",
 };
 
 /** SS7 Relative Magnitude: a 100%+ relative change already saturates the component to `1`. */
@@ -62,7 +71,19 @@ const SHORTAGE_RESOLUTION_SILENCE_TICKS_TODO_TUNING = 6;
 /** How many ticks an unresolved shortage needs to be open before its resolution's `duration` component saturates to `1`. */
 const SHORTAGE_DURATION_SATURATION_TICKS_TODO_TUNING = 36;
 
-const DURATION_COMPONENT_TODO_TUNING: Readonly<Record<DurationState, number>> = {
+/** SS33 Trend End: ticks with no renewing `population_migrated_in` before an open migration process is considered resolved. */
+const MIGRATION_WAVE_SILENCE_TICKS_TODO_TUNING = 6;
+/** Caps a continuously-renewed migration process (`findExceedingDuration`) so decades of steady background migration cannot silently accumulate into one unbounded "wave" that never resolves -- 5 years at monthly VS ticks. */
+const MIGRATION_WAVE_MAX_DURATION_TICKS_TODO_TUNING = 60;
+/** How many ticks a migration process needs to have run before its resolution's `duration` component saturates to `1`. */
+const MIGRATION_WAVE_DURATION_SATURATION_TICKS_TODO_TUNING = 36;
+/** SS7: accumulated net migrants reaching this share of the destination's population (via `ChronicleContext.regionPopulation`) saturates `magnitude` to `1` -- SS7's own example ("+500 in a 700-person village") is roughly this scale. */
+const MIGRATION_WAVE_POPULATION_SATURATION_RATIO_TODO_TUNING = 0.5;
+/** Fallback absolute scale for `magnitude` when no `regionPopulation` context is supplied. */
+const MIGRATION_WAVE_FALLBACK_SCALE_TODO_TUNING = 500;
+
+/** Exported for `intervention-legacy.ts` -- same duration-classification proxy, one shared table. */
+export const DURATION_COMPONENT_TODO_TUNING: Readonly<Record<DurationState, number>> = {
   INSTANTANEOUS: 0.1,
   SHORT: 0.3,
   SUSTAINED: 0.6,
@@ -70,7 +91,8 @@ const DURATION_COMPONENT_TODO_TUNING: Readonly<Record<DurationState, number>> = 
   MULTI_GENERATIONAL: 1,
 };
 
-const GEOGRAPHIC_SCOPE_COMPONENT_TODO_TUNING: Readonly<Record<GeographicScope, number>> = {
+/** Exported for `intervention-legacy.ts` -- same geographic-scope proxy, one shared table. */
+export const GEOGRAPHIC_SCOPE_COMPONENT_TODO_TUNING: Readonly<Record<GeographicScope, number>> = {
   LOCAL: 0.1,
   SETTLEMENT: 0.3,
   REGIONAL: 0.55,
@@ -88,6 +110,13 @@ export interface MagnitudeContext {
 
 export interface ChronicleContext {
   readonly magnitudeContext?: (fact: SimulationFact) => MagnitudeContext | undefined;
+  /**
+   * Population denominator for accumulator-based detectors that resolve
+   * a candidate from an `ActiveProcess`, not a single fact (e.g.
+   * `migration_wave`) -- keyed by region, since the process only carries
+   * a `regionId`/`settlementId`, not a fact to hand to `magnitudeContext`.
+   */
+  readonly regionPopulation?: (regionId: string) => number | undefined;
 }
 
 export interface BuildChronicleCandidatesInput {
@@ -102,6 +131,8 @@ export interface BuildChronicleCandidatesInput {
   readonly activeProcessRegistry: ActiveProcessRegistry;
   readonly context?: ChronicleContext;
   readonly shortageResolutionSilenceTicks?: number;
+  readonly migrationWaveSilenceTicks?: number;
+  readonly migrationWaveMaxDurationTicks?: number;
 }
 
 function determineScope(fact: SimulationFact): GeographicScope {
@@ -276,6 +307,75 @@ function buildShortageResolutionCandidate(
   };
 }
 
+/** Settlement-level when the fact carries one, else region-level -- matches `determineScope`. */
+function migrationWaveProcessKey(fact: SimulationFact): string {
+  return `migration_wave:${fact.location.regionId}:${fact.location.settlementId ?? "region"}`;
+}
+
+/**
+ * SS31 Trend Detection (persistence + minimal magnitude) via
+ * `ActiveProcessRegistry.accumulatedMagnitude`: unlike shortage
+ * (lifecycle-only, magnitude always `0`), a migration wave's `magnitude`
+ * IS the accumulated net in-migration -- the single most important
+ * signal for "how big was this wave" -- so this candidate is built from
+ * the PROCESS's running total, not any one fact.
+ */
+function buildMigrationWaveCandidate(
+  process: ActiveProcess,
+  eventType: EventTypeDefinition,
+  tick: number,
+  nextId: () => string,
+  context: ChronicleContext | undefined,
+): ChronicleCandidate | undefined {
+  const elapsedTicks = Math.max(1, tick - process.startTick);
+  const duration = Math.min(1, elapsedTicks / MIGRATION_WAVE_DURATION_SATURATION_TICKS_TODO_TUNING);
+
+  // processKey = `migration_wave:<regionId>:<settlementId | "region">`.
+  const [, regionId, settlementPart] = process.processKey.split(":");
+  const scope: GeographicScope = settlementPart !== undefined && settlementPart !== "region" ? "SETTLEMENT" : "REGIONAL";
+  const geographicScope = GEOGRAPHIC_SCOPE_COMPONENT_TODO_TUNING[scope];
+
+  const populationDenominator = regionId !== undefined ? context?.regionPopulation?.(regionId) : undefined;
+  const magnitude =
+    populationDenominator !== undefined && populationDenominator > 0
+      ? Math.min(
+          1,
+          process.accumulatedMagnitude / populationDenominator / MIGRATION_WAVE_POPULATION_SATURATION_RATIO_TODO_TUNING,
+        )
+      : Math.min(1, process.accumulatedMagnitude / MIGRATION_WAVE_FALLBACK_SCALE_TODO_TUNING);
+
+  const significance = computeSignificance({
+    magnitude,
+    duration,
+    populationAffected: magnitude,
+    geographicScope,
+    novelty: 0,
+    causalImpact: 0,
+    contextualImportance: 0,
+    baseSignificance: eventType.baseSignificance,
+  });
+
+  if (significance.total < eventType.candidateThreshold) return undefined;
+
+  return {
+    id: nextId(),
+    factRefs: [process.rootFactId],
+    tick,
+    entityRefs: [],
+    regionRefs: regionId !== undefined ? [regionId] : [],
+    eventType: eventType.id,
+    category: eventType.category,
+    significance,
+    isFirstOccurrence: false,
+    scope,
+    durationState: eventType.durationPolicy,
+    causalAnchors: [process.rootFactId],
+    architectInfluence: 0,
+    aggregationKey: undefined,
+    status: "PENDING",
+  };
+}
+
 /**
  * CH-03: `SimulationFact[] -> ChronicleCandidate[]` (Candidate Schema
  * SS19). Mutates `noveltyRegistry`/`activeProcessRegistry` as a side
@@ -321,6 +421,21 @@ export function buildChronicleCandidates(
         fact.id,
       );
     }
+
+    if (fact.type === "population_migrated_in") {
+      const values = fact.values as { before?: unknown; after?: unknown };
+      const migrantCount =
+        typeof values.before === "number" && typeof values.after === "number"
+          ? Math.abs(values.after - values.before)
+          : 0;
+      input.activeProcessRegistry.openOrRenew(
+        migrationWaveProcessKey(fact),
+        "migration_wave",
+        input.currentTick,
+        fact.id,
+        migrantCount,
+      );
+    }
   }
 
   const silenceTicks = input.shortageResolutionSilenceTicks ?? SHORTAGE_RESOLUTION_SILENCE_TICKS_TODO_TUNING;
@@ -330,6 +445,34 @@ export function buildChronicleCandidates(
       if (stale.processType !== "shortage") continue;
       input.activeProcessRegistry.advance(stale.processKey, "RESOLVED", input.currentTick);
       const candidate = buildShortageResolutionCandidate(stale, resolvedEventType, input.currentTick, nextId);
+      if (candidate) candidates.push(candidate);
+    }
+  }
+
+  const migrationSilenceTicks = input.migrationWaveSilenceTicks ?? MIGRATION_WAVE_SILENCE_TICKS_TODO_TUNING;
+  const migrationMaxDurationTicks =
+    input.migrationWaveMaxDurationTicks ?? MIGRATION_WAVE_MAX_DURATION_TICKS_TODO_TUNING;
+  const migrationWaveEventType = input.eventTypes.get("migration_wave");
+  if (migrationWaveEventType) {
+    const resolvable = new Map<string, ActiveProcess>();
+    for (const process of input.activeProcessRegistry.findStale(input.currentTick, migrationSilenceTicks)) {
+      if (process.processType === "migration_wave") resolvable.set(process.processKey, process);
+    }
+    for (const process of input.activeProcessRegistry.findExceedingDuration(
+      input.currentTick,
+      migrationMaxDurationTicks,
+    )) {
+      if (process.processType === "migration_wave") resolvable.set(process.processKey, process);
+    }
+    for (const process of [...resolvable.values()].sort((a, b) => a.processKey.localeCompare(b.processKey))) {
+      input.activeProcessRegistry.advance(process.processKey, "RESOLVED", input.currentTick);
+      const candidate = buildMigrationWaveCandidate(
+        process,
+        migrationWaveEventType,
+        input.currentTick,
+        nextId,
+        input.context,
+      );
       if (candidate) candidates.push(candidate);
     }
   }
