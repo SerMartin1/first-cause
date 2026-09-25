@@ -3,6 +3,8 @@ import path from "node:path";
 import {
   loadContentPack,
   type CompanyArchetypeDefinition,
+  type EventTypeDefinition,
+  type ChronicleTemplateDefinition,
   type DefinitionRegistry,
   type DiscoveryDefinition,
   type InterventionDefinition,
@@ -40,6 +42,8 @@ import {
  * `cost` w ogóle trafi do M7/M10-owych parserów.
  */
 export interface LoadEconomyContentResult {
+  readonly chronicleEventTypes?: DefinitionRegistry<EventTypeDefinition>;
+  readonly chronicleTemplates?: DefinitionRegistry<ChronicleTemplateDefinition>;
   readonly ok: boolean;
   readonly errors: readonly string[];
   readonly productionRecipesByMethodId: Readonly<Record<string, ProductionRecipe>>;
@@ -51,9 +55,13 @@ export interface LoadEconomyContentResult {
   /** M15: `content/discoveries/*.json`, kluczowane po id -- wejście Discovery Engine. */
   readonly discoveryDefinitionsById: Readonly<Record<string, DiscoveryDefinition>>;
   /** M15: `content/knowledgeDomains/*.json`, kluczowane po id. */
-  readonly knowledgeDomainDefinitionsById: Readonly<Record<string, KnowledgeDomainDefinition>>;
+  readonly knowledgeDomainDefinitionsById: Readonly<
+    Record<string, KnowledgeDomainDefinition>
+  >;
   /** M15: sparsowane z `discoveryDefinitionsById` -- gotowe do `RunEconomyTickInput.discoveryEligibilityRulesById`. */
-  readonly discoveryEligibilityRulesById: Readonly<Record<string, DiscoveryEligibilityRule>>;
+  readonly discoveryEligibilityRulesById: Readonly<
+    Record<string, DiscoveryEligibilityRule>
+  >;
   /** M15: `Object.keys(knowledgeDomainDefinitionsById)` -- gotowe do `RunEconomyTickInput.knowledgeDomainIds`. */
   readonly knowledgeDomainIds: readonly string[];
   /**
@@ -88,7 +96,9 @@ export interface LoadEconomyContentResult {
    */
   readonly sectorByCompanyArchetypeId: Readonly<Record<string, string>>;
   /** M16: `content/interventions/*.json`, sparsowane na `ArchitectInterventionRule` -- gotowe dla `applyArchitectIntervention`. */
-  readonly architectInterventionRulesById: Readonly<Record<string, ArchitectInterventionRule>>;
+  readonly architectInterventionRulesById: Readonly<
+    Record<string, ArchitectInterventionRule>
+  >;
 }
 
 /**
@@ -102,7 +112,10 @@ export interface LoadEconomyContentResult {
 function derivePmCandidatesByCurrentMethodId(
   definitions: readonly ProductionMethodDefinition[],
 ): Record<string, string> {
-  const sameShape = (a: ProductionMethodDefinition, b: ProductionMethodDefinition): boolean => {
+  const sameShape = (
+    a: ProductionMethodDefinition,
+    b: ProductionMethodDefinition,
+  ): boolean => {
     const sameSet = (x: readonly string[], y: readonly string[]): boolean =>
       x.length === y.length && x.every((id) => y.includes(id));
     return (
@@ -159,6 +172,8 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       discovery: readJsonDir(path.join(contentDir, "discoveries")),
       knowledgeDomain: readJsonDir(path.join(contentDir, "knowledgeDomains")),
       intervention: readJsonDir(path.join(contentDir, "interventions")),
+      eventType: readJsonDir(path.join(contentDir, "eventTypes")),
+      chronicleTemplate: readJsonDir(path.join(contentDir, "chronicleTemplates")),
     },
     locales: {
       en: readJsonLocale(path.join(localesDir, "en", "common.json")),
@@ -271,6 +286,10 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
 
   return {
     ok: true,
+    chronicleEventTypes: result.registries
+      .eventType as DefinitionRegistry<EventTypeDefinition>,
+    chronicleTemplates: result.registries
+      .chronicleTemplate as DefinitionRegistry<ChronicleTemplateDefinition>,
     errors: [],
     productionRecipesByMethodId,
     transportModeProfilesByModeId,

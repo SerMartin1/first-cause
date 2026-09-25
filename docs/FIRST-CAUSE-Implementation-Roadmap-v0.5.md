@@ -1,8 +1,8 @@
-# FIRST CAUSE --- Implementation Roadmap v0.2
+# FIRST CAUSE --- Implementation Roadmap v0.5
 
 **Status:** dokument kanoniczny / żywy (living document)\
 **Projekt:** FIRST CAUSE\
-**Wersja:** 0.2\
+**Wersja:** 0.5\
 **Rola:** przełożenie istniejącej dokumentacji na wykonywalną kolejność
 implementacji Vertical Slice --- od pustego repozytorium do
 `VS Freeze`.\
@@ -10,8 +10,10 @@ implementacji Vertical Slice --- od pustego repozytorium do
 `FIRST-CAUSE-Master-Documentation-Consistency-Implementation-Readiness-Audit-v0.1.md`
 
 **Dokumenty UI obowiązujące dla harmonogramu:**
-`FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`,
-`FIRST-CAUSE-UI-Implementation-Spec-v1.0.md`
+`FIRST-CAUSE-UI-Visual-Design-System-v1.3.md`,
+`FIRST-CAUSE-UI-Implementation-Spec-v1.3.md`,
+`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.1.md`,
+`FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.2.md`
 
 > **Ten dokument nie tworzy nowej koncepcji gry. Tłumaczy istniejące,
 > już zatwierdzone specyfikacje na kolejność, w jakiej powstanie kod.**
@@ -20,11 +22,15 @@ implementacji Vertical Slice --- od pustego repozytorium do
 
 # 0. Miejsce tego dokumentu w hierarchii
 
-Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1`
-i **przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
-M1--M15 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M15),
-bieżący etap to M16 (Architect, pierwsza interwencja gracza -- BACKLOG,
-odblokowane przez M15's DONE). Pełni rolę, którą
+Pierwsza wersja dokumentu powstała **po** `Canonical Decisions v0.1` i
+**przed** implementacją M0. Wersja v0.2 kontynuuje plan po M0/M0.1;
+M1--M20 są ukończone (patrz "Wyniki wykonania" w sekcjach M1--M20).
+Bieżący etap to **M21 --- UI Vertical Slice (IN PROGRESS)**. M21 jest
+pełnym UI Integration Milestone: łączy istniejące Read Models,
+komponenty `FC*`, Causality/WHY?, Chronicle, Architect i persistence w
+docelowy UX gracza. Od 2026-09-21 M21 obejmuje również jawny **Visual
+Production Track**: Golden UI → zatwierdzone assety → implementacja →
+screenshot audit → korekta. Pełni rolę, którą
 `Master Documentation Consistency & Implementation Readiness Audit v0.1`
 nazwał ostatnim krokiem przed kodowaniem: audyt ustalił kanon i
 kolejność na poziomie nazw milestone'ów (`IMPL-008`), a ten dokument
@@ -381,8 +387,8 @@ Od `M5` każdy system, który ma dane widoczne dla gracza, ma w swoim DoD:
 
 ## Dostępność referencji UI
 
-Golden UI są opisane tekstowo, ale ich pliki/odnośniki nie są dostępne
-w repo (stan 2026-09-16). Należy je udostępnić przed review zgodności
+Golden UI są opisane tekstowo, ale ich pliki/odnośniki nie są dostępne w
+repo (stan 2026-09-16). Należy je udostępnić przed review zgodności
 wizualnej ekranów oraz gate M25. Nie blokuje to M1 ani implementacji
 tekstowych kontraktów UI Foundation; odbiór wizualny pozostaje otwarty.
 
@@ -628,8 +634,8 @@ na którym każdy późniejszy system będzie mógł polegać bez wyjątków.
 
 **Decyzje na początku M1:** krótki ADR obejmujący RNG/version/stream
 seeding, deterministic IDs, skalę pieniędzy i rounding/overflow,
-canonical serialization/checksum, kolejność Commands na ticku
-i zakres gwarancji między platformami (Canonical Decisions §201).
+canonical serialization/checksum, kolejność Commands na ticku i zakres
+gwarancji między platformami (Canonical Decisions §201).
 
 **Implementowane systemy:** SimulationClock/Tick, Seed, deterministic
 RNG z nazwanymi streamami, deterministic IDs, canonical ordering,
@@ -682,27 +688,28 @@ PERF-\*), `FIRST-CAUSE-Technology-Stack-Decision-v0.1.md` (§29--35,
 otwarte przez `Canonical Decisions` §201/OPEN-008 (algorytm i wersja
 RNG, wyprowadzanie streamów, strategia ID, rounding/overflow, canonical
 serialization/checksum, kolejność Commands na ticku, gwarancje
-platformowe) -- zgodnie z wymogiem, że są to decyzje do podjęcia *w*
-M1, nie założenia sprzed niego.
+platformowe) -- zgodnie z wymogiem, że są to decyzje do podjęcia *w* M1,
+nie założenia sprzed niego.
 
 **Co faktycznie wdrożono (`packages/simulation/src/core`):**
 
 -   `core/time` -- `SimulationClock`/`tickToDate`: tick jako integer,
     data = f(startYear/startMonth, tick), 1 tick = 1 miesiąc (SIM-001).
--   `core/rng` -- własny `xoshiro128**` (128-bit state, wyłącznie
-    32-bit `Math.imul`/bitwise, bez BigInt/floatów w rdzeniu),
-    seedowany przez `splitmix32`; `WorldRng.stream(name, scopeId?)` z
-    ośmioma kanonicznymi streamami SAVE-003, deterministycznie
-    wyprowadzanymi (`fnv1a32(worldSeed:streamName:scopeId)`);
+-   `core/rng` -- własny `xoshiro128**` (128-bit state, wyłącznie 32-bit
+    `Math.imul`/bitwise, bez BigInt/floatów w rdzeniu), seedowany przez
+    `splitmix32`; `WorldRng.stream(name, scopeId?)` z ośmioma
+    kanonicznymi streamami SAVE-003, deterministycznie wyprowadzanymi
+    (`fnv1a32(worldSeed:streamName:scopeId)`);
     `nextUint32/nextFloat/nextInt` (ten ostatni przez unbiased Lemire
     rejection sampling, nie `% n`).
 -   `core/ids` -- `IdGenerator`: monotoniczny licznik per-prefix
     (`company_004281`-style), nigdy hash ani `crypto.randomUUID`.
--   `core/validation` -- `assertFinite/assertNonNegative/
-    assertSafeInteger/assertInteger` + `InvariantViolationError`.
--   `core/rounding` -- rozstrzyga OPEN-008: pieniądze jako integer
-    minor units (`MONEY_SCALE = 100`), `roundHalfEven` (banker's
-    rounding, uzasadnienie w ADR-001), overflow-guard przez
+-   `core/validation` --
+    `assertFinite/assertNonNegative/     assertSafeInteger/assertInteger` +
+    `InvariantViolationError`.
+-   `core/rounding` -- rozstrzyga OPEN-008: pieniądze jako integer minor
+    units (`MONEY_SCALE = 100`), `roundHalfEven` (banker's rounding,
+    uzasadnienie w ADR-001), overflow-guard przez
     `Number.MAX_SAFE_INTEGER`.
 -   `core/serialization` -- `canonicalStringify`: sortowane klucze
     obiektów, posortowane wpisy `Map`/wartości `Set`, pominięte pola
@@ -711,17 +718,18 @@ M1, nie założenia sprzed niego.
 -   `core/checksum` -- `computeChecksum` (`fnv1a32x2-v1`, dwa
     niezależnie zaseedowane przebiegi FNV-1a-32 nad canonical
     serialization) -- WorldChecksum do testów determinizmu (SAVE-010).
--   `core/commands` -- `CommandBoundary`: `enqueue(scheduledForTick,
-    command)` z monotonicznym `sequence`, `drain(tick)` zwraca tylko
-    komendy na dany tick, posortowane po `sequence`; brak mid-tick
-    application (SAVE-006). Generyczny mechanizm -- bez konkretnych
-    typów Command (te powstają z systemami, które ich potrzebują, M3+).
+-   `core/commands` -- `CommandBoundary`:
+    `enqueue(scheduledForTick,     command)` z monotonicznym `sequence`,
+    `drain(tick)` zwraca tylko komendy na dany tick, posortowane po
+    `sequence`; brak mid-tick application (SAVE-006). Generyczny
+    mechanizm -- bez konkretnych typów Command (te powstają z systemami,
+    które ich potrzebują, M3+).
 -   `core/runner` -- `HeadlessRunner`: minimalny headless runner
     spinający zegar/RNG/command boundary; `step()`/`runTicks(n)`,
     `getState()`/`HeadlessRunner.fromState()` (save/restore roundtrip),
-    `checksum()`. Brak World State/systemów gospodarczych (poza
-    zakresem M1) -- `step()` drenuje kolejkę komend i przesuwa zegar,
-    dowodząc kontraktu przed istnieniem realnych komend.
+    `checksum()`. Brak World State/systemów gospodarczych (poza zakresem
+    M1) -- `step()` drenuje kolejkę komend i przesuwa zegar, dowodząc
+    kontraktu przed istnieniem realnych komend.
 -   ESLint: nowa reguła (`packages/simulation/src/core/**`) blokująca
     `Math.random`, `Date.now`, `new Date()`, `crypto.randomUUID` (
     SAVE-004), zweryfikowana pozytywnym testem wykrycia naruszenia.
@@ -733,22 +741,22 @@ M1, nie założenia sprzed niego.
     ticków reprodukowalnych, ×1 vs `runTicks` batch equality,
     save/restore roundtrip mid-run).
 
-**Acceptance Gate (Technology Stack Decision §98) -- zweryfikowane:**
-10 000 pustych ticków reprodukowalnych (`runner.test.ts`); RNG golden
-tests przechodzą; ×1 (stepwise) i `runTicks` batch dają ten sam
-checksum; save/restore mid-run (w tym z dotkniętym streamem RNG) daje
-identyczny checksum jak nieprzerwany bieg.
+**Acceptance Gate (Technology Stack Decision §98) -- zweryfikowane:** 10
+000 pustych ticków reprodukowalnych (`runner.test.ts`); RNG golden tests
+przechodzą; ×1 (stepwise) i `runTicks` batch dają ten sam checksum;
+save/restore mid-run (w tym z dotkniętym streamem RNG) daje identyczny
+checksum jak nieprzerwany bieg.
 
-**Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint`, `pnpm
-format:check`, `pnpm test` (94/94 testów), `pnpm build` i `pnpm
-test:e2e` -- wszystkie zielone w czystym przebiegu.
+**Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint`,
+`pnpm format:check`, `pnpm test` (94/94 testów), `pnpm build` i
+`pnpm test:e2e` -- wszystkie zielone w czystym przebiegu.
 
 **Dług techniczny / świadomie poza zakresem:** brak konkretnych typów
 Command (M3+); `core/rounding` ustala politykę wyłącznie dla pieniędzy
--- zaokrąglanie ilości dóbr/populacji należy do ich własnych domen,
-gdy powstaną; `RngStream.nextInt` i `canonicalStringify` nie mają
-jeszcze żadnego rzeczywistego konsumenta domenowego (M1 dowodzi
-mechanizmu, nie zużywa go jeszcze) -- to nie jest brakujący zakres M1.
+-- zaokrąglanie ilości dóbr/populacji należy do ich własnych domen, gdy
+powstaną; `RngStream.nextInt` i `canonicalStringify` nie mają jeszcze
+żadnego rzeczywistego konsumenta domenowego (M1 dowodzi mechanizmu, nie
+zużywa go jeszcze) -- to nie jest brakujący zakres M1.
 
 **Czy M2 jest odblokowane:** TAK.
 
@@ -815,24 +823,22 @@ języki poza EN/PL.
 **Co faktycznie wdrożono (`packages/content/src`):**
 
 -   `schema/` --- Zod schema dla wszystkich 10 typów z modułu M2
-    (`Resource, Good, CompanyArchetype, ProductionMethod, Discovery,
-    Service, TransportMode, Intervention, EventType,
-    ChronicleTemplate`), oparte wprost na polach "Minimalnie" z
-    `Content-Localization-Spec` §41--50, nie na głębszym modelu z
-    `Production-Economy-Master` (ten należy do M5/M7). Pola bez
-    ustalonej jeszcze mechaniki (`occurrenceRules`, `productivity`,
-    `workforceProfile`, ...) są otwartymi bagami danych ("configurable
-    placeholder + TODO tuning", `AGENTS.md`), nie wymyśloną strukturą.
-    `KnowledgeDomainDefinition` (§4) świadomie pominięty --- to zakres
-    M15; pola odwołujące się do domen wiedzy (`primaryDomainId`) są
-    poprawnymi `ContentId`ami, ale nie są jeszcze walidowane
-    krzyżowo.
+    (`Resource, Good, CompanyArchetype, ProductionMethod, Discovery,     Service, TransportMode, Intervention, EventType,     ChronicleTemplate`),
+    oparte wprost na polach "Minimalnie" z `Content-Localization-Spec`
+    §41--50, nie na głębszym modelu z `Production-Economy-Master` (ten
+    należy do M5/M7). Pola bez ustalonej jeszcze mechaniki
+    (`occurrenceRules`, `productivity`, `workforceProfile`, ...) są
+    otwartymi bagami danych ("configurable placeholder + TODO tuning",
+    `AGENTS.md`), nie wymyśloną strukturą. `KnowledgeDomainDefinition`
+    (§4) świadomie pominięty --- to zakres M15; pola odwołujące się do
+    domen wiedzy (`primaryDomainId`) są poprawnymi `ContentId`ami, ale
+    nie są jeszcze walidowane krzyżowo.
 -   Ujednolicono nazwę pola fazy na `implementationPhase` (zgodnie z
     CONTENT-008/§31) w miejsce placeholderowego `phase` z M0; naprawiono
-    też `ResourceDefinition.finite` -> `renewable` (§41). Zaktualizowano
-    istniejącą fixture `content/resources/iron_ore.json` i test M0 pod
-    nową nazwę pól -- świadoma, w zakresie M2 zmiana (M2 jest
-    milestone'em odpowiedzialnym za realne schematy, M0 był jawnie
+    też `ResourceDefinition.finite` -\> `renewable` (§41).
+    Zaktualizowano istniejącą fixture `content/resources/iron_ore.json`
+    i test M0 pod nową nazwę pól -- świadoma, w zakresie M2 zmiana (M2
+    jest milestone'em odpowiedzialnym za realne schematy, M0 był jawnie
     "M0 scope only" placeholderem).
 -   `schema/reference-field.ts` --- deklaratywny opis pól-referencji
     (`ReferenceFieldSpec`/`ContentTypeSpec`) per typ: który target type,
@@ -860,34 +866,34 @@ języki poza EN/PL.
     CONTENT-010 (duplicate ID, cross-type ID collision, missing ref,
     invalid range, dependency cycle, phase violation, missing EN key,
     missing secondary-locale warning), test determinizmu ładowania
-    (shuffle kolejności plików -> identyczny wynik), 40 testów
+    (shuffle kolejności plików -\> identyczny wynik), 40 testów
     schema-poziomu (walidacja struktury każdego z 10 typów) i
     integracyjny test czytający prawdziwe pliki z `content/`/`locales/`
     z dysku przez `node:fs`.
 
 **Acceptance Gate -- zweryfikowane:** loader odrzuca błędny JSON z
-czytelnym błędem (`[typeName] Definition at index N failed schema
-validation: ...`); poprawny JSON tworzy immutable registry
-(`DefinitionRegistry`, deep-frozen, jak w M0); EN/PL nigdy nie
-wpływają na `registries`/`stats` (locale wpływa wyłącznie na
-`errors`/`warnings` walidatora lokalizacji) -- pełne rozstrzygnięcie
-`contentVersion`/checksum jako osobnego, wersjonowanego pola zostaje
-w M20 (SAVE-007), zgodnie z notatką z M0.
+czytelnym błędem
+(`[typeName] Definition at index N failed schema validation: ...`);
+poprawny JSON tworzy immutable registry (`DefinitionRegistry`,
+deep-frozen, jak w M0); EN/PL nigdy nie wpływają na `registries`/`stats`
+(locale wpływa wyłącznie na `errors`/`warnings` walidatora lokalizacji)
+-- pełne rozstrzygnięcie `contentVersion`/checksum jako osobnego,
+wersjonowanego pola zostaje w M20 (SAVE-007), zgodnie z notatką z M0.
 
 **Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint` (1
-warning na `any` w celowo poluzowanym typie Zod Input, patrz komentarz
-w `schema/reference-field.ts` -- nie error), `pnpm format:check`, `pnpm
-test` (146/146 testów), `pnpm build` i `pnpm test:e2e` -- wszystkie
-zielone w czystym przebiegu.
+warning na `any` w celowo poluzowanym typie Zod Input, patrz komentarz w
+`schema/reference-field.ts` -- nie error), `pnpm format:check`,
+`pnpm test` (146/146 testów), `pnpm build` i `pnpm test:e2e` --
+wszystkie zielone w czystym przebiegu.
 
 **Dług techniczny / świadomie poza zakresem:** brak
-`KnowledgeDomainDefinition` (M15); pola polimorficzne (`Discovery.unlocks`)
-nie są walidowane krzyżowo, dopóki nie istnieją ich konsumenci (M7+);
-"invalid production chains" z Technology Stack Decision §22 pozostaje
-zakresem M7 (Production) -- nie da się sensownie zwalidować łańcuchów
-produkcji bez logiki produkcji; pełny katalog 12 resources/20
-goods/17 archetypów rośnie przyrostowo od M5 dalej, zgodnie z
-pierwotnym planem tego dokumentu.
+`KnowledgeDomainDefinition` (M15); pola polimorficzne
+(`Discovery.unlocks`) nie są walidowane krzyżowo, dopóki nie istnieją
+ich konsumenci (M7+); "invalid production chains" z Technology Stack
+Decision §22 pozostaje zakresem M7 (Production) -- nie da się sensownie
+zwalidować łańcuchów produkcji bez logiki produkcji; pełny katalog 12
+resources/20 goods/17 archetypów rośnie przyrostowo od M5 dalej, zgodnie
+z pierwotnym planem tego dokumentu.
 
 **Czy M3 jest odblokowane:** TAK.
 
@@ -958,8 +964,8 @@ milestone.
 konsumencie, zgodnie z notatką z M0). Celowo **bez zależności
 produkcyjnej** od `packages/simulation` (tylko `devDependency` do testu
 roundtrip checksum) -- inaczej M5+, gdy systemy w `packages/simulation`
-zaczną operować na typach encji, powstałby cykl importów. Uzasadnienie
-w komentarzu `packages/entities/src/core/validation.ts`. Z tego samego
+zaczną operować na typach encji, powstałby cykl importów. Uzasadnienie w
+komentarzu `packages/entities/src/core/validation.ts`. Z tego samego
 powodu `core/validation.ts` w `entities` jest małą, samodzielną kopią
 odpowiednika z `packages/simulation` -- nie re-eksportem.
 
@@ -967,12 +973,12 @@ odpowiednika z `packages/simulation` -- nie re-eksportem.
 
 -   11 typów encji z listy "Implementowane systemy" M3 --- `World`,
     `Continent`, `Region` (+ `geography`/`environment` jako osobne
-    moduły, zgodnie z listą "Moduły"), `Connection`,
-    `ResourceDeposit`, `Settlement`, `PopulationCohort`, `Company`,
-    `Market`, `Inventory`, `TechnologyState` --- każdy jako typowany
-    interfejs + `create*()` factory z asercjami niezmienników
-    (`core/validation.ts`: brak ujemnych zapasów/populacji, brak
-    self-loop connection, itd. -- reguła 9 Entity Data Model).
+    moduły, zgodnie z listą "Moduły"), `Connection`, `ResourceDeposit`,
+    `Settlement`, `PopulationCohort`, `Company`, `Market`, `Inventory`,
+    `TechnologyState` --- każdy jako typowany interfejs + `create*()`
+    factory z asercjami niezmienników (`core/validation.ts`: brak
+    ujemnych zapasów/populacji, brak self-loop connection, itd. --
+    reguła 9 Entity Data Model).
 -   Świadomie **pominięto** pola odwołujące się do typów encji spoza
     zakresu M3 (`Culture`, `Nation`, `State`, `Infrastructure`,
     `ServiceCapacity`, `HistoricalCharacter`, Architect/SimulationFact/
@@ -980,27 +986,27 @@ odpowiednika z `packages/simulation` -- nie re-eksportem.
     `PopulationCohort.identity`, `Company.ai`,
     `Settlement.services`/`.infrastructure`/`.society` nie istnieją w
     M3, żeby nie tworzyć "wiszących referencji" do typów, których
-    jeszcze nie ma (reguła 9). Udokumentowane w komentarzach przy
-    każdym typie.
+    jeszcze nie ma (reguła 9). Udokumentowane w komentarzach przy każdym
+    typie.
 -   `world-state.ts` (`createWorldState`): scala 11 typów encji w jeden
-    `WorldState`, waliduje **każdą referencję w przód** (Region ->
-    Continent, Connection -> Region x2, Company -> Inventory, itd.,
+    `WorldState`, waliduje **każdą referencję w przód** (Region -\>
+    Continent, Connection -\> Region x2, Company -\> Inventory, itd.,
     rzuca `InvariantViolationError` przy wiszącej referencji), a
     następnie **odtwarza** każdy cache odwołań-wstecz
     (`World.regionIds`, `Continent.regionIds`,
     `Region.resources.depositIds`, `Region.population.totalPopulation`
-    itd.) z encji kanonicznych -- referencje w przód (dziecko ->
+    itd.) z encji kanonicznych -- referencje w przód (dziecko -\>
     rodzic) są jedynym źródłem prawdy; back-referencje nigdy nie są
     ręcznie utrzymywane przez wywołującego. Bezpośrednio realizuje
     DATA-003/DATA-004.
--   `core/indexes.ts` (`groupIdsBy`, `toById`) + `indexes/world-indexes.ts`
-    (`buildWorldIndexes`) --- dokładnie 5 indeksów z listy modułów M3:
-    `companiesByRegion`, `cohortsByRegion`, `depositsByRegion`,
-    `settlementsByRegion`, `connectionsByRegion` (ten ostatni
-    dwukierunkowy -- connection należy do list obu swoich regionów).
-    Budowane od nowa z map kanonicznych przy każdym wywołaniu, nigdy
-    cache'owane -- rekonstruowalność jest własnością z definicji, nie
-    czymś testowanym osobno.
+-   `core/indexes.ts` (`groupIdsBy`, `toById`) +
+    `indexes/world-indexes.ts` (`buildWorldIndexes`) --- dokładnie 5
+    indeksów z listy modułów M3: `companiesByRegion`, `cohortsByRegion`,
+    `depositsByRegion`, `settlementsByRegion`, `connectionsByRegion`
+    (ten ostatni dwukierunkowy -- connection należy do list obu swoich
+    regionów). Budowane od nowa z map kanonicznych przy każdym
+    wywołaniu, nigdy cache'owane -- rekonstruowalność jest własnością z
+    definicji, nie czymś testowanym osobno.
 -   `recomputeRegionTotalPopulation` -- jawna funkcja odtwarzająca
     `Region.population.totalPopulation`/`Settlement.population.totalPopulation`
     z sumy `PopulationCohort.population`, dowodząca DATA-004
@@ -1009,9 +1015,9 @@ odpowiednika z `packages/simulation` -- nie re-eksportem.
 -   42 nowe testy Vitest: po jednym module na typ encji (walidacja
     happy-path + odrzucenie niezmiennika), `world-state.test.ts`
     (referential integrity na 3 różne wiszące referencje, odtwarzanie
-    back-referencji niezależne od kolejności inputu -- SIM-005,
-    checksum roundtrip), `indexes/world-indexes.test.ts`
-    (rekonstruowalność, dwukierunkowość connections).
+    back-referencji niezależne od kolejności inputu -- SIM-005, checksum
+    roundtrip), `indexes/world-indexes.test.ts` (rekonstruowalność,
+    dwukierunkowość connections).
 
 **Save/load roundtrip (Testy M3):** zrealizowany przez
 `canonicalStringify`/`computeChecksum` z `packages/simulation`
@@ -1022,18 +1028,18 @@ struktury kanonicznej serializacji na `WorldState`; pełny plikowy
 save/load z `schemaVersion`/`contentVersion` pozostaje M20 (SAVE-007),
 zgodnie z notatką z M0/M1.
 
-**Acceptance Gate -- zweryfikowane:** można utworzyć świat z N
-regionami i podstawowymi encjami (fixture w `world-state.test.ts`: 2
-regiony, connection, deposit, settlement, 2 kohorty, company, market,
-technology state); zapis/odczyt (canonical roundtrip) daje identyczny
-checksum; indeksy (`WorldIndexes` i denormalizowane pola na
-encjach) są rekonstruowalne z canonical state.
+**Acceptance Gate -- zweryfikowane:** można utworzyć świat z N regionami
+i podstawowymi encjami (fixture w `world-state.test.ts`: 2 regiony,
+connection, deposit, settlement, 2 kohorty, company, market, technology
+state); zapis/odczyt (canonical roundtrip) daje identyczny checksum;
+indeksy (`WorldIndexes` i denormalizowane pola na encjach) są
+rekonstruowalne z canonical state.
 
 **Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint` (ten sam
-1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test`
-(188/188 testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w
-czystym przebiegu. Reguła ESLint blokująca import React/Electron
-(SS6 AGENTS.md) rozszerzona o `packages/entities/**`.
+1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test` (188/188
+testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w czystym
+przebiegu. Reguła ESLint blokująca import React/Electron (SS6 AGENTS.md)
+rozszerzona o `packages/entities/**`.
 
 **Dług techniczny / świadomie poza zakresem:** ID encji są w M3
 dostarczane przez wywołującego (proste, niepuste stringi) --
@@ -1128,7 +1134,8 @@ produkcyjnej od `packages/simulation`; kierunek `simulation -> entities`
 -   `packages/worldgen` (utworzony przy pierwszym realnym konsumencie,
     zgodnie z notatką z M0 -- "worldgen powstanie na starcie M4/M22").
     `fixtures/fixture-schema.ts` (Zod, lustrzane odbicie pól
-    `Create*Input` z `@first-cause/entities`) + `fixtures/load-world-fixture.ts`
+    `Create*Input` z `@first-cause/entities`) +
+    `fixtures/load-world-fixture.ts`
     (`JSON -> Zod -> entity factories -> createWorldState`, generyczny
     -- nie zna pojęcia żadnego konkretnego scenariusza referencyjnego).
 -   `packages/simulation/src/read-models/` -- pierwsza produkcyjna
@@ -1139,49 +1146,49 @@ produkcyjnej od `packages/simulation`; kierunek `simulation -> entities`
     Important Now źródła -- Chronicle/shortages/discoveries/migration/
     interventions, M8/M10/M13/M15/M16/M19) są świadomie pominięte
     zamiast wymyślone; `buildImportantNowReadModel` zwraca `[]` z
-    udokumentowanym powodem (Read Model DoD §6A pkt 2: "typed Read
-    Model albo jawnie udokumentowany brak danych").
+    udokumentowanym powodem (Read Model DoD §6A pkt 2: "typed Read Model
+    albo jawnie udokumentowany brak danych").
 
-**Dane fixture:** `tests/worldgen/fixtures/black_mountain_reference.json`
--- 8 regionów, 1 kontynent, ~50 populacji, 4 osady, 3 złoża (iron_ore w
-Black Mountain jako hidden/UNKNOWN, grain w Green Valley, timber w
-Timberland -- wszystkie odwołują się do prawdziwych definicji contentu
-z M2), 7 połączeń (drzewo łączące wszystkie regiony), 1 firma (grain
-farm w Green Valley) + inventory, 1 market (Riverside -- "route do
-zewnętrznego rynku" dla Black Mountain), 4 TechnologyState. Zgodne z
-World Generation Spec §64 "Pierwszy prototyp" (8--12 regionów, ~50
-populacji, 3--5 osad).
+**Dane fixture:**
+`tests/worldgen/fixtures/black_mountain_reference.json` -- 8 regionów, 1
+kontynent, \~50 populacji, 4 osady, 3 złoża (iron_ore w Black Mountain
+jako hidden/UNKNOWN, grain w Green Valley, timber w Timberland --
+wszystkie odwołują się do prawdziwych definicji contentu z M2), 7
+połączeń (drzewo łączące wszystkie regiony), 1 firma (grain farm w Green
+Valley) + inventory, 1 market (Riverside -- "route do zewnętrznego
+rynku" dla Black Mountain), 4 TechnologyState. Zgodne z World Generation
+Spec §64 "Pierwszy prototyp" (8--12 regionów, \~50 populacji, 3--5
+osad).
 
-**Testy:** 21 nowych testów Vitest -- strukturalne odrzucenie złego
-JSON (`loadWorldFixture`), 7 testów na konkretnym fixture Black
-Mountain (liczba regionów/populacja, hidden Iron Ore + brak wymuszonej
-kopalni, route do rynku przez BFS po grafie połączeń, food-producing
-region, alternatywny region gospodarczy, realny transport cost),
-grep-based test że `packages/worldgen`/`packages/entities`/
-`packages/simulation` (poza plikami `.test.ts`) nie zawierają żadnego
-identyfikatora specyficznego dla Black Mountain, test pojedynczego
-pustego ticka (M1 `HeadlessRunner.step()` obok prawdziwego `WorldState`,
-bez błędu, `WorldState` niezmieniony), 9 testów kontraktowych Read
-Modeli.
+**Testy:** 21 nowych testów Vitest -- strukturalne odrzucenie złego JSON
+(`loadWorldFixture`), 7 testów na konkretnym fixture Black Mountain
+(liczba regionów/populacja, hidden Iron Ore + brak wymuszonej kopalni,
+route do rynku przez BFS po grafie połączeń, food-producing region,
+alternatywny region gospodarczy, realny transport cost), grep-based test
+że `packages/worldgen`/`packages/entities`/ `packages/simulation` (poza
+plikami `.test.ts`) nie zawierają żadnego identyfikatora specyficznego
+dla Black Mountain, test pojedynczego pustego ticka (M1
+`HeadlessRunner.step()` obok prawdziwego `WorldState`, bez błędu,
+`WorldState` niezmieniony), 9 testów kontraktowych Read Modeli.
 
-**Acceptance Gate -- zweryfikowane:** fixture przechodzi walidację
-World State (M3 `createWorldState`, w tym referencyjną integralność);
-świat przechodzi pojedynczy pusty tick bez błędu jako no-op.
+**Acceptance Gate -- zweryfikowane:** fixture przechodzi walidację World
+State (M3 `createWorldState`, w tym referencyjną integralność); świat
+przechodzi pojedynczy pusty tick bez błędu jako no-op.
 
 **Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint` (ten sam
-1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test`
-(208/208 testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w
-czystym przebiegu. Reguła ESLint blokująca import React/Electron
-rozszerzona o `packages/worldgen/**`.
+1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test` (208/208
+testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w czystym
+przebiegu. Reguła ESLint blokująca import React/Electron rozszerzona o
+`packages/worldgen/**`.
 
 **Dług techniczny / świadomie poza zakresem:** proceduralny generator
 (M22); pełny 32-regionowy Reference VS z 12 resources/20 goods (World
 Generation Spec §64 -- najpierw mały prototyp, zrobione tutaj);
-`resourceDefinitionId`/`archetypeId` w fixture nie są jeszcze
-walidowane krzyżowo względem rejestrów contentu z M2 (np.
-`grain_farm` jako `archetypeId` nie ma jeszcze odpowiadającej
+`resourceDefinitionId`/`archetypeId` w fixture nie są jeszcze walidowane
+krzyżowo względem rejestrów contentu z M2 (np. `grain_farm` jako
+`archetypeId` nie ma jeszcze odpowiadającej
 `CompanyArchetypeDefinition`) -- cross-package walidacja
-content<->worldgen nie jest wymagana przez M4 i zostaje otwarta do
+content\<-\>worldgen nie jest wymagana przez M4 i zostaje otwarta do
 momentu, gdy realny konsument (M7+) tego zapotrzebuje.
 
 **Czy M5 jest odblokowane:** TAK.
@@ -1254,10 +1261,10 @@ innych pakietów (`SimulationFact`/`FactSubject` są generyczne --
 `entityType` to zwykły string, nie odwołanie do konkretnego typu z
 `packages/entities`), więc `packages/simulation` mógł dodać na niego
 zależność produkcyjną bez ryzyka cyklu. `SimulationFact` celowo nie ma
-jeszcze pól `causes`/`architect`/`significance`/`retention` -- należą
-do systemów, które jeszcze nie istnieją (CE-02/CE-03 to M17, Architect
-to M16, Chronicle scoring to M19) -- ta sama zasada "brak pola dla
-systemu, którego jeszcze nie ma", co w `packages/entities`.
+jeszcze pól `causes`/`architect`/`significance`/`retention` -- należą do
+systemów, które jeszcze nie istnieją (CE-02/CE-03 to M17, Architect to
+M16, Chronicle scoring to M19) -- ta sama zasada "brak pola dla systemu,
+którego jeszcze nie ma", co w `packages/entities`.
 
 **Logika ekonomiczna (`packages/simulation/src/systems/resources`):**
 
@@ -1267,75 +1274,81 @@ systemu, którego jeszcze nie ma", co w `packages/entities`.
     `resource_assessed` tylko przy realnych przejściach. Odkrycie samo w
     sobie nigdy nie wymusza wydobycia (test wprost sprawdza, że
     `extraction.currentExtraction` zostaje 0 po odkryciu).
--   `extraction.ts` (`extractFromDeposit`) -- `extracted = min(amount,
-    dostępna ilość)`: wydobycie fizycznie nie może stworzyć zasobu
-    (reguła 9 / ECO-010). Emituje `extraction_started`/`_increased`/
-    `_decreased` przez porównanie tempa wydobycia przed/po oraz
-    `resource_depleted` przy wyczerpaniu złoża nieodnawialnego.
+-   `extraction.ts` (`extractFromDeposit`) --
+    `extracted = min(amount,     dostępna ilość)`: wydobycie fizycznie
+    nie może stworzyć zasobu (reguła 9 / ECO-010). Emituje
+    `extraction_started`/`_increased`/ `_decreased` przez porównanie
+    tempa wydobycia przed/po oraz `resource_depleted` przy wyczerpaniu
+    złoża nieodnawialnego.
 -   `renewable.ts` (`regenerateDeposit`) -- wzrost logistyczny do
-    `carryingCapacity` (`growth = regenerationRate * quantity * (1 -
-    quantity/carryingCapacity)`) -- standardowy model sustainable-yield
-    dla tych trzech pól, a nie wymyślona formuła. Dodano pole
-    `carryingCapacity` do `DepositRenewableState` w `packages/entities`
-    (M3 świadomie zostawiło ten typ niekompletny -- "struktura, bez
-    pełnej logiki M5").
--   Wszystkie funkcje są czyste (Technology Stack Decision §33): zwracają
-    `{deposit, facts}` (listę *fact input* do emisji), nie wywołują
-    `FactStore` same -- rozdzielenie CALCULATE od EMIT FACTS (SIM-004).
+    `carryingCapacity`
+    (`growth = regenerationRate * quantity * (1 -     quantity/carryingCapacity)`)
+    -- standardowy model sustainable-yield dla tych trzech pól, a nie
+    wymyślona formuła. Dodano pole `carryingCapacity` do
+    `DepositRenewableState` w `packages/entities` (M3 świadomie
+    zostawiło ten typ niekompletny -- "struktura, bez pełnej logiki
+    M5").
+-   Wszystkie funkcje są czyste (Technology Stack Decision §33):
+    zwracają `{deposit, facts}` (listę *fact input* do emisji), nie
+    wywołują `FactStore` same -- rozdzielenie CALCULATE od EMIT FACTS
+    (SIM-004).
 
-**Read Model:** `ResourceDepositReadModel` (`packages/simulation/src/read-models`)
-respektuje TECH-009 -- dokładna `quantity` jest ukryta, dopóki złoże nie
-osiągnie `DISCOVERED`/`ASSESSED`; `discoveryStatus` jest widoczny zawsze
-(sam stan częściowej wiedzy jest informacyjny).
+**Read Model:** `ResourceDepositReadModel`
+(`packages/simulation/src/read-models`) respektuje TECH-009 -- dokładna
+`quantity` jest ukryta, dopóki złoże nie osiągnie
+`DISCOVERED`/`ASSESSED`; `discoveryStatus` jest widoczny zawsze (sam
+stan częściowej wiedzy jest informacyjny).
 
-**UI Foundation -- start UI-F0:** design tokens (`apps/desktop/src/design/tokens.css`,
-dokładne wartości z `UI Visual Design System v1.0` §3.2/§53-55: paleta
-kolorów, role typograficzne `FC_DISPLAY...FC_MICRO`, spacing 4/8px),
-siedem komponentów `FC*` (`FCSection`, `FCPanel`, `FCTextButton`,
+**UI Foundation -- start UI-F0:** design tokens
+(`apps/desktop/src/design/tokens.css`, dokładne wartości z
+`UI Visual Design System v1.0` §3.2/§53-55: paleta kolorów, role
+typograficzne `FC_DISPLAY...FC_MICRO`, spacing 4/8px), siedem
+komponentów `FC*` (`FCSection`, `FCPanel`, `FCTextButton`,
 `FCPrimaryAction`, `FCTabs`, `FCMetric`, `FCTrend`) oraz
-`FCAppShell`/`FCTopNavigation`/`FCSimulationBar`, które zastąpiły
-surowy shell z M0 w `App.tsx`. `FCSimulationBar` pokazuje wyłącznie
-realne dane (status workera, wersja silnika) -- świadomie bez
-kontrolek tick/data/prędkości, bo żadna pętla ticków jeszcze nie działa
-w aplikacji desktopowej (M1's `HeadlessRunner` pozostaje headless/pod
+`FCAppShell`/`FCTopNavigation`/`FCSimulationBar`, które zastąpiły surowy
+shell z M0 w `App.tsx`. `FCSimulationBar` pokazuje wyłącznie realne dane
+(status workera, wersja silnika) -- świadomie bez kontrolek
+tick/data/prędkości, bo żadna pętla ticków jeszcze nie działa w
+aplikacji desktopowej (M1's `HeadlessRunner` pozostaje headless/pod
 testami) -- dodanie takich kontrolek teraz wyglądałoby funkcjonalnie,
 nie będąc funkcjonalnym (SS2.1 "Information before decoration").
-Ładowanie fontów (IBM Plex Sans/Mono, Source Serif 4) pozostaje
-otwarte -- istniejące CSP (`style-src 'self'`, brak `font-src`)
-świadomie nie zostało poluzowane tylko po to, by wczytać zdalne fonty;
-strona spada na deklarowane stacki systemowe.
+Ładowanie fontów (IBM Plex Sans/Mono, Source Serif 4) pozostaje otwarte
+-- istniejące CSP (`style-src 'self'`, brak `font-src`) świadomie nie
+zostało poluzowane tylko po to, by wczytać zdalne fonty; strona spada na
+deklarowane stacki systemowe.
 
-**Testy:** 55 nowych testów Vitest -- CE-01 (`FactStore`/indices),
-cykl odkrycia (w tym "discovery boundary" i "nie wymusza wydobycia"),
+**Testy:** 55 nowych testów Vitest -- CE-01 (`FactStore`/indices), cykl
+odkrycia (w tym "discovery boundary" i "nie wymusza wydobycia"),
 inwarianty ekstrakcji (brak ujemnych zapasów, "wydobycie nie tworzy
-zasobu", conservation audit: `cumulativeExtraction + quantity ===
-initialQuantity` na każdym kroku), fakty trendu wydobycia, carrying
-capacity dla zasobów odnawialnych, oraz test stabilizacji wokół
-sustainable yield (500 ticków stałego popytu poniżej maksymalnego
-sustainable yield -- powyżej niego równowaga logistycznego wzrostu
-jest niestabilna, co zweryfikowano numerycznie przed napisaniem testu).
-Read Model i shell UI mają własne testy kontraktowe/RTL.
+zasobu", conservation audit:
+`cumulativeExtraction + quantity === initialQuantity` na każdym kroku),
+fakty trendu wydobycia, carrying capacity dla zasobów odnawialnych, oraz
+test stabilizacji wokół sustainable yield (500 ticków stałego popytu
+poniżej maksymalnego sustainable yield -- powyżej niego równowaga
+logistycznego wzrostu jest niestabilna, co zweryfikowano numerycznie
+przed napisaniem testu). Read Model i shell UI mają własne testy
+kontraktowe/RTL.
 
-**Acceptance Gate -- zweryfikowane:** złoże można odkryć (`discoverDeposit`),
-wydobyć (`extractFromDeposit`) i wyczerpać (`resource_depleted` +
-`depleted: true`); zasoby odnawialne stabilizują się wokół
-sustainable yield przy stałym popycie (test 500-tickowy); wszystkie
-inwarianty (brak ujemnych zapasów, conservation) zielone.
+**Acceptance Gate -- zweryfikowane:** złoże można odkryć
+(`discoverDeposit`), wydobyć (`extractFromDeposit`) i wyczerpać
+(`resource_depleted` + `depleted: true`); zasoby odnawialne stabilizują
+się wokół sustainable yield przy stałym popycie (test 500-tickowy);
+wszystkie inwarianty (brak ujemnych zapasów, conservation) zielone.
 
 **Bramki jakości (2026-09-16):** `pnpm typecheck`, `pnpm lint` (ten sam
-1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test`
-(240/240 testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w
-czystym przebiegu. Reguła ESLint blokująca import React/Electron
-rozszerzona o `packages/causality/**`.
+1 warning z M2, bez zmian), `pnpm format:check`, `pnpm test` (240/240
+testów), `pnpm build` i `pnpm test:e2e` -- wszystkie zielone w czystym
+przebiegu. Reguła ESLint blokująca import React/Electron rozszerzona o
+`packages/causality/**`.
 
 **Dług techniczny / świadomie poza zakresem:** ceny, handel, AI
 decydujące o wydobyciu (M7/M11 -- M5 testuje wydobycie izolowanie, bez
 cen, zgodnie z ryzykiem opisanym wyżej); `economicallyExhausted`
 pozostaje polem strukturalnym bez automatycznego obliczania (wymaga
 cen/rynku, M7/M8); brak jeszcze realnej pętli ticków łączącej
-`HeadlessRunner` z `WorldState`/systemami zasobów (to zadanie
-przyszłych milestone'ów, które faktycznie tickują świat); self-hosted
-fonty IBM Plex/Source Serif pozostają otwarte.
+`HeadlessRunner` z `WorldState`/systemami zasobów (to zadanie przyszłych
+milestone'ów, które faktycznie tickują świat); self-hosted fonty IBM
+Plex/Source Serif pozostają otwarte.
 
 **Czy M6 jest odblokowane:** TAK.
 
@@ -1411,62 +1424,62 @@ SIM-002), `FIRST-CAUSE-Entity-Data-Model-v0.1.md` (§11),
     cichu): dokładnie 5 kohort, brak duplikatu `ageGroup`, spójna
     tożsamość -- każde naruszenie oznaczałoby populację znikającą lub
     pojawiającą się bez zarejestrowanej przyczyny.
--   `demography.ts` (`applyMonthlyDemography`) -- awansuje jedną
-    cohort family o dokładnie jeden miesiąc (1 tick = 1 miesiąc,
-    SIM-001, więc nie ma osobnego sprawdzania granicy miesiąca).
-    Zgony i aging-out liczone są z populacji na początek miesiąca;
-    urodzenia trafiają wyłącznie do `AGE_0_14`, liczone z populacji
-    `AGE_25_44` sprzed tego miesiąca (kolejność "zgony przed czy po
-    urodzeniach" nie ma kanonicznej odpowiedzi na tym poziomie
-    abstrakcji, więc funkcja jest celowo order-independent). Wszystkie
-    współczynniki są roczne (SIM-002: "współczynniki pozostają
-    parametrami tuningowymi") i konwertowane na miesięczne przez
-    składanie (`1 - (1-roczny)^(1/12)`), nie dzielenie przez 12 -- ten
-    sam standard co model wzrostu logistycznego z M5. `DEFAULT_
-    DEMOGRAPHY_RATES` (śmiertelność per `AgeGroup`, jeden `birthRate`
-    dla `AGE_25_44` jako modelowanej głównej kohorty rozrodczej, rozpiętość
-    w latach każdego nieterminalnego przedziału wieku) została dobrana
-    tak, by zbliżać się do zastępowalności pokoleń -- zweryfikowano
-    numerycznie *przed* napisaniem testu (ta sama dyscyplina co przy
-    M5 sustainable yield), że przebieg 200-letni/2400-tickowy zostaje w
-    granicach około ±10% populacji startowej dla kilku różnych
-    rozkładów startowych. Populacja nie ma odpowiednika
-    `carryingCapacity` tak jak zasoby odnawialne z M5 -- `birthRate`
-    względem stawek zgonów/aging jest jedyną dostępną dźwignią.
-    Funkcja jest czysta (zwraca `{cohorts, facts}`, nie woła
+-   `demography.ts` (`applyMonthlyDemography`) -- awansuje jedną cohort
+    family o dokładnie jeden miesiąc (1 tick = 1 miesiąc, SIM-001, więc
+    nie ma osobnego sprawdzania granicy miesiąca). Zgony i aging-out
+    liczone są z populacji na początek miesiąca; urodzenia trafiają
+    wyłącznie do `AGE_0_14`, liczone z populacji `AGE_25_44` sprzed tego
+    miesiąca (kolejność "zgony przed czy po urodzeniach" nie ma
+    kanonicznej odpowiedzi na tym poziomie abstrakcji, więc funkcja jest
+    celowo order-independent). Wszystkie współczynniki są roczne
+    (SIM-002: "współczynniki pozostają parametrami tuningowymi") i
+    konwertowane na miesięczne przez składanie
+    (`1 - (1-roczny)^(1/12)`), nie dzielenie przez 12 -- ten sam
+    standard co model wzrostu logistycznego z M5.
+    `DEFAULT_     DEMOGRAPHY_RATES` (śmiertelność per `AgeGroup`, jeden
+    `birthRate` dla `AGE_25_44` jako modelowanej głównej kohorty
+    rozrodczej, rozpiętość w latach każdego nieterminalnego przedziału
+    wieku) została dobrana tak, by zbliżać się do zastępowalności
+    pokoleń -- zweryfikowano numerycznie *przed* napisaniem testu (ta
+    sama dyscyplina co przy M5 sustainable yield), że przebieg
+    200-letni/2400-tickowy zostaje w granicach około ±10% populacji
+    startowej dla kilku różnych rozkładów startowych. Populacja nie ma
+    odpowiednika `carryingCapacity` tak jak zasoby odnawialne z M5 --
+    `birthRate` względem stawek zgonów/aging jest jedyną dostępną
+    dźwignią. Funkcja jest czysta (zwraca `{cohorts, facts}`, nie woła
     `FactStore`), emituje `population_increased`/`population_declined`
     (jedyne fakty CE-01 dotyczące populacji w tym zakresie) tylko przy
     realnej zmianie netto per kohorta.
 
-**Needs skeleton:** bez nowego kodu -- `CohortNeeds` (struktura z sześcioma
-poziomami hierarchii, `totalSatisfaction`) dostarczyła już M3 z myślą
-właśnie o M6/M9; demografia w M6 nigdy nie dotyka pola `needs`, więc
-zostaje wyzerowane i gotowe pod realne obliczanie satysfakcji w M9 --
-ta sama zasada "brak logiki dla systemu, którego jeszcze nie ma", co w
-`packages/causality` przy M5.
+**Needs skeleton:** bez nowego kodu -- `CohortNeeds` (struktura z
+sześcioma poziomami hierarchii, `totalSatisfaction`) dostarczyła już M3
+z myślą właśnie o M6/M9; demografia w M6 nigdy nie dotyka pola `needs`,
+więc zostaje wyzerowane i gotowe pod realne obliczanie satysfakcji w M9
+-- ta sama zasada "brak logiki dla systemu, którego jeszcze nie ma", co
+w `packages/causality` przy M5.
 
-**Profesje VS (POP-005):** świadomie bez nowej infrastruktury contentowej
-w M6 -- `PopulationCohort.profession` pozostaje `string | undefined`,
-nieprzypisywane (tak jak ustawił M3), bo przypisanie zawodu wymaga
-zatrudnienia, które jest poza zakresem M6 (M9/M11). Lista siedmiu
-profesji VS z POP-005 zostaje więc dokumentacyjna, do czasu M9/M11.
+**Profesje VS (POP-005):** świadomie bez nowej infrastruktury
+contentowej w M6 -- `PopulationCohort.profession` pozostaje
+`string | undefined`, nieprzypisywane (tak jak ustawił M3), bo
+przypisanie zawodu wymaga zatrudnienia, które jest poza zakresem M6
+(M9/M11). Lista siedmiu profesji VS z POP-005 zostaje więc
+dokumentacyjna, do czasu M9/M11.
 
 **Testy:** 13 nowych testów Vitest (253 łącznie) -- kompletność i
-spójność tożsamości `buildCohortFamily`, dokładny (ręcznie zweryfikowany)
-transfer aging między kohortami przy zerowej śmiertelności/urodzeniach,
-terminalność `AGE_65_PLUS` (nigdy nie starzeje się dalej), izolacja
-urodzeń (trafiają wyłącznie do `AGE_0_14`, żadna inna kohorta -- w tym
-sama płodna -- się nie zmienia), brak ujemnej populacji nawet przy
-100% rocznej śmiertelności, conservation audit (`suma(after) -
-suma(before) === suma(delta faktów)` na każdym z 50 kolejnych ticków) i
-test smoke 200-letni/2400-tickowy (bez ujemnych kohort, całkowita
-populacja w granicach 0.5x--2x startu).
+spójność tożsamości `buildCohortFamily`, dokładny (ręcznie
+zweryfikowany) transfer aging między kohortami przy zerowej
+śmiertelności/urodzeniach, terminalność `AGE_65_PLUS` (nigdy nie
+starzeje się dalej), izolacja urodzeń (trafiają wyłącznie do `AGE_0_14`,
+żadna inna kohorta -- w tym sama płodna -- się nie zmienia), brak
+ujemnej populacji nawet przy 100% rocznej śmiertelności, conservation
+audit (`suma(after) - suma(before) === suma(delta faktów)` na każdym z
+50 kolejnych ticków) i test smoke 200-letni/2400-tickowy (bez ujemnych
+kohort, całkowita populacja w granicach 0.5x--2x startu).
 
-**Acceptance Gate -- zweryfikowane:** kohorta przechodzi przez N ticków z
-realistyczną dynamiką urodzeń/zgonów bez naruszenia invariants (test
+**Acceptance Gate -- zweryfikowane:** kohorta przechodzi przez N ticków
+z realistyczną dynamiką urodzeń/zgonów bez naruszenia invariants (test
 200-letni); `Region.totalPopulation` pozostaje cache -- M6 nie zmienia
-`packages/entities`, sumowanie po `cohortIds` istnieje od M3
-(DATA-004).
+`packages/entities`, sumowanie po `cohortIds` istnieje od M3 (DATA-004).
 
 **Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
 1 warning z M2/M5, bez zmian), `pnpm format:check`, `pnpm test`
@@ -1488,12 +1501,13 @@ powyżej nie wykryły czterech usterek -- małe populacje (np. 5 kohort po
 10 osób) zamrażały się na stałe przez zaokrąglanie round-half-even
 (zastąpione losowym zaokrąglaniem przez strumień RNG "demography"),
 `agingSpanYears.AGE_65_PLUS` mogło po cichu usuwać populację bez grupy
-docelowej (zablokowane typem `NonTerminalAgeGroup`), `applyMonthlyDemography`
-nie dało się podać fixture'owi M4 bez ręcznego przygotowania (dodano
-`groupCohortsIntoFamilies`), a `RngStream.nextInt` zwracał `NaN` dla
-`maxExclusive` powyżej 2**32 - 1. Szczegóły: CHANGELOG 2026-09-17.
-`applyMonthlyDemography` przyjmuje teraz wymagany parametr `rng:
-RngStream` -- każdy przyszły wywołujący (M7+) musi go przekazać.
+docelowej (zablokowane typem `NonTerminalAgeGroup`),
+`applyMonthlyDemography` nie dało się podać fixture'owi M4 bez ręcznego
+przygotowania (dodano `groupCohortsIntoFamilies`), a `RngStream.nextInt`
+zwracał `NaN` dla `maxExclusive` powyżej 2\*\*32 - 1. Szczegóły:
+CHANGELOG 2026-09-17. `applyMonthlyDemography` przyjmuje teraz wymagany
+parametr `rng: RngStream` -- każdy przyszły wywołujący (M7+) musi go
+przekazać.
 
 ------------------------------------------------------------------------
 
@@ -1553,8 +1567,8 @@ Definition Registry, nie z `if company == X`.
 
 **Nowe moduły (`packages/simulation/src/systems/economy`):**
 
--   `inventory.ts` (`addToInventory`/`removeFromInventory`) --
-    fizyczny rejestr dóbr (DATA-005): czyste, fail-loud operacje na
+-   `inventory.ts` (`addToInventory`/`removeFromInventory`) -- fizyczny
+    rejestr dóbr (DATA-005): czyste, fail-loud operacje na
     `Inventory.items` -- usunięcie więcej niż jest dostępne rzuca
     `InvariantViolationError`, ten sam standard co `buildCohortFamily`
     (M6) i `extractFromDeposit` (M5), zamiast po cichu ściąć do zera.
@@ -1570,38 +1584,41 @@ Definition Registry, nie z `if company == X`.
     zasada "wydobycie nie może stworzyć zasobu") oraz dobra z własnego
     Inventory firmy. `ProductionRecipe` (ile dokładnie na batch) to
     osobny typ warstwy symulacji -- jak `DemographyRates` w M6 -- nie
-    część schematu contentu: `ProductionMethodDefinition.inputs/
-    outputs/resourceRequirements` (M2) to tylko topologia grafu (które
-    dobra/zasoby, do walidacji referencji), a "productivity" to pole
-    jawnie oznaczone w M2 jako otwarte i należące do M7, więc M7 nadaje
-    mu konkretny kształt bez zmiany schematu M2. Brak depozytu, którego
-    przepis wymaga, rzuca głośno (pomyłka wywołującego), w
-    przeciwieństwie do depozytu obecnego, ale pustego (0 batchy,
-    legalny stan wyczerpania -- ECO-010).
+    część schematu contentu:
+    `ProductionMethodDefinition.inputs/     outputs/resourceRequirements`
+    (M2) to tylko topologia grafu (które dobra/zasoby, do walidacji
+    referencji), a "productivity" to pole jawnie oznaczone w M2 jako
+    otwarte i należące do M7, więc M7 nadaje mu konkretny kształt bez
+    zmiany schematu M2. Brak depozytu, którego przepis wymaga, rzuca
+    głośno (pomyłka wywołującego), w przeciwieństwie do depozytu
+    obecnego, ale pustego (0 batchy, legalny stan wyczerpania --
+    ECO-010).
 
 **Nowe definicje contentu** (`content/companyArchetypes/`,
-`content/productionMethods/`, plus aktualizacja `content/resources/
-grain.json` i `content/goods/{flour,bread}.json` o wzajemne referencje):
-`grain_farm` + `manual_farming` (zboże, zasób, wydobywane na żywo ->
-mąka, dobro) i `bakery` + `manual_food_processing` (mąka -> chleb),
-dowodząc łańcucha Zboże->Mąka->Żywność (Production-Economy-Master
-§13) na dwóch archetypach. `grain_farm` w fixture'cie M4 pełni rolę
-połączonych farmy i młyna (jedna Production Method) -- fixture ma tylko
-jedną firmę, więc osobny archetyp "Mill" zostaje do rozszerzenia, gdy
-faktycznie pojawi się w świecie, zamiast dodawać go teraz bez
-uzasadnienia w danych. Dodano odpowiednie klucze `en`/`pl` w
-`locales/*/common.json` i rozszerzono
-`content-fixtures.integration.test.ts` o te dwa typy contentu.
+`content/productionMethods/`, plus aktualizacja
+`content/resources/ grain.json` i `content/goods/{flour,bread}.json` o
+wzajemne referencje): `grain_farm` + `manual_farming` (zboże, zasób,
+wydobywane na żywo -\> mąka, dobro) i `bakery` +
+`manual_food_processing` (mąka -\> chleb), dowodząc łańcucha
+Zboże-\>Mąka-\>Żywność (Production-Economy-Master §13) na dwóch
+archetypach. `grain_farm` w fixture'cie M4 pełni rolę połączonych farmy
+i młyna (jedna Production Method) -- fixture ma tylko jedną firmę, więc
+osobny archetyp "Mill" zostaje do rozszerzenia, gdy faktycznie pojawi
+się w świecie, zamiast dodawać go teraz bez uzasadnienia w danych.
+Dodano odpowiednie klucze `en`/`pl` w `locales/*/common.json` i
+rozszerzono `content-fixtures.integration.test.ts` o te dwa typy
+contentu.
 
-**Testy:** 19 nowych (278 łącznie): `inventory.ts` (dodawanie/
-usuwanie, tworzenie i kasowanie pozycji przy zejściu do zera, fail-loud
-przy niewystarczającym zapasie), `companies.ts` (aktualizacja stanu
+**Testy:** 19 nowych (278 łącznie): `inventory.ts` (dodawanie/ usuwanie,
+tworzenie i kasowanie pozycji przy zejściu do zera, fail-loud przy
+niewystarczającym zapasie), `companies.ts` (aktualizacja stanu
 produkcji, reszta pól nietknięta), `production.ts` (batch capacity-
-limited, floor(capacity*utilization), ograniczenie przez dostępność
+limited, floor(capacity\*utilization), ograniczenie przez dostępność
 zasobu i dobra wejściowego, zero batchy przy capacity=0, fail-loud przy
 brakującym depozycie, łańcuch dwóch firm przez ręczne przeniesienie
-Inventory -- Market to M8 -- oraz Acceptance Gate na realnych wartościach
-z fixture'u M4: `company_green_valley_farm`/`deposit_green_valley_grain`/
+Inventory -- Market to M8 -- oraz Acceptance Gate na realnych
+wartościach z fixture'u M4:
+`company_green_valley_farm`/`deposit_green_valley_grain`/
 `inventory_green_valley_farm`, 12 ticków, zapas nigdy ujemny).
 
 **Acceptance Gate -- zweryfikowane:** firma z fixture'u (Green Valley
@@ -1613,18 +1630,19 @@ maleje zgodnie z ekstrakcją; zapas nigdy nie schodzi poniżej zera.
 1 warning z M2/M5, bez zmian), `pnpm format:check`, `pnpm test`
 (278/278) i `pnpm build` -- wszystkie zielone w czystym przebiegu.
 
-**Dług techniczny / świadomie poza zakresem:** brak Market (M8) --
-dobra przenoszą się między firmami wyłącznie ręcznie (test/przyszły
-orkiestrator), nie automatycznie; brak cen/finansów (`finance.revenue/
-costs` nietknięte -- to M8); brak AI decydującego o `capacity`/
-`utilization`/wyborze Production Method (M11) -- `runProduction`
-przyjmuje je jako gotowy stan; brak realnej pętli ticków łączącej
-`HeadlessRunner`/`WorldState` z systemami gospodarki -- ten sam stan co
-M5 (resources) i M6 (population); tylko 2 z 17 archetypów VS i 2 z 20
-dóbr VS mają realne dane contentu -- reszta łańcuchów (Livestock->Meat,
-Fish->Fish Food, Cotton->Fiber->Textiles->Clothing z pierwotnego
-zakresu M7) rośnie przyrostowo, gdy pojawią się archetypy/firmy, które
-ich faktycznie potrzebują.
+**Dług techniczny / świadomie poza zakresem:** brak Market (M8) -- dobra
+przenoszą się między firmami wyłącznie ręcznie (test/przyszły
+orkiestrator), nie automatycznie; brak cen/finansów
+(`finance.revenue/ costs` nietknięte -- to M8); brak AI decydującego o
+`capacity`/ `utilization`/wyborze Production Method (M11) --
+`runProduction` przyjmuje je jako gotowy stan; brak realnej pętli ticków
+łączącej `HeadlessRunner`/`WorldState` z systemami gospodarki -- ten sam
+stan co M5 (resources) i M6 (population); tylko 2 z 17 archetypów VS i 2
+z 20 dóbr VS mają realne dane contentu -- reszta łańcuchów
+(Livestock-\>Meat, Fish-\>Fish Food,
+Cotton-\>Fiber-\>Textiles-\>Clothing z pierwotnego zakresu M7) rośnie
+przyrostowo, gdy pojawią się archetypy/firmy, które ich faktycznie
+potrzebują.
 
 **Czy M8 jest odblokowane:** TAK.
 
@@ -1683,9 +1701,9 @@ AI-005), `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` (§17--18, §73 R1),
 
 **Rozszerzenie encji (`packages/entities/src/economy/market.ts`):**
 `Market` zyskuje pole `history` (`MarketHistory`:
-`rollingSupply`/`rollingDemand`/`rollingPrice`, per-good, okno przycinane
-przez `price-adjustment.ts`) -- pole było celowo pominięte w M3
-("omitted until M8 needs it"), bo wymagało realnego okna tickowego,
+`rollingSupply`/`rollingDemand`/`rollingPrice`, per-good, okno
+przycinane przez `price-adjustment.ts`) -- pole było celowo pominięte w
+M3 ("omitted until M8 needs it"), bo wymagało realnego okna tickowego,
 którego M3 jeszcze nie miało. `createMarket` inicjalizuje je pustymi
 mapami; jedyne miejsce budujące `Market` ręcznie poza `createMarket`
 (`world-state.test.ts`) już korzystało z fabryki, więc zmiana nie
@@ -1693,58 +1711,62 @@ wymagała dotykania żadnego innego fixture'u.
 
 **Nowe moduły (`packages/simulation/src/systems/economy/markets`):**
 
--   `demand-aggregation.ts` (`aggregateDemand`) -- czysta suma
-    nazwanych źródeł popytu (Production-Economy-Master §5: gospodarstwa
-    domowe, zużycie pośrednie firm, eksport, ...). M8 ma dokładnie
-    jedno realne, podłączone źródło (zużycie pośrednie firm z M7
-    `production.ts`) -- reszta (M9 gospodarstwa domowe, M10 eksport)
-    jeszcze nie istnieje, więc funkcja została source-agnostic: później
-    milestone'y dodają nowy klucz do `demandSources`, nie zmieniają
-    tego modułu.
+-   `demand-aggregation.ts` (`aggregateDemand`) -- czysta suma nazwanych
+    źródeł popytu (Production-Economy-Master §5: gospodarstwa domowe,
+    zużycie pośrednie firm, eksport, ...). M8 ma dokładnie jedno realne,
+    podłączone źródło (zużycie pośrednie firm z M7 `production.ts`) --
+    reszta (M9 gospodarstwa domowe, M10 eksport) jeszcze nie istnieje,
+    więc funkcja została source-agnostic: później milestone'y dodają
+    nowy klucz do `demandSources`, nie zmieniają tego modułu.
+
 -   `shortage-surplus.ts` (`classifyShortageSurplus`) -- realizuje
-    zabezpieczenie "inventory buffer" z Vertical Slice Spec §17: fizyczny
-    zapas (obserwowany, nie posiadany przez Market -- DATA-005/DATA-006)
-    dampuje surowy niedobór podaży zamiast go maskować,
-    `shortageSeverity` w [0, 1] to 0 dla każdej nadwyżki.
--   `price-adjustment.ts` (`initializeMarketGood`, `updateMarketGood`) --
-    `PricePressure = Sensitivity * ((Demand - EffectiveSupply) /
-    NormalSupply)` (VS §17), gdzie `NormalSupply` to średnia krocząca z
+    zabezpieczenie "inventory buffer" z Vertical Slice Spec §17:
+    fizyczny zapas (obserwowany, nie posiadany przez Market --
+    DATA-005/DATA-006) dampuje surowy niedobór podaży zamiast go
+    maskować, `shortageSeverity` w \[0, 1\] to 0 dla każdej nadwyżki.
+
+-   ## `price-adjustment.ts` (`initializeMarketGood`, `updateMarketGood`)
+
+    `PricePressure = Sensitivity * ((Demand - EffectiveSupply) /     NormalSupply)`
+    (VS §17), gdzie `NormalSupply` to średnia krocząca z
     `Market.history.rollingSupply` (poprzednich, nie bieżącego ticka --
-    żeby jeden tick nie przesuwał własnego punktu odniesienia). Wszystkie
-    cztery obowiązkowe zabezpieczenia z VS §17 (price floor, miesięczny
-    limit zmiany, smoothing, inventory buffer) działają od pierwszej
-    wersji, zgodnie z mitygacją ryzyka R1 z VS §73 -- nie zostały
-    odłożone. `initializeMarketGood` zamyka pętlę z `BaseContentPrice`
-    (nowe opcjonalne pole `basePrice` w `ResourceDefinition`/
-    `GoodDefinition`, M2 schema): seeduje pierwszy `localPrice` z
-    contentu. `updateMarketGood` rzuca głośno, jeśli dobro nie ma
-    jeszcze `MarketGoodState` (wywołujący zapomniał zainicjalizować) --
-    ten sam standard fail-loud co brakujący `ResourceDeposit` w M7.
-    Emituje `price_changed` (gdy cena faktycznie się zmienia) i
-    `shortage_started` (edge-triggered 0 -> dodatnia) fakty (Entity Data
-    Model §32 przykładowe typy faktów).
+    żeby jeden tick nie przesuwał własnego punktu odniesienia).
+    Wszystkie cztery obowiązkowe zabezpieczenia z VS §17 (price floor,
+    miesięczny limit zmiany, smoothing, inventory buffer) działają od
+    pierwszej wersji, zgodnie z mitygacją ryzyka R1 z VS §73 -- nie
+    zostały odłożone. `initializeMarketGood` zamyka pętlę z
+    `BaseContentPrice` (nowe opcjonalne pole `basePrice` w
+    `ResourceDefinition`/ `GoodDefinition`, M2 schema): seeduje pierwszy
+    `localPrice` z contentu. `updateMarketGood` rzuca głośno, jeśli
+    dobro nie ma jeszcze `MarketGoodState` (wywołujący zapomniał
+    zainicjalizować) -- ten sam standard fail-loud co brakujący
+    `ResourceDeposit` w M7. Emituje `price_changed` (gdy cena faktycznie
+    się zmienia) i `shortage_started` (edge-triggered 0 -\> dodatnia)
+    fakty (Entity Data Model §32 przykładowe typy faktów).
 
 **Nowe dane contentu:** opcjonalne pole `basePrice` (BaseContentPrice)
 dodane do `content/resources/{grain,iron_ore,timber}.json` i
 `content/goods/{flour,bread}.json` -- opcjonalne w schemacie Zod (nie
-wymagane), bo większość testów loadera (mechanika ładowania, integralność
-referencyjna, wykrywanie cykli) buduje minimalne fixture'y niezwiązane z
-Market i musiały dalej się parsować bez zmian. `price > 0` nadal
-obowiązuje dla każdej podanej wartości (test w `definitions.test.ts`).
+wymagane), bo większość testów loadera (mechanika ładowania,
+integralność referencyjna, wykrywanie cykli) buduje minimalne fixture'y
+niezwiązane z Market i musiały dalej się parsować bez zmian. `price > 0`
+nadal obowiązuje dla każdej podanej wartości (test w
+`definitions.test.ts`).
 
-**Testy:** 31 nowych (309 łącznie) -- `demand-aggregation.test.ts` (suma,
-pusty zbiór, fail-loud na ujemnym źródle), `shortage-surplus.test.ts`
-(FC-MARKET-001/002 setupy, tłumienie przez bufor magazynowy, cap na 1,
-fail-loud), `price-adjustment.test.ts` (FC-MARKET-001 shortage,
-FC-MARKET-002 surplus, FC-MARKET-003 smoothing/cap na ekstremalnym szoku,
-price bounds pod trwałą ekstremalną nadwyżką, import cost placeholder
--- `importDemand`/`exportSupply` nietknięte, emisja/brak faktów, 100-
-tickowy stress test dla zbalansowanego i trwale niedoborowego rynku --
-"brak nieskończonej pętli oscylacji" zweryfikowane jako monotoniczny,
-ograniczony na tick dryf, nie cykliczne odbicia -- oraz Acceptance Gate
-na jednorazowym szoku niedoboru/nadwyżki, który stabilizuje się po
-powrocie równowagi), plus `assertPositive` w `validation.test.ts` i
-rozszerzenie `market.test.ts`/`definitions.test.ts`.
+**Testy:** 31 nowych (309 łącznie) -- `demand-aggregation.test.ts`
+(suma, pusty zbiór, fail-loud na ujemnym źródle),
+`shortage-surplus.test.ts` (FC-MARKET-001/002 setupy, tłumienie przez
+bufor magazynowy, cap na 1, fail-loud), `price-adjustment.test.ts`
+(FC-MARKET-001 shortage, FC-MARKET-002 surplus, FC-MARKET-003
+smoothing/cap na ekstremalnym szoku, price bounds pod trwałą ekstremalną
+nadwyżką, import cost placeholder -- `importDemand`/`exportSupply`
+nietknięte, emisja/brak faktów, 100- tickowy stress test dla
+zbalansowanego i trwale niedoborowego rynku -- "brak nieskończonej pętli
+oscylacji" zweryfikowane jako monotoniczny, ograniczony na tick dryf,
+nie cykliczne odbicia -- oraz Acceptance Gate na jednorazowym szoku
+niedoboru/nadwyżki, który stabilizuje się po powrocie równowagi), plus
+`assertPositive` w `validation.test.ts` i rozszerzenie
+`market.test.ts`/`definitions.test.ts`.
 
 **Acceptance Gate -- zweryfikowane:** przy sztucznie wywołanym
 niedoborze cena rośnie płynnie (ograniczona miesięcznym capem i
@@ -1759,18 +1781,19 @@ zbalansowanym, ani przy stałym niedoborowym popycie/podaży.
 Etykieta `app.milestone` zaktualizowana na "M8 -- Market"/"M8 -- Rynek"
 w `locales/*/common.json` (i odpowiadający test w `App.test.tsx`).
 
-**Dług techniczny / świadomie poza zakresem:** `Company.finance.revenue/
-costs` nietknięte -- rzeczywista transakcja (firma sprzedaje po cenie
-rynkowej, gospodarstwo domowe kupuje) wymaga strony popytowej, która
-jeszcze nie istnieje (M9 households) i AI firm decydujących o sprzedaży
-(M11) -- M8 dostarcza silnik cenowy, nie portfel transakcji; handel
-międzyregionalny (`importDemand`/`exportSupply`) to M10; `demand-
-aggregation` ma dziś tylko jedno realne źródło (zużycie pośrednie firm),
-bo gospodarstwa domowe (M9) i eksport (M10) jeszcze nie istnieją; brak
-realnej pętli ticków łączącej `HeadlessRunner`/`WorldState` z systemami
-gospodarki -- ten sam stan co M5/M6/M7, `updateMarketGood` jest czystą,
-testowaną w izolacji funkcją, nie jest jeszcze wołana per-tick dla
-każdego dobra/regionu przez orkiestrator (przyszły milestone).
+**Dług techniczny / świadomie poza zakresem:**
+`Company.finance.revenue/ costs` nietknięte -- rzeczywista transakcja
+(firma sprzedaje po cenie rynkowej, gospodarstwo domowe kupuje) wymaga
+strony popytowej, która jeszcze nie istnieje (M9 households) i AI firm
+decydujących o sprzedaży (M11) -- M8 dostarcza silnik cenowy, nie
+portfel transakcji; handel międzyregionalny
+(`importDemand`/`exportSupply`) to M10; `demand- aggregation` ma dziś
+tylko jedno realne źródło (zużycie pośrednie firm), bo gospodarstwa
+domowe (M9) i eksport (M10) jeszcze nie istnieją; brak realnej pętli
+ticków łączącej `HeadlessRunner`/`WorldState` z systemami gospodarki --
+ten sam stan co M5/M6/M7, `updateMarketGood` jest czystą, testowaną w
+izolacji funkcją, nie jest jeszcze wołana per-tick dla każdego
+dobra/regionu przez orkiestrator (przyszły milestone).
 
 **Czy M9 jest odblokowane:** TAK.
 
@@ -1842,19 +1865,20 @@ jak dotychczas), które seeduje `workforce.wageOffer` -- ten sam kontrakt
     "non-participating" od "unemployed" (Simulation Test Spec §23).
     `matchEmployment` zatrudnia z dokładnie jednej kohorty do dokładnie
     jednej firmy, ograniczone minimum z (vacancies, skillDemand danego
-    skilla, dostępni pracownicy) -- `employment <= eligible working
-    population` zachodzi konstrukcyjnie. Zmienia tylko `workforce.
-    employees`/`vacancies` (firma) i `employment`/`averageIncome`
-    (kohorta, ważona średnia stawek) -- `skillDemand` jest czytany jako
-    pułap, nigdy dekrementowany (to pożądany miks umiejętności, własność
-    AI z M11, nie licznik wolnych miejsc).
+    skilla, dostępni pracownicy) --
+    `employment <= eligible working     population` zachodzi
+    konstrukcyjnie. Zmienia tylko `workforce.     employees`/`vacancies`
+    (firma) i `employment`/`averageIncome` (kohorta, ważona średnia
+    stawek) -- `skillDemand` jest czytany jako pułap, nigdy
+    dekrementowany (to pożądany miks umiejętności, własność AI z M11,
+    nie licznik wolnych miejsc).
 -   `wages.ts` (`adjustWageOffer`) -- ponownie wykorzystuje
     `classifyShortageSurplus` z M8 (`inventory: 0`, bo praca nie ma
     bufora magazynowego) i dokładnie ten sam kształt "capped + smoothed
     pressure" co `markets/price-adjustment.ts`, żeby rynek pracy dostał
     te same zabezpieczenia przed oscylacją od pierwszej wersji (roadmap:
-    "sprzężenie zwrotne płace<->ceny<->popyt może wzmacniać oscylację z
-    M8").
+    "sprzężenie zwrotne płace\<-\>ceny\<-\>popyt może wzmacniać
+    oscylację z M8").
 
 **Nowe moduły (`packages/simulation/src/systems/population`):**
 
@@ -1864,10 +1888,10 @@ jak dotychczas), które seeduje `workforce.wageOffer` -- ten sam kontrakt
     Transfers/Property Income (State, M17+) i Taxes (`taxBurden`
     nietknięty, brak systemu podatkowego) zostają strukturalnie 0, ten
     sam standard co `Company.finance.taxes` w M7. `allocateSpending`
-    przechodzi `SPENDING_ORDER` (ECO-014: Survival->Basic->Services->
-    Comfort->Prosperity->Luxury->Savings) w ścisłej kolejności, finansując
-    każdą kategorię tylko do wysokości pozostałego budżetu -- FC-POP-001/
-    FC-POP-002.
+    przechodzi `SPENDING_ORDER` (ECO-014: Survival-\>Basic-\>Services-\>
+    Comfort-\>Prosperity-\>Luxury-\>Savings) w ścisłej kolejności,
+    finansując każdą kategorię tylko do wysokości pozostałego budżetu --
+    FC-POP-001/ FC-POP-002.
 -   `needs-satisfaction.ts` (`computeNeedsSatisfaction`,
     `applyNeedsSatisfaction`) -- każdy poziom potrzeb to `spent/cost` z
     `consumption.ts`, ograniczone do 1; poziom z `cost === 0` (żadne
@@ -1875,10 +1899,10 @@ jak dotychczas), które seeduje `workforce.wageOffer` -- ten sam kontrakt
     jako w pełni zaspokojony, nie jako niedobór -- zgodnie z VS Spec §22
     ("Modern... pozostanie nieaktywne"). `CohortNeeds.modern` czyta
     kategorię wydatków `luxury`: ECO-013 (hierarchia potrzeb, kończy się
-    na "Modern") i ECO-014 (kolejność wydatków, kończy się na "Luxury ->
-    Savings") zgadzają się co do każdego wcześniejszego kroku i różnią
-    się dokładnie jedną etykietą po "Prosperity" -- ta sama pozycja w obu
-    hierarchiach, inna nazwa w każdym dokumencie.
+    na "Modern") i ECO-014 (kolejność wydatków, kończy się na "Luxury
+    -\> Savings") zgadzają się co do każdego wcześniejszego kroku i
+    różnią się dokładnie jedną etykietą po "Prosperity" -- ta sama
+    pozycja w obu hierarchiach, inna nazwa w każdym dokumencie.
 
 **Testy:** 38 nowych (347 łącznie), w tym: `employment.test.ts`
 (eligibility/participation rate, dopasowanie min z trzech ograniczeń,
@@ -1890,14 +1914,15 @@ tickowy stress test bez oscylacji), `consumption.test.ts` (FC-POP-001/
 002), `needs-satisfaction.test.ts` (w tym Acceptance Gate: kohorta z
 pracą ma wyższą `totalSatisfaction`), oraz
 `labor-wage-price-feedback.test.ts` -- 100-tickowy test regresyjny
-łączący M9 (płace/zatrudnienie/konsumpcja) z M8 (rynek): trwały
-niedobór pracy podbija płace -> dochód -> popyt -> cenę bez utraty
+łączący M9 (płace/zatrudnienie/konsumpcja) z M8 (rynek): trwały niedobór
+pracy podbija płace -\> dochód -\> popyt -\> cenę bez utraty
 ograniczenia zmiany na tick po żadnej stronie, zgodnie z mitygacją
 ryzyka z sekcji M9 powyżej.
 
 **Acceptance Gate -- zweryfikowane:** kohorta z zatrudnieniem ma wyższą
-`needs.totalSatisfaction` niż analogiczna kohorta bez pracy; zatrudnienie
-nigdy nie przekracza dostępnej siły roboczej; wydatki podążają za
+`needs.totalSatisfaction` niż analogiczna kohorta bez pracy;
+zatrudnienie nigdy nie przekracza dostępnej siły roboczej; wydatki
+podążają za
 `Survival → Basic → Services → Comfort → Prosperity → Luxury → Savings`.
 
 **Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
@@ -1911,18 +1936,18 @@ warunki pracy (M13); AI decyzje firm o zatrudnieniu/`skillDemand`/
 wielkości `vacancies` (M11 -- M9 przyjmuje je jako dany stan); płatność
 wynagrodzeń nie zmienia `Company.finance.cash` -- "Company Cash
 Accounting" (`- Wages`) to test już opisany w Simulation Test Spec §24,
-ale jego wykonanie wymaga rzeczywistego przepływu gotówki firma<->
+ale jego wykonanie wymaga rzeczywistego przepływu gotówki firma\<-\>
 gospodarstwo, którego żaden dotychczasowy milestone jeszcze nie
 okablował (ten sam stan co `Company.finance.revenue/costs` nietknięte w
 M7/M8); usługi (ECO-012 Service jako osobna kategoria z capacity/
 accessibility/quality) nie istnieją jako encja ani content, więc
-kategoria wydatków `services` w praktyce zostaje przy `cost === 0`
-(w pełni "zaspokojona") dopóki jakiś przyszły milestone nie doda
+kategoria wydatków `services` w praktyce zostaje przy `cost === 0` (w
+pełni "zaspokojona") dopóki jakiś przyszły milestone nie doda
 prawdziwych usług; brak realnej pętli ticków łączącej `HeadlessRunner`/
-`WorldState` z systemami gospodarki/populacji -- ten sam stan co
-M5-M8, każda funkcja tu jest czysta i testowana w izolacji (lub w
-kombinacji, jak `labor-wage-price-feedback.test.ts`), nie wołana
-per-tick przez orkiestrator.
+`WorldState` z systemami gospodarki/populacji -- ten sam stan co M5-M8,
+każda funkcja tu jest czysta i testowana w izolacji (lub w kombinacji,
+jak `labor-wage-price-feedback.test.ts`), nie wołana per-tick przez
+orkiestrator.
 
 **Czy M10 jest odblokowane:** TAK.
 
@@ -1986,12 +2011,13 @@ wzorzec co `initialWageOffer` (M9)/`initializeMarketGood` (M8), tyle że
 tu seed jest opcjonalny (brak infrastruktury to legalny, trwały stan
 "trasa nieprzejezdna", nie błąd wywołującego). `fixture-schema.ts`
 (`packages/worldgen`) i `load-world-fixture.ts` przekazują te pola
-dalej; fixture Black Mountain (`tests/worldgen/fixtures/
-black_mountain_reference.json`) dostaje realne `infrastructure.level/
-capacity/transportModes` i `friction` (security/borderFriction = 0,
-zgodnie z VS §18) na wszystkich 7 połączeniach -- bez tego handel byłby
-fizycznie niemożliwy (capacity=0 domyślnie), ten sam powód, dla którego
-M7 wzbogaciło fixture M4 o realne dane Production Method.
+dalej; fixture Black Mountain
+(`tests/worldgen/fixtures/ black_mountain_reference.json`) dostaje
+realne `infrastructure.level/ capacity/transportModes` i `friction`
+(security/borderFriction = 0, zgodnie z VS §18) na wszystkich 7
+połączeniach -- bez tego handel byłby fizycznie niemożliwy (capacity=0
+domyślnie), ten sam powód, dla którego M7 wzbogaciło fixture M4 o realne
+dane Production Method.
 
 **Nowe moduły (`packages/simulation/src/systems/economy/trade`,
 `packages/simulation/src/systems/economy/transport`):**
@@ -1999,59 +2025,61 @@ M7 wzbogaciło fixture M4 o realne dane Production Method.
 -   `transport/modes.ts` (`TransportModeProfile`,
     `DEFAULT_TRANSPORT_MODE_PROFILES`) -- nadaje konkretny kształt
     `TransportModeDefinition.cost` (M2 "open bag"), ten sam wzorzec co
-    `ProductionRecipe` (M7) dla `ProductionMethodDefinition.inputs/
-    outputs`. 4 aktywne tryby VS §16 (Foot/Porter, Pack Animal, Cart,
-    River), malejący koszt na jednostkę EffectiveDistance zgodnie z
-    kolejnością rozwoju z Simulation Model §28.
+    `ProductionRecipe` (M7) dla
+    `ProductionMethodDefinition.inputs/     outputs`. 4 aktywne tryby VS
+    §16 (Foot/Porter, Pack Animal, Cart, River), malejący koszt na
+    jednostkę EffectiveDistance zgodnie z kolejnością rozwoju z
+    Simulation Model §28.
 -   `trade/effective-distance.ts` (`updateEffectiveDistance`) --
-    `EffectiveDistance = PhysicalDistance x TerrainModifier x
-    InfrastructureModifier x BorderModifier x SecurityModifier x
-    SeasonalModifier` (ECO-016). Pierwsza implementacja modyfikatorów
-    poza `terrainDifficulty`/`seasonalModifier` -- `Connection.cached.
-    effectiveDistance` domyślnie równał się `physicalDistance` od M3
-    właśnie dlatego, że tych modyfikatorów jeszcze nie było.
-    Infrastruktura=0 to neutralny modyfikator (1), nie kara -- rośnie
-    tylko realna inwestycja; brak infrastruktury i tak blokuje handel
-    przez `capacity=0` w `capacity-congestion.ts`, więc nie trzeba tego
-    duplikować karą w samym dystansie.
+    `EffectiveDistance = PhysicalDistance x TerrainModifier x     InfrastructureModifier x BorderModifier x SecurityModifier x     SeasonalModifier`
+    (ECO-016). Pierwsza implementacja modyfikatorów poza
+    `terrainDifficulty`/`seasonalModifier` --
+    `Connection.cached.     effectiveDistance` domyślnie równał się
+    `physicalDistance` od M3 właśnie dlatego, że tych modyfikatorów
+    jeszcze nie było. Infrastruktura=0 to neutralny modyfikator (1), nie
+    kara -- rośnie tylko realna inwestycja; brak infrastruktury i tak
+    blokuje handel przez `capacity=0` w `capacity-congestion.ts`, więc
+    nie trzeba tego duplikować karą w samym dystansie.
 -   `trade/capacity-congestion.ts` (`evaluateCapacityCongestion`) --
     `TradeDemand > RouteCapacity -> Congestion -> TransportCost up`
     (Simulation Model §28). Trasa z `capacity=0` jest nieprzejezdna
     (`cappedFlow=0`), nie ma nieskończonego/NaN wykorzystania (Finite
     Numbers, Simulation Test Spec §18) -- ten sam standard co dzielenie
     przez zero w `markets/price-adjustment.ts` (M8).
--   `trade/flows.ts` (`evaluateTradeFlow`) -- `ImportedCost =
-    ForeignPrice + TransportCost + Tariff(=0 w VS) + RiskCost` (VS §18).
-    Handel powstaje tylko, gdy jest ekonomicznie uzasadniony (`importedCost
-    < importingGood.localPrice`) LUB istnieje krytyczny shortage
+-   `trade/flows.ts` (`evaluateTradeFlow`) --
+    `ImportedCost =     ForeignPrice + TransportCost + Tariff(=0 w VS) + RiskCost`
+    (VS §18). Handel powstaje tylko, gdy jest ekonomicznie uzasadniony
+    (`importedCost     < importingGood.localPrice`) LUB istnieje
+    krytyczny shortage
     (`shortageSeverity >= CRITICAL_SHORTAGE_THRESHOLD`) -- dokładnie
-    warunek z FC-TRADE-002. Faktyczna ilość jest ograniczona jednocześnie
-    przez capacity połączenia i fizyczną nadwyżkę eksportera
-    (`supply - demand`, Entity Data Model §15 "eksport nie może
-    przekraczać fizycznej podaży") -- Market nadal nie jest właścicielem
-    fizycznego zapasu (DATA-005/DATA-006), więc `flows.ts` czyta
-    `MarketGoodState` obserwacyjnie, tak jak `markets/price-adjustment.ts`
-    czyta Inventory.
+    warunek z FC-TRADE-002. Faktyczna ilość jest ograniczona
+    jednocześnie przez capacity połączenia i fizyczną nadwyżkę
+    eksportera (`supply - demand`, Entity Data Model §15 "eksport nie
+    może przekraczać fizycznej podaży") -- Market nadal nie jest
+    właścicielem fizycznego zapasu (DATA-005/DATA-006), więc `flows.ts`
+    czyta `MarketGoodState` obserwacyjnie, tak jak
+    `markets/price-adjustment.ts` czyta Inventory.
 
-**Nowa treść:** `content/transportModes/{foot_porter,pack_animal,cart,
-river}.json` (4 pliki, subset VS §16) + klucze `en`/`pl` w
-`locales/*/common.json`; `content-fixtures.integration.test.ts`
-rozszerzony o `transportMode`.
+**Nowa treść:**
+`content/transportModes/{foot_porter,pack_animal,cart, river}.json` (4
+pliki, subset VS §16) + klucze `en`/`pl` w `locales/*/common.json`;
+`content-fixtures.integration.test.ts` rozszerzony o `transportMode`.
 
-**Testy:** 25 nowych (372 łącznie): `effective-distance.test.ts` (FC-CORE-
-001 kierunek każdego modyfikatora, dopasowanie ręcznie policzonej
-wartości dla prawdziwego połączenia Black Mountain "highland pass"),
-`capacity-congestion.test.ts` (FC-TRADE-003/004, trasa o capacity=0 nie
-daje NaN/Infinity), `flows.test.ts` (Acceptance Gate, FC-TRADE-001/002/
-003, eksport nigdy nie przekracza fizycznej nadwyżki), plus rozszerzenie
-`connections.test.ts` o opcjonalne `infrastructure`/`friction`.
+**Testy:** 25 nowych (372 łącznie): `effective-distance.test.ts`
+(FC-CORE- 001 kierunek każdego modyfikatora, dopasowanie ręcznie
+policzonej wartości dla prawdziwego połączenia Black Mountain "highland
+pass"), `capacity-congestion.test.ts` (FC-TRADE-003/004, trasa o
+capacity=0 nie daje NaN/Infinity), `flows.test.ts` (Acceptance Gate,
+FC-TRADE-001/002/ 003, eksport nigdy nie przekracza fizycznej nadwyżki),
+plus rozszerzenie `connections.test.ts` o opcjonalne
+`infrastructure`/`friction`.
 
 **Acceptance Gate -- zweryfikowane:** region z niedoborem dobra
 importuje je z sąsiedniego regionu z nadwyżką po realnym koszcie
 transportu (`ForeignPrice + TransportCost`, tańszym niż cena domowa --
-stąd ekonomiczne uzasadnienie); wąskie gardło (niska capacity połączenia)
-widocznie ogranicza przepływ poniżej tego, na co pozwoliłyby same
-podaż/popyt.
+stąd ekonomiczne uzasadnienie); wąskie gardło (niska capacity
+połączenia) widocznie ogranicza przepływ poniżej tego, na co pozwoliłyby
+same podaż/popyt.
 
 **Bramki jakości (2026-09-17):** `pnpm typecheck`, `pnpm lint` (ten sam
 1 warning z M2/M5/M7/M8/M9, bez zmian), `pnpm format:check`, `pnpm test`
@@ -2139,15 +2167,15 @@ jako input do decyzji (M13), State AI (`DEFERRED`).
 **Status: DONE.**
 
 **Rozszerzenie encji (`packages/entities/src/economy/company.ts`):**
-`Company` zyskuje pole `ai` (Entity Data Model SS19 `ai: {state,
-expectations, lastDecision, lastEvaluation}` -- dokładnie to, czego M3
-świadomie nie dotknęło). `expectations` NIE jest zdublowane -- M11
-zapisuje je do już istniejącego `CompanyMarketState.expectedPrices/
-expectedDemand` (M3), pierwszy raz od jego wprowadzenia. `state` staje
-się `memory` (AI-02: krótka pamięć trendów, bounded rolling window jak
-`Market.history` z M8) + `activeStates`/`opportunityStreak` (AI-01
-hysteresis/persistence); `lastDecision` to bramka cooldownu, kluczowana
-per typ decyzji.
+`Company` zyskuje pole `ai` (Entity Data Model SS19
+`ai: {state, expectations, lastDecision, lastEvaluation}` -- dokładnie
+to, czego M3 świadomie nie dotknęło). `expectations` NIE jest zdublowane
+-- M11 zapisuje je do już istniejącego
+`CompanyMarketState.expectedPrices/ expectedDemand` (M3), pierwszy raz
+od jego wprowadzenia. `state` staje się `memory` (AI-02: krótka pamięć
+trendów, bounded rolling window jak `Market.history` z M8) +
+`activeStates`/`opportunityStreak` (AI-01 hysteresis/persistence);
+`lastDecision` to bramka cooldownu, kluczowana per typ decyzji.
 
 **Nowe moduły (`packages/simulation/src/systems/economy/company-ai`):**
 
@@ -2155,23 +2183,23 @@ per typ decyzji.
     aktywacji wyższy niż dezaktywacji, SS19), `isOnCooldown`/
     `recordDecision` (SS20), `updateOpportunityStreak`/
     `persistenceSatisfied` (SS21), `updateMemory` (AI-02),
-    `updateExpectations` (SS10 EMA -- do `Company.market.
-    expectedPrices/expectedDemand`). Wspólna infrastruktura, z której
-    korzystają wszystkie poniższe moduły -- roadmapowe ryzyko HIGH
-    ("interakcja wielu poprawnych systemów prowadząca do niestabilnej
-    symulacji", Master Audit §271) jest mitygowane raz, nie osobno w
-    każdej decyzji.
+    `updateExpectations` (SS10 EMA -- do
+    `Company.market.     expectedPrices/expectedDemand`). Wspólna
+    infrastruktura, z której korzystają wszystkie poniższe moduły --
+    roadmapowe ryzyko HIGH ("interakcja wielu poprawnych systemów
+    prowadząca do niestabilnej symulacji", Master Audit §271) jest
+    mitygowane raz, nie osobno w każdej decyzji.
 -   `financial-health.ts` (AI-05) -- `assessFinancialHealth`
     (profitMargin, cashRunwayMonths, `distressed`). Każdy inny moduł
     decyzyjny sprawdza `distressed` przed wzrostem (SS23 "Priorytet
     przetrwania firmy").
 -   `production-decision.ts` (AI-03, SS25-28) -- domyka dług z M7:
     `Company.production.utilization` jest teraz naprawdę sterowane przez
-    AI, tym samym wzorcem capped+smoothed pressure co `markets/
-    price-adjustment.ts` (M8) i `labor/wages.ts` (M9) -- SS26 "nie
-    skacze natychmiast z 10% do 100%". Zdystresowana firma nigdy nie
-    dostaje sygnału INCREASE z marginesu (SS23), ale wciąż może REDUCE
-    przy realnej stracie.
+    AI, tym samym wzorcem capped+smoothed pressure co
+    `markets/     price-adjustment.ts` (M8) i `labor/wages.ts` (M9) --
+    SS26 "nie skacze natychmiast z 10% do 100%". Zdystresowana firma
+    nigdy nie dostaje sygnału INCREASE z marginesu (SS23), ale wciąż
+    może REDUCE przy realnej stracie.
 -   `labor-decision.ts` (AI-04, SS29/31) -- decyduje tylko *cel*
     zatrudnienia (`vacancies` albo `layoffTarget`); wykonanie na
     konkretnej kohorcie zostaje `matchEmployment`/`layoffWorkers`
@@ -2182,19 +2210,22 @@ per typ decyzji.
     nie mogą się przełączać nawet w oknie cooldownu.
 -   `lifecycle-decision.ts` (AI-06, SS32-35) -- Expansion/Contraction/
     Closure, jedyne miejsce, gdzie hysteresis+cooldown+persistence
-    działają razem (długie okna, SS20 "expansion -- długi"). `ExpansionScore`
-    liczy realne sygnały, które M11 ma (DemandPersistence, Margin,
-    CapacityPressure, CapitalCost) i świadomie zeruje resztę
+    działają razem (długie okna, SS20 "expansion -- długi").
+    `ExpansionScore` liczy realne sygnały, które M11 ma
+    (DemandPersistence, Margin, CapacityPressure, CapitalCost) i
+    świadomie zeruje resztę
     (MarketGrowth/InputRisk/LaborRisk/MarketRisk) zamiast zgadywać --
     strukturalnie wierne, nie w pełni wypełnione, ten sam standard co
-    `Tariff` w M10. Closure z zerową/ujemną gotówką w momencie zamknięcia
-    ustawia też `status.bankrupt` (SS35: "w prostym VS bankructwo może
-    wynikać z utraty płynności") -- bez osobnego systemu długu.
+    `Tariff` w M10. Closure z zerową/ujemną gotówką w momencie
+    zamknięcia ustawia też `status.bankrupt` (SS35: "w prostym VS
+    bankructwo może wynikać z utraty płynności") -- bez osobnego systemu
+    długu.
 -   `pm-adoption.ts` (AI-08, SS36-41) -- `PMScore` jako delta marginesu
-    na batch między `ProductionRecipe` (M7) obecnym a kandydatem, cenione
-    z Perceived World State wywołującego (brakująca cena = 0, nie rzut
-    wyjątku -- AI-004 ograniczona racjonalność). `innovationPreference`
-    obniża wymaganą przewagę (SS40 Early Adopters).
+    na batch między `ProductionRecipe` (M7) obecnym a kandydatem,
+    cenione z Perceived World State wywołującego (brakująca cena = 0,
+    nie rzut wyjątku -- AI-004 ograniczona racjonalność).
+    `innovationPreference` obniża wymaganą przewagę (SS40 Early
+    Adopters).
 -   `decision-snapshot.ts` (AI-10) -- `DecisionSnapshot`/`CausalContext`
     jako czyste dane; realne wpięcie w graf Causality Engine to M17.
     AI-11 Debug Inspector jest spełnione przez to, że `DecisionSnapshot`
@@ -2215,11 +2246,11 @@ hysteresis (aktywacja/dezaktywacja niezależne progi), cooldown (blokuje,
 potem zwalnia), financial survival, closure (z DecisionSnapshot),
 bankruptcy (zero cash przy zamknięciu), PM adoption/rejection (w tym
 "technologia może być nieopłacalna" i Early Adopters), determinism
-(identyczne wejście -> identyczny wynik, dwa moduły).
+(identyczne wejście -\> identyczny wynik, dwa moduły).
 
 **Acceptance Gate -- zweryfikowane:** firma autonomicznie planuje
 produkcję (utilization reaguje na margines/inventory/input), reaguje na
-inventory (wysoki inventory -> REDUCE), zatrudnia (HIRE otwiera
+inventory (wysoki inventory -\> REDUCE), zatrudnia (HIRE otwiera
 vacancies), zmienia wage offer (M9, ponownie użyte), przechodzi przez
 expansion/contraction/closure (hysteresis+cooldown+persistence), unika
 oscylacji (100-tickowe testy stresowe w `production-decision.test.ts`
@@ -2362,18 +2393,18 @@ gracza.
 **Implementowane systemy:** SettlementPressure, settlement stages,
 housing (capacity/cost/pressure).
 
-**UI Foundation Track:** **UI-F1 — Procedural Region Visual Identity**
+**UI Foundation Track:** **UI-F1 --- Procedural Region Visual Identity**
 jawnie odroczone do M15 (decyzja z 2026-09-18, w ramach naprawy audytu
 post-implementacyjnego M12-M14 -- poprzednia wersja tej sekcji mówiła o
 starcie UI-F1 tutaj, ale M14's rzeczywista implementacja renderingu nie
-objęła; §15's "M14/M15" pozostawało niejednoznaczne, teraz rozstrzygnięte
-na M15). M14 sam w sobie nie jest przez to zablokowany -- UI-F1 był
-zawsze częścią równoległego "Parallel UI Foundation Track", nie
-Acceptance Gate tego milestone'u (sekcja 6A). Docelowo: `RegionVisualProfile`
-oraz deterministyczny renderer `FCRegionVignette` z warstwami terrain →
-vegetation → settlement → transport → infrastructure → industry →
-landmark. Renderer jest pochodną stanu symulacji; nie istnieje globalny
-skin epoki i nie używa `Math.random()`.
+objęła; §15's "M14/M15" pozostawało niejednoznaczne, teraz
+rozstrzygnięte na M15). M14 sam w sobie nie jest przez to zablokowany --
+UI-F1 był zawsze częścią równoległego "Parallel UI Foundation Track",
+nie Acceptance Gate tego milestone'u (sekcja 6A). Docelowo:
+`RegionVisualProfile` oraz deterministyczny renderer `FCRegionVignette`
+z warstwami terrain → vegetation → settlement → transport →
+infrastructure → industry → landmark. Renderer jest pochodną stanu
+symulacji; nie istnieje globalny skin epoki i nie używa `Math.random()`.
 
 **Moduły (`society/settlements`):**
 
@@ -2405,11 +2436,12 @@ Generation/economy), pełne miasta-państwa (DEFERRED).
 
 **Audyt post-implementacyjny (2026-09-18):** M12-M14 zostały wdrożone
 (commity `c05d27f`/`26ef121`/`a70ba4c`) i oznaczone DONE, ale audyt
-post-implementacyjny (`docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`)
-wykazał FAIL -- 6 blokerów P0 (tożsamość/ID migrantów, obejście
-twardego limitu housing, brak źródła kapitału foundingu, fantomowi
-pracownicy, niekanoniczna kolejność faz ticka) i 8 P1. Pełna naprawa
-(Etapy 5-11, commity `86198a4`/`12d62c9`/`5b7f391`/`6c372bf`/
+post-implementacyjny
+(`docs/FIRST-CAUSE-Post-Implementation-Audit-M12-M14-2026-09-18.md`)
+wykazał FAIL -- 6 blokerów P0 (tożsamość/ID migrantów, obejście twardego
+limitu housing, brak źródła kapitału foundingu, fantomowi pracownicy,
+niekanoniczna kolejność faz ticka) i 8 P1. Pełna naprawa (Etapy 5-11,
+commity `86198a4`/`12d62c9`/`5b7f391`/`6c372bf`/
 `31b1f59`/`221c8ee`/`7ac2bc7`) domyka wszystkie znalezione problemy,
 łącznie z wielotickowym (120 ticków × 3 seedy) monitorem inwariantów na
 prawdziwym contencie. DONE dla M12-M14 jest teraz uzasadnione tym
@@ -2424,8 +2456,8 @@ audytem, nie tylko commitami wdrożenia.
 Readiness:** READY (od 2026-09-18)
 
 **Warunek rozpoczęcia -- SPEŁNIONY (2026-09-18).** Wymagany katalog
-`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (5 domen × 25
-odkryć = 125, T0--T6) został dostarczony i domeny/tier są CANONICAL
+`FIRST-CAUSE-Technology-Discovery-Catalog-v0.1.md` (5 domen × 25 odkryć
+= 125, T0--T6) został dostarczony i domeny/tier są CANONICAL
 (TECH-004/007/008 w `Canonical Decisions` zaktualizowane w tym samym
 kroku). Techniczny krok z sekcji 5 tego katalogu --
 `content/discoveries/*.json` -- jest teraz również zrobiony: 125 plików
@@ -2436,12 +2468,12 @@ Pola tuningowe (`knowledgeRequirements`, `conditions`,
 `pressureModifiers`, `diffusion`, `adoption`, `unlocks`,
 `chronicleSignificance`) są świadomie puste (`{}`/`[]`) -- to
 "configurable placeholder + TODO tuning" (`AGENTS.md`), nie brakujący
-zakres tego kroku: ich rzeczywisty kształt zależy od tego, jak M15's
-kod (Discovery Engine, Adoption) faktycznie je konsumuje, co dokument
+zakres tego kroku: ich rzeczywisty kształt zależy od tego, jak M15's kod
+(Discovery Engine, Adoption) faktycznie je konsumuje, co dokument
 katalogu explicite odkłada do implementacji (sekcja 1/5). `unlocks` nie
 wskazuje jeszcze na nowy content PM/Good (23/125 pozycji katalogu je
-wymaga) -- to jest odrębny, jeszcze niezrobiony krok z katalogu's
-sekcji 5 pkt 3, poza zakresem samego `content/discoveries/*.json`.
+wymaga) -- to jest odrębny, jeszcze niezrobiony krok z katalogu's sekcji
+5 pkt 3, poza zakresem samego `content/discoveries/*.json`.
 
 **Niezgodność w katalogu rozwiązana (2026-09-19):** `MEC-009` (T2) miał
 prerekwizyt `MIN-019` (T4) -- tier wyższy o 2 poziomy niż zależna
@@ -2451,7 +2483,7 @@ usunięty z `MEC-009` (fortyfikacje wymagają murarstwa kamiennego,
 zaktualizowane w tym samym kroku.
 
 **Decyzja z 2026-09-18** (przy zamykaniu audytu post-implementacyjnego
-M12-M14), zachowana: **UI-F1 — Procedural Region Visual Identity**
+M12-M14), zachowana: **UI-F1 --- Procedural Region Visual Identity**
 (`RegionVisualProfile` + renderer `FCRegionVignette`, jawnie odroczone z
 M14, patrz M14's sekcja) startuje razem z M15, równoległym torem, bez
 blokowania M15's własnej Acceptance Gate.
@@ -2461,9 +2493,9 @@ blokowania M15's własnej Acceptance Gate.
 od decyzji Company AI o wdrożeniu (Adoption), 125 aktywnych Discoveries
 w 5 domenach (`TECH-004`/`TECH-008`, zaktualizowane 2026-09-18 --
 zastępuje pierwotny zapis "20--30 aktywnych w 5 głównych + 4
-wspierających domenach" widoczny niżej w tej sekcji przed korektą;
-patrz też `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` §28--29,
-zaktualizowane tym samym dniem).
+wspierających domenach" widoczny niżej w tej sekcji przed korektą; patrz
+też `FIRST-CAUSE-Vertical-Slice-Spec-v0.1.md` §28--29, zaktualizowane
+tym samym dniem).
 
 **Zależności:** M14 (populacja/osady jako baza wiedzy regionalnej).
 
@@ -2471,7 +2503,8 @@ zaktualizowane tym samym dniem).
 eligibility, breakthroughs, Availability, PM Adoption (decyzja Company
 AI, integrowana z M11's `AI-08`), Industry/Population/Institutional
 Adoption. Równolegle (UI Foundation Track, nie część tej Acceptance
-Gate): `RegionVisualProfile`/`FCRegionVignette` (UI-F1, odroczone z M14).
+Gate): `RegionVisualProfile`/`FCRegionVignette` (UI-F1, odroczone z
+M14).
 
 **Moduły (`technology/knowledge`, `technology/discoveries`,
 `technology/diffusion`, `technology/adoption`):**
@@ -2517,8 +2550,9 @@ przez `TECH-004`'s 5 szerokich domen), Administration jako 6. domena
 **Status: DONE.**
 
 **Nowe moduły (`packages/simulation/src/systems/technology`):**
-`knowledge.ts` (regionalna akumulacja wiedzy, `accumulateRegionalKnowledge`),
-`discoveries.ts` (`computeEligibleDiscoveryIds`/`updateEligibility`/
+`knowledge.ts` (regionalna akumulacja wiedzy,
+`accumulateRegionalKnowledge`), `discoveries.ts`
+(`computeEligibleDiscoveryIds`/`updateEligibility`/
 `evaluateBreakthroughs` -- eligibility i breakthrough oddzielone od
 Adoption, §62), `diffusion.ts` (`computeDiffusionPressure`/
 `growAvailability` -- Availability między połączonymi regionami),
@@ -2527,23 +2561,25 @@ Adoption, §62), `diffusion.ts` (`computeDiffusionPressure`/
 świadomie 0, zależy od nieistniejącego systemu Administration).
 
 **Wpięcie w tick loop:** nowy krok "2.5" w `core/economy-tick.ts`
-(Knowledge -> Eligibility -> Diffusion pressure -> Breakthroughs ->
-Availability -> Population access), zaraz po Demografii i przed Company
+(Knowledge -\> Eligibility -\> Diffusion pressure -\> Breakthroughs -\>
+Availability -\> Population access), zaraz po Demografii i przed Company
 AI (krok 3, który gate'uje kandydatów PM świeżym stanem Technology tego
 ticka). Wszystkie nowe pola `RunEconomyTickInput` opcjonalne --
 `discoveryRng === undefined` wyłącza całą fazę Technology (pełna
-wsteczna zgodność, zero zmian w testach sprzed M15). `core/world-runner.ts`
-podłącza `discoveryRng` bezwarunkowo (ten sam wzorzec co demography/
-migration -- realny runtime, nie opcjonalna funkcja contentu).
+wsteczna zgodność, zero zmian w testach sprzed M15).
+`core/world-runner.ts` podłącza `discoveryRng` bezwarunkowo (ten sam
+wzorzec co demography/ migration -- realny runtime, nie opcjonalna
+funkcja contentu).
 
-**Content:** nowy schemat `KnowledgeDomainDefinition` (11. typ contentu)
-+ 5 plików `content/knowledgeDomains/*.json`; `DiscoveryDefinition.
-primaryDomainId`/`secondaryDomainIds` teraz faktycznie
-cross-referencują `knowledgeDomain` (wcześniej gołe stringi, patrz
-katalogu §5 pkt 1 -- domknięte). `worldgen`'s `load-economy-content.ts`
-ładuje `discovery`/`knowledgeDomain` (wcześniej pomijane) i buduje
-simulation-natywne `discoveryEligibilityRulesById`/`requiredDiscoveryIdsByMethodId`
-(z `ProductionMethodDefinition.discoveries`, nie z polimorficznego
+**Content:** nowy schemat `KnowledgeDomainDefinition` (11. typ
+contentu) + 5 plików `content/knowledgeDomains/*.json`;
+`DiscoveryDefinition. primaryDomainId`/`secondaryDomainIds` teraz
+faktycznie cross-referencują `knowledgeDomain` (wcześniej gołe stringi,
+patrz katalogu §5 pkt 1 -- domknięte). `worldgen`'s
+`load-economy-content.ts` ładuje `discovery`/`knowledgeDomain`
+(wcześniej pomijane) i buduje simulation-natywne
+`discoveryEligibilityRulesById`/`requiredDiscoveryIdsByMethodId` (z
+`ProductionMethodDefinition.discoveries`, nie z polimorficznego
 `unlocks` -- właściwy kierunek referencji dla gate'owania AI-08).
 
 **Naprawiony po drodze (audytowy, wykryty pierwszym pełnym
@@ -2557,14 +2593,15 @@ adopcję, niewidoczny do dziś bo nic wcześniej nie prowadziło
 `pmCandidatesByCurrentMethodId` przez realną, wieloticzkową pętlę.
 Naprawione w `economy-tick.ts`'s kroku 5.
 
-**Testy:** ~43 nowe testy jednostkowe (`systems/technology/*.test.ts`),
+**Testy:** \~43 nowe testy jednostkowe (`systems/technology/*.test.ts`),
 rozszerzenia `technology-state.test.ts`/`economy-tick.test.ts`/
-`load-economy-content.test.ts`; `m15-technology-invariant-monitor.test.ts`
-(3 seedy × 120 ticków przeciwko realnemu katalogowi 125 odkryć, na
-syntetycznym świecie -- `technology-fixture.ts`, bo istniejące World
-Fixture Documenty mają `technologyStates`, ale żaden region się do nich
-nie linkuje); `technology-acceptance.test.ts` (3 testy, jeden na jedno
-zdanie Acceptance Gate wyżej). `pnpm typecheck`/`lint`/`test`/`build`/
+`load-economy-content.test.ts`;
+`m15-technology-invariant-monitor.test.ts` (3 seedy × 120 ticków
+przeciwko realnemu katalogowi 125 odkryć, na syntetycznym świecie --
+`technology-fixture.ts`, bo istniejące World Fixture Documenty mają
+`technologyStates`, ale żaden region się do nich nie linkuje);
+`technology-acceptance.test.ts` (3 testy, jeden na jedno zdanie
+Acceptance Gate wyżej). `pnpm typecheck`/`lint`/`test`/`build`/
 `test:e2e`: wszystkie PASS.
 
 ### UI-F1 --- Wyniki wykonania (2026-09-19)
@@ -2573,65 +2610,71 @@ zdanie Acceptance Gate wyżej). `pnpm typecheck`/`lint`/`test`/`build`/
 użytkownika -- równoległy tor UI-F1 był przypisany do startu razem z
 M15, ale M15's własna implementacja go nie objęła).
 
-**`RegionVisualProfile` (`packages/simulation/src/read-models/
-region-visual-profile-read-model.ts`, `buildRegionVisualProfileReadModel`):**
-pierwsza połowa SS18.1's pipeline'u (`WorldState -> RegionVisualProfile`).
-Każde pole wywiedzione z realnych danych (SS18.9 "NO DECORATION WITHOUT
-INFORMATION"): `terrain`/`water` z `Region.geography`, `vegetation`
-heurystycznie z `terrain`/`environment.forestPressure`/`geography.
-fertility`/sektora rolnego, `settlement` z największego niebędącego
-CAMP-em settlementu, `transport` z maksymalnego `Connection.infrastructure.
-level` w regionie, `landmarkResourceDefinitionId` z jedynego wyraźnie
+**`RegionVisualProfile`
+(`packages/simulation/src/read-models/ region-visual-profile-read-model.ts`,
+`buildRegionVisualProfileReadModel`):** pierwsza połowa SS18.1's
+pipeline'u (`WorldState -> RegionVisualProfile`). Każde pole wywiedzione
+z realnych danych (SS18.9 "NO DECORATION WITHOUT INFORMATION"):
+`terrain`/`water` z `Region.geography`, `vegetation` heurystycznie z
+`terrain`/`environment.forestPressure`/`geography. fertility`/sektora
+rolnego, `settlement` z największego niebędącego CAMP-em settlementu,
+`transport` z maksymalnego `Connection.infrastructure. level` w
+regionie, `landmarkResourceDefinitionId` z jedynego wyraźnie
 dominującego, odkrytego (`DISCOVERED`/`ASSESSED`), nie wyczerpanego
 złoża. `industry`/część `vegetation` wymaga `sector` z contentu, którego
-`packages/simulation` nie czyta (AGENTS.md reguła 6) -- przyjmuje opcjonalny
-`sectorByCompanyArchetypeId`, budowany przez `packages/worldgen`'s
-`loadEconomyContent` (nowe pole `LoadEconomyContentResult.
-sectorByCompanyArchetypeId`), ten sam wzorzec co M15's
-`discoveryEligibilityRulesById`. `infrastructure`/`energy` świadomie
-zawsze `undefined` -- brak systemu inwestycji infrastrukturalnej/energii
-(ten sam znany brak co M12-M14 audytu: `Connection.infrastructure.level`
-martwe, `Settlement.condition.attractiveness` martwe). `vignetteSeed =
-hash(worldSeed + regionId + visualState)` (`fnv1a32`, SS18.6/SS13.2) --
-deterministyczny, zero `Math.random()`.
+`packages/simulation` nie czyta (AGENTS.md reguła 6) -- przyjmuje
+opcjonalny `sectorByCompanyArchetypeId`, budowany przez
+`packages/worldgen`'s `loadEconomyContent` (nowe pole
+`LoadEconomyContentResult. sectorByCompanyArchetypeId`), ten sam wzorzec
+co M15's `discoveryEligibilityRulesById`. `infrastructure`/`energy`
+świadomie zawsze `undefined` -- brak systemu inwestycji
+infrastrukturalnej/energii (ten sam znany brak co M12-M14 audytu:
+`Connection.infrastructure.level` martwe,
+`Settlement.condition.attractiveness` martwe).
+`vignetteSeed = hash(worldSeed + regionId + visualState)` (`fnv1a32`,
+SS18.6/SS13.2) -- deterministyczny, zero `Math.random()`.
 
-**`FCRegionVignette` (`apps/desktop/src/components/fc/FCRegionVignette.tsx`)
-+ 7 komponentów warstw z katalogu Implementation Spec SS8.5**
+**`FCRegionVignette`
+(`apps/desktop/src/components/fc/FCRegionVignette.tsx`) + 7 komponentów
+warstw z katalogu Implementation Spec SS8.5**
 (`FCTerrainLayer`/`FCVegetationLayer`/`FCSettlementLayer`/
 `FCTransportLayer`/`FCInfrastructureLayer`/`FCIndustryLayer`/
 `FCLandmarkLayer`): druga połowa pipeline'u. **Świadomie placeholder
 geometrii, nie stylu** -- SS18.7/SS13.3 explicite zabraniają Codexowi
-projektowania stylu/biblioteki assetów samodzielnie, a żadna zatwierdzona
-biblioteka (SS18.8's `/assets/region-vignette/`) nie istnieje. Każda
-warstwa renderuje neutralne, zgodne wyłącznie z Design Tokens (SS53)
-znaczniki (linie/prostokąty/romb), nigdy pikturalną sylwetkę góry/drzewa/
-domu -- podmiana na docelowe assety, gdy Design System je dostarczy, nie
-dotyka logiki mapowania/kompozycji/determinizmu powyżej. `FCInfrastructureLayer`
-renderuje zawsze `null` (ten sam brak danych co profil). Rozmiary SS18.2:
-`small` 120x70 (hover), `large` 400x120 (Selected/Detail). Wariant
-kompozycji per warstwa deterministycznie z `vignetteSeed` (`fnv1a32`,
-nigdy `Math.random()`). Nie podłączone jeszcze do żadnego realnego ekranu
-(Region Detail/Atlas -- UI-05/UI-04 -- same nie istnieją póki co w
-`apps/desktop`, patrz sekcja 6A) -- to gotowy, przetestowany fundament do
-podłączenia, kiedy te ekrany faktycznie powstaną.
+projektowania stylu/biblioteki assetów samodzielnie, a żadna
+zatwierdzona biblioteka (SS18.8's `/assets/region-vignette/`) nie
+istnieje. Każda warstwa renderuje neutralne, zgodne wyłącznie z Design
+Tokens (SS53) znaczniki (linie/prostokąty/romb), nigdy pikturalną
+sylwetkę góry/drzewa/ domu -- podmiana na docelowe assety, gdy Design
+System je dostarczy, nie dotyka logiki mapowania/kompozycji/determinizmu
+powyżej. `FCInfrastructureLayer` renderuje zawsze `null` (ten sam brak
+danych co profil). Rozmiary SS18.2: `small` 120x70 (hover), `large`
+400x120 (Selected/Detail). Wariant kompozycji per warstwa
+deterministycznie z `vignetteSeed` (`fnv1a32`, nigdy `Math.random()`).
+Nie podłączone jeszcze do żadnego realnego ekranu (Region Detail/Atlas
+-- UI-05/UI-04 -- same nie istnieją póki co w `apps/desktop`, patrz
+sekcja 6A) -- to gotowy, przetestowany fundament do podłączenia, kiedy
+te ekrany faktycznie powstaną.
 
 **Testy:** 9 nowych testów read-modelu (determinizm, honest-"undefined"
 gdy brak danych, dominance/tie-breaking landmarku), 5 nowych testów
-komponentu (`@testing-library/react` -- wymiary SS18.2, accessible label,
-"no decoration without information", skalowanie settlementu, determinizm
-identycznego markupu), 1 nowy test w `load-economy-content.test.ts`
-(`sectorByCompanyArchetypeId`). `pnpm typecheck`/`lint`/`test`/`build`/
-`test:e2e`: wszystkie PASS (649 testów w repo).
+komponentu (`@testing-library/react` -- wymiary SS18.2, accessible
+label, "no decoration without information", skalowanie settlementu,
+determinizm identycznego markupu), 1 nowy test w
+`load-economy-content.test.ts` (`sectorByCompanyArchetypeId`).
+`pnpm typecheck`/`lint`/`test`/`build`/ `test:e2e`: wszystkie PASS (649
+testów w repo).
 
 **Addendum -- remediacja audytu (2026-09-19):** niezależny audyt wykrył,
 że powyższy "Wyniki wykonania" był technicznie prawdziwy, ale w praktyce
 `unlocks: []`/brak `discoveries` na obu realnych VS Production Methods
 oznaczał, że Discovery Engine nie mógł wpłynąć na ŻADNĄ realną decyzję
 produkcyjną -- i, głębiej, że `pmCandidatesByCurrentMethodId` (od której
-zależy cała ścieżka gate'owania AI-08) nigdy nie było budowane z realnego
-contentu w `run-economy-demo.ts` (zawsze `{}`, istniało tylko w testach).
-Naprawione: nowa `content/productionMethods/watermill_milling.json`
-(`discoveries: ["mec_004"]`, realizuje katalogu §5's "MEC-004 -> nowy
+zależy cała ścieżka gate'owania AI-08) nigdy nie było budowane z
+realnego contentu w `run-economy-demo.ts` (zawsze `{}`, istniało tylko w
+testach). Naprawione: nowa
+`content/productionMethods/watermill_milling.json`
+(`discoveries: ["mec_004"]`, realizuje katalogu §5's "MEC-004 -\> nowy
 content PM 'młyn'"), nowa `derivePmCandidatesByCurrentMethodId` w
 `load-economy-content.ts` + wpięcie w `run-economy-demo.ts`, nowy test w
 `technology-acceptance.test.ts` na realnych ID (nie syntetycznym
@@ -2702,46 +2745,48 @@ tylko Experiment Mode).
 (`ArchitectInfluenceState { current, max }`, SS6 -- `reserved`/
 `available` świadomie pominięte, Sustained poza zakresem VS, SS7),
 `intervention.ts` (`ArchitectInterventionInstance`, pełny status
-lifecycle SS24 -- `PLANNED/ACTIVE/COMPLETED/CANCELLED/FAILED`, ale VS-INT
-są Instant, więc `applyArchitectIntervention` przechodzi prosto do
-`COMPLETED`/`FAILED` w tym samym wywołaniu). `WorldState` (M3) rozszerzone
-o `architectInfluence`/`interventions` -- oba opcjonalne w
-`CreateWorldStateInput` z bezpiecznym domyślnym (`createArchitectInfluenceState()`/
-puste), więc każdy istniejący fixture nadal się kompiluje bez zmian.
-`@first-cause/causality`'s `SimulationFact`/`FactInput` (M5) dostały
-opcjonalne pole `architect: { interventionId, influenceStrength }`
-(SS32) -- dokładnie ta rozbudowa, na którą `fact.ts`'s własny komentarz
-od M5 czekał ("architect needs the Architect, M16").
+lifecycle SS24 -- `PLANNED/ACTIVE/COMPLETED/CANCELLED/FAILED`, ale
+VS-INT są Instant, więc `applyArchitectIntervention` przechodzi prosto
+do `COMPLETED`/`FAILED` w tym samym wywołaniu). `WorldState` (M3)
+rozszerzone o `architectInfluence`/`interventions` -- oba opcjonalne w
+`CreateWorldStateInput` z bezpiecznym domyślnym
+(`createArchitectInfluenceState()`/ puste), więc każdy istniejący
+fixture nadal się kompiluje bez zmian. `@first-cause/causality`'s
+`SimulationFact`/`FactInput` (M5) dostały opcjonalne pole
+`architect: { interventionId, influenceStrength }` (SS32) -- dokładnie
+ta rozbudowa, na którą `fact.ts`'s własny komentarz od M5 czekał
+("architect needs the Architect, M16").
 
 **Silnik (`packages/simulation/src/systems/architect/`):**
 `influence.ts` (`tickArchitectInfluence`, regeneracja co tick, TODO
-tuning tempa -- OPEN-002), `definition.ts` (`ArchitectInterventionRule` +
-`parseArchitectInterventionRule`, fail-loud parser `OpenRecordSchema`
-bagów `parameters`/`costs` z contentu, ten sam wzorzec co M7's
-`parseProductionRecipe`), `cost.ts` (`computeInterventionCost`,
-`Base + MagnitudePerUnit x |magnitude|`, razem x `Duration(1) x Scope x
-Naturalness` -- addytywno-multiplikatywny model z SS8), `interventions.ts`
-(5 effect handlerów VS-INT-01..05, keyowane po `definitionId` -- zamknięta
-taksonomia, nie per-instancyjny branch, AGENTS.md reguła 8; Reveal
-Resource Deposit reużywa M5's `discoverDeposit` 1:1), `validation.ts`
-(`validateIntervention` -- scope/parametry/target/Influence/cooldown,
-SS26), `apply-intervention.ts` (`applyArchitectIntervention` --
-transakcyjny pipeline SS182: validate -> cost -> spend Influence ->
-mutate -> Root Fact -> commit; JEDYNA funkcja w `systems/architect` która
-sama emituje do `FactStore`, bo to command wywoływany POMIĘDZY tickami,
-nie krok `runEconomyTick`'s pętli -- potrzebuje realnych
-`SimulationFact.id` do `rootFactIds` od razu).
+tuning tempa -- OPEN-002), `definition.ts`
+(`ArchitectInterventionRule` + `parseArchitectInterventionRule`,
+fail-loud parser `OpenRecordSchema` bagów `parameters`/`costs` z
+contentu, ten sam wzorzec co M7's `parseProductionRecipe`), `cost.ts`
+(`computeInterventionCost`, `Base + MagnitudePerUnit x |magnitude|`,
+razem x `Duration(1) x Scope x Naturalness` -- addytywno-multiplikatywny
+model z SS8), `interventions.ts` (5 effect handlerów VS-INT-01..05,
+keyowane po `definitionId` -- zamknięta taksonomia, nie per-instancyjny
+branch, AGENTS.md reguła 8; Reveal Resource Deposit reużywa M5's
+`discoverDeposit` 1:1), `validation.ts` (`validateIntervention` --
+scope/parametry/target/Influence/cooldown, SS26),
+`apply-intervention.ts` (`applyArchitectIntervention` -- transakcyjny
+pipeline SS182: validate -\> cost -\> spend Influence -\> mutate -\>
+Root Fact -\> commit; JEDYNA funkcja w `systems/architect` która sama
+emituje do `FactStore`, bo to command wywoływany POMIĘDZY tickami, nie
+krok `runEconomyTick`'s pętli -- potrzebuje realnych `SimulationFact.id`
+do `rootFactIds` od razu).
 
 **Wpięcie w tick loop:** nowy krok "13." w `core/economy-tick.ts`
 (`tickArchitectInfluence`, bezwarunkowy, bez RNG) -- oraz **naprawiony
 audytowy bug znaleziony przy pisaniu tego kroku**: finalny
 `createWorldState` na końcu `runEconomyTick` NIE przekazywał
-`architectInfluence`/`interventions` z wejściowego `worldState`, więc bez
-tej poprawki każdy tick cicho zerowałby balans Influence i kasował
+`architectInfluence`/`interventions` z wejściowego `worldState`, więc
+bez tej poprawki każdy tick cicho zerowałby balans Influence i kasował
 wszystkie zaaplikowane interwencje z powrotem do domyślnego stanu
 (dokładnie ten sam rodzaj błędu co M15's `runProduction` echo -- realny
-tylko raz coś faktycznie istnieje w tym polu, niewidoczny w żadnym teście
-sprzed tego dnia).
+tylko raz coś faktycznie istnieje w tym polu, niewidoczny w żadnym
+teście sprzed tego dnia).
 
 **Content:** `content/interventions/*.json` (5 plików, VS-INT-01..05 z
 katalogu §156--162 -- schemat `InterventionDefinitionSchema` i jego
@@ -2754,34 +2799,35 @@ są TODO tuning placeholderami (OPEN-003) -- wartości dobrane tak, żeby
 VS Cost Philosophy (SS163: "kilka znaczących interwencji, nie ciągły
 spam") było spełnione już dziś, nie ostateczne liczby.
 
-**Testy:** 11 nowych plików testowych (~74 nowe testy) w
+**Testy:** 11 nowych plików testowych (\~74 nowe testy) w
 `packages/entities/src/architect/*.test.ts`,
 `packages/simulation/src/systems/architect/*.test.ts`,
-`packages/worldgen/src/content/load-economy-content.test.ts` (rozszerzony)
-i `packages/worldgen/src/fixtures/architect-acceptance.test.ts` -- ten
+`packages/worldgen/src/content/load-economy-content.test.ts`
+(rozszerzony) i
+`packages/worldgen/src/fixtures/architect-acceptance.test.ts` -- ten
 ostatni dowodzi wprost wszystkich 4 zdań Acceptance Gate wyżej na
 prawdziwym Black Mountain fixture (`deposit_black_mountain_iron_ore`,
-zgodnie z katalogu §157 "Cel testowy: Black Mountain"). `pnpm
-typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS (710 testów w
-repo).
+zgodnie z katalogu §157 "Cel testowy: Black Mountain").
+`pnpm typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS (710
+testów w repo).
 
 **Świadomie poza zakresem tej implementacji (osobno od "Poza zakresem"
 wyżej):** UI Architect Panel (SS165--170, tor równoległy "Architect
 presentation primitives" z sekcji 6A -- `apps/desktop` nie ma jeszcze
-żadnego ekranu do podłączenia), `cancelIntervention` (SS173's Command API
-ją wymienia, ale nie ma testu Acceptance Gate ani przypadku użycia bez
-UI). ~~`stacking.policy` poza `"allowed"` egzekwowane tylko przez
+żadnego ekranu do podłączenia), `cancelIntervention` (SS173's Command
+API ją wymienia, ale nie ma testu Acceptance Gate ani przypadku użycia
+bez UI). ~~`stacking.policy` poza `"allowed"` egzekwowane tylko przez
 cooldown~~ -- naprawione, patrz addendum poniżej.
 
 **Addendum -- remediacja audytu (2026-09-19):** niezależny audyt przed
 M17 znalazł 1xP0 + 4xP1 w tej implementacji, wszystkie zweryfikowane w
 kodzie i naprawione (`packages/simulation/src/systems/architect/`):
 `applyArchitectIntervention` nie sprawdzało unikalności `instanceId`
-przed zapisem do `state.interventions` (P0 -- duplikat po cichu nadpisywał
-istniejącą instancję, blocker dla jednoznaczności grafu M17); `stacking.
-policy` z contentu było parsowane w Zod, ale nigdy nie docierało do
-`ArchitectInterventionRule` -- `forbidden`/`limited` były czysto
-opisowe (naprawione: `definition.ts` parsuje `stackingPolicy`,
+przed zapisem do `state.interventions` (P0 -- duplikat po cichu
+nadpisywał istniejącą instancję, blocker dla jednoznaczności grafu M17);
+`stacking. policy` z contentu było parsowane w Zod, ale nigdy nie
+docierało do `ArchitectInterventionRule` -- `forbidden`/`limited` były
+czysto opisowe (naprawione: `definition.ts` parsuje `stackingPolicy`,
 `validation.ts` branch'uje po nim zamiast bezwarunkowego cooldownu);
 Knowledge Injection przyjmowało dowolny niepusty `domainId`, nie tylko
 jedną z 5 kanonicznych Knowledge Domains; walidacja parametrów nie
@@ -2870,14 +2916,14 @@ zwłaszcza §1--60, §101--104), `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 
 **Fundament (`packages/causality/src/`):** `causal-edge.ts`
 (`CausalEdge`/`CausalEdgeType`/`CausalFactor`), `causal-edge-store.ts`
-(`CausalEdgeStore` -- indeksy incoming/outgoing, CE-03), `causal-strength.ts`
-(progi PRIMARY/SIGNIFICANT/MINOR/TRACE z contribution factorów),
-`architect-influence-propagation.ts` (`computeChildInfluence`/
-`combineInfluences` -- decay + dilution przy niezależnych przyczynach,
-CE-07), `causal-memory.ts` (klasyfikacja HOT/WARM/PERMANENT, `isAnchor`),
-`causal-pruning.ts` (`pruneCausalMemory` -- backward reachability od
-anchors, CAUS-010, CE-09) -- każdy moduł z własnymi testami
-jednostkowymi.
+(`CausalEdgeStore` -- indeksy incoming/outgoing, CE-03),
+`causal-strength.ts` (progi PRIMARY/SIGNIFICANT/MINOR/TRACE z
+contribution factorów), `architect-influence-propagation.ts`
+(`computeChildInfluence`/ `combineInfluences` -- decay + dilution przy
+niezależnych przyczynach, CE-07), `causal-memory.ts` (klasyfikacja
+HOT/WARM/PERMANENT, `isAnchor`), `causal-pruning.ts`
+(`pruneCausalMemory` -- backward reachability od anchors, CAUS-010,
+CE-09) -- każdy moduł z własnymi testami jednostkowymi.
 
 **Plumbing (`packages/simulation/src/core/`):** `causal-links.ts`
 (`PendingCausalLink`, `offsetCausalLinks`, `directionalEdgeType`),
@@ -2886,10 +2932,11 @@ jednostkowymi.
 `CausalEdgeStore` i propaguje Architect Influence po realnym grafie).
 `economy-tick.ts` dostał nowe pole wyniku `causalLinks` i nowy input
 `priorFactIndex?: Record<string, string>` (klucz
-`"${entityType}:${entityId}:${type}"` -- **musi** zawierać `type`, bo bez
-niego "najnowszy fakt tej encji" po cichu podmienia się na niezwiązany
-fakt tej samej encji przy resolutcji edge'y wstecznych). `world-runner.ts`
-utrzymuje teraz `causalEdgeStore`/`architectInfluenceByFactId`/
+`"${entityType}:${entityId}:${type}"` -- **musi** zawierać `type`, bo
+bez niego "najnowszy fakt tej encji" po cichu podmienia się na
+niezwiązany fakt tej samej encji przy resolutcji edge'y wstecznych).
+`world-runner.ts` utrzymuje teraz
+`causalEdgeStore`/`architectInfluenceByFactId`/
 `factsById`/`latestFactIdByEntityAndType` między tickami i dostał nową
 metodę `applyIntervention()` -- most między Architect (M16) a tym samym
 grafem przyczynowym, którym przechodzi `step()`; opcjonalny
@@ -2904,39 +2951,38 @@ odrzucany), Population, Migration (refaktor
 `computeMigrationAttractionBreakdown` na multi-factor breakdown),
 Settlement (refaktor `computeSettlementPressureBreakdown`), Resources,
 Technology (pełny łańcuch knowledge → eligible → occurred →
-available/diffused → adoption), Architect (Root Fact + `WorldRunner.
-applyIntervention` most), Trade. Każda grupa zweryfikowana `pnpm
-build:packages` + `pnpm test` PASS przed przejściem do kolejnej -- zero
-regresji przez cały rollout. Nie każdy z ~27 typów faktów ma bogaty
-multi-factor breakdown -- część (np. `housing_pressure_started`,
+available/diffused → adoption), Architect (Root Fact +
+`WorldRunner. applyIntervention` most), Trade. Każda grupa zweryfikowana
+`pnpm build:packages` + `pnpm test` PASS przed przejściem do kolejnej --
+zero regresji przez cały rollout. Nie każdy z \~27 typów faktów ma
+bogaty multi-factor breakdown -- część (np. `housing_pressure_started`,
 `congestion_started`, demografia) ma jeden jasny czynnik
 `STRUCTURAL`/`TRIGGERING`, świadomie (CAUS-003: nie wymyślamy
 wieloprzyczynowości, której formuła nie ma).
 
 **Testy (CE-12, Acceptance Gate):** 10/10 testów akceptacyjnych --
-`packages/worldgen/src/fixtures/causality-acceptance.test.ts` (Testy
-3, 4, 5, 6, 7, 9, 10), Test 1 w `price-adjustment.test.ts`, Test 2 w
+`packages/worldgen/src/fixtures/causality-acceptance.test.ts` (Testy 3,
+4, 5, 6, 7, 9, 10), Test 1 w `price-adjustment.test.ts`, Test 2 w
 `migration.test.ts`, Test 8 w `settlements.test.ts`. Testy 3 i 9
-przeprojektowane w trakcie implementacji: Black Mountain nie ma
-contentu konsumującego `iron_ore` wprost, a RNG-gated breakthrough
-discovery nie da się przetestować deterministycznie bez ustawienia
-stanu z góry -- ostateczne testy startują discovery jako `KNOWN` i
-sprawdzają deterministyczny, organiczny łańcuch
-availability→adoption zamiast samego RNG rolla. `pnpm
-typecheck`/`lint`/`test`/`build`/`test:e2e`: wszystkie PASS (767 testów
-w repo).
+przeprojektowane w trakcie implementacji: Black Mountain nie ma contentu
+konsumującego `iron_ore` wprost, a RNG-gated breakthrough discovery nie
+da się przetestować deterministycznie bez ustawienia stanu z góry --
+ostateczne testy startują discovery jako `KNOWN` i sprawdzają
+deterministyczny, organiczny łańcuch availability→adoption zamiast
+samego RNG rolla. `pnpm typecheck`/`lint`/`test`/`build`/`test:e2e`:
+wszystkie PASS (767 testów w repo).
 
-**Świadomie poza zakresem tej implementacji:** `causalPruneIntervalTicks`
-zaimplementowany i przetestowany, ale żaden istniejący caller go nie
-włącza -- częstotliwość to TODO tuning. `priorFactIndex`/
-`latestFactIdByEntityAndType` śledzi tylko NAJNOWSZY fakt per
-(entityType, entityId, type), nie pełną historię -- wystarcza dla
-dzisiejszych łańcuchów (Discovery→PM adoption,
-resource_discovered→resource_access), ale rozszerzenie będzie
-potrzebne, gdyby przyszły system musiał cytować starszy, nie najnowszy
-fakt tego samego typu tej samej encji. CE-08 WHY? → M18, CE-10
-Chronicle handoff → M19, pełne Experiment Branching → post-VS
-(zgodnie z zakresem zaplanowanym wyżej).
+**Świadomie poza zakresem tej implementacji:**
+`causalPruneIntervalTicks` zaimplementowany i przetestowany, ale żaden
+istniejący caller go nie włącza -- częstotliwość to TODO tuning.
+`priorFactIndex`/ `latestFactIdByEntityAndType` śledzi tylko NAJNOWSZY
+fakt per (entityType, entityId, type), nie pełną historię -- wystarcza
+dla dzisiejszych łańcuchów (Discovery→PM adoption,
+resource_discovered→resource_access), ale rozszerzenie będzie potrzebne,
+gdyby przyszły system musiał cytować starszy, nie najnowszy fakt tego
+samego typu tej samej encji. CE-08 WHY? → M18, CE-10 Chronicle handoff →
+M19, pełne Experiment Branching → post-VS (zgodnie z zakresem
+zaplanowanym wyżej).
 
 ------------------------------------------------------------------------
 
@@ -3008,39 +3054,42 @@ Level 1 (Immediate): przyczyny dzielone na `primaryCauses`/
 `significantCauses` (pozytywne, band z `causal-strength.ts`) i
 `limitingFactors` (negatywne, CAUS-006) -- trywialne (TRACE-band)
 pozytywne przyczyny są odrzucane wprost ("WHY? noise test"), a łączna
-lista primary+significant jest ograniczona do 5 (`MAX_WHY_CAUSES_TODO_TUNING`,
-CAUS-006 "2--5 głównych przyczyn"). Level 2 (Chain): `deeperPaths`, jeden
-hop dalej od każdej pokazanej Level-1 przyczyny, z Duplicate Path
-Suppression (SS72 -- ścieżki dzielące ten sam root+mechanism kolapsują do
-jednej, najsilniejszej). Level 3/4 (Historical/Architect) to "na żądanie"
-(CAUS-006) -- wywołujący po prostu woła `explainWhy` ponownie z nowym
-`targetFactId`, zamiast tej samej funkcji rekurencyjnie schodzącej w
-nieskończoność. `architectConnections` zbiera bezpośrednie Root Facty
-(`fact.architect`) napotkane w obliczonym oknie. `confidence` to
-świadomy uproszczony proxy (średnia `strength` pokazanych przyczyn) --
-SS15's pełny epistemiczny model Confidence nie jest jeszcze nigdzie w
-tym kodzie liczony (ten sam rodzaj odłożenia co `fact.ts`'s
-`significance`/`retention`).
+lista primary+significant jest ograniczona do 5
+(`MAX_WHY_CAUSES_TODO_TUNING`, CAUS-006 "2--5 głównych przyczyn"). Level
+2 (Chain): `deeperPaths`, jeden hop dalej od każdej pokazanej Level-1
+przyczyny, z Duplicate Path Suppression (SS72 -- ścieżki dzielące ten
+sam root+mechanism kolapsują do jednej, najsilniejszej). Level 3/4
+(Historical/Architect) to "na żądanie" (CAUS-006) -- wywołujący po
+prostu woła `explainWhy` ponownie z nowym `targetFactId`, zamiast tej
+samej funkcji rekurencyjnie schodzącej w nieskończoność.
+`architectConnections` zbiera bezpośrednie Root Facty (`fact.architect`)
+napotkane w obliczonym oknie. `confidence` to świadomy uproszczony proxy
+(średnia `strength` pokazanych przyczyn) -- SS15's pełny epistemiczny
+model Confidence nie jest jeszcze nigdzie w tym kodzie liczony (ten sam
+rodzaj odłożenia co `fact.ts`'s `significance`/`retention`).
 
-**Butterfly Effect (`packages/simulation/src/systems/architect/butterfly.ts`,
-moduł `architect/butterfly`):** `queryButterflyEffect` + `getInterventionConsequences`
-(SS47's dokładna nazwa) -- forward BFS od `rootFactIds` interwencji w
-JEDNYM przebiegu po `facts` w kolejności emisji (ten sam porządek, który
-`CausalEdgeStore` już wymusza), więc wpływ każdego poprzednika jest
-finalny, zanim przetworzymy jego krawędzie wychodzące. Liczy WŁASNĄ
-ścieżkę wpływu tej jednej interwencji (reużywa `computeChildInfluence`/
-`combineInfluences` z M17), niezależnie od `WorldRunner.architectInfluence`
-(który scala WSZYSTKIE interwencje naraz, SS39). Anti-Butterfly Explosion
-(SS49): decay per-hop (`PersistenceModifier`), minimum contribution
-threshold (ścieżka poniżej progu MINOR przestaje się propagować),
-significance threshold (`EffectScore` poniżej TRACE odrzucany --
-`isAnchor` jako TODO tuning proxy Significance), twardy limit głębokości
+**Butterfly Effect
+(`packages/simulation/src/systems/architect/butterfly.ts`, moduł
+`architect/butterfly`):** `queryButterflyEffect` +
+`getInterventionConsequences` (SS47's dokładna nazwa) -- forward BFS od
+`rootFactIds` interwencji w JEDNYM przebiegu po `facts` w kolejności
+emisji (ten sam porządek, który `CausalEdgeStore` już wymusza), więc
+wpływ każdego poprzednika jest finalny, zanim przetworzymy jego
+krawędzie wychodzące. Liczy WŁASNĄ ścieżkę wpływu tej jednej interwencji
+(reużywa `computeChildInfluence`/ `combineInfluences` z M17),
+niezależnie od `WorldRunner.architectInfluence` (który scala WSZYSTKIE
+interwencje naraz, SS39). Anti-Butterfly Explosion (SS49): decay per-hop
+(`PersistenceModifier`), minimum contribution threshold (ścieżka poniżej
+progu MINOR przestaje się propagować), significance threshold
+(`EffectScore` poniżej TRACE odrzucany -- `isAnchor` jako TODO tuning
+proxy Significance), twardy limit głębokości
 (`MAX_BUTTERFLY_DEPTH_TODO_TUNING`), independent-cause dilution (SS50 --
 wynika automatycznie z tego, że śledzimy tylko krawędzie osiągalne z
 roota). Wynik: `directEffects` (depth 1) + `majorConsequences`/
 `significantConsequences`/`minorConsequences` (SS41 ranking).
 
-**WHY NOT? (`packages/simulation/src/systems/economy/company-ai/why-not.ts`,
+**WHY NOT?
+(`packages/simulation/src/systems/economy/company-ai/why-not.ts`,
 CAUS-007):** `explainWhyNot` -- czysta funkcja nad `DecisionSnapshot`
 (nie nad grafem faktów, bo odrzucona decyzja nie tworzy faktu do
 przeszukania). Wymagało jednej celowej, minimalnej zmiany w
@@ -3059,22 +3108,24 @@ istniejący test nie zakładał `snapshot === undefined` na ścieżce HOLD.
 Immediate/noise/Chain z Duplicate Path Suppression/architectConnections/
 determinism/unknown-target), `butterfly.test.ts` (6, syntetyczny graf --
 direct effects/decay/anti-explosion x2/`getInterventionConsequences`/
-determinism), `why-not.test.ts` (2, realny `evaluateFounding` -- SS33-style
-przykład z realnym score gap i `opportunity-scanner.test.ts`'s nowy test
-"rejected decision still returns a real DecisionSnapshot"),
-`why-butterfly-acceptance.test.ts` (2, `packages/worldgen` -- WHY? na
-realnym grain_farm->watermill_milling łańcuchu z CE-12 Test 3/9, Butterfly
-na realnej `reveal_resource_deposit` interwencji na Black Mountain z CE-12
-Test 4, oba z assercją determinizmu). `pnpm typecheck/lint/test/build/
-test:e2e`: wszystkie PASS (784 testy w repo).
+determinism), `why-not.test.ts` (2, realny `evaluateFounding` --
+SS33-style przykład z realnym score gap i
+`opportunity-scanner.test.ts`'s nowy test "rejected decision still
+returns a real DecisionSnapshot"), `why-butterfly-acceptance.test.ts`
+(2, `packages/worldgen` -- WHY? na realnym
+grain_farm-\>watermill_milling łańcuchu z CE-12 Test 3/9, Butterfly na
+realnej `reveal_resource_deposit` interwencji na Black Mountain z CE-12
+Test 4, oba z assercją determinizmu).
+`pnpm typecheck/lint/test/build/ test:e2e`: wszystkie PASS (784 testy w
+repo).
 
 **Świadomie poza zakresem tej implementacji:** pełne UI WHY?/Butterfly
-(widoki -- M21, roadmapa's własne "Poza zakresem"), Chronicle integration
-(M19), Experiment Mode/Divergence Point (SS77--79 -- post-VS, ten sam
-zakres co M17's "pełne Experiment Branching"), pełny epistemiczny model
-Confidence (SS15) i Recency/DurationModifier (SS41) -- oba zwinięte w
-uproszczone proxy (strength/hop-decay), udokumentowane wprost jako TODO
-tuning w kodzie, nie ostateczny model balansu.
+(widoki -- M21, roadmapa's własne "Poza zakresem"), Chronicle
+integration (M19), Experiment Mode/Divergence Point (SS77--79 --
+post-VS, ten sam zakres co M17's "pełne Experiment Branching"), pełny
+epistemiczny model Confidence (SS15) i Recency/DurationModifier (SS41)
+-- oba zwinięte w uproszczone proxy (strength/hop-decay), udokumentowane
+wprost jako TODO tuning w kodzie, nie ostateczny model balansu.
 
 ------------------------------------------------------------------------
 
@@ -3155,83 +3206,88 @@ milestone.
 
 **Status: DONE (P0 -- CH-01...CH-07, CH-13, CH-14).**
 
-**Nowy pakiet `packages/chronicle`** (wzorzec 1:1 z `packages/causality`:
-moduł-na-plik, `X_TODO_TUNING` stałe, czyste funkcje nad już-istniejącymi
-danymi). Zależy tylko od `@first-cause/causality` (typy faktu/edge) i
-`@first-cause/content` (rejestry `EventTypeDefinition`/
-`ChronicleTemplateDefinition`) -- świadomie BEZ `@first-cause/entities`,
-żeby `significance.ts` pozostał czystą funkcją testowalną bez
-uruchomionej symulacji (kontekst względnej wielkości/populacji wchodzi
-przez opcjonalny hook `ChronicleContext`, wypełniany przez wywołującego).
+**Nowy pakiet `packages/chronicle`** (wzorzec 1:1 z
+`packages/causality`: moduł-na-plik, `X_TODO_TUNING` stałe, czyste
+funkcje nad już-istniejącymi danymi). Zależy tylko od
+`@first-cause/causality` (typy faktu/edge) i `@first-cause/content`
+(rejestry `EventTypeDefinition`/ `ChronicleTemplateDefinition`) --
+świadomie BEZ `@first-cause/entities`, żeby `significance.ts` pozostał
+czystą funkcją testowalną bez uruchomionej symulacji (kontekst względnej
+wielkości/populacji wchodzi przez opcjonalny hook `ChronicleContext`,
+wypełniany przez wywołującego).
 
 **CH-01/CH-13 (`packages/content`):** `event-type-definition.ts` i
 `chronicle-template-definition.ts` (istniejące od M2 jako placeholdery)
 dostały realne pola ze spec SS126 (`baseSignificance`,
 `candidateThreshold`, `aggregationPolicy`, `noveltyPolicy`,
-`durationPolicy`, `anchorPolicy`) oraz zamknięty enum 15 kategorii Chronicle
-(SS21). 15 typów zdarzeń VS (SS151) + 15 szablonów + klucze
+`durationPolicy`, `anchorPolicy`) oraz zamknięty enum 15 kategorii
+Chronicle (SS21). 15 typów zdarzeń VS (SS151) + 15 szablonów + klucze
 EN/PL w `locales/*/common.json` w `content/eventTypes/`,
 `content/chronicleTemplates/`.
 
 **CH-02 Initial Significance (`significance.ts`):** ważony model SS189
 (`S = wM*M + ... + wX*X`, NIE czyste mnożenie -- SS190), znormalizowane
 składniki 0..1, baseline (SS23) jako mały stały udział, progi kategorii
-Trace/.../World-Defining jako `SIGNIFICANCE_CATEGORY_THRESHOLDS_TODO_TUNING`.
+Trace/.../World-Defining jako
+`SIGNIFICANCE_CATEGORY_THRESHOLDS_TODO_TUNING`.
 
-**CH-03 Candidate Pipeline (`candidate-pipeline.ts`):** wszystkie **15/15
-event types VS mają pełny detektor end-to-end** (stan po follow-upach
-tego samego dnia, patrz `CHANGELOG.md`) na realnych typach faktów już
-emitowanych przez `packages/simulation`: `resource_discovered`,
-`company_founded`, `company_major_expansion` <- `company_expanded`,
-`company_closed`, `settlement_stage_changed`, `discovery_occurred`,
-`shortage_started`, `shortage_resolved` (przez `ActiveProcessRegistry`
-silence-detection, SS33), `resource_depletion_milestone` (nowy fakt
-`resource_reserve_milestone` z `extraction.ts`, przekroczenie
-75/50/25/10% rezerw), `technology_adoption_wave` (1:1 + CH-04
-aggregation po `discoveryId`), `migration_wave`
-(`ActiveProcessRegistry.accumulatedMagnitude`, znormalizowane przez
-`region.population.totalPopulation`), `intervention_major_consequence`
-(nowy `intervention-legacy.ts`, reużywa `queryButterflyEffect`/M18
-zamiast własnej logiki grafowej, okresowy `WorldRunner.
-maybeRunInterventionLegacy`, domyślnie wyłączony), `trade_route_emerged`
-(nowy fakt `trade_flow_active` z `economy-tick.ts`, akumulator ze
-STABILNYM `aggregationKey` bez komponentu okna -- szlak handlowy to
-jeden trwały wpis aktualizowany w miejscu, nie seria epizodów),
-`regional_boom`/`regional_bust` (najbardziej niepewny kalibracyjnie z
-całej piętnastki -- kompozytowy "regional pulse" sumujący znormalizowane
-delty `employment_changed`/`population_migrated_in`/`_out`/
+**CH-03 Candidate Pipeline (`candidate-pipeline.ts`):** wszystkie
+**15/15 event types VS mają pełny detektor end-to-end** (stan po
+follow-upach tego samego dnia, patrz `CHANGELOG.md`) na realnych typach
+faktów już emitowanych przez `packages/simulation`:
+`resource_discovered`, `company_founded`, `company_major_expansion` \<-
+`company_expanded`, `company_closed`, `settlement_stage_changed`,
+`discovery_occurred`, `shortage_started`, `shortage_resolved` (przez
+`ActiveProcessRegistry` silence-detection, SS33),
+`resource_depletion_milestone` (nowy fakt `resource_reserve_milestone` z
+`extraction.ts`, przekroczenie 75/50/25/10% rezerw),
+`technology_adoption_wave` (1:1 + CH-04 aggregation po `discoveryId`),
+`migration_wave` (`ActiveProcessRegistry.accumulatedMagnitude`,
+znormalizowane przez `region.population.totalPopulation`),
+`intervention_major_consequence` (nowy `intervention-legacy.ts`, reużywa
+`queryButterflyEffect`/M18 zamiast własnej logiki grafowej, okresowy
+`WorldRunner. maybeRunInterventionLegacy`, domyślnie wyłączony),
+`trade_route_emerged` (nowy fakt `trade_flow_active` z
+`economy-tick.ts`, akumulator ze STABILNYM `aggregationKey` bez
+komponentu okna -- szlak handlowy to jeden trwały wpis aktualizowany w
+miejscu, nie seria epizodów), `regional_boom`/`regional_bust`
+(najbardziej niepewny kalibracyjnie z całej piętnastki -- kompozytowy
+"regional pulse" sumujący znormalizowane delty
+`employment_changed`/`population_migrated_in`/`_out`/
 `production_utilization_changed` per region per tick; znak skumulowanej
-sumy przy rozwiązaniu procesu decyduje boom vs. bust; KAŻDA stała
-wagowa jawnie `_TODO_TUNING`, brak Significance Calibration Dataset
-SS191 -- to jedyny detektor bez jakiejkolwiek walidacji na realnych
-danych symulacji). `causalImpact` dla fact-driven detektorów liczony
-jako bounded 1-hop suma `|contribution|` wychodzących krawędzi
-(SS115/117 anti-explosion), nie pełny propagation graph -- to CH-09
-(P1).
+sumy przy rozwiązaniu procesu decyduje boom vs. bust; KAŻDA stała wagowa
+jawnie `_TODO_TUNING`, brak Significance Calibration Dataset SS191 -- to
+jedyny detektor bez jakiejkolwiek walidacji na realnych danych
+symulacji). `causalImpact` dla fact-driven detektorów liczony jako
+bounded 1-hop suma `|contribution|` wychodzących krawędzi (SS115/117
+anti-explosion), nie pełny propagation graph -- to CH-09 (P1).
 
 **CH-04 Aggregation (`aggregation.ts`) + CH-05 Entry Storage
-(`chronicle-entry-store.ts`):** within-batch grouping po `aggregationKey`
-(już koduje event type + scope + window, SS26) w `aggregation.ts`;
-cross-tick "Update Existing Entry" (SS64) w `ChronicleEntryStore.upsert`
-przez lookup po tym samym kluczu. "Zakaz fałszywej agregacji" (SS30) jest
-strukturalny -- nigdy osobny check.
+(`chronicle-entry-store.ts`):** within-batch grouping po
+`aggregationKey` (już koduje event type + scope + window, SS26) w
+`aggregation.ts`; cross-tick "Update Existing Entry" (SS64) w
+`ChronicleEntryStore.upsert` przez lookup po tym samym kluczu. "Zakaz
+fałszywej agregacji" (SS30) jest strukturalny -- nigdy osobny check.
 
-**Historical Anchor (`historical-anchor.ts`):** `shouldBeHistoricalAnchor`
-łączy content-driven `anchorPolicy.alwaysAnchor` z dynamicznymi regułami
-(Historic+/Turning Point/silny wpływ Architekta). Integracja z
-`@first-cause/causality`: `pruneCausalMemory` (`causal-pruning.ts`)
-dostał nowe opcjonalne pole `extraMustKeepFactIds` (Causality zostaje
-nieświadomy Chronicle -- adapter żyje w `WorldRunner`), świadomie NIE
-złączone z `architectInfluenceByFactId` (zepsułoby `why-query.ts`'s
+**Historical Anchor (`historical-anchor.ts`):**
+`shouldBeHistoricalAnchor` łączy content-driven
+`anchorPolicy.alwaysAnchor` z dynamicznymi regułami (Historic+/Turning
+Point/silny wpływ Architekta). Integracja z `@first-cause/causality`:
+`pruneCausalMemory` (`causal-pruning.ts`) dostał nowe opcjonalne pole
+`extraMustKeepFactIds` (Causality zostaje nieświadomy Chronicle --
+adapter żyje w `WorldRunner`), świadomie NIE złączone z
+`architectInfluenceByFactId` (zepsułoby `why-query.ts`'s
 `architectConnections`).
 
 **CH-06 Sensitivity (`sensitivity.ts`) + CH-07/CH-14 API
-(`chronicle-api.ts`):** Concise/Standard/Detailed progi; `getEntityHistory`
-celowo POMIJA sensitivity -- to jest realny mechanizm SS60 "Contextual
-Promotion", nie osobny `contextualImportance` score (ten komponent
-zostaje `0` w P0, udokumentowane wprost w `significance.ts`).
+(`chronicle-api.ts`):** Concise/Standard/Detailed progi;
+`getEntityHistory` celowo POMIJA sensitivity -- to jest realny mechanizm
+SS60 "Contextual Promotion", nie osobny `contextualImportance` score
+(ten komponent zostaje `0` w P0, udokumentowane wprost w
+`significance.ts`).
 `getTopEvents`/`getHistoricalThread`/`getTurningPoints`/
-`getArchitectLegacy` (SS205) świadomie nieobecne -- potrzebują CH-08/10/11.
+`getArchitectLegacy` (SS205) świadomie nieobecne -- potrzebują
+CH-08/10/11.
 
 **Integracja z `WorldRunner`
 (`packages/simulation/src/core/world-runner.ts`):** nowy krok
@@ -3240,21 +3296,22 @@ zostaje `0` w P0, udokumentowane wprost w `significance.ts`).
 `applyIntervention()` (Root Fact interwencji Architekta -- inaczej
 ominąłby Chronicle całkowicie). Cała konfiguracja opcjonalna
 (`chronicleEventTypes`/`chronicleTemplates`/undefined = zero zmiany
-zachowania, ten sam kontrakt co `causalPruneIntervalTicks`). `dataPayload`
-zostaje `{}` na tym poziomie -- realne nazwy encji (`settlementName` itp.)
-wymagają lookupów `WorldState`, które `WorldRunner` celowo nie robi tu
-per-typ (byłby to dokładnie zakazany hardcode w generycznym silniku);
-to zadanie warstwy prezentacji (M21).
+zachowania, ten sam kontrakt co `causalPruneIntervalTicks`).
+`dataPayload` zostaje `{}` na tym poziomie -- realne nazwy encji
+(`settlementName` itp.) wymagają lookupów `WorldState`, które
+`WorldRunner` celowo nie robi tu per-typ (byłby to dokładnie zakazany
+hardcode w generycznym silniku); to zadanie warstwy prezentacji (M21).
 
 **Testy:** 48 testów w `packages/chronicle` (jednostkowe per moduł +
 `pipeline.integration.test.ts` na realnym contencie z dysku: source
 integrity, no forced drama, determinizm, historical anchor przeżywa
 pruning mimo że `causality`'s własny `isAnchor()` by tego nie ochronił,
-mini-scenariusz w stylu Black Mountain). Nowy test w `causal-pruning.test.ts`
-dla `extraMustKeepFactIds`. Nowy `world-runner.chronicle.test.ts` (3 testy)
-dowodzi realnego podłączenia w `WorldRunner` (`step()` i
-`applyIntervention()`, przeżycie pruningu po 130 tickach). `pnpm
-typecheck/lint/test/build`: wszystkie PASS (836 testów w repo).
+mini-scenariusz w stylu Black Mountain). Nowy test w
+`causal-pruning.test.ts` dla `extraMustKeepFactIds`. Nowy
+`world-runner.chronicle.test.ts` (3 testy) dowodzi realnego podłączenia
+w `WorldRunner` (`step()` i `applyIntervention()`, przeżycie pruningu po
+130 tickach). `pnpm typecheck/lint/test/build`: wszystkie PASS (836
+testów w repo).
 
 **Świadomie poza zakresem tej implementacji:** CH-08 Historical Threads,
 CH-09 Retrospective Significance, CH-10 Turning Points, CH-12 Historical
@@ -3332,14 +3389,14 @@ benchmarkach, jeśli JSON+gzip nie wystarcza).
 
 **Status: DONE.**
 
-**Kluczowe odkrycie:** "podstawowy roundtrip istniał od M3" (ten dokument) to
-`HeadlessRunner.getState()/fromState()` (M1) i `WorldRng.getState()` --
-działają od dawna. Realna luka M20 to `WorldRunner` (M17+): kompozyt
-`HeadlessRunner + WorldState + FactStore + CausalEdgeStore +
-architectInfluenceByFactId + 4 rejestry Chronicle` nie miał wcześniej
-ŻADNEGO `getState()`/`fromState()` -- ani sam, ani jego części składowe.
-`WorldRunner` nadal nie jest podłączony do `apps/desktop` (to M21) -- M20
-jest czysto logiką backendową.
+**Kluczowe odkrycie:** "podstawowy roundtrip istniał od M3" (ten
+dokument) to `HeadlessRunner.getState()/fromState()` (M1) i
+`WorldRng.getState()` -- działają od dawna. Realna luka M20 to
+`WorldRunner` (M17+): kompozyt
+`HeadlessRunner + WorldState + FactStore + CausalEdgeStore + architectInfluenceByFactId + 4 rejestry Chronicle`
+nie miał wcześniej ŻADNEGO `getState()`/`fromState()` -- ani sam, ani
+jego części składowe. `WorldRunner` nadal nie jest podłączony do
+`apps/desktop` (to M21) -- M20 jest czysto logiką backendową.
 
 **1. `packages/causality`/`packages/chronicle` -- brakujące
 `getState()`/`fromState()`:** `FactStore`/`CausalEdgeStore`
@@ -3347,10 +3404,10 @@ jest czysto logiką backendową.
 `.emit()`/`.add()` -- `nextSequence` musi być jawnie zachowany, żeby
 kolejne wywołania nie kolidowały z przywróconymi id) oraz
 `NoveltyRegistry`/`MilestoneRegistry`/`ActiveProcessRegistry`/
-`ChronicleEntryStore` (SS200 Persistence Counters -- `ActiveProcess.
-accumulatedMagnitude`/`lastSignalTick` to dokładnie ten rodzaj stanu,
-który save musi przechowywać, nie da się go tanio odbudować bez replayu
-całej historii Chronicle od ticka 0).
+`ChronicleEntryStore` (SS200 Persistence Counters --
+`ActiveProcess. accumulatedMagnitude`/`lastSignalTick` to dokładnie ten
+rodzaj stanu, który save musi przechowywać, nie da się go tanio
+odbudować bez replayu całej historii Chronicle od ticka 0).
 
 **2. `WorldRunner.getState()/static fromState()`
 (`packages/simulation`):** kompozytowa metoda wzorem `HeadlessRunner`.
@@ -3365,47 +3422,46 @@ instancję na właściwie przywróconą (ten sam powód, dla którego
 `HeadlessRunner`'s własne `clock`/`rng`/`commandBoundary` nigdy nie były
 `readonly`).
 
-**3. Nowy pakiet `packages/persistence`** (wzorzec `packages/chronicle`):
-- `envelope.ts` -- `SaveGame` (SS32), świadomie SKONSOLIDOWANY:
-  `rngState`/`architectState`/`historicalState` (SS32's "rekomendowany
-  model") żyją razem wewnątrz `worldState: WorldRunnerState` zamiast
-  jako 4 osobne pola-duplikaty tego samego `WorldRunner.getState()` --
-  SS58 Canonical State samo już traktuje RNG i history anchors jako
-  część tego samego kanonicznego stanu co encje. `worldConfiguration`
-  pominięte z tego samego powodu (już wewnątrz `worldState.headless`).
-- `checksum.ts` -- World Checksum (reużycie `computeChecksum` z
-  `@first-cause/simulation`, bez `metadata.createdAt/savedAt`, SS87) +
-  Layer Checksums (population/economy/technology/causality/architect,
-  SS88, plus `chronicle` -- M19 wprowadziło realną, niezależną warstwę
-  historii wartą osobnego trackowania).
-- `compaction.ts` -- cienki wrapper na już-istniejący `pruneCausalMemory`
-  + `collectHistoricalAnchorFactIds` (ten sam most SS135, który
-  `WorldRunner.maybePruneCausalMemory` już ustanowił) -- kompaktacja
-  HISTORII CHRONICLE (CH-12) świadomie NIE jest tu robiona, bo CH-12 nie
-  istnieje (P1).
-- `migrations.ts` -- pełny framework (Version Compatibility Matrix SS39,
-  pipeline SS41, Migration Log SS43, SAVE-008 determinizm) z pustą
-  tabelą `MIGRATIONS` -- `SCHEMA_VERSION` nigdy się nie zmieniło od M3,
-  więc nie ma jeszcze czego migrować; mechanizm dowiedziony
-  identity-migration testem.
-- `atomic-write.ts` -- `.tmp` → `fsync` → `.bak` poprzedniego pliku →
-  atomic rename (SS47-49); `readSaveFile` rekalkuluje checksumę zamiast
-  ufać zapisanej wartości.
-- `save-load.ts` -- `saveGame()`/`loadGame()`, kompaktacja domyślnie
-  włączona przy save (SS72/PERF-007: historia to dominujące ryzyko
-  rozmiaru, nie coś opt-in).
+**3. Nowy pakiet `packages/persistence`** (wzorzec
+`packages/chronicle`): - `envelope.ts` -- `SaveGame` (SS32), świadomie
+SKONSOLIDOWANY: `rngState`/`architectState`/`historicalState` (SS32's
+"rekomendowany model") żyją razem wewnątrz
+`worldState: WorldRunnerState` zamiast jako 4 osobne pola-duplikaty tego
+samego `WorldRunner.getState()` -- SS58 Canonical State samo już
+traktuje RNG i history anchors jako część tego samego kanonicznego stanu
+co encje. `worldConfiguration` pominięte z tego samego powodu (już
+wewnątrz `worldState.headless`). - `checksum.ts` -- World Checksum
+(reużycie `computeChecksum` z `@first-cause/simulation`, bez
+`metadata.createdAt/savedAt`, SS87) + Layer Checksums
+(population/economy/technology/causality/architect, SS88, plus
+`chronicle` -- M19 wprowadziło realną, niezależną warstwę historii wartą
+osobnego trackowania). - `compaction.ts` -- cienki wrapper na
+już-istniejący `pruneCausalMemory` + `collectHistoricalAnchorFactIds`
+(ten sam most SS135, który `WorldRunner.maybePruneCausalMemory` już
+ustanowił) -- kompaktacja HISTORII CHRONICLE (CH-12) świadomie NIE jest
+tu robiona, bo CH-12 nie istnieje (P1). - `migrations.ts` -- pełny
+framework (Version Compatibility Matrix SS39, pipeline SS41, Migration
+Log SS43, SAVE-008 determinizm) z pustą tabelą `MIGRATIONS` --
+`SCHEMA_VERSION` nigdy się nie zmieniło od M3, więc nie ma jeszcze czego
+migrować; mechanizm dowiedziony identity-migration testem. -
+`atomic-write.ts` -- `.tmp` → `fsync` → `.bak` poprzedniego pliku →
+atomic rename (SS47-49); `readSaveFile` rekalkuluje checksumę zamiast
+ufać zapisanej wartości. - `save-load.ts` -- `saveGame()`/`loadGame()`,
+kompaktacja domyślnie włączona przy save (SS72/PERF-007: historia to
+dominujące ryzyko rozmiaru, nie coś opt-in).
 
-**Testy (68 nowych w całym repo):** roundtrip per warstwa (causality,
-4 rejestry chronicle), `WorldRunner` roundtrip przez realną checksumę
-(nie tylko `toEqual`), **Save/Load Determinism Test dokładnie wg SS84**
+**Testy (68 nowych w całym repo):** roundtrip per warstwa (causality, 4
+rejestry chronicle), `WorldRunner` roundtrip przez realną checksumę (nie
+tylko `toEqual`), **Save/Load Determinism Test dokładnie wg SS84**
 (seed, N ticków, save, kontynuacja do M, checksum A; load, kontynuacja
 do M, checksum B; `A === B`) -- główny Acceptance Gate, przechodzi.
 Container Order Test (SS206), speed independence SAVE-005
-(`runTicks(100)` vs. 100×`step()`), atomic write corruption protection
+(`runTicks(100)` vs. 100×`step()`), atomic write corruption protection
 (przerwany zapis -- porzucony `.tmp` -- nigdy nie psuje ostatniego
 dobrego pliku; zmanipulowana zawartość bez przeliczonej checksumy jest
-wykrywana), `.bak` przy nadpisaniu. `pnpm typecheck/lint/test/build/
-test:e2e`: wszystkie PASS (892 testy w repo + 1 e2e).
+wykrywana), `.bak` przy nadpisaniu.
+`pnpm typecheck/lint/test/build/ test:e2e`: wszystkie PASS (892 testy w
+repo + 1 e2e).
 
 **Świadomie poza zakresem:** Electron IPC / UI zapisu-wczytywania (M21
 -- `WorldRunner` nadal niepodłączony do `apps/desktop`), kompaktacja
@@ -3439,6 +3495,49 @@ tylko live state).
 **Stan wejściowy M21:** UI-01/UI-02 oraz część komponentów UI-05--UI-10
 mają już istnieć z Parallel UI Foundation Track. W M21 są audytowane,
 uzupełniane i integrowane, a nie bezwarunkowo przepisywane.
+
+### M21 Visual Production Track --- 2026-09-21
+
+Warstwa wizualna M21 jest realizowana iteracyjnie i **przed** finalnym
+zamknięciem poszczególnych ekranów. Codex/Claude Code implementują
+zatwierdzony język wizualny; nie projektują go od nowa.
+
+Kolejność produkcyjna:
+
+``` text
+VP-01  Golden UI #1 — World Command Center 1920×1080
+VP-02  Golden UI #2 — Living Atlas / canonical atlas states
+VP-03  Golden UI #3 — Region Detail
+VP-04  Region Vignette Style Anchor Set (8 modułów)
+VP-05  Implementacja WCC + Atlas + Region Detail
+VP-06  Screenshot / Visual Conformance Audit
+VP-07  Pełna Region Vignette Library (docelowo ok. 29 modułów)
+VP-08  Golden UI — WHY? / Chronicle / Architect
+VP-09  Implementacja pozostałych ekranów M21
+VP-10  Full M21 UI Conformance Audit
+```
+
+**Reguła akceptacji Golden UI:** każdy ekran referencyjny musi zostać
+jawnie zatwierdzony przez właściciela projektu przed użyciem jako
+wzorzec implementacyjny. Golden UI nie nadpisuje tekstowych reguł
+`UI Visual Design System v1.0`; w razie konfliktu obowiązuje dokument.
+
+**Reguła assetów:** grafiki mogą być przygotowywane z pomocą generatora
+obrazów AI, ale każdy moduł Region Vignette musi zostać jawnie
+zatwierdzony przed dodaniem do biblioteki. Asset nie może sugerować
+obiektu lub funkcji, których nie ma w danych symulacji
+(`NO DECORATION WITHOUT INFORMATION`).
+
+**Style Anchor Gate:** przed produkcją całej biblioteki Region Vignette
+należy zatwierdzić reprezentatywny zestaw 8 modułów: `plains`,
+`mountains`, `dense_forest`, `village`, `city`, `road`, `mine`,
+`factory`. Zestaw zamraża perspektywę, stroke, poziom detalu, proporcje
+i sposób użycia kanonicznej palety.
+
+**Kolejność ekranów M21:** pierwsza fala implementacyjna to
+`World Command Center → Living Atlas → Region Detail`; dopiero po ich
+wspólnym Visual Conformance Audit przechodzimy do WHY?, Chronicle,
+Architect i pozostałych ekranów.
 
 **Moduły (`UI-01`...`UI-14`, zsynchronizowane z UI Implementation Spec
 v1.0):**
@@ -3485,8 +3584,10 @@ blockerem).
 (całość, zwłaszcza §1--50, §180--221),
 `FIRST-CAUSE-Canonical- Decisions-v0.1.md` (UI-001--013),
 `FIRST-CAUSE-Vertical-Slice-Spec- v0.1.md` (§41--45),
-`FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`,
-`FIRST-CAUSE-UI-Implementation-Spec-v1.0.md`.
+`FIRST-CAUSE-UI-Visual-Design-System-v1.3.md`,
+`FIRST-CAUSE-UI-Implementation-Spec-v1.3.md`,
+`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.1.md`,
+`FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.2.md`.
 
 ------------------------------------------------------------------------
 
@@ -3816,45 +3917,46 @@ M14's sekcja "Audyt post-implementacyjny"; M15's sekcja "Wyniki
 wykonania" opisuje implementację Discovery Engine/Diffusion/Adoption;
 M19's sekcja "Wyniki wykonania" opisuje Chronicle -- wszystkie 15/15
 event types VS mają dziś detektor po follow-upach tego samego dnia;
-M20's sekcja "Wyniki wykonania" opisuje pełny `WorldRunner.getState()/
-fromState()` roundtrip i nowy pakiet `packages/persistence`). M21
-odblokowany. **Ten dokument jest żywy --- po ukończeniu każdego
-milestone'u aktualizujemy Status, a w razie potrzeby także Ryzyka i
-Dependencies poniższych wierszy, nie zmieniając historii już ukończonych
-pozycji bez wyraźnego powodu (patrz sekcja 13).**
+M20's sekcja "Wyniki wykonania" opisuje pełny
+`WorldRunner.getState()/ fromState()` roundtrip i nowy pakiet
+`packages/persistence`). M21 odblokowany. **Ten dokument jest żywy ---
+po ukończeniu każdego milestone'u aktualizujemy Status, a w razie
+potrzeby także Ryzyka i Dependencies poniższych wierszy, nie zmieniając
+historii już ukończonych pozycji bez wyraźnego powodu (patrz sekcja
+13).**
 
-  Milestone   Status    Priorytet   Złożoność   Ryzyko        Zależności
-  ----------- --------- ----------- ----------- ------------- ------------
-  M0          DONE      P0          S           LOW           ---
-  M1          DONE      P0          M           MEDIUM        M0
-  M2          DONE      P0          M           LOW-MEDIUM    M1
-  M3          DONE      P0          M           MEDIUM        M1, M2
-  M4          DONE      P0          S/M         MEDIUM        M3
-  M5          DONE      P0          S           LOW           M4
-  M6          DONE      P0          M           MEDIUM        M4
-  M7          DONE      P0          M           MEDIUM        M5, M6
-  M8          DONE      P0          M           HIGH          M7
-  M9          DONE      P0          M           MEDIUM        M8
-  M10         DONE      P0          M           MEDIUM        M9
-  M11         DONE      P0          L           HIGH          M10
-  M12         DONE      P0          M           MEDIUM-HIGH   M11
-  M13         DONE      P0          M           MEDIUM        M12
-  M14         DONE      P0          S/M         MEDIUM        M13
-  M15         DONE      P0          L           MEDIUM-HIGH   M14
-  M16         DONE      P0          M           MEDIUM        M15
-  M17         DONE      P0          L           HIGH          M16
-  M18         DONE      P0          M           MEDIUM        M17
-  M19         DONE      P0          M/L         MEDIUM        M18
-  M20         DONE      P0          M           MEDIUM-HIGH   M19
-  M21         READY     P0          L           MEDIUM        M20
-  M22         BACKLOG   P0          L           HIGH          M21
-  M23         BACKLOG   P0          M           HIGH          M22
-  M24         BACKLOG   P0          M/L         MEDIUM-HIGH   M23
-  M25         BACKLOG   P0          S           LOW           M24
-  M26         BACKLOG   P1          L           HIGH          M25
-  M27         BACKLOG   P1/P2       M           MEDIUM        M26
-  M28         BACKLOG   P1/P2       L           MEDIUM        M25
-  M29         BACKLOG   P2          M           MEDIUM        M26, M28
+  Milestone   Status       Priorytet   Złożoność   Ryzyko        Zależności
+  ----------- ------------ ----------- ----------- ------------- ------------
+  M0          DONE         P0          S           LOW           ---
+  M1          DONE         P0          M           MEDIUM        M0
+  M2          DONE         P0          M           LOW-MEDIUM    M1
+  M3          DONE         P0          M           MEDIUM        M1, M2
+  M4          DONE         P0          S/M         MEDIUM        M3
+  M5          DONE         P0          S           LOW           M4
+  M6          DONE         P0          M           MEDIUM        M4
+  M7          DONE         P0          M           MEDIUM        M5, M6
+  M8          DONE         P0          M           HIGH          M7
+  M9          DONE         P0          M           MEDIUM        M8
+  M10         DONE         P0          M           MEDIUM        M9
+  M11         DONE         P0          L           HIGH          M10
+  M12         DONE         P0          M           MEDIUM-HIGH   M11
+  M13         DONE         P0          M           MEDIUM        M12
+  M14         DONE         P0          S/M         MEDIUM        M13
+  M15         DONE         P0          L           MEDIUM-HIGH   M14
+  M16         DONE         P0          M           MEDIUM        M15
+  M17         DONE         P0          L           HIGH          M16
+  M18         DONE         P0          M           MEDIUM        M17
+  M19         DONE         P0          M/L         MEDIUM        M18
+  M20         DONE         P0          M           MEDIUM-HIGH   M19
+  M21         IN PROGRES   S P0        L           MEDIUM        M20
+  M22         BACKLOG      P0          L           HIGH          M21
+  M23         BACKLOG      P0          M           HIGH          M22
+  M24         BACKLOG      P0          M/L         MEDIUM-HIGH   M23
+  M25         BACKLOG      P0          S           LOW           M24
+  M26         BACKLOG      P1          L           HIGH          M25
+  M27         BACKLOG      P1/P2       M           MEDIUM        M26
+  M28         BACKLOG      P1/P2       L           MEDIUM        M25
+  M29         BACKLOG      P2          M           MEDIUM        M26, M28
 
 Statusy: `BACKLOG` / `READY` / `IN PROGRESS` / `BLOCKED` / `DONE`.
 
@@ -3887,19 +3989,23 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M21 — UI Vertical Slice**, READY -- pełny, spójny UI na
-stabilnych Read Models (World Command Center, Living Atlas, Region
-Detail, Economy/Market/Company, Technology, WHY?, Chronicle, Architect
-Panel, Butterfly Effect), pierwszy milestone podłączający `WorldRunner`
-do `apps/desktop`. M0, M0.1 oraz M1--M20 są DONE (M12-M14 dodatkowo
-przeszły pełną naprawę audytu post-implementacyjnego, patrz M14's
-sekcja; M15's implementacja Discovery Engine/Diffusion/Adoption, M16's
-implementacja Architect, M17's pełna integracja Causality Engine, M18's
-WHY?/Butterfly/WHY NOT?, M19's Chronicle (wszystkie 15/15 event types) i
-M20's `WorldRunner.getState()/fromState()` + `packages/persistence`
-opisane w ich sekcjach "Wyniki wykonania", M15-M16 dodatkowo z dopisanym
-addendum po remediacji niezależnego audytu M15-M16 z 2026-09-19 -- patrz
-też `CHANGELOG.md`). Kolejne milestone’y rozpoczynają się po odbiorze ich
+Następny krok: **M21 --- UI Vertical Slice**, IN PROGRESS --
+rozpoczynamy od Visual Production Track i **Golden UI #1 --- World
+Command Center 1920×1080**, a następnie przechodzimy do Living Atlas,
+Region Detail i pierwszego Visual Conformance Audit. M21 dostarcza
+pełny, spójny UI na stabilnych Read Models (World Command Center, Living
+Atlas, Region Detail, Economy/Market/Company, Technology, WHY?,
+Chronicle, Architect Panel, Butterfly Effect), pierwszy milestone
+podłączający `WorldRunner` do `apps/desktop`. M0, M0.1 oraz M1--M20 są
+DONE (M12-M14 dodatkowo przeszły pełną naprawę audytu
+post-implementacyjnego, patrz M14's sekcja; M15's implementacja
+Discovery Engine/Diffusion/Adoption, M16's implementacja Architect,
+M17's pełna integracja Causality Engine, M18's WHY?/Butterfly/WHY NOT?,
+M19's Chronicle (wszystkie 15/15 event types) i M20's
+`WorldRunner.getState()/fromState()` + `packages/persistence` opisane w
+ich sekcjach "Wyniki wykonania", M15-M16 dodatkowo z dopisanym addendum
+po remediacji niezależnego audytu M15-M16 z 2026-09-19 -- patrz też
+`CHANGELOG.md`). Kolejne milestone'y rozpoczynają się po odbiorze ich
 zależności.
 
 ------------------------------------------------------------------------
@@ -3920,9 +4026,9 @@ Zmiany względem v0.1 wynikające z zamrożenia warstwy UI/grafiki:
     od M5;
 4.  Design Tokens, FC primitives i AppShell rozpoczynają się w M5-M10;
 5.  Region Visual Identity (UI-F1) rozpoczyna się w M15 (pierwotnie
-    dopuszczone jako M14/M15, rozstrzygnięte na M15 decyzją z
-    2026-09-18 -- M14's rzeczywista implementacja renderingu nie objęła,
-    patrz M14's sekcja "Audyt post-implementacyjny");
+    dopuszczone jako M14/M15, rozstrzygnięte na M15 decyzją z 2026-09-18
+    -- M14's rzeczywista implementacja renderingu nie objęła, patrz
+    M14's sekcja "Audyt post-implementacyjny");
 6.  komponenty Causality/WHY? rozpoczynają się w M17/M18;
 7.  Chronicle UI rozpoczyna się w M19;
 8.  M21 zreinterpretowano jako pełny **UI Integration Milestone**;
@@ -3932,3 +4038,143 @@ Zmiany względem v0.1 wynikające z zamrożenia warstwy UI/grafiki:
 12. M25 obejmuje Golden UI / Anti-Drift Conformance Gate.
 
 Numeracja M0--M25 oraz M26--M29 pozostaje bez zmian.
+
+### M21 Visual Production Track update --- 2026-09-21 / Golden UI #1 accepted
+
+`VP-01 Golden UI #1 — World` is **DONE / ACCEPTED**.
+
+Canonical reference: `FIRST-CAUSE-Golden-UI-01-World-v1.0.png` plus the
+normative rules in `FIRST-CAUSE-UI-Visual-Design-System-v1.1.md` and
+`FIRST-CAUSE-UI-Implementation-Spec-v1.1.md`.
+
+The accepted screen freezes: Living Atlas dominance; Map Modes and
+independent Overlays; population-scaled settlement markers; contextual
+rather than global flows; Recent Events → Map → WHY? → Consequences;
+selected-region progressive disclosure; historical World Timeline;
+contextual ranking; and Anti-AI calm-information-first rules.
+
+**Next M21 execution order:**
+
+1.  implement/audit UI-03 World shell against Golden UI #1,
+2.  implement Living Atlas map-mode/overlay state contract,
+3.  implement population marker scaling and semantic zoom,
+4.  wire Recent Events → map focus → compact WHY?,
+5.  wire contextual Flow Lens Top 3/5/All,
+6.  wire Δ Change comparison windows,
+7.  screenshot audit of the 10 canonical states,
+8.  proceed to Golden UI #2 --- Region Detail / Region Dossier.
+
+Asset production for the Atlas must prioritise restrained cartographic
+primitives and data-driven region identity; decorative terrain assets
+are secondary.
+
+------------------------------------------------------------------------
+
+# M21 Visual Track update --- 2026-09-25
+
+## Approved inputs
+
+The World visual direction is now sufficiently specified for
+implementation:
+
+-   Golden UI World Command Center v1.2 --- approved layout/information
+    hierarchy,
+-   Raw Simulation Atlas v0.1 --- approved map character,
+-   Visual Alphabet v1.1 --- approved symbol-system direction,
+-   Living Atlas Visual Asset Spec v1.2 --- production contract.
+
+The project must stop broad visual exploration at this point. New style
+variants are justified only by a concrete implementation/stress-test
+failure.
+
+## M21-VIS-01 --- Living Atlas implementation spike
+
+**Priority:** P0\
+**Owner:** implementation agent (Codex recommended)\
+**Goal:** prove that the visual language works with production
+contracts.
+
+Deliver:
+
+-   audit of existing UI-03/UI-04,
+-   renderer primitives,
+-   Geography/Civilization/Simulation Data separation,
+-   deterministic RegionVisualProfile mapping,
+-   one region in four historical states,
+-   screenshots,
+-   tests.
+
+## M21-VIS-02 --- Map Mode Stress Test
+
+On the same geography, validate available:
+
+-   Population,
+-   Economy,
+-   Resources,
+-   Trade,
+-   Technology,
+-   Δ Change.
+
+Check information density, label collisions, selection, overlays and
+performance.
+
+## M21-VIS-03 --- Golden UI integration
+
+Integrate the validated Atlas into World Command Center v1.1.
+
+The final screenshot must preserve:
+
+-   top-bar world pulse,
+-   stable left navigation,
+-   compact World Overview,
+-   Atlas as largest graphical surface,
+-   contextual Region Inspector,
+-   bottom Regions/Economy/Events/Population strip,
+-   context-first navigation.
+
+## M21-VIS-04 --- Independent audit
+
+After implementation:
+
+`Codex implementation → Claude Code audit → Codex corrections → tests → human acceptance`
+
+Audit scope:
+
+-   documentation conformance,
+-   Anti-AI drift,
+-   simulation truth → Read Model → visual mapping,
+-   accidental scope expansion,
+-   screenshot comparison,
+-   determinism/performance where relevant.
+
+## M21-VIS-05 --- Freeze and next screen
+
+Only after M21-VIS-01 through M21-VIS-04 PASS:
+
+1.  freeze `FIRST CAUSE Visual Direction v1.0`,
+2.  proceed to Golden UI #2 --- Region Detail,
+3.  reuse the same Visual Alphabet and Atlas rules rather than creating
+    a new visual language.
+
+------------------------------------------------------------------------
+
+# M21-VIS-03A --- World analytical context scope
+
+**Priority:** P0 within Golden UI integration.
+
+Implement the bottom analytical strip:
+
+`NAJWAŻNIEJSZE PRZYCZYNY | MOŻLIWE KONSEKWENCJE | SZYBKIE AKCJE`
+
+with shared explicit scope for the first two modules:
+
+`ŚWIAT | [SELECTED REGION]`
+
+Acceptance: - WORLD is default, - region selection alone does not
+silently change scope, - both analytical modules switch together, -
+quick actions are context-derived, - WHY? receives the active scope and
+selected analytical item, - projections are visually identified as
+projections, - no unsupported cause/consequence is synthesized by UI, -
+screenshot review confirms compact Anti-AI styling.
+
+This task is completed as part of M21-VIS-03 before independent audit.

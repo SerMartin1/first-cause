@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { SIMULATION_IPC_CHANNEL, type SimulationRequest } from "@first-cause/shared";
 import { SimulationBridge } from "./simulation-bridge.js";
@@ -14,11 +14,14 @@ import { SimulationBridge } from "./simulation-bridge.js";
 let simulationBridge: SimulationBridge | null = null;
 
 function createSimulationBridge(): SimulationBridge {
-  const workerPath = require.resolve("@first-cause/simulation/worker");
-  return new SimulationBridge(workerPath);
+  return new SimulationBridge(join(__dirname, "world-worker.js"), {
+    root: resolve(__dirname, "../../../.."),
+    fixture: "tests/worldgen/fixtures/black_mountain_reference.json",
+  });
 }
 
 function registerSimulationIpcHandler(bridge: SimulationBridge): void {
+  ipcMain.handle("first-cause:world", async (_event, request) => bridge.invoke(request));
   ipcMain.handle(SIMULATION_IPC_CHANNEL, async (_event, request: SimulationRequest) =>
     bridge.invoke(request),
   );
@@ -26,8 +29,8 @@ function registerSimulationIpcHandler(bridge: SimulationBridge): void {
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: 1600,
+    height: 1000,
     show: false,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
@@ -83,6 +86,7 @@ app.on("before-quit", (event) => {
   if (shutdownStarted) return;
   shutdownStarted = true;
   ipcMain.removeHandler(SIMULATION_IPC_CHANNEL);
+  ipcMain.removeHandler("first-cause:world");
   void simulationBridge
     .dispose()
     .catch((error: unknown) => {

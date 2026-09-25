@@ -1,0 +1,289 @@
+.fc-world {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(500px, 3.1fr) minmax(240px, 1.05fr);
+  grid-template-areas: "time time time" "left atlas region" "timeline why ranking";
+  grid-template-rows: auto minmax(520px, calc(100vh - 360px)) auto;
+  gap: var(--fc-space-4);
+  font-size: var(--fc-text-body);
+}
+.fc-world__time {
+  grid-area: time;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fc-space-4);
+}
+.fc-world__time > div {
+  margin-left: auto;
+}
+.fc-world__left {
+  grid-area: left;
+  overflow-y: auto;
+}
+.fc-world__atlas {
+  grid-area: atlas;
+  min-width: 0;
+  background: var(--fc-surface-muted);
+  border: var(--fc-border-width) solid var(--fc-border);
+  display: flex;
+  flex-direction: column;
+}
+.fc-world__region {
+  grid-area: region;
+  min-width: 0;
+  overflow-y: auto;
+}
+.fc-world__timeline {
+  grid-area: timeline;
+}
+.fc-world__why {
+  grid-area: why;
+}
+.fc-world__ranking {
+  grid-area: ranking;
+}
+.fc-world .fc-section {
+  margin-bottom: var(--fc-space-6);
+}
+.fc-world .fc-section__title {
+  font-family: var(--fc-font-history);
+}
+.fc-world .fc-metric {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--fc-space-2);
+  padding: var(--fc-space-2) 0;
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world button,
+.fc-world select {
+  color: var(--fc-text-primary);
+  background: transparent;
+  border: var(--fc-border-width) solid var(--fc-border);
+  padding: var(--fc-space-2);
+  font-size: var(--fc-text-label);
+  cursor: pointer;
+}
+.fc-world button:hover {
+  background: var(--fc-selection);
+}
+.fc-world button:disabled {
+  color: var(--fc-text-muted);
+  cursor: default;
+}
+.fc-world button[aria-pressed="true"],
+.fc-world .fc-tabs__tab--active {
+  background: var(--fc-text-primary);
+  color: var(--fc-bg-elevated);
+}
+.fc-world .fc-text-button {
+  border: 0;
+}
+.fc-world .fc-tabs {
+  gap: 0;
+  flex-wrap: wrap;
+}
+.fc-world .fc-tabs__tab {
+  flex: 1;
+  border: 0;
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+  padding: var(--fc-space-3) var(--fc-space-2);
+  white-space: nowrap;
+}
+.fc-world__atlas-tools,
+.fc-world__flow-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--fc-space-3);
+  padding: var(--fc-space-2);
+}
+.fc-world__mode-caption {
+  margin: 0;
+  padding: var(--fc-space-2);
+  font-size: var(--fc-text-caption);
+}
+.fc-world__overlays {
+  position: relative;
+  margin-left: auto;
+  z-index: 2;
+}
+.fc-world__overlays summary {
+  cursor: pointer;
+}
+.fc-world__overlays > div {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  min-width: 180px;
+  background: var(--fc-bg-elevated);
+  border: var(--fc-border-width) solid var(--fc-border);
+  padding: var(--fc-space-3);
+}
+.fc-world__overlays label {
+  display: block;
+  padding: var(--fc-space-1);
+}
+.fc-world__overlays p {
+  font-size: var(--fc-text-caption);
+}
+.fc-atlas {
+  min-height: 260px;
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+}
+.fc-atlas__canvas {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+.fc-atlas__caption {
+  position: absolute;
+  top: var(--fc-space-3);
+  left: var(--fc-space-3);
+  font-size: var(--fc-text-caption);
+  color: var(--fc-text-secondary);
+  pointer-events: none;
+}
+.fc-atlas__legend {
+  position: absolute;
+  right: var(--fc-space-3);
+  bottom: var(--fc-space-3);
+  padding: var(--fc-space-3);
+  background: var(--fc-bg-elevated);
+  font-size: var(--fc-text-caption);
+  pointer-events: none;
+}
+.fc-atlas__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fc-space-1);
+  margin-right: var(--fc-space-2);
+}
+.fc-atlas__legend i {
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--fc-text-secondary);
+}
+.fc-atlas__zoom {
+  position: absolute;
+  left: var(--fc-space-3);
+  bottom: var(--fc-space-3);
+  background: var(--fc-bg-elevated);
+}
+.fc-world__region-picker {
+  padding: var(--fc-space-2);
+}
+.fc-world__region-picker select {
+  max-width: 100%;
+}
+.fc-world__events {
+  list-style: none;
+  padding: 0;
+}
+.fc-world__events button {
+  width: 100%;
+  display: grid;
+  gap: var(--fc-space-1);
+  text-align: left;
+  border: 0;
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__events small {
+  color: var(--fc-text-secondary);
+}
+.fc-world__events button[aria-pressed="true"] {
+  background: var(--fc-selection);
+  color: var(--fc-text-primary);
+}
+.fc-world__region svg {
+  width: 100%;
+  height: auto;
+  max-height: 120px;
+}
+.fc-world__rows p,
+.fc-world__ranking li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--fc-space-2);
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__ranking ol {
+  padding-left: var(--fc-space-4);
+}
+.fc-world__timeline input {
+  width: 100%;
+  accent-color: var(--fc-accent);
+}
+.fc-world__timeline-events {
+  max-height: 140px;
+  overflow: auto;
+}
+.fc-world__timeline-events button {
+  border: 0;
+  display: block;
+  text-align: left;
+}
+.fc-world__causes {
+  display: flex;
+  gap: var(--fc-space-3);
+  overflow-x: auto;
+  padding: var(--fc-space-3) 0;
+}
+.fc-world__causes > div {
+  min-width: 120px;
+  border-right: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__causes small {
+  display: block;
+}
+.fc-world__why,
+.fc-world__timeline,
+.fc-world__ranking {
+  border-top: var(--fc-border-width) solid var(--fc-border);
+  padding-top: var(--fc-space-3);
+  max-height: 210px;
+  overflow-y: auto;
+}
+.fc-world-diagnostics {
+  position: relative;
+  font-size: var(--fc-text-caption);
+}
+.fc-world-diagnostics summary {
+  cursor: pointer;
+}
+.fc-world-diagnostics .fc-simulation-bar {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 3;
+  white-space: nowrap;
+  background: var(--fc-bg-elevated);
+  border: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world :focus-visible {
+  outline: var(--fc-border-width-accent) solid var(--fc-accent);
+  outline-offset: 2px;
+}
+@media (max-width: 1150px) {
+  .fc-world {
+    grid-template-columns: minmax(160px, 0.7fr) minmax(400px, 2fr);
+    grid-template-areas: "time time" "left atlas" "region why" "timeline ranking";
+    grid-template-rows: auto minmax(520px, 65vh) auto auto;
+  }
+}
+@media (max-width: 720px) {
+  .fc-world {
+    display: flex;
+    flex-direction: column;
+  }
+  .fc-world__atlas {
+    order: -1;
+  }
+}

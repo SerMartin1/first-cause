@@ -9,14 +9,25 @@ import react from "@vitejs/plugin-react";
 // makes esbuild inline it at build time instead -- no runtime ESM/CJS
 // interop problem, and no source duplication risk since it is types +
 // a handful of string constants.
-const workspaceEsmPackages = ["@first-cause/shared"];
+const workspaceEsmPackages = [
+  "@first-cause/shared",
+  "@first-cause/worldgen",
+  "@first-cause/simulation",
+  "@first-cause/entities",
+  "@first-cause/content",
+  "@first-cause/causality",
+  "@first-cause/chronicle",
+];
 
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: workspaceEsmPackages })],
     build: {
       rollupOptions: {
-        input: resolve(__dirname, "electron/main/index.ts"),
+        input: {
+          index: resolve(__dirname, "electron/main/index.ts"),
+          "world-worker": resolve(__dirname, "electron/main/world-worker.ts"),
+        },
       },
     },
   },

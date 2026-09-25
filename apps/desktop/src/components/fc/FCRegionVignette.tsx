@@ -9,18 +9,20 @@ import type { RegionVisualProfile } from "@first-cause/simulation";
  * vignette` (pierwsza połowa, `WorldState -> RegionVisualProfile`, to
  * `buildRegionVisualProfileReadModel` z `@first-cause/simulation`).
  *
- * SS18.7/SS13.3 wprost zabraniają temu komponentowi wymyślania
- * własnego stylu wizualnego/biblioteki assetów -- "styl, stroke,
- * paleta, perspektywa... muszą być przygotowane/zaakceptowane
- * niezależnie" -- a taka zatwierdzona biblioteka jeszcze nie istnieje
- * (`/assets/region-vignette/` z SS18.8 nie jest wypełniona). Dlatego
- * każda warstwa poniżej renderuje neutralne, abstrakcyjne znaczniki
- * wyłącznie z Design Tokens (nigdy pikturalną sylwetkę góry/drzewa/
- * domu), których pozycja/liczba/przezroczystość jest deterministyczną
- * funkcją profilu. To, za co Codex *jest* odpowiedzialny wg SS18.7 --
- * pipeline, reguły kompozycji, deterministyczne warianty, skalowanie i
- * mapowanie danych na warstwy -- jest w pełni realne; tylko *wygląd*
- * znaczników jest placeholderem, wymiennym per warstwa bez dotykania
+ * SS18.7 (zaktualizowane 2026-09-20, decyzja użytkownika): agent
+ * kodujący nadal nie projektuje stylu ani nie generuje obrazów
+ * samodzielnie -- moduły biblioteki assetów mogą teraz powstawać przez
+ * generator obrazów AI, ale wyłącznie pod nadzorem i zatwierdzeniem
+ * użytkownika. Taka zatwierdzona biblioteka jeszcze nie istnieje
+ * (`/assets/region-vignette/` z SS18.8 nie jest wypełniona), więc
+ * każda warstwa poniżej renderuje na razie neutralne, abstrakcyjne
+ * znaczniki wyłącznie z Design Tokens (nigdy pikturalną sylwetkę
+ * góry/drzewa/domu), których pozycja/liczba/przezroczystość jest
+ * deterministyczną funkcją profilu. To, za co agent *jest*
+ * odpowiedzialny wg SS18.7 -- pipeline, reguły kompozycji,
+ * deterministyczne warianty, skalowanie i mapowanie danych na warstwy
+ * -- jest w pełni realne; tylko *wygląd* znaczników jest placeholderem,
+ * wymiennym per warstwa (docelowo na zatwierdzone assety) bez dotykania
  * tej logiki mapowania.
  */
 export type FCRegionVignetteSize = "small" | "large";

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Worker } from "node:worker_threads";
+import type { WorldRequest, WorldResponse } from "@first-cause/simulation";
 import type {
   SimulationRequest,
   SimulationResponse,
@@ -7,11 +8,12 @@ import type {
   WorkerErrorEnvelope,
 } from "@first-cause/shared";
 
-type WorkerMessage = WorkerEnvelope<SimulationResponse> | WorkerErrorEnvelope;
+type BridgeResponse = SimulationResponse | WorldResponse;
+type WorkerMessage = WorkerEnvelope<BridgeResponse> | WorkerErrorEnvelope;
 
 interface PendingRequest {
   readonly timer: ReturnType<typeof setTimeout>;
-  readonly resolve: (response: SimulationResponse) => void;
+  readonly resolve: (response: BridgeResponse) => void;
   readonly reject: (error: Error) => void;
 }
 
@@ -34,8 +36,8 @@ export class SimulationBridge {
   private readonly worker: Worker;
   private readonly pending = new Map<string, PendingRequest>();
 
-  constructor(workerPath: string) {
-    this.worker = new Worker(workerPath);
+  constructor(workerPath: string, workerData?: unknown) {
+    this.worker = new Worker(workerPath, { workerData });
 
     this.worker.on("message", (message: WorkerMessage) => {
       const pending = this.pending.get(message.requestId);
@@ -60,19 +62,19 @@ export class SimulationBridge {
     });
   }
 
-  invoke(request: SimulationRequest): Promise<SimulationResponse> {
+  invoke(request: SimulationRequest | WorldRequest): Promise<BridgeResponse> {
     if (this.state !== "running") {
       return Promise.reject(new Error(`Simulation bridge is ${this.state}`));
     }
     const requestId = randomUUID();
-    return new Promise<SimulationResponse>((resolve, reject) => {
+    return new Promise<BridgeResponse>((resolve, reject) => {
       // Wall-clock IPC deadline, unrelated to simulated world time.
       const timer = setTimeout(() => {
         this.pending.delete(requestId);
         reject(new Error("Simulation request timed out after 10000 ms"));
       }, 10_000);
       this.pending.set(requestId, { resolve, reject, timer });
-      const envelope: WorkerEnvelope<SimulationRequest> = {
+      const envelope: WorkerEnvelope<SimulationRequest | WorldRequest> = {
         requestId,
         payload: request,
       };

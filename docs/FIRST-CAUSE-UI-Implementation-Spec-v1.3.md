@@ -1,12 +1,12 @@
-# FIRST CAUSE --- UI Implementation Spec v1.0
+# FIRST CAUSE --- UI Implementation Spec v1.3
 
 **Status:** CANONICAL IMPLEMENTATION SPEC\
 **Projekt:** FIRST CAUSE\
-**Wersja:** 1.0\
+**Wersja:** 1.3\
 **Rola:** techniczny kontrakt implementacyjny warstwy UI dla Codexa,
 Claude Code i człowieka.\
 **Nadrzędny dokument wizualny:**
-`FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`\
+`FIRST-CAUSE-UI-Visual-Design-System-v1.3.md`\
 **Powiązany milestone:** M21 --- UI Vertical Slice\
 **Zasada nadrzędna:** implementacja ma odtwarzać intencję, hierarchię i
 zachowanie Design Systemu, a nie mechanicznie kopiować pojedyncze
@@ -623,9 +623,11 @@ musi dawać ten sam wariant kompozycji.
 
 Nie używać `Math.random()`.
 
-## 13.3 Styl
+## 13.3 Styl (zaktualizowano 2026-09-20, decyzja użytkownika -- patrz
 
-Codex implementuje:
+`UI-Visual-Design-System-v1.0.md` SS18.7)
+
+Agent (Codex, Claude Code lub inny) implementuje:
 
 -   renderer,
 -   composition rules,
@@ -633,10 +635,13 @@ Codex implementuje:
 -   scaling,
 -   mapping danych na VisualProfile.
 
-Codex **nie wymyśla samodzielnie stylu assetów**.
+Agent **nadal nie wymyśla samodzielnie stylu assetów** i nie generuje
+obrazów bez udziału użytkownika.
 
-Assety mają należeć do jednej ręcznie zdefiniowanej biblioteki
-wizualnej.
+Assety mogą powstawać z pomocą generatora obrazów AI, ale trafiają do
+jednej biblioteki wizualnej dopiero po jawnym zatwierdzeniu przez
+użytkownika -- niezaakceptowany wygenerowany plik nie jest częścią
+biblioteki.
 
 ------------------------------------------------------------------------
 
@@ -1274,14 +1279,252 @@ Najważniejsza zasada dla agentów implementujących:
 ## 36. Status v1.0
 
 `FIRST-CAUSE-UI-Implementation-Spec-v1.0.md` jest technicznym kontraktem
-wykonawczym dla `FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`.
+wykonawczym dla `FIRST-CAUSE-UI-Visual-Design-System-v1.3.md`.
 
 Zmiany wymagające nowego wzorca wizualnego, zmiany stacku, zmiany
 granicy Simulation ↔ UI albo zmiany kanonicznego UX loopu nie są
 lokalnym refaktorem. Wymagają jawnej aktualizacji dokumentacji projektu.
 
-**Następny krok w torze UI:** `Implementation Prompt #1 — UI Foundation`,
-wyłącznie w zakresie aktywnym w roadmapie v0.2 (debug shell/Read Models
-od M3/M4, tokens i komponenty od M5). Bieżącym etapem projektu jest M1,
-nie pełna implementacja UI. Golden UI wymagają udostępnienia plików lub
-trwałych odnośników przed review zgodności wizualnej (Canonical Decisions §199).
+**Następny krok w torze UI:**
+`Implementation Prompt #1 — UI Foundation`, wyłącznie w zakresie
+aktywnym w roadmapie v0.2 (debug shell/Read Models od M3/M4, tokens i
+komponenty od M5). Bieżącym etapem projektu jest M1, nie pełna
+implementacja UI. Golden UI wymagają udostępnienia plików lub trwałych
+odnośników przed review zgodności wizualnej (Canonical Decisions §199).
+
+# 31. UI-03 World --- Accepted Golden UI #1 implementation delta (2026-09-21)
+
+**Player-facing title:** `World`. Do not render `World Command Center`
+in the UI.
+
+## 31.1 Required read-model capabilities
+
+The World view must be able to request/read:
+
+-   world pulse metrics with selected comparison window,
+-   significant/recent events with location/entity references and
+    significance,
+-   settlement/region population for marker scaling,
+-   Map Mode-specific values for Political, Population, Economy,
+    Resources, Trade, Technology, Development, Stability and Δ Change,
+-   infrastructure geometry/links available in World State,
+-   contextual flows for selected entity/event,
+-   selected-region summary and key active processes,
+-   compact causal chain and map-projectable causal nodes,
+-   timeline events and historical snapshots/state references when
+    available,
+-   contextual ranking for current Map Mode.
+
+No UI component may invent missing simulation data.
+
+## 31.2 Marker scaling
+
+Population markers use a bounded non-linear radius function.
+Implementation should expose tokens/config for `minRadius`, `maxRadius`,
+reference population and scale exponent/log mapping. Acceptance test:
+\~100k settlement is unmistakably larger than \~10k while both remain
+legible and selectable.
+
+## 31.3 Atlas state model
+
+State must include at minimum:
+
+`mapMode`, `comparisonWindow`, `overlays`, `zoomLevel`,
+`selectedEntityId`, `selectedEventId`, `flowLens`, `flowLimit`,
+`timelineCursor`, `focusMode`.
+
+Map Mode and Overlay are independent concerns.
+
+## 31.4 Flow rendering budget
+
+Default: dynamic flows OFF unless required by current focused context.
+Selected region/event defaults to Top 3 relevant flows; Top 5/All are
+explicit user choices. WORLD zoom aggregates flows. Do not render
+simultaneous migration+trade+resource+technology flow families by
+default.
+
+## 31.5 Recent Events interaction
+
+Hover → atlas highlight.\
+Click → select event + centre/focus map + select affected entity +
+expose compact WHY?.\
+`Focus on event` → suppress unrelated labels/flows.\
+`Show on map` from WHY? → project selected causal relation onto Atlas.
+
+## 31.6 Progressive disclosure
+
+World screen is summary-first. Detailed
+economy/population/resources/connections live behind region tabs and
+Region Detail. Chronicle owns full historical browsing. WHY? owns full
+causal exploration.
+
+## 31.7 Screenshot / interaction acceptance states
+
+At minimum capture/test:
+
+1.  World / Population / no dynamic flows,
+2.  World / Population / selected 100k+ city versus \~10k settlement,
+3.  Recent Event focused on map,
+4.  selected region + Top 3 Migration Flow Lens,
+5.  Resources + selected resource,
+6.  Trade + Top 3 trade flows,
+7.  Technology diffusion focus,
+8.  Δ Change / 10Y,
+9.  WHY? causal node → Show on map,
+10. Timeline historical cursor state.
+
+All states must pass Anti-AI/Anti-Drift review against Visual Design
+System v1.1 and Golden UI #1.
+
+------------------------------------------------------------------------
+
+# Addendum v1.2 --- Living Atlas implementation contract
+
+## UI-03 / UI-04 source split
+
+-   World layout: `FIRST-CAUSE-Golden-UI-World-Command-Center-v1.1.md`
+-   Atlas style: `FIRST-CAUSE-Raw-Simulation-Atlas-v0.1.png`
+-   Symbol grammar: `FIRST-CAUSE-Visual-Alphabet-v1.1.png`
+-   Atlas rules: `FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.2.md`
+
+Reference PNGs are not production backgrounds.
+
+## Renderer contract
+
+Preferred data flow:
+
+`Simulation State → Read Model/Selectors → RegionVisualProfile → Visual Alphabet mapping → PixiJS layers`
+
+PixiJS owns high-volume map rendering. React owns shell, controls,
+tables, tabs and textual/context UI.
+
+Required Atlas layers:
+
+-   `FCAtlasGeographyLayer`
+-   `FCAtlasCivilizationLayer`
+-   `FCAtlasSimulationDataLayer`
+-   contextual selection/focus/causality layer
+
+Existing components may be retained where they already satisfy this
+responsibility; do not duplicate them solely to match names.
+
+## Required implementation spike
+
+Before broad Atlas expansion:
+
+1.  implement one representative region fixture,
+2.  render it as EARLY / DEVELOPING / INDUSTRIAL / MODERN,
+3.  keep geography recognizably constant,
+4.  switch available map modes on the same region,
+5.  capture screenshots,
+6.  run Anti-AI and density review.
+
+A fixture may be used only if it conforms to production Read Model
+contracts and is clearly marked as visual-development data.
+
+## World interaction contract
+
+Selected region remains in World context first. Full Region Detail is a
+deliberate deeper action.
+
+Significant event interaction:
+
+`Recent Event → Show on Map → region/entity focus → WHY?`
+
+Only expose `WHY?` when causal data exists.
+
+## Acceptance additions
+
+UI-03/UI-04 cannot receive PASS until:
+
+-   historical region stress test passes,
+-   map-mode stress test passes,
+-   settlement population scaling is deterministic,
+-   capital modifier is independent of population tier,
+-   map-mode switching does not mutate Simulation State,
+-   event localization uses grounded IDs/coordinates,
+-   screenshot at 1920×1080 conforms to Golden UI,
+-   Anti-AI review finds no decorative drift.
+
+------------------------------------------------------------------------
+
+# Addendum v1.3 --- World Context Scope implementation
+
+## State
+
+Add/confirm a World analytical scope state:
+
+``` text
+analysisScope = WORLD | REGION(regionId)
+```
+
+Do not infer `REGION` merely because a region is selected.
+
+Selection and analytical scope are separate states:
+
+``` text
+selectedEntityId
+analysisScope
+```
+
+## Read Models
+
+Provide separate selectors/read models for:
+
+``` text
+WorldCauseSummary
+RegionCauseSummary(regionId)
+WorldConsequenceProjection
+RegionConsequenceProjection(regionId)
+QuickActionAvailability(context)
+```
+
+Reuse existing Causality/Chronicle/forecast data where available. Do not
+generate missing causes or consequences in the UI.
+
+## Interaction
+
+-   World opens with `analysisScope = WORLD`.
+-   Selecting a region updates Region Inspector but leaves analytical
+    scope unchanged.
+-   User can switch `ŚWIAT ↔ selected region`.
+-   Changing selected region while region scope is active updates scope
+    to the newly selected valid region only if the interaction
+    explicitly represents replacement of the focused region; otherwise
+    fall back to WORLD. Choose one deterministic behavior and cover it
+    with tests.
+-   WHY? receives scope + entity/event/cause/consequence identifiers.
+-   Timeline changes recompute both summaries against the active cursor
+    when historical data supports it.
+
+## Consequence contract
+
+Projection items should carry, when available:
+
+``` text
+id
+scope
+targetEntityId
+horizon
+direction
+magnitudeRange
+confidenceClass
+sourceFactIds
+causalEdgeIds
+```
+
+UI must distinguish observed facts from projected consequences.
+
+## Tests
+
+Add at minimum:
+
+1.  selecting region does not silently change WORLD scope,
+2.  WORLD → REGION switch updates both Causes and Consequences,
+3.  no selected region disables regional scope,
+4.  quick actions reflect selection/context,
+5.  WHY? handoff preserves scope and selected item,
+6.  missing causal/projection data yields empty/disabled state, not
+    invented copy,
+7.  scope switching does not mutate Simulation State,
+8.  timeline cursor produces deterministic summary for the same state.

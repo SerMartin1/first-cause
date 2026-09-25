@@ -5,6 +5,11 @@ import { createI18n } from "@first-cause/localization";
 import en from "../../../locales/en/common.json";
 import pl from "../../../locales/pl/common.json";
 import { App } from "./App.js";
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/source-serif-4/400.css";
 import "./index.css";
 
 const i18n = createI18n({

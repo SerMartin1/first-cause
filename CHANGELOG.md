@@ -8,7 +8,67 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-09-23
+
+- **World verification and audit.** `pnpm.cmd typecheck` PASS;
+  `pnpm.cmd lint` PASS (one pre-existing `no-explicit-any` warning in
+  `packages/content/src/schema/reference-field.ts`); `pnpm.cmd test` PASS
+  (129 files, 900 tests); `pnpm.cmd build` PASS (also executed by the final
+  E2E command); `pnpm.cmd test:e2e` PASS (2 Electron tests). Captured 10
+  implementation screenshots using 1920×1080 and 1280×800 viewports.
+  Added `docs/FIRST-CAUSE-World-Implementation-Audit-2026-09-23.md` with
+  reused systems, data semantics and the still-open Golden acceptance gaps.
+  Fixed PixiJS startup under the existing CSP using its static no-eval
+  polyfill; the security policy was not weakened.
+
+- **M21 / Golden UI #1 — World integration.** Replaced the technical shell
+  content with World, a shared PixiJS atlas, independent modes/overlays,
+  population-scaled settlement markers, selected-region inspection, Chronicle
+  events and recorded WHY?/consequences. Added a worker-owned WorldRunner host
+  and typed preload read/command API, reusing existing simulation/read models.
+  Monthly session snapshots support exact 1/5/10/25/50-year comparisons where
+  history exists; historical WHY? excludes future facts. Bundled local fonts
+  and EN/PL labels. Added regression coverage for history, commands and UI.
+  Geography, political data, paired migration flows and approved pictorial
+  vignette assets remain unavailable; the atlas explicitly presents a region
+  connection diagram. This does not mark full Golden visual conformance or M21
+  complete.
+
+## 2026-09-21
+
+- **M21 World — implementation in progress.** Audited the existing FC components,
+  read models, WorldRunner, Chronicle and WHY? before integration. Added the
+  prescribed PixiJS renderer dependency and self-hosted IBM Plex / Source Serif
+  fonts. The current fixture has no cartographic geometry or historical atlas
+  snapshots; the World integration must disclose these limitations and never
+  fabricate geography, historical deltas or causal relationships.
+
+- **M21 — UI Vertical Slice rozpoczęty (IN PROGRESS).** Zaktualizowano
+  `FIRST-CAUSE-Implementation-Roadmap-v0.2.md`: M0--M20 są DONE, bieżącym
+  etapem jest M21. Dodano `M21 Visual Production Track`, który porządkuje
+  pracę jako `Golden UI → zatwierdzone assety → implementacja → screenshot
+  audit → korekta`. Pierwsza fala: World Command Center, Living Atlas i
+  Region Detail.
+- **Golden UI / asset workflow.** Golden UI wymaga jawnej akceptacji przed
+  użyciem jako wzorzec implementacyjny. Region Vignette Library powstaje
+  po wcześniejszym zatwierdzeniu 8-elementowego Style Anchor Set
+  (`plains`, `mountains`, `dense_forest`, `village`, `city`, `road`, `mine`,
+  `factory`). Zachowano zasadę `NO DECORATION WITHOUT INFORMATION` oraz
+  obowiązek indywidualnego zatwierdzania assetów generowanych z pomocą AI.
+
 ## 2026-09-20
+
+- **Decyzja użytkownika: rewizja SS18.7 "Anti-AI rule" ->
+  "AI-asset rule"** (`UI-Visual-Design-System-v1.0.md`,
+  `UI-Implementation-Spec-v1.0.md` SS13.3). Poszczególne moduły
+  biblioteki assetów winiet regionów (`/assets/region-vignette/`,
+  SS18.8) mogą teraz powstawać z pomocą generatora obrazów AI (np.
+  ChatGPT), pod warunkiem jawnego zatwierdzenia każdego modułu przez
+  użytkownika przed dodaniem do biblioteki. Rola agenta kodującego
+  (renderer, kompozycja, mapowanie danych) się nie zmienia -- nadal nie
+  projektuje stylu ani nie generuje obrazów samodzielnie. Zaktualizowany
+  komentarz w `FCRegionVignette.tsx` (poprzednio cytował starą, już
+  nieaktualną wersję reguły).
 
 - **M20 -- Save/Load (pełna integracja).** Save/load obejmuje teraz
   CAŁY `WorldRunner` (WorldState + Causality + Chronicle + RNG), nie
@@ -1477,3 +1537,17 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
   M0 foundation". No remote configured yet, so nothing has been pushed.
 - Added this `CHANGELOG.md` and the accompanying rule in `AGENTS.md` to
   record every future change here with its date.
+
+## 2026-09-21 — Golden UI #1 World accepted
+
+- Accepted the main `World` view as Golden UI #1 baseline.
+- Player-facing UI no longer uses the heading `World Command Center`; `World` is the visible screen name.
+- Froze Living Atlas as the dominant workspace.
+- Added canonical Map Modes: Political, Population, Economy, Resources, Trade, Technology, Development, Stability, Δ Change.
+- Separated Map Modes from Overlays.
+- Froze population-driven settlement marker sizing with bounded non-linear scaling.
+- Replaced global multi-colour flow rendering with contextual Flow Lens (Top 3 / Top 5 / All).
+- Froze interaction loop: Recent Events → Map → WHY? → Consequences / Show on map.
+- Defined selected-region progressive disclosure, contextual rankings and historical World Timeline behaviour.
+- Added explicit Anti-AI guardrails for the World view: information before decoration, calm cartography, no flow spaghetti, no decorative fantasy-map spectacle.
+- Added implementation acceptance states for UI-03 World.

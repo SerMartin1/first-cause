@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { WorldApi } from "@first-cause/simulation";
 import {
   SIMULATION_IPC_CHANNEL,
   type AppInfo,
@@ -38,3 +39,21 @@ const firstCauseApi: FirstCauseApi = {
 };
 
 contextBridge.exposeInMainWorld("firstCause", firstCauseApi);
+const worldApi: WorldApi = {
+  getWorld: (years, tick) =>
+    ipcRenderer.invoke("first-cause:world", {
+      type: "GET_WORLD",
+      years,
+      ...(tick === undefined ? {} : { tick }),
+    }),
+  setSpeed: (speed) =>
+    ipcRenderer.invoke("first-cause:world", { type: "SET_WORLD_SPEED", speed }),
+  step: (ticks) => ipcRenderer.invoke("first-cause:world", { type: "STEP_WORLD", ticks }),
+  explain: (factId, tick) =>
+    ipcRenderer.invoke("first-cause:world", {
+      type: "GET_WORLD_WHY",
+      factId,
+      ...(tick === undefined ? {} : { tick }),
+    }),
+};
+contextBridge.exposeInMainWorld("firstCauseWorld", worldApi);

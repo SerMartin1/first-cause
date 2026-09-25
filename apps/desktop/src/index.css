@@ -4,11 +4,7 @@
 @import "./shell/fc-shell.css";
 
 /**
- * Font asset loading is a follow-up: the CSP (`style-src 'self'`, no
- * `font-src`) intentionally does not allow remote font stylesheets, so
- * IBM Plex Sans/Mono and Source Serif 4 (OPEN-009) fall back to their
- * declared system stacks in `design/tokens.css` until those fonts are
- * self-hosted within the existing security boundary.
+ * Fonts are bundled locally by main.tsx; no remote font requests.
  */
 :root {
   color-scheme: light;

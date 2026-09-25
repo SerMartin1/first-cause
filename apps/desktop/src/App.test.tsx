@@ -6,6 +6,9 @@ import type { CoreStatus, FirstCauseApi, PongResponse } from "@first-cause/share
 import { App } from "./App.js";
 import en from "../../../locales/en/common.json";
 import pl from "../../../locales/pl/common.json";
+vi.mock("./features/world/WorldScreen.js", () => ({
+  WorldScreen: () => <div>World content</div>,
+}));
 
 function createTestI18n() {
   return createI18n({ resources: { en: { common: en }, pl: { common: pl } } });
@@ -81,7 +84,7 @@ describe("App", () => {
     screen.getByRole("button", { name: "PL" }).click();
 
     await waitFor(() => {
-      expect(screen.getByText("M20 -- Zapis/Wczytanie")).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Język" })).toBeInTheDocument();
     });
   });
 });
