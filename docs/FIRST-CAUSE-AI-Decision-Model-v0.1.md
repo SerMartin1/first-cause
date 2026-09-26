@@ -1484,6 +1484,14 @@ Oczekiwane: - żadna firma nie używa jego danych w OpportunityScore.
 
 Po discovery: - opportunity może się pojawić.
 
+> **2026-09-26 (Canonical Decisions `TECH-010`, D2):** granica dotyczy
+> każdej ścieżki gospodarczego użycia, nie tylko OpportunityScore:
+> dostępność wejść, decyzja produkcji, liczba batchy, bottleneck i
+> wydobycie traktują złoże nieznane światu jako niedostępne, a jego
+> ukryty stock nie wpływa na żadną decyzję. Testy regresyjne:
+> `production.test.ts` („discovery gate”),
+> `resource-discovery-boundary.test.ts`.
+
 ------------------------------------------------------------------------
 
 # 114. Test --- Black Mountain 200 lat

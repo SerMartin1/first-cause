@@ -11,7 +11,11 @@ import {
   setDiscoveryState,
   type WorldState,
 } from "@first-cause/entities";
-import { createWorldRunner, initializeMarketGood } from "@first-cause/simulation";
+import {
+  createWorldRunner,
+  discoverDeposit,
+  initializeMarketGood,
+} from "@first-cause/simulation";
 import { loadWorldFixture } from "./load-world-fixture.js";
 import { loadEconomyContent } from "../content/load-economy-content.js";
 import { buildTechnologyTestWorld } from "./technology-fixture.js";
@@ -448,13 +452,17 @@ describe("CE-12 Acceptance Tests (M17 Causality)", () => {
   it("Test 10 (Resource Bust, §98): cumulative extraction -> resource_depleted -> production_bottleneck_identified stays connected", () => {
     let worldState: WorldState = buildTechnologyTestWorld();
 
-    const tinyDeposit = createResourceDeposit({
-      id: "deposit_tiny_grain",
-      resourceDefinitionId: "grain",
-      regionId: "region_connected_a",
-      initialQuantity: 10, // exactly one manual_farming batch (10 grain/batch) -- depletes to precisely 0 on tick 1
-      renewable: false,
-    });
+    // TECH-010: eksploatowane złoże musi być znane światu (D2).
+    const tinyDeposit = discoverDeposit(
+      createResourceDeposit({
+        id: "deposit_tiny_grain",
+        resourceDefinitionId: "grain",
+        regionId: "region_connected_a",
+        initialQuantity: 10, // exactly one manual_farming batch (10 grain/batch) -- depletes to precisely 0 on tick 1
+        renewable: false,
+      }),
+      { tick: 0, targetStatus: "DISCOVERED", confidence: 1 },
+    ).deposit;
     const market = createMarket({ id: "market_a", regionId: "region_connected_a" });
     const marketWithPrices = { ...market, goods: { flour: initializeMarketGood(1) } };
     const regionWithMarket = {

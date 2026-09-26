@@ -13,6 +13,7 @@ import {
 } from "@first-cause/entities";
 import type { WorldState } from "@first-cause/entities";
 import { buildRegionSummaryReadModel } from "./region-summary-read-model.js";
+import { discoverDeposit } from "../systems/resources/deposit-lifecycle.js";
 
 function buildFixtureState() {
   const geography = createRegionGeography({
@@ -50,13 +51,16 @@ function buildFixtureState() {
     regionBId: regionB.id,
     geography: { physicalDistance: 10, terrainDifficulty: 0, seasonalModifier: 1 },
   });
-  const deposit = createResourceDeposit({
-    id: "deposit_001",
-    resourceDefinitionId: "iron_ore",
-    regionId: regionA.id,
-    initialQuantity: 100,
-    renewable: false,
-  });
+  const deposit = discoverDeposit(
+    createResourceDeposit({
+      id: "deposit_001",
+      resourceDefinitionId: "iron_ore",
+      regionId: regionA.id,
+      initialQuantity: 100,
+      renewable: false,
+    }),
+    { tick: 0, targetStatus: "DISCOVERED", confidence: 1 },
+  ).deposit;
   const settlementSmall = createSettlement({
     id: "settlement_small",
     regionId: regionA.id,
@@ -126,6 +130,26 @@ describe("buildRegionSummaryReadModel", () => {
       stage: "TOWN",
     });
     expect(summary.resourceDefinitionIds).toEqual(["iron_ore"]);
+
+    // J (TECH-010): to samo złoże jako UNKNOWN nie ujawnia typu zasobu.
+    const state = buildFixtureState();
+    const hidden: WorldState = {
+      ...state,
+      resourceDeposits: {
+        deposit_001: {
+          ...state.resourceDeposits.deposit_001!,
+          discovery: {
+            status: "UNKNOWN",
+            discoveredTick: undefined,
+            discoveredByEntityId: undefined,
+            confidence: 0,
+          },
+        },
+      },
+    };
+    expect(
+      buildRegionSummaryReadModel(hidden, "region_a")!.resourceDefinitionIds,
+    ).toEqual([]);
     expect(summary.companyArchetypeIds).toEqual(["smelter"]);
     expect(summary.connectedRegionIds).toEqual(["region_b"]);
     // Audytowe P1-08: dotąd nieujawnione żadnym Read Modelem.

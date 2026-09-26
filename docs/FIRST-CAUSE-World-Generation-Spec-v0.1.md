@@ -266,6 +266,13 @@ Discovery może zaczynać jako Unknown/Known/Available/Adopted. Jeśli
 istniejąca firma używa PM X, wszystkie wymagania
 knowledge/discovery/adoption muszą być spójne.
 
+> **2026-09-26 (Canonical Decisions `TECH-010`, D1):** spójność obejmuje
+> też złoża --- jeżeli PM istniejącej firmy wymaga zasobu, świat musi
+> znać (`DISCOVERED`/`ASSESSED`) złoże tego zasobu w regionie firmy.
+> Fixture deklaruje startowy stan wiedzy jawnie
+> (`resourceDeposits[].discovery`); niespójny stan jest odrzucany
+> (`validateInitialResourceKnowledge`), nie naprawiany w runtime.
+
 ------------------------------------------------------------------------
 
 # 23. Infrastructure

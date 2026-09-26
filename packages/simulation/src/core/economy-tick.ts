@@ -56,6 +56,7 @@ import {
   type TransportModeProfile,
 } from "../systems/economy/transport/modes.js";
 import { regenerateDeposit } from "../systems/resources/renewable.js";
+import { usableDepositQuantity } from "../systems/resources/deposit-lifecycle.js";
 import {
   assessFinancialHealth,
   decideLabor,
@@ -291,7 +292,8 @@ function computeInputAvailability(
     recipe.resourceInputsPerBatch,
   )) {
     if (quantityPerBatch <= 0) continue;
-    const stock = depositsByResourceId[resourceId]?.stock.quantity ?? 0;
+    // D2 (TECH-010): nieznane złoże nie wnosi żadnej informacji do decyzji produkcji.
+    const stock = usableDepositQuantity(depositsByResourceId[resourceId]);
     availability = Math.min(availability, clamp01(stock / quantityPerBatch));
   }
   for (const [goodId, quantityPerBatch] of Object.entries(recipe.goodInputsPerBatch)) {
@@ -1135,11 +1137,9 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       // wnoszą swój stock; UNKNOWN/SUSPECTED liczą się jako 0 dostępne.
       const resourceStockByResourceId: Record<string, number> = {};
       for (const [resourceId, depositId] of depositIdByResource) {
-        const deposit = resourceDeposits[depositId]!;
-        const isKnown =
-          deposit.discovery.status === "DISCOVERED" ||
-          deposit.discovery.status === "ASSESSED";
-        resourceStockByResourceId[resourceId] = isKnown ? deposit.stock.quantity : 0;
+        resourceStockByResourceId[resourceId] = usableDepositQuantity(
+          resourceDeposits[depositId],
+        );
       }
       // Audytowe P1-01: goodInputsPerBatch (dobra pośrednie) w ogóle nie
       // był sprawdzany -- regionalne inventory (to samo, z którego

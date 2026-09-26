@@ -8,6 +8,7 @@ import {
   type ResourceDeposit,
 } from "@first-cause/entities";
 import { addToInventory } from "./inventory.js";
+import { discoverDeposit } from "../resources/deposit-lifecycle.js";
 import {
   DEFAULT_PRODUCTION_RECIPES,
   runProduction,
@@ -58,7 +59,13 @@ function buildInventory(): Inventory {
   });
 }
 
-function buildGrainDeposit(initialQuantity: number): ResourceDeposit {
+/** TECH-010: produkcja może korzystać wyłącznie ze złoża znanego światu. */
+function known(deposit: ResourceDeposit): ResourceDeposit {
+  return discoverDeposit(deposit, { tick: 0, targetStatus: "DISCOVERED", confidence: 1 })
+    .deposit;
+}
+
+function buildUnknownGrainDeposit(initialQuantity: number): ResourceDeposit {
   return createResourceDeposit({
     id: "deposit_grain",
     resourceDefinitionId: "grain",
@@ -71,6 +78,10 @@ function buildGrainDeposit(initialQuantity: number): ResourceDeposit {
       carryingCapacity: 2500,
     },
   });
+}
+
+function buildGrainDeposit(initialQuantity: number): ResourceDeposit {
+  return known(buildUnknownGrainDeposit(initialQuantity));
 }
 
 const MANUAL_FARMING = DEFAULT_PRODUCTION_RECIPES.manual_farming!;
@@ -226,18 +237,21 @@ describe("runProduction -- M7 Acceptance Gate (real M4 fixture company: Green Va
       }),
     };
     let deposits: Readonly<Record<string, ResourceDeposit>> = {
-      grain: createResourceDeposit({
-        id: "deposit_green_valley_grain",
-        resourceDefinitionId: "grain",
-        regionId: "region_green_valley",
-        initialQuantity: 2000,
-        renewable: true,
-        renewableState: {
-          regenerationRate: 0.05,
-          sustainableYield: 300,
-          carryingCapacity: 2500,
-        },
-      }),
+      // Fixture oznacza to złoże jako DISCOVERED od startu (D1, World Generation Spec §22).
+      grain: known(
+        createResourceDeposit({
+          id: "deposit_green_valley_grain",
+          resourceDefinitionId: "grain",
+          regionId: "region_green_valley",
+          initialQuantity: 2000,
+          renewable: true,
+          renewableState: {
+            regenerationRate: 0.05,
+            sustainableYield: 300,
+            carryingCapacity: 2500,
+          },
+        }),
+      ),
     };
 
     for (let tick = 0; tick < 12; tick++) {
@@ -344,5 +358,66 @@ describe("runProduction -- recipe input validation", () => {
         resourceDeposits: { grain: buildGrainDeposit(1000) },
       }),
     ).toThrow();
+  });
+});
+
+describe("runProduction -- discovery gate (D2, TECH-010, AI Decision Model §113)", () => {
+  it("B: an UNKNOWN deposit cannot be used by production -- 0 batches, no extraction, stock untouched", () => {
+    const deposit = buildUnknownGrainDeposit(1000);
+    const result = runProduction({
+      tick: 1,
+      company: buildCompany({ capacity: 3, utilization: 1 }),
+      inventory: buildInventory(),
+      recipe: DEFAULT_PRODUCTION_RECIPES.manual_farming!,
+      resourceDeposits: { grain: deposit },
+    });
+    expect(result.batches).toBe(0);
+    expect(result.resourceDeposits.grain).toEqual(deposit);
+    expect(result.resourceDeposits.grain!.extraction.cumulativeExtraction).toBe(0);
+    expect(result.inventory.items.flour?.quantity ?? 0).toBe(0);
+  });
+
+  it("B: SUSPECTED is not enough -- only DISCOVERED/ASSESSED deposits are usable", () => {
+    const suspected = discoverDeposit(buildUnknownGrainDeposit(1000), {
+      tick: 0,
+      targetStatus: "SUSPECTED",
+      confidence: 0.5,
+    }).deposit;
+    const result = runProduction({
+      tick: 1,
+      company: buildCompany({ capacity: 3, utilization: 1 }),
+      inventory: buildInventory(),
+      recipe: DEFAULT_PRODUCTION_RECIPES.manual_farming!,
+      resourceDeposits: { grain: suspected },
+    });
+    expect(result.batches).toBe(0);
+  });
+
+  it("D: the same deposit once DISCOVERED is used under the normal rules", () => {
+    const result = runProduction({
+      tick: 1,
+      company: buildCompany({ capacity: 3, utilization: 1 }),
+      inventory: buildInventory(),
+      recipe: DEFAULT_PRODUCTION_RECIPES.manual_farming!,
+      resourceDeposits: { grain: known(buildUnknownGrainDeposit(1000)) },
+    });
+    expect(result.batches).toBe(3);
+    expect(result.resourceDeposits.grain!.stock.quantity).toBe(970);
+  });
+
+  it("C: the result for an UNKNOWN deposit does not depend on its hidden stock (no information leakage)", () => {
+    const run = (quantity: number) =>
+      runProduction({
+        tick: 1,
+        company: buildCompany({ capacity: 3, utilization: 1 }),
+        inventory: buildInventory(),
+        recipe: DEFAULT_PRODUCTION_RECIPES.manual_farming!,
+        resourceDeposits: { grain: buildUnknownGrainDeposit(quantity) },
+      });
+    const small = run(5);
+    const large = run(1_000_000);
+    expect(large.batches).toBe(small.batches);
+    expect(large.facts).toEqual(small.facts);
+    expect(large.company).toEqual(small.company);
   });
 });

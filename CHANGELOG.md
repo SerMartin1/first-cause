@@ -10,6 +10,32 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-26
 
+- **Resource Discovery Boundary (decyzja właściciela, wariant D) ---
+  D1 + D2 + wyciek UI; D3 wstrzymane do decyzji.** Nowa decyzja
+  kanoniczna `TECH-010` (Canonical Decisions §61A): discovery poprzedza
+  gospodarcze użycie złoża, eksploatacja nigdy go nie odkrywa, wiedza
+  gracza = globalny stan odkrycia. D1: opcjonalne
+  `resourceDeposits[].discovery` w schemacie fixture, walidacja
+  `validateInitialResourceKnowledge` (World Generation Spec §22)
+  wywoływana przez `loadWorldFixture(raw, { productionRecipesByMethodId })`
+  w sesji świata i demo CLI; Black Mountain: zboże Green Valley
+  `DISCOVERED`, ruda żelaza i drewno `UNKNOWN`. D2:
+  `isDepositKnownToWorld` (entities) i `usableDepositQuantity`
+  (resources) we wszystkich ścieżkach (dostępność wejść, zakładanie
+  firm, batchy, bottleneck) + twardy inwariant przed wydobyciem w
+  `runProduction`. UI: `ResourceDepositReadModel` i
+  `RegionSummaryReadModel.resourceDefinitionIds` tylko ze złożami
+  znanymi światu. Testy: nowe `resource-discovery-boundary.test.ts`
+  (B, C, D, H, I na prawdziwym fixture), bramka w `production.test.ts`,
+  walidacja E/F w `load-world-fixture.test.ts`, Read Models (A, J);
+  testy, które polegały na wydobyciu ze złóż `UNKNOWN`, dostały złoża
+  `DISCOVERED`. Adnotacje: World Generation Spec §22, AI Decision Model
+  §113, Entity Data Model §9, Technology Discovery Catalog (MIN-001/008/
+  011 nie są podłączone), Roadmap v0.6. D3 (naturalne odkrywanie) nie
+  wdrożone: dokumentacja nie określa triggera, a system technologii M15
+  nie działa w świecie z JSON (`technologyStateId` niepodlinkowany) ---
+  warianty przedstawione właścicielowi. Bez zmian RNG i formatu zapisu.
+
 - **M21-VIS-R2 --- zamknięcie: IMPLEMENTATION PASS + HUMAN VISUAL
   ACCEPTANCE PASS.** Właściciel zaakceptował *visual grammar / renderer
   foundation* (RegionVisualProfile v2, `industry[]`, `extraction[]`,

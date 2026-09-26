@@ -1,13 +1,21 @@
-import type { DepositDiscoveryStatus, WorldState } from "@first-cause/entities";
+import {
+  isDepositKnownToWorld,
+  type DepositDiscoveryStatus,
+  type WorldState,
+} from "@first-cause/entities";
 
 /**
  * ResourceDepositReadModel (roadmap M5 "System Resources wystawia
  * UI-ready Read Model zamiast wymagać od Reacta interpretacji surowych
- * depositów"). Respects TECH-009: a deposit's exact `quantity` is only
- * exposed once it has actually been `DISCOVERED`/`ASSESSED` --
- * `discoveryStatus` itself is always shown (an `UNKNOWN`/`SUSPECTED`
- * indicator is informative on its own; the hidden state is the point of
- * the mechanic, per World Generation Spec SS16).
+ * depositów").
+ *
+ * Granica wiedzy gracza (Canonical Decisions TECH-010, decyzja właściciela
+ * 2026-09-26): model zawiera WYŁĄCZNIE złoża znane światu (DISCOVERED /
+ * ASSESSED). Złoże UNKNOWN / SUSPECTED nie ujawnia ani swojego istnienia,
+ * ani typu zasobu, ilości, jakości czy wydobycia -- wcześniej model
+ * wystawiał `resourceDefinitionId` każdego złoża („Grain — Unknown” w
+ * inspektorze), co było wyciekiem. Wiedza per aktor / gracz jako osobny byt
+ * jest odłożona (ACTOR-SPECIFIC / LOCAL KNOWLEDGE MODEL).
  */
 export interface ResourceDepositReadModel {
   readonly depositId: string;
@@ -15,34 +23,27 @@ export interface ResourceDepositReadModel {
   readonly resourceDefinitionId: string;
   readonly discoveryStatus: DepositDiscoveryStatus;
   readonly renewable: boolean;
-  /** Only present once `discoveryStatus` is DISCOVERED or ASSESSED. */
+  /** Obecne dla każdego złoża w modelu (model zawiera tylko złoża znane światu). */
   readonly quantity: number | undefined;
   readonly extractionRate: number;
   readonly depleted: boolean;
 }
 
-const REVEALED_STATUSES: ReadonlySet<DepositDiscoveryStatus> = new Set([
-  "DISCOVERED",
-  "ASSESSED",
-]);
-
 function buildOne(state: WorldState, depositId: string): ResourceDepositReadModel {
   const deposit = state.resourceDeposits[depositId]!;
-  const revealed = REVEALED_STATUSES.has(deposit.discovery.status);
-
   return {
     depositId: deposit.id,
     regionId: deposit.regionId,
     resourceDefinitionId: deposit.resourceDefinitionId,
     discoveryStatus: deposit.discovery.status,
     renewable: deposit.renewable,
-    quantity: revealed ? deposit.stock.quantity : undefined,
+    quantity: deposit.stock.quantity,
     extractionRate: deposit.extraction.currentExtraction,
     depleted: deposit.depleted,
   };
 }
 
-/** All deposits in a region, in stable (sorted-by-ID) order (SIM-005). */
+/** Złoża regionu znane światu, w stabilnej kolejności (SIM-005). */
 export function buildResourceDepositReadModels(
   state: WorldState,
   regionId: string,
@@ -51,5 +52,9 @@ export function buildResourceDepositReadModels(
   if (!region) return [];
   return [...region.resources.depositIds]
     .sort()
+    .filter((depositId) => {
+      const deposit = state.resourceDeposits[depositId];
+      return deposit !== undefined && isDepositKnownToWorld(deposit);
+    })
     .map((depositId) => buildOne(state, depositId));
 }

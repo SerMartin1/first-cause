@@ -35,6 +35,22 @@ export interface DepositExtractionState {
 }
 
 /**
+ * Granica wiedzy świata (Canonical Decisions TECH-009 / TECH-010,
+ * AI Decision Model §113): złoże istnieje fizycznie od `UNKNOWN`, ale
+ * gospodarka i gracz mogą z niego korzystać / widzieć je dopiero od
+ * `DISCOVERED`. `SUSPECTED` to przesłanka, nie wiedza o złożu -- nie
+ * odblokowuje ani użycia, ani ujawnienia zasobu. Jedno źródło prawdy dla
+ * symulacji, Read Models i walidacji stanu początkowego.
+ */
+export function isDepositKnownToWorld(
+  deposit: Pick<ResourceDeposit, "discovery">,
+): boolean {
+  return (
+    deposit.discovery.status === "DISCOVERED" || deposit.discovery.status === "ASSESSED"
+  );
+}
+
+/**
  * ResourceDeposit (Entity Data Model SS9): a resource instance physically
  * present in one region. Structure only in M3 -- lifecycle logic
  * (discover/extract/deplete) is M5.

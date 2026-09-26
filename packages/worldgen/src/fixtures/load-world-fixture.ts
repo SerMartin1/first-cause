@@ -16,6 +16,10 @@ import {
   type WorldState,
 } from "@first-cause/entities";
 import { parseWorldFixtureDocument } from "./fixture-schema.js";
+import {
+  validateInitialResourceKnowledge,
+  type RecipeResourceInputs,
+} from "./initial-resource-knowledge.js";
 
 /**
  * Seeds one good's `MarketGoodState` from a fixture's `basePrice` -- the
@@ -52,7 +56,20 @@ export interface LoadWorldFixtureResult {
  * (including this loader) to be unaware of any one reference fixture's
  * identity. Never throws.
  */
-export function loadWorldFixture(raw: unknown): LoadWorldFixtureResult {
+export interface LoadWorldFixtureOptions {
+  /**
+   * D1: receptury z contentu (`LoadEconomyContentResult.
+   * productionRecipesByMethodId`). Gdy podane, stan początkowy jest
+   * walidowany wg World Generation Spec §22 (`validateInitialResourceKnowledge`)
+   * i niespójny fixture jest odrzucany. Loader sam nie czyta contentu.
+   */
+  readonly productionRecipesByMethodId?: Readonly<Record<string, RecipeResourceInputs>>;
+}
+
+export function loadWorldFixture(
+  raw: unknown,
+  options: LoadWorldFixtureOptions = {},
+): LoadWorldFixtureResult {
   const parsed = parseWorldFixtureDocument(raw);
   if (!parsed.ok) {
     return { ok: false, errors: parsed.errors };
@@ -98,8 +115,8 @@ export function loadWorldFixture(raw: unknown): LoadWorldFixtureResult {
       }),
     );
 
-    const resourceDeposits = doc.resourceDeposits.map((d) =>
-      createResourceDeposit({
+    const resourceDeposits = doc.resourceDeposits.map((d) => {
+      const deposit = createResourceDeposit({
         id: d.id,
         resourceDefinitionId: d.resourceDefinitionId,
         regionId: d.regionId,
@@ -109,8 +126,23 @@ export function loadWorldFixture(raw: unknown): LoadWorldFixtureResult {
         ...(d.depth !== undefined ? { depth: d.depth } : {}),
         ...(d.accessibility !== undefined ? { accessibility: d.accessibility } : {}),
         ...(d.renewableState ? { renewableState: d.renewableState } : {}),
-      }),
-    );
+      });
+      // Wiedza świata na starcie: odkryta „przed pierwszym tickiem”, bez
+      // przypisanego odkrywcy i bez faktu `resource_discovered` (to nie jest
+      // zdarzenie historyczne symulacji, tylko warunek początkowy).
+      return d.discovery === undefined || d.discovery.status === "UNKNOWN"
+        ? deposit
+        : {
+            ...deposit,
+            discovery: {
+              status: d.discovery.status,
+              discoveredTick:
+                d.discovery.status === "SUSPECTED" ? undefined : world.currentTick,
+              discoveredByEntityId: undefined,
+              confidence: d.discovery.confidence,
+            },
+          };
+    });
 
     const settlements = doc.settlements.map((s) =>
       createSettlement({
@@ -194,6 +226,11 @@ export function loadWorldFixture(raw: unknown): LoadWorldFixtureResult {
       inventories,
       technologyStates,
     });
+
+    const knowledgeErrors = options.productionRecipesByMethodId
+      ? validateInitialResourceKnowledge(worldState, options.productionRecipesByMethodId)
+      : [];
+    if (knowledgeErrors.length > 0) return { ok: false, errors: knowledgeErrors };
 
     return { ok: true, worldState, errors: [] };
   } catch (error) {

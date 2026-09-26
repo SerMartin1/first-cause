@@ -1,10 +1,11 @@
-import type {
-  Climate,
-  ElevationClass,
-  ResourceDeposit,
-  SettlementStage,
-  Terrain,
-  WorldState,
+import {
+  isDepositKnownToWorld,
+  type Climate,
+  type ElevationClass,
+  type ResourceDeposit,
+  type SettlementStage,
+  type Terrain,
+  type WorldState,
 } from "@first-cause/entities";
 import { fnv1a32 } from "../core/hash.js";
 
@@ -188,11 +189,8 @@ const TRANSPORT_RANK: Readonly<Record<RegionVisualTransport, number>> = {
   highway: 4,
 };
 
-function isRevealed(deposit: ResourceDeposit): boolean {
-  return (
-    deposit.discovery.status === "DISCOVERED" || deposit.discovery.status === "ASSESSED"
-  );
-}
+/** TECH-010: jedno źródło prawdy o wiedzy świata (`@first-cause/entities`). */
+const isRevealed = isDepositKnownToWorld;
 
 function deriveWater(
   geography: WorldState["regions"][string]["geography"],

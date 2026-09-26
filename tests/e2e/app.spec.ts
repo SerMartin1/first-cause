@@ -109,7 +109,11 @@ test("World atlas: events, WHY, history, map modes and locale share the real wor
       fullPage: true,
     });
     await window.getByRole("tab", { name: "Resources", exact: true }).first().click();
-    await window.getByLabel("Resource", { exact: true }).selectOption("iron_ore");
+    // TECH-010: lista zasobów zawiera tylko złoża znane światu -- ukryta ruda
+    // żelaza Black Mountain (World Generation Spec §16) nie może się tu pojawić.
+    const resourcePicker = window.getByLabel("Resource", { exact: true });
+    await expect(resourcePicker.locator("option")).toHaveText(["Grain"]);
+    await resourcePicker.selectOption("grain");
     await window.screenshot({
       path: testInfo.outputPath("world-resources.png"),
       fullPage: true,

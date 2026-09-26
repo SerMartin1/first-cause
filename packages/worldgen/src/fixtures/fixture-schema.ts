@@ -119,6 +119,21 @@ const WorldFixtureSchema = z.object({
             carryingCapacity: z.number().nonnegative(),
           })
           .optional(),
+        /**
+         * D1 (World Generation Spec §13/§22, TECH-010): jawny stan wiedzy
+         * świata na starcie. Brak pola = `UNKNOWN` (złoże istnieje fizycznie,
+         * świat go nie zna). `confidence` wymagane dla każdego statusu poza
+         * `UNKNOWN` -- fixture nie zgaduje pewności odkrycia.
+         */
+        discovery: z
+          .discriminatedUnion("status", [
+            z.object({ status: z.literal("UNKNOWN") }),
+            z.object({
+              status: z.enum(["SUSPECTED", "DISCOVERED", "ASSESSED"]),
+              confidence: z.number().min(0).max(1),
+            }),
+          ])
+          .optional(),
       }),
     )
     .default([]),

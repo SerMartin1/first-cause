@@ -4335,3 +4335,28 @@ PASS, `M21-VIS-04` ponowny audyt po R6, `M21-VIS-05` BLOCKED. Następny
 pass: `M21-VIS-R3` (na osobne polecenie właściciela). Przed R3 otwarta
 decyzja właściciela: niespójność „firma eksploatuje złoże UNKNOWN”
 (analiza przyczynowa 2026-09-26, bez zmian w symulacji).
+
+## Resource Discovery Boundary (2026-09-26) --- D1 + D2 DONE, D3 OPEN
+
+Decyzja właściciela: wariant D (Canonical Decisions `TECH-010`).
+
+-   **D1** spójny stan początkowy: fixture deklaruje
+    `resourceDeposits[].discovery`; `loadWorldFixture(raw,
+    { productionRecipesByMethodId })` odrzuca stan, w którym startowa
+    firma używa nieznanego złoża (World Generation Spec §22). Black
+    Mountain: znane jest tylko zboże Green Valley (wymagane przez
+    startową farmę); ruda żelaza i drewno pozostają `UNKNOWN` (§16).
+-   **D2** bramka odkrycia we wszystkich ścieżkach gospodarczych
+    (`usableDepositQuantity`, twardy inwariant przed wydobyciem w
+    `runProduction`); eksploatacja nie odkrywa złoża.
+-   **UI:** `ResourceDepositReadModel` i
+    `RegionSummaryReadModel.resourceDefinitionIds` zawierają tylko złoża
+    znane światu (koniec „Grain --- Unknown” w inspektorze).
+-   **D3 OPEN:** trigger naturalnego odkrywania nieokreślony w
+    dokumentacji --- warianty przedstawione właścicielowi. Przy analizie
+    wykryto blokadę: format fixture nie linkuje `TechnologyState` z
+    regionem (`Region.knowledge.technologyStateId` zawsze `undefined`),
+    więc system technologii M15 nie działa w świecie ładowanym z JSON
+    (0 odkryć przez 600 ticków) --- każdy trigger oparty na MIN-001
+    wymaga najpierw naprawy tego połączenia.
+-   **Odłożone:** ACTOR-SPECIFIC / LOCAL KNOWLEDGE MODEL.

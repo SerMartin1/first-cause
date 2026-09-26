@@ -110,7 +110,7 @@ describe("Atlas visual grammar (M21-VIS-R2)", () => {
     ).toBe(true);
   });
 
-  it("an UNKNOWN deposit under extraction produces no glyph and no legend entry (TECH-009)", () => {
+  it("a physically existing UNKNOWN deposit produces no glyph and no legend entry (TECH-009/TECH-010)", () => {
     const grammar = buildAtlasGrammar(world(), { zoomLevel: 1.75, showResources: true });
     expect(region(grammar, "dev_dry_basin").rows).toEqual([]);
     expect(JSON.stringify(grammar)).not.toContain("dev_dry_basin_dev_coal");

@@ -21,6 +21,7 @@ import {
 import { createWorldRng } from "./rng.js";
 import { runEconomyTick, type EntrepreneurshipCandidate } from "./economy-tick.js";
 import { roundMoney } from "./rounding.js";
+import { discoverDeposit } from "../systems/resources/deposit-lifecycle.js";
 import { initializeMarketGood } from "../systems/economy/markets/price-adjustment.js";
 import { eligibleLaborForce } from "../systems/economy/labor/employment.js";
 import type { ProductionRecipe } from "../systems/economy/production.js";
@@ -919,18 +920,22 @@ describe("runEconomyTick -- canonical phase order (audit P0-06/P1-04)", () => {
     // (rate=1, capacity=1000) z quantity=9 daje +8.91, czyli 17.91 po
     // regeneracji -- wystarczy na 1 batch TYLKO jeśli regeneracja
     // wykonała się PRZED produkcją tego ticka (audytowe P0-06).
-    const deposit = createResourceDeposit({
-      id: "deposit_test",
-      resourceDefinitionId: "test_resource",
-      regionId: region.id,
-      initialQuantity: 9,
-      renewable: true,
-      renewableState: {
-        regenerationRate: 1,
-        sustainableYield: 100,
-        carryingCapacity: 1000,
-      },
-    });
+    // TECH-010: złoże znane światu -- tylko takie produkcja może użyć.
+    const deposit = discoverDeposit(
+      createResourceDeposit({
+        id: "deposit_test",
+        resourceDefinitionId: "test_resource",
+        regionId: region.id,
+        initialQuantity: 9,
+        renewable: true,
+        renewableState: {
+          regenerationRate: 1,
+          sustainableYield: 100,
+          carryingCapacity: 1000,
+        },
+      }),
+      { tick: 0, targetStatus: "DISCOVERED", confidence: 1 },
+    ).deposit;
     const ownerCohort = createPopulationCohort({
       id: "cohort_owner",
       regionId: region.id,

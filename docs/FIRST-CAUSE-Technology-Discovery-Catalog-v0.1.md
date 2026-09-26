@@ -189,6 +189,15 @@ obietnice.
 
 ## 4.2 Górnictwo i Metalurgia (MIN)
 
+> **Korekta 2026-09-26 (Canonical Decisions `TECH-010`):** pozycje
+> MIN-001, MIN-008 i MIN-011 opisane jako „Realne” przez
+> `deposit-lifecycle.ts` **nie są podłączone** --- `discoverDeposit` woła
+> dziś wyłącznie interwencja Architekta, a `content/discoveries/min_001.
+> json` ma puste `unlocks`. Trigger naturalnego odkrywania złóż (D3)
+> czeka na decyzję właściciela; dokumentacja nie określa go
+> jednoznacznie (który stan MIN-001, jakie „warunki regionu”, SUSPECTED
+> czy DISCOVERED, co znaczy „powierzchniowe”).
+
 | ID | Nazwa | Tier | Prerekwizyty | Odblokowuje |
 |---|---|---|---|---|
 | MIN-001 | Rozpoznawanie złóż powierzchniowych | T0 | brak | **Realne**: przesuwa `discovery.status` UNKNOWN→SUSPECTED/DISCOVERED (`deposit-lifecycle.ts`) |

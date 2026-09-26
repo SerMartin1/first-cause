@@ -1,4 +1,8 @@
-import type { SettlementStage, WorldState } from "@first-cause/entities";
+import {
+  isDepositKnownToWorld,
+  type SettlementStage,
+  type WorldState,
+} from "@first-cause/entities";
 
 /**
  * RegionSummaryReadModel (Implementation Roadmap M4 UI Foundation;
@@ -57,11 +61,13 @@ export function buildRegionSummaryReadModel(
     undefined,
   );
 
+  // TECH-010: gracz poznaje typ zasobu dopiero, gdy złoże jest znane światu.
   const resourceDefinitionIds = [
     ...new Set(
       region.resources.depositIds
-        .map((id) => state.resourceDeposits[id]?.resourceDefinitionId)
-        .filter((id): id is string => id !== undefined),
+        .map((id) => state.resourceDeposits[id])
+        .filter((deposit) => deposit !== undefined && isDepositKnownToWorld(deposit))
+        .map((deposit) => deposit!.resourceDefinitionId),
     ),
   ].sort();
 

@@ -745,6 +745,46 @@ Technologia/informacja ujawnia je światu.
 
 ------------------------------------------------------------------------
 
+# 61A. TECH-010 --- granica odkrycia zasobów (2026-09-26)
+
+**Status:** CANONICAL --- decyzja właściciela po analizie przyczynowej
+zamknięcia `M21-VIS-R2` (wariant D: D1 + D2 + D3)
+
+Kanoniczna zależność:
+
+``` text
+PHYSICAL EXISTENCE → UNKNOWN → DISCOVERY POSSIBILITY
+→ DISCOVERED / ASSESSED → EXTRACTION / ECONOMIC USE
+```
+
+-   Złoże istnieje fizycznie niezależnie od wiedzy świata (TECH-009).
+-   Firma / AI nie wykorzystuje `stock.quantity`, rezerwy, jakości ani
+    dostępności ekonomicznej złoża, dopóki nie jest ono `DISCOVERED` lub
+    `ASSESSED`. `SUSPECTED` nie wystarcza. Dotyczy wszystkich ścieżek
+    gospodarczego użycia (zakładanie firm, dostępność wejść, decyzja
+    produkcji, liczba batchy, wydobycie) --- AI Decision Model §113.
+-   **Eksploatacja nie powoduje odkrycia.** Extraction → Discovery jest
+    odrzucone (wariant C); discovery poprzedza świadome użycie.
+-   **D1 --- spójny stan początkowy** (World Generation Spec §22): jeżeli
+    firma istniejąca na starcie używa metody wymagającej zasobu, świat
+    musi znać złoże tego zasobu w jej regionie. Niespójny fixture /
+    stan świata jest odrzucany przez walidację, nie naprawiany w runtime.
+-   **Wiedza gracza = globalny stan odkrycia.** UI i Read Models nie
+    ujawniają istnienia, typu, ilości, jakości ani rezerwy złoża
+    nieznanego światu.
+-   **D3 --- naturalne odkrywanie:** świat musi móc odkrywać złoża bez
+    gracza; interwencja Architekta `reveal_resource_deposit` może
+    przyspieszyć odkrycie, ale nie jest jedyną drogą. Trigger
+    naturalnego odkrycia: **OPEN** --- dokumentacja (VS Spec §31,
+    Technology Discovery Catalog MIN-001/MIN-008/MIN-011) nie określa go
+    jednoznacznie; wybór modelu należy do właściciela.
+-   **Odłożone:** ACTOR-SPECIFIC / LOCAL KNOWLEDGE MODEL (wiedza per
+    aktor / region, PerceivedState z zapisem, dyfuzja wiedzy, wiedza
+    gracza jako osobny byt) --- osobny przyszły problem projektowy, bez
+    implementacji „na zapas”.
+
+------------------------------------------------------------------------
+
 # 62. AI-001 --- perceived world
 
 **Status:** CANONICAL

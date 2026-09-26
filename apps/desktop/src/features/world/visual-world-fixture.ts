@@ -223,10 +223,9 @@ const REGIONS: readonly RegionSpec[] = [
     name: "Dry Basin",
     geography: geo("desert", "arid", 0.05),
     settlement: { stage: "HAMLET", population: 150 },
-    // Złoże UNKNOWN pod aktywnym wydobyciem: warstwa wizualna nie może go ujawnić (TECH-009).
-    deposits: [
-      { resourceId: "dev_coal", quantity: 40_000, status: "UNKNOWN", extract: 50 },
-    ],
+    // Złoże istniejące fizycznie, nieznane światu: warstwa wizualna nie może go ujawnić
+    // (TECH-009/TECH-010). Eksploatacja takiego złoża jest niemożliwa (D2).
+    deposits: [{ resourceId: "dev_coal", quantity: 40_000, status: "UNKNOWN" }],
   },
   {
     id: "dev_north_tundra",

@@ -456,6 +456,10 @@ DISCOVERED
 ASSESSED
 ```
 
+Złoże jest „znane światu” od `DISCOVERED` (`isDepositKnownToWorld`).
+Dopiero wtedy może być gospodarczo użyte i ujawnione graczowi
+(Canonical Decisions `TECH-010`); `SUSPECTED` nie wystarcza.
+
 ### Reguły
 
 -   dla nieodnawialnych `quantity >= 0`;

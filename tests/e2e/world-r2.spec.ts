@@ -78,16 +78,20 @@ test("M21-VIS-R2: real world atlas grammar at 1920×1080 and 1280×800", async (
     expect(
       live.current.connections.some((c) => c.routes.some((r) => r.family === "waterway")),
     ).toBe(true);
-    // TECH-009: złoża prawdziwego świata są UNKNOWN -- nie mogą pojawić się w warstwie wizualnej.
-    for (const region of live.current.regions)
-      for (const d of region.deposits.filter((d) => d.discoveryStatus === "UNKNOWN")) {
-        expect(region.profile.extraction.map((e) => e.depositId)).not.toContain(
-          d.depositId,
-        );
-        expect(region.profile.resources.map((r) => r.resourceDefinitionId)).not.toContain(
-          d.resourceDefinitionId,
-        );
-      }
+    // TECH-009/TECH-010: gracz widzi wyłącznie złoża znane światu. W świecie
+    // referencyjnym to tylko zboże Green Valley (D1); ruda żelaza i drewno
+    // pozostają ukryte i nie ujawniają nawet typu zasobu.
+    const visible = live.current.regions.flatMap((r) => r.deposits);
+    expect(
+      visible.every((d) => ["DISCOVERED", "ASSESSED"].includes(d.discoveryStatus)),
+    ).toBe(true);
+    expect(visible.map((d) => d.resourceDefinitionId)).toEqual(["grain"]);
+    expect(live.current.regions.flatMap((r) => r.resourceDefinitionIds).sort()).toEqual([
+      "grain",
+    ]);
+    // Uprawy w Green Valley są teraz realnym, legalnym wydobyciem (D2).
+    const green = live.current.regions.find((r) => r.regionId === "region_green_valley")!;
+    expect(green.profile.extraction.map((e) => e.family)).toEqual(["cultivation"]);
     for (const [width, height] of [
       [1920, 1080],
       [1280, 800],

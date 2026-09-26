@@ -46,15 +46,18 @@ if (!fixturePath) {
 const ticks = Number(process.argv[3] ?? 24);
 
 const raw = JSON.parse(readFileSync(path.resolve(fixturePath), "utf-8"));
-const loaded = loadWorldFixture(raw);
-if (!loaded.ok) {
-  console.error("[first-cause] Fixture failed to load:", loaded.errors);
-  process.exit(1);
-}
-
 const content = loadEconomyContent(REPO_ROOT);
 if (!content.ok) {
   console.error("[first-cause] Content pack failed to load:", content.errors);
+  process.exit(1);
+}
+
+// D1: stan początkowy walidowany względem receptur z contentu (World Generation Spec §22).
+const loaded = loadWorldFixture(raw, {
+  productionRecipesByMethodId: content.productionRecipesByMethodId,
+});
+if (!loaded.ok) {
+  console.error("[first-cause] Fixture failed to load:", loaded.errors);
   process.exit(1);
 }
 

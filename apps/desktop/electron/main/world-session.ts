@@ -18,7 +18,10 @@ export class WorldSession {
     rawFixture: unknown,
     private readonly content: LoadEconomyContentResult,
   ) {
-    const loaded = loadWorldFixture(rawFixture);
+    // D1: niespójny stan początkowy (firma używa nieznanego złoża) jest odrzucany.
+    const loaded = loadWorldFixture(rawFixture, {
+      productionRecipesByMethodId: content.productionRecipesByMethodId,
+    });
     if (!loaded.ok || !loaded.worldState || !content.ok)
       throw new Error([...loaded.errors, ...content.errors].join("; "));
     const worldState = loaded.worldState;

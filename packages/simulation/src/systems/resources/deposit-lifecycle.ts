@@ -1,4 +1,8 @@
-import type { ResourceDeposit, DepositDiscoveryStatus } from "@first-cause/entities";
+import {
+  isDepositKnownToWorld,
+  type DepositDiscoveryStatus,
+  type ResourceDeposit,
+} from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 
 /**
@@ -83,4 +87,16 @@ export function discoverDeposit(
   }
 
   return { deposit: nextDeposit, facts };
+}
+
+/**
+ * Bramka odkrycia (D2, Canonical Decisions TECH-010, AI Decision Model
+ * §113): ilość złoża dostępna dla KAŻDEGO gospodarczego użycia --
+ * dostępności wejść, decyzji produkcji, liczby batchy, bottlenecku,
+ * zakładania firm. Dla złoża nieznanego światu zawsze 0, a `stock` nie jest
+ * wtedy w ogóle czytany (brak wycieku informacji do decyzji).
+ */
+export function usableDepositQuantity(deposit: ResourceDeposit | undefined): number {
+  if (!deposit || !isDepositKnownToWorld(deposit)) return 0;
+  return deposit.stock.quantity;
 }

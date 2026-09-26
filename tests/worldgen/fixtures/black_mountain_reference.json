@@ -273,7 +273,8 @@
         "regenerationRate": 0.05,
         "sustainableYield": 1000,
         "carryingCapacity": 50000
-      }
+      },
+      "discovery": { "status": "DISCOVERED", "confidence": 1 }
     },
     {
       "id": "deposit_timberland_timber",

@@ -43,8 +43,21 @@ function buildFixtureState(deposits: Parameters<typeof createResourceDeposit>[0]
   });
 }
 
-describe("buildResourceDepositReadModels -- respects TECH-009 discovery boundary", () => {
-  it("hides quantity for an UNKNOWN deposit but still shows its discovery status", () => {
+function discovered(state: ReturnType<typeof buildFixtureState>): typeof state {
+  return {
+    ...state,
+    resourceDeposits: Object.fromEntries(
+      Object.entries(state.resourceDeposits).map(([id, deposit]) => [
+        id,
+        discoverDeposit(deposit, { tick: 1, targetStatus: "DISCOVERED", confidence: 1 })
+          .deposit,
+      ]),
+    ),
+  };
+}
+
+describe("buildResourceDepositReadModels -- respects TECH-009/TECH-010 discovery boundary", () => {
+  it("A/J: an UNKNOWN deposit exists physically but reveals nothing to the player -- not even its resource type", () => {
     const state = buildFixtureState([
       {
         id: "deposit_001",
@@ -55,10 +68,31 @@ describe("buildResourceDepositReadModels -- respects TECH-009 discovery boundary
       },
     ]);
 
-    const [model] = buildResourceDepositReadModels(state, "region_001");
-    expect(model?.discoveryStatus).toBe("UNKNOWN");
-    expect(model?.quantity).toBeUndefined();
-    expect(model?.resourceDefinitionId).toBe("iron_ore");
+    expect(state.resourceDeposits.deposit_001!.stock.quantity).toBe(5000);
+    expect(buildResourceDepositReadModels(state, "region_001")).toEqual([]);
+  });
+
+  it("J: a SUSPECTED deposit is still not revealed (only DISCOVERED/ASSESSED are world knowledge)", () => {
+    const state = buildFixtureState([
+      {
+        id: "deposit_001",
+        resourceDefinitionId: "iron_ore",
+        regionId: "region_001",
+        initialQuantity: 5000,
+        renewable: false,
+      },
+    ]);
+    const suspected = {
+      ...state,
+      resourceDeposits: {
+        deposit_001: discoverDeposit(state.resourceDeposits.deposit_001!, {
+          tick: 1,
+          targetStatus: "SUSPECTED",
+          confidence: 0.3,
+        }).deposit,
+      },
+    };
+    expect(buildResourceDepositReadModels(suspected, "region_001")).toEqual([]);
   });
 
   it("reveals quantity once a deposit is DISCOVERED", () => {
@@ -121,7 +155,7 @@ describe("buildResourceDepositReadModels -- respects TECH-009 discovery boundary
       },
     ]);
 
-    const models = buildResourceDepositReadModels(state, "region_001");
+    const models = buildResourceDepositReadModels(discovered(state), "region_001");
     expect(models.map((m) => m.depositId)).toEqual(["deposit_a", "deposit_b"]);
   });
 });

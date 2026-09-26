@@ -162,3 +162,69 @@ describe("Black Mountain Reference fixture (Implementation Roadmap M4, World Gen
     expect(connection.geography.terrainDifficulty).toBeGreaterThan(0);
   });
 });
+
+describe("loadWorldFixture -- initial resource knowledge (D1, World Generation Spec §22, TECH-010)", () => {
+  // Minimalny kształt receptury (ten sam co `ProductionRecipe.resourceInputsPerBatch`).
+  const recipes = { manual_farming: { resourceInputsPerBatch: { grain: 10 } } };
+
+  function withGrainDiscovery(discovery: unknown): unknown {
+    const raw = readBlackMountainFixture() as {
+      resourceDeposits: { id: string; discovery?: unknown }[];
+    };
+    return {
+      ...raw,
+      resourceDeposits: raw.resourceDeposits.map((d) => {
+        if (d.id !== "deposit_green_valley_grain") return d;
+        const { discovery: _discovery, ...rest } = d;
+        return discovery === undefined ? rest : { ...rest, discovery };
+      }),
+    };
+  }
+
+  it("F: a start-up company with a properly DISCOVERED deposit passes validation", () => {
+    const result = loadWorldFixture(readBlackMountainFixture(), {
+      productionRecipesByMethodId: recipes,
+    });
+    expect(result.errors).toEqual([]);
+    expect(
+      result.worldState!.resourceDeposits.deposit_green_valley_grain!.discovery,
+    ).toMatchObject({
+      status: "DISCOVERED",
+      confidence: 1,
+      discoveredByEntityId: undefined,
+    });
+  });
+
+  it("E: a start-up company requiring a resource whose only deposit is UNKNOWN is rejected, not repaired", () => {
+    for (const discovery of [
+      undefined,
+      { status: "UNKNOWN" },
+      { status: "SUSPECTED", confidence: 0.4 },
+    ]) {
+      const result = loadWorldFixture(withGrainDiscovery(discovery), {
+        productionRecipesByMethodId: recipes,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.worldState).toBeUndefined();
+      expect(result.errors.join("\n")).toContain("company_green_valley_farm");
+      expect(result.errors.join("\n")).toContain("§22");
+    }
+  });
+
+  it("keeps hidden what the start-up economy does not need (World Generation Spec §16)", () => {
+    const state = loadWorldFixture(readBlackMountainFixture(), {
+      productionRecipesByMethodId: recipes,
+    }).worldState!;
+    expect(state.resourceDeposits.deposit_black_mountain_iron_ore!.discovery.status).toBe(
+      "UNKNOWN",
+    );
+    expect(state.resourceDeposits.deposit_timberland_timber!.discovery.status).toBe(
+      "UNKNOWN",
+    );
+  });
+
+  it("rejects a non-UNKNOWN discovery status without an explicit confidence", () => {
+    const result = loadWorldFixture(withGrainDiscovery({ status: "DISCOVERED" }));
+    expect(result.ok).toBe(false);
+  });
+});

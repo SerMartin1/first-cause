@@ -1,8 +1,14 @@
-import type { Company, Inventory, ResourceDeposit } from "@first-cause/entities";
+import {
+  isDepositKnownToWorld,
+  type Company,
+  type Inventory,
+  type ResourceDeposit,
+} from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
 import { assertNonNegative, InvariantViolationError } from "../../core/validation.js";
 import { offsetCausalLinks, type PendingCausalLink } from "../../core/causal-links.js";
 import { extractFromDeposit } from "../resources/extraction.js";
+import { usableDepositQuantity } from "../resources/deposit-lifecycle.js";
 import { addToInventory, removeFromInventory } from "./inventory.js";
 import { applyProductionToCompany } from "./companies.js";
 
@@ -258,7 +264,11 @@ function computeBatches(input: RunProductionInput): number {
         `runProduction(${recipe.productionMethodId}): requires resource "${resourceId}" but no matching deposit was provided`,
       );
     }
-    batches = Math.min(batches, maxBatchesFor(deposit.stock.quantity, quantityPerBatch));
+    // D2 (TECH-010): złoże nieznane światu daje 0 batchy -- jego stock nie jest czytany.
+    batches = Math.min(
+      batches,
+      maxBatchesFor(usableDepositQuantity(deposit), quantityPerBatch),
+    );
   }
 
   for (const [goodId, quantityPerBatch] of Object.entries(recipe.goodInputsPerBatch)) {
@@ -301,7 +311,7 @@ function identifyProductionConstraint(input: RunProductionInput): ProductionCons
   for (const resourceId of Object.keys(recipe.resourceInputsPerBatch).sort()) {
     const quantityPerBatch = recipe.resourceInputsPerBatch[resourceId]!;
     if (quantityPerBatch === 0) continue;
-    const available = input.resourceDeposits[resourceId]?.stock.quantity ?? 0;
+    const available = usableDepositQuantity(input.resourceDeposits[resourceId]);
     candidates.push({
       type: "INPUT",
       variable: resourceId,
@@ -377,6 +387,13 @@ export function runProduction(input: RunProductionInput): RunProductionResult {
     // computeBatches już zgłosiłoby błąd, gdyby tego depozytu brakowało
     // przy dodatnim amount -- tu jest on zagwarantowany.
     const deposit = resourceDeposits[resourceId]!;
+    // D2: twarda bramka -- gospodarcze wydobycie ze złoża nieznanego światu
+    // jest naruszeniem inwariantu, nie cichym odkryciem (wariant C odrzucony).
+    if (!isDepositKnownToWorld(deposit)) {
+      throw new InvariantViolationError(
+        `runProduction(${recipe.productionMethodId}): deposit "${deposit.id}" is not known to the world (${deposit.discovery.status})`,
+      );
+    }
     const extraction = extractFromDeposit(deposit, { tick: input.tick, amount });
     resourceDeposits[resourceId] = extraction.deposit;
     {
