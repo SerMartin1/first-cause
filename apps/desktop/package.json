@@ -25,6 +25,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@first-cause/entities": "workspace:*",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "@types/node": "^22.10.1",

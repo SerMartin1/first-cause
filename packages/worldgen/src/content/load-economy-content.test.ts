@@ -80,6 +80,18 @@ describe("loadEconomyContent (audit regression P0-06, content-driven production 
 
     expect(result.sectorByCompanyArchetypeId.grain_farm).toBe("agriculture");
     expect(result.sectorByCompanyArchetypeId.bakery).toBe("food_processing");
+    // M21-VIS-R2: rodziny wizualne pochodzą z contentu (JSON + Zod), nie z gałęzi kodu.
+    expect(result.extractionFamilyByResourceId).toEqual({
+      grain: "cultivation",
+      iron_ore: "shaft_mine",
+      timber: "logging",
+    });
+    expect(result.routeFamilyByTransportModeId).toEqual({
+      cart: "road",
+      foot_porter: "path",
+      pack_animal: "path",
+      river: "waterway",
+    });
   });
 
   it("M16: loads content/interventions into validated ArchitectInterventionRules", () => {

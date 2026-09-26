@@ -1,21 +1,42 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { RegionVisualProfile } from "@first-cause/simulation";
+import type { RegionVisualIndustry, RegionVisualProfile } from "@first-cause/simulation";
 import { FCRegionVignette } from "./FCRegionVignette.js";
 
 function buildProfile(overrides?: Partial<RegionVisualProfile>): RegionVisualProfile {
   return {
     regionId: "region_a",
     terrain: "plains",
+    climate: "temperate",
+    elevationClass: "lowland",
+    fertility: "moderate",
     water: "none",
     vegetation: "none",
     settlement: undefined,
     industry: undefined,
+    extraction: [],
+    resources: [],
     transport: undefined,
     energy: undefined,
     landmarkResourceDefinitionId: undefined,
     vignetteSeed: 42,
     ...overrides,
+  };
+}
+
+function sector(
+  name: string,
+  state: RegionVisualIndustry["state"] = "active",
+): RegionVisualIndustry {
+  return {
+    sector: name,
+    activeCompanies: state === "closed" ? 0 : 1,
+    closedCompanies: state === "closed" ? 1 : 0,
+    employees: 10,
+    capacity: 10,
+    outputLastTick: 5,
+    scale: state === "closed" ? undefined : "manufactory",
+    state,
   };
 }
 
@@ -38,7 +59,7 @@ describe("FCRegionVignette", () => {
         profile={buildProfile({
           terrain: "mountains",
           settlement: "TOWN",
-          industry: "mine",
+          industry: [sector("mining"), sector("metallurgy")],
           landmarkResourceDefinitionId: "iron_ore",
         })}
       />,
@@ -47,7 +68,7 @@ describe("FCRegionVignette", () => {
     const image = screen.getByRole("img");
     expect(image.getAttribute("aria-label")).toContain("terrain: mountains");
     expect(image.getAttribute("aria-label")).toContain("settlement: TOWN");
-    expect(image.getAttribute("aria-label")).toContain("industry: mine");
+    expect(image.getAttribute("aria-label")).toContain("industry: mining + metallurgy");
     expect(image.getAttribute("aria-label")).toContain("landmark: iron_ore");
     expect(image.getAttribute("aria-label")).not.toContain("transport");
   });
@@ -83,7 +104,7 @@ describe("FCRegionVignette", () => {
       vegetation: "dense_forest",
       settlement: "CITY",
       transport: "railway",
-      industry: "factory",
+      industry: [sector("metallurgy"), sector("food_processing", "closed")],
       landmarkResourceDefinitionId: "coal",
     });
 
@@ -91,5 +112,22 @@ describe("FCRegionVignette", () => {
     const { container: second } = render(<FCRegionVignette profile={profile} />);
 
     expect(first.innerHTML).toBe(second.innerHTML);
+  });
+
+  it("M21-VIS-R2: draws one industry mark per sector in industry[] (not a single dominant icon)", () => {
+    const { container } = render(
+      <FCRegionVignette
+        profile={buildProfile({
+          industry: [
+            sector("mining"),
+            sector("metallurgy"),
+            sector("food_processing", "closed"),
+          ],
+        })}
+      />,
+    );
+    expect(
+      container.querySelectorAll(".fc-region-vignette__mark--industry"),
+    ).toHaveLength(3);
   });
 });

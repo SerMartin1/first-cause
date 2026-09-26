@@ -6,5 +6,6 @@
   "basePrice": 2,
   "extractionMethodIds": ["manual_farming"],
   "useGoodIds": ["flour"],
+  "extractionFamily": "cultivation",
   "implementationPhase": "VS"
 }

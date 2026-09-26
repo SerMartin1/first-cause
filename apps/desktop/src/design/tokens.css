@@ -33,6 +33,20 @@
   --fc-negative: #984f43;
   --fc-info: #536d78;
 
+  /* Living Atlas geography (M21-VIS-R2; Atlas Spec v1.3 §5.3, §27.3):
+     spokojne, niskokontrastowe tła -- teren nie konkuruje z danymi.
+     Celowo odrębne od kolorów semantycznych (positive/negative/info),
+     które pozostają zarezerwowane dla Map Modes. */
+  --fc-atlas-ground: #e7e3d6;
+  --fc-atlas-ground-fertile: #dfe1c9;
+  --fc-atlas-ground-dry: #eadfc2;
+  --fc-atlas-ground-cold: #e6e8e5;
+  --fc-atlas-ground-wet: #d9e0d3;
+  --fc-atlas-vegetation: #7f8e6d;
+  --fc-atlas-relief: #8c8575;
+  --fc-atlas-water: #7d9aa5;
+  --fc-atlas-water-fill: #cddadb;
+
   /* Typography (SS5, SS54 role contract) */
   --fc-font-ui: "IBM Plex Sans", system-ui, sans-serif;
   --fc-font-data: "IBM Plex Mono", ui-monospace, monospace;

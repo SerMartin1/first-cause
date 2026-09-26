@@ -36,7 +36,11 @@ export class WorldSession {
       buildWorldSnapshot(
         this.runner.worldState,
         this.runner.facts,
-        this.content.sectorByCompanyArchetypeId,
+        {
+          sectorByCompanyArchetypeId: this.content.sectorByCompanyArchetypeId,
+          extractionFamilyByResourceId: this.content.extractionFamilyByResourceId,
+          routeFamilyByTransportModeId: this.content.routeFamilyByTransportModeId,
+        },
         this.runner.causalEdges,
       ),
     );

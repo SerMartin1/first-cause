@@ -216,8 +216,52 @@
   font-size: var(--fc-text-caption);
   pointer-events: none;
 }
-.fc-atlas__legend br {
-  display: none;
+.fc-atlas__legend {
+  flex-direction: column;
+  align-items: flex-start;
+  row-gap: var(--fc-space-1);
+  /* Szeroki pasek u dołu (obok przycisków zoomu): auto-fit rezerwuje wysokość, nie szerokość. */
+  max-width: calc(100% - 180px);
+}
+.fc-atlas__legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--fc-space-2);
+}
+/* M21-VIS-R2: klucz znaków Atlasu -- tylko klasy obecne w bieżącym widoku. */
+.fc-atlas__symbols {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--fc-space-2);
+  row-gap: 0;
+  margin: 0;
+  padding: var(--fc-space-1) 0 0;
+  list-style: none;
+  border-top: var(--fc-border-width) solid var(--fc-border);
+  color: var(--fc-text-secondary);
+}
+.fc-atlas__symbols li {
+  display: flex;
+  align-items: center;
+  gap: var(--fc-space-1);
+  width: 168px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fc-atlas-glyph {
+  flex: none;
+}
+.fc-world .fc-atlas__symbols-toggle,
+.fc-atlas__symbols-toggle {
+  pointer-events: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--fc-text-secondary);
+  cursor: pointer;
 }
 .fc-atlas__legend span {
   display: inline-flex;

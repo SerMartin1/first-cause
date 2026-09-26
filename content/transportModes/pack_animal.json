@@ -3,5 +3,6 @@
   "nameKey": "content.transport_mode.pack_animal.name",
   "terrainCompatibility": ["plains", "hills", "mountains"],
   "cost": { "costPerUnitDistance": 0.6 },
+  "routeFamily": "path",
   "implementationPhase": "VS"
 }

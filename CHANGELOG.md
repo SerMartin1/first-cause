@@ -10,6 +10,49 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-26
 
+- **M21-VIS-R2 --- zamknięcie: IMPLEMENTATION PASS + HUMAN VISUAL
+  ACCEPTANCE PASS.** Właściciel zaakceptował *visual grammar / renderer
+  foundation* (RegionVisualProfile v2, `industry[]`, `extraction[]`,
+  infrastruktura per połączenie, trasy na krawędziach, fundament semantic
+  zoom, legenda z danych, słownik terenu), nie finalny wygląd Atlasu.
+  Morfologia osad / skala populacji / czytelność cywilizacji → R3;
+  ciągła geografia → M22. Zaktualizowano wynik R2 w Roadmap v0.6.
+  Odnotowano otwartą decyzję właściciela: eksploatacja złóż UNKNOWN
+  (tylko analiza, bez zmian symulacji).
+
+- **M21-VIS-R2 --- RegionVisualProfile v2 + Visual Grammar Living Atlasu
+  (zaakceptowane --- patrz wpis wyżej).** Kontrakt
+  `RegionVisualProfile` v2 (Atlas Spec v1.3 §28.1, §28.6): `industry[]`
+  (wszystkie sektory regionu ze skalą §10.3 i stanem
+  active/idle/stressed/closed z `Company.status`), `extraction[]`
+  (eksploatowane ZNANE złoża, stan active/idle/depleted, rezerwa),
+  `resources[]` (znane złoża bez wydobycia), klimat / wysokość / żyzność;
+  infrastruktura per połączenie (`buildConnectionVisualProfile`, trasy
+  pogrupowane po rodzinie) w `WorldConnectionView.routes`. Usunięto
+  zgadywanie kolei z samego `infrastructure.level` i pojedyncze
+  `industry`. Rodziny wizualne pochodzą z contentu: opcjonalne pola Zod
+  `ResourceDefinition.extractionFamily` i
+  `TransportModeDefinition.routeFamily` (JSON: iron_ore/grain/timber,
+  cart/foot_porter/pack_animal/river), udostępnione przez
+  `loadEconomyContent`. Złoża UNKNOWN/SUSPECTED nigdy nie trafiają do
+  warstwy wizualnej (TECH-009). Nowa czysta warstwa gramatyki
+  (`atlas-grammar.ts`: semantic zoom WORLD/REGION/LOCAL, agregacja na
+  WORLD, budżety znaków z jawnym „+n”, trasy na krawędziach, legenda z
+  klas faktycznie narysowanych) i alfabet jako dane (`visual-alphabet.ts`:
+  hala + modyfikator sektora, sylwetki rodzin wydobycia §9.2, wspólny
+  modyfikator stanu §4A.5, znaki klas zasobów §4A.2, tło geografii,
+  style tras). Renderer Atlasu rysuje warstwy geografia → trasy →
+  osady → aktywność; klucz znaków w legendzie (zwijany przy >8 klasach).
+  Nowe tokeny geografii Atlasu w `tokens.css`. Winieta inspektora
+  dostosowana do `industry[]` (minimalna zmiana). Bez zmian symulacji,
+  RNG, ticków, zapisu, Map Modes (R4), morfologii osad (R3), WHY? (R5) i
+  kompozycji R1. Fixture deweloperski `visual-world-fixture.ts` (prawdziwy
+  `WorldState` → produkcyjny `buildWorldSnapshot`) i harness
+  `visual-tests/world.html`. Testy: przypadki A--J (Read Model, gramatyka,
+  alfabet, loader contentu), E2E `tests/e2e/world-r2.spec.ts`.
+  Screenshoty: `docs/verification/world-r2-2026-09-26/`. Powód: audyt
+  2026-09-26 B1 (kontrakt), H2 (częściowo), M6.
+
 - **M21-VIS-R1 --- kompozycja World Screen (PASS).** Wdrożono kanon
   Golden UI World v1.3 §26 / UI Impl Spec v1.4 §L: lewy rail
   (`FCNavigationRail`, tylko istniejący ekran World, bez atrap; usunięto

@@ -11,6 +11,7 @@ import {
   type KnowledgeDomainDefinition,
   type LocaleBundle,
   type ProductionMethodDefinition,
+  type ResourceDefinition,
   type TransportModeDefinition,
 } from "@first-cause/content";
 import {
@@ -95,6 +96,15 @@ export interface LoadEconomyContentResult {
    * M15.
    */
   readonly sectorByCompanyArchetypeId: Readonly<Record<string, string>>;
+  /**
+   * M21-VIS-R2 (`RegionVisualProfile` v2, Atlas Spec v1.3 §28.1):
+   * `resource.id -> extractionFamily` z contentu (tylko zasoby, które pole
+   * deklarują). Podawane do `buildWorldSnapshot`, ten sam wzorzec co
+   * `sectorByCompanyArchetypeId`.
+   */
+  readonly extractionFamilyByResourceId: Readonly<Record<string, string>>;
+  /** M21-VIS-R2 (Atlas Spec v1.3 §28.6): `transportMode.id -> routeFamily` z contentu. */
+  readonly routeFamilyByTransportModeId: Readonly<Record<string, string>>;
   /** M16: `content/interventions/*.json`, sparsowane na `ArchitectInterventionRule` -- gotowe dla `applyArchitectIntervention`. */
   readonly architectInterventionRulesById: Readonly<
     Record<string, ArchitectInterventionRule>
@@ -195,6 +205,8 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       requiredDiscoveryIdsByMethodId: {},
       pmCandidatesByCurrentMethodId: {},
       sectorByCompanyArchetypeId: {},
+      extractionFamilyByResourceId: {},
+      routeFamilyByTransportModeId: {},
       architectInterventionRulesById: {},
     };
   }
@@ -231,11 +243,22 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
   );
 
   const transportModeProfilesByModeId: Record<string, TransportModeProfile> = {};
+  const routeFamilyByTransportModeId: Record<string, string> = {};
   for (const definition of transportModeRegistry?.all() ?? []) {
     transportModeProfilesByModeId[definition.id] = parseTransportModeProfile(
       definition.id,
       definition.cost,
     );
+    if (definition.routeFamily)
+      routeFamilyByTransportModeId[definition.id] = definition.routeFamily;
+  }
+
+  const resourceRegistry = result.registries.resource as
+    DefinitionRegistry<ResourceDefinition> | undefined;
+  const extractionFamilyByResourceId: Record<string, string> = {};
+  for (const definition of resourceRegistry?.all() ?? []) {
+    if (definition.extractionFamily)
+      extractionFamilyByResourceId[definition.id] = definition.extractionFamily;
   }
 
   const entrepreneurshipCandidatesByArchetypeId: Record<
@@ -301,6 +324,8 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     requiredDiscoveryIdsByMethodId,
     pmCandidatesByCurrentMethodId,
     sectorByCompanyArchetypeId,
+    extractionFamilyByResourceId,
+    routeFamilyByTransportModeId,
     architectInterventionRulesById,
   };
 }

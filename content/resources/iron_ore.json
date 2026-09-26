@@ -4,5 +4,6 @@
   "category": "mineral",
   "renewable": false,
   "basePrice": 6,
+  "extractionFamily": "shaft_mine",
   "implementationPhase": "VS"
 }

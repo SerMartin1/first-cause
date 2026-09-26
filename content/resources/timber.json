@@ -4,5 +4,6 @@
   "category": "forestry",
   "renewable": true,
   "basePrice": 3,
+  "extractionFamily": "logging",
   "implementationPhase": "VS"
 }

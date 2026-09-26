@@ -1,8 +1,38 @@
-import type { WorldRegionView, WorldView } from "@first-cause/simulation";
+import type {
+  RegionVisualIndustry,
+  WorldRegionView,
+  WorldView,
+} from "@first-cause/simulation";
 
 /** VISUAL DEVELOPMENT DATA ONLY. Not a scenario, forecast or simulated history.
  * Imported only by tests / the standalone test harness, never by the shipped application. */
 export const VISUAL_STAGES = ["EARLY", "DEVELOPING", "INDUSTRIAL", "MODERN"] as const;
+const sector = (
+  name: string,
+  activeCompanies: number,
+  employees: number,
+  scale: NonNullable<RegionVisualIndustry["scale"]>,
+): RegionVisualIndustry => ({
+  sector: name,
+  activeCompanies,
+  closedCompanies: 0,
+  employees,
+  capacity: employees,
+  outputLastTick: employees * 2,
+  scale,
+  state: "active",
+});
+/** RegionVisualProfile v2 `industry[]` per etap -- kontrakt, nie symulowana historia. */
+const STAGE_INDUSTRY: readonly (readonly RegionVisualIndustry[])[] = [
+  [],
+  [sector("manufacturing", 3, 12, "manufactory")],
+  [sector("metallurgy", 3, 180, "factory"), sector("mining", 3, 120, "factory")],
+  [
+    sector("metallurgy", 4, 2_400, "industrial_complex"),
+    sector("mining", 3, 900, "large_plant"),
+    sector("manufacturing", 2, 200, "factory"),
+  ],
+];
 export function visualStressView(index: number): WorldView {
   const population = [350, 12_000, 120_000, 1_200_000][index]!;
   const stage = (["HAMLET", "TOWN", "CITY", "METROPOLIS"] as const)[index]!;
@@ -20,11 +50,35 @@ export function visualStressView(index: number): WorldView {
     profile: {
       regionId: "visual_region",
       terrain: "mountains",
+      climate: "continental",
+      elevationClass: "highland",
+      fertility: "poor",
       water: "none",
       vegetation: "sparse_forest",
       settlement: stage,
-      industry: ([undefined, "workshop", "factory", "industrial_complex"] as const)[
-        index
+      industry: STAGE_INDUSTRY[index]!,
+      extraction:
+        index === 0
+          ? []
+          : [
+              {
+                depositId: "visual_iron",
+                resourceDefinitionId: "iron_ore",
+                family: "shaft_mine",
+                renewable: false,
+                state: "active",
+                rate: index * 100,
+                cumulative: index * 20_000,
+                reserveRatio: (100_000 - index * 20_000) / 100_000,
+              },
+            ],
+      resources: [
+        {
+          resourceDefinitionId: "iron_ore",
+          renewable: false,
+          deposits: 1,
+          extracted: index > 0,
+        },
       ],
       transport: (["trail", "road", "railway", "highway"] as const)[index],
       energy: undefined,

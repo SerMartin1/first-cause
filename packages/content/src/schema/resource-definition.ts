@@ -10,6 +10,26 @@ import {
 import type { ContentTypeSpec } from "./reference-field.js";
 
 /**
+ * Rodziny wizualne wydobycia (Living Atlas Visual Asset Spec v1.3 §9.2,
+ * §4A.3, §28.1): czysto prezentacyjna metadana contentu -- mówi
+ * rendererowi Atlasu, jaką sylwetką narysować eksploatowane złoże tego
+ * zasobu. Nie wpływa na symulację. Brak pola = rodzina nieokreślona
+ * (renderer używa znaku zagregowanego), nigdy domysł w kodzie.
+ */
+export const EXTRACTION_VISUAL_FAMILIES = [
+  "shaft_mine",
+  "open_pit",
+  "quarry",
+  "oil_field",
+  "gas_field",
+  "evaporation",
+  "logging",
+  "fishing",
+  "cultivation",
+] as const;
+export type ExtractionVisualFamily = (typeof EXTRACTION_VISUAL_FAMILIES)[number];
+
+/**
  * ResourceDefinition (Content-Localization-Spec SS41): the minimal field
  * set for M2. `occurrenceRules`/`discoveryRules` are open placeholder
  * bags -- their real shape belongs to World Generation (M22) and
@@ -28,6 +48,8 @@ export const ResourceDefinitionSchema = z.object({
   useGoodIds: IdRefArraySchema,
   substituteIds: IdRefArraySchema,
   strategicTags: TagArraySchema,
+  /** M21-VIS-R2: rodzina wizualna wydobycia (§9.2); opcjonalna, tylko prezentacja. */
+  extractionFamily: z.enum(EXTRACTION_VISUAL_FAMILIES).optional(),
   implementationPhase: ContentPhaseSchema,
 });
 

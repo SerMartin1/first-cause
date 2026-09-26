@@ -240,19 +240,26 @@ export function FCIndustryLayer({
   width,
   height,
 }: LayerBandProps & { readonly industry: RegionVisualProfile["industry"] }) {
-  if (!industry) return null;
+  // M21-VIS-R2: `industry[]` -- jeden znacznik na sektor (maks. 4), zamknięty sektor bez wypełnienia.
+  if (!industry?.length) return null;
 
   const y = height * 0.3;
-  const x = width * 0.82;
   return (
     <g aria-hidden="true">
-      <rect
-        className="fc-region-vignette__mark fc-region-vignette__mark--industry"
-        x={x - 4}
-        y={y - 4}
-        width={8}
-        height={8}
-      />
+      {industry.slice(0, 4).map((entry, i) => {
+        const x = width * 0.82 - i * 12;
+        return (
+          <rect
+            key={entry.sector}
+            className="fc-region-vignette__mark fc-region-vignette__mark--industry"
+            x={x - 4}
+            y={y - 4}
+            width={8}
+            height={8}
+            fillOpacity={entry.state === "closed" ? 0 : undefined}
+          />
+        );
+      })}
     </g>
   );
 }
@@ -286,7 +293,12 @@ function describeProfile(profile: RegionVisualProfile): string {
     `vegetation: ${profile.vegetation}`,
   ];
   if (profile.settlement) parts.push(`settlement: ${profile.settlement}`);
-  if (profile.industry) parts.push(`industry: ${profile.industry}`);
+  if (profile.industry?.length)
+    parts.push(`industry: ${profile.industry.map((entry) => entry.sector).join(" + ")}`);
+  if (profile.extraction.length)
+    parts.push(
+      `extraction: ${profile.extraction.map((entry) => entry.resourceDefinitionId).join(" + ")}`,
+    );
   if (profile.transport) parts.push(`transport: ${profile.transport}`);
   if (profile.landmarkResourceDefinitionId) {
     parts.push(`landmark: ${profile.landmarkResourceDefinitionId}`);

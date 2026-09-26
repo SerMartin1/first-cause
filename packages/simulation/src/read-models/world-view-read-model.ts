@@ -16,7 +16,10 @@ import {
   type RegionSummaryReadModel,
 } from "./region-summary-read-model.js";
 import {
+  buildConnectionVisualProfile,
   buildRegionVisualProfileReadModel,
+  type BuildRegionVisualProfileOptions,
+  type ConnectionVisualRoute,
   type RegionVisualProfile,
 } from "./region-visual-profile-read-model.js";
 import {
@@ -52,6 +55,10 @@ export interface WorldConnectionView {
   readonly modes: readonly string[];
   readonly capacity: number;
   readonly disrupted: boolean;
+  /** M21-VIS-R2: infrastruktura per połączenie, pogrupowana po rodzinie trasy (Atlas Spec v1.3 §28.6). */
+  readonly routes: readonly ConnectionVisualRoute[];
+  readonly utilization: number;
+  readonly congestion: number;
 }
 export interface WorldFlowView {
   readonly id: string;
@@ -154,7 +161,8 @@ export interface WorldApi {
 export function buildWorldSnapshot(
   state: WorldState,
   facts: readonly SimulationFact[],
-  sectors: Readonly<Record<string, string>> = {},
+  /** Mapy z contentu dla profilu wizualnego (sektory, rodziny wydobycia, rodziny tras). */
+  visualContent: BuildRegionVisualProfileOptions = {},
   edges: readonly CausalEdge[] = [],
 ): WorldSnapshot {
   const explainedIds = new Set(edges.map((e) => e.targetFactId));
@@ -178,9 +186,7 @@ export function buildWorldSnapshot(
         latestExplainedChange: change
           ? { factId: change.id, type: change.type, tick: change.tick }
           : undefined,
-        profile: buildRegionVisualProfileReadModel(state, id, {
-          sectorByCompanyArchetypeId: sectors,
-        })!,
+        profile: buildRegionVisualProfileReadModel(state, id, visualContent)!,
         settlements,
         deposits: buildResourceDepositReadModels(state, id),
         technology: buildTechnologySummaryReadModel(state, id),
@@ -200,6 +206,7 @@ export function buildWorldSnapshot(
     .sort()
     .map((id): WorldConnectionView => {
       const c = state.connections[id]!;
+      const visual = buildConnectionVisualProfile(state, id, visualContent)!;
       return {
         id,
         from: c.regionAId,
@@ -208,6 +215,9 @@ export function buildWorldSnapshot(
         modes: c.infrastructure.transportModes,
         capacity: c.infrastructure.capacity,
         disrupted: c.currentState.disrupted,
+        routes: visual.routes,
+        utilization: visual.utilization,
+        congestion: visual.congestion,
       };
     });
   const flows: WorldFlowView[] = [];

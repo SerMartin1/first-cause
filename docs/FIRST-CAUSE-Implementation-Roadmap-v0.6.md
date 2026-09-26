@@ -4291,3 +4291,47 @@ Statusy po R1: `M21-VIS-01` FAIL (reopened), `M21-VIS-02` FAIL
 R2--R4, WHY? R5, bramka R6), `M21-VIS-03A` PASS, `M21-VIS-04` ponowny
 audyt po R6, `M21-VIS-05` BLOCKED. Następny pass: `M21-VIS-R2` (po
 poleceniu właściciela).
+
+## Wynik `M21-VIS-R2` (2026-09-26) --- IMPLEMENTATION PASS, HUMAN VISUAL ACCEPTANCE PASS
+
+**Akceptacja właściciela (2026-09-26):** zaakceptowano *visual grammar
+/ renderer foundation* --- RegionVisualProfile v2, Visual Grammar,
+`industry[]`, `extraction[]`, infrastrukturę per połączenie i transport
+rysowany na krawędziach, fundament semantic zoom, legendę z danych,
+słownik terenu i architekturę umożliwiającą dalszy rozwój Atlasu.
+**Nie** zaakceptowano obecnego wyglądu Living Atlasu jako finalnego:
+Atlas nadal czyta się jako „nodes + edges + symbols”, a docelowo ma
+przypominać żyjący świat przestrzenny. Morfologia osad, geometryczne
+kwadraty osad, rozmiar znaków INDUSTRIAL/MODERN, czytelność
+cywilizacji, relacja osada ↔ przemysł i skalowanie populacji należą do
+`M21-VIS-R3`; ciągła geografia (odejście od wyspowych pól regionów)
+wymaga geometrii i pozostaje w M22.
+
+RegionVisualProfile v2 + Visual Grammar wg Atlas Spec v1.3 §28.1, §28.4
+(obecność na WORLD), §28.6. Kontrakt: `industry[]` (sektor, skala §10.3,
+stan z `Company.status`), `extraction[]` (znane eksploatowane złoża,
+active/idle/depleted), `resources[]` (znane złoża bez wydobycia),
+klimat / wysokość / żyzność; infrastruktura per połączenie
+(`WorldConnectionView.routes`, rodziny tras z contentu). Rodziny
+wizualne: opcjonalne pola contentu `extractionFamily` (zasób) i
+`routeFamily` (tryb transportu). Czysta warstwa gramatyki
+(`atlas-grammar.ts`) i alfabet jako dane (`visual-alphabet.ts`); renderer
+rysuje geografię, trasy na krawędziach, osady i znaki aktywności z
+klucza znaków pochodzącego z danych. Bez zmian Simulation Model, RNG,
+zapisu, Map Modes, morfologii osad i kompozycji R1. Screenshoty:
+`docs/verification/world-r2-2026-09-26/`; E2E `tests/e2e/world-r2.spec.ts`.
+
+Luki danych (nie blokery R2): w prawdziwym świecie złoża pozostają
+UNKNOWN (jedyną ścieżką odkrycia jest interwencja Architekta), więc
+`extraction[]` / `resources[]` są puste; firmy eksploatują złoża UNKNOWN
+(`economy-tick` bramkuje odkryciem tylko zakładanie firm) --- decyzja
+właściciela; content nie ma kolei ani żeglugi morskiej; brak geometrii
+(M22).
+
+Statusy po R2: `M21-VIS-01` FAIL
+(reopened; kontrakt i gramatyka gotowe, morfologia / skala R3),
+`M21-VIS-02` FAIL (reopened; R4), `M21-VIS-03` PARTIAL, `M21-VIS-03A`
+PASS, `M21-VIS-04` ponowny audyt po R6, `M21-VIS-05` BLOCKED. Następny
+pass: `M21-VIS-R3` (na osobne polecenie właściciela). Przed R3 otwarta
+decyzja właściciela: niespójność „firma eksploatuje złoże UNKNOWN”
+(analiza przyczynowa 2026-09-26, bez zmian w symulacji).
