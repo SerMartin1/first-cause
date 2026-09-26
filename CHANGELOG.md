@@ -10,6 +10,22 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-26
 
+- **Regional Technology State Repair (pre-D3).** Przyczyna: `createWorldState`
+  nie wyprowadzał `Region.knowledge.technologyStateId` z
+  `TechnologyState.regionId` (jako jedyny back-reference regionu), więc
+  system technologii M15 nie działał w żadnym świecie budowanym z danych
+  (0 odkryć przez 600 ticków w Black Mountain). Naprawa w
+  `@first-cause/entities` wzorem `Market`: link wyprowadzany, drugi stan
+  dla regionu lub sprzeczny jawny link odrzucany. Nowe testy:
+  `reference-technology.test.ts` (działanie M15 na prawdziwym fixture,
+  determinizm, zapis → odczyt) i inwarianty w `world-state.test.ts`.
+  Po naprawie przebieg referencyjny pokazuje lawinę technologiczną (125
+  odkryć AVAILABLE w osadach 14--29 osób po 50 latach) oraz zalew faktów
+  `technology_adoption_increased` i wpisów Chronicle
+  `technology_adoption_wave` --- zgłoszone właścicielowi, bez tuningu.
+  Zaktualizowano Roadmap v0.6 i komentarz `technology-fixture.ts`. Bez
+  zmian parametrów, RNG i formatu zapisu. D3 i M21-VIS-R3 nierozpoczęte.
+
 - **Resource Discovery Boundary (decyzja właściciela, wariant D) ---
   D1 + D2 + wyciek UI; D3 wstrzymane do decyzji.** Nowa decyzja
   kanoniczna `TECH-010` (Canonical Decisions §61A): discovery poprzedza

@@ -172,6 +172,51 @@ describe("createWorldState -- reconstructed back-references (DATA-003/DATA-004)"
   });
 });
 
+describe("createWorldState -- regional TechnologyState link (Entity Data Model §6/§28/§67)", () => {
+  it("derives Region.knowledge.technologyStateId from TechnologyState.regionId", () => {
+    const state = createWorldState(buildFixtureInput());
+    expect(state.regions.region_001!.knowledge.technologyStateId).toBe("technology_001");
+    // Region bez TechnologyState pozostaje bez linku (kanon nie wymaga stanu w każdym regionie).
+    expect(state.regions.region_002!.knowledge.technologyStateId).toBeUndefined();
+  });
+
+  it("keeps the link stable when the state is rebuilt from its own output (economy tick round trip)", () => {
+    const first = createWorldState(buildFixtureInput());
+    const again = createWorldState({
+      ...buildFixtureInput(),
+      regions: Object.values(first.regions),
+    });
+    expect(again.regions.region_001!.knowledge).toEqual(
+      first.regions.region_001!.knowledge,
+    );
+  });
+
+  it("rejects a second TechnologyState for the same region", () => {
+    const input = buildFixtureInput();
+    expect(() =>
+      createWorldState({
+        ...input,
+        technologyStates: [
+          ...input.technologyStates!,
+          createTechnologyState({ id: "technology_002", regionId: "region_001" }),
+        ],
+      }),
+    ).toThrow(InvariantViolationError);
+  });
+
+  it("rejects a declared link that contradicts TechnologyState.regionId instead of overwriting it", () => {
+    const input = buildFixtureInput();
+    const regions = input.regions!.map((r) =>
+      r.id === "region_002"
+        ? { ...r, knowledge: { technologyStateId: "technology_001" } }
+        : r,
+    );
+    expect(() => createWorldState({ ...input, regions })).toThrow(
+      InvariantViolationError,
+    );
+  });
+});
+
 describe("createWorldState -- referential integrity (rule 9: no dangling references)", () => {
   it("rejects a region referencing an unknown continent", () => {
     const input = buildFixtureInput();
@@ -392,7 +437,14 @@ describe("createWorldState -- architectInfluence/interventions (M16)", () => {
         createdTick: 0,
         target: { scopeType: "entity", entityIds: ["deposit_001"] },
         parameters: {},
-        cost: { base: 15, magnitude: 0, duration: 1, scope: 1, naturalness: 1, total: 15 },
+        cost: {
+          base: 15,
+          magnitude: 0,
+          duration: 1,
+          scope: 1,
+          naturalness: 1,
+          total: 15,
+        },
       });
 
     expect(() =>

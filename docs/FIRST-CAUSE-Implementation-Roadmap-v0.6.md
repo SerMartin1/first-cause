@@ -2602,7 +2602,9 @@ rozszerzenia `technology-state.test.ts`/`economy-tick.test.ts`/
 `m15-technology-invariant-monitor.test.ts` (3 seedy × 120 ticków
 przeciwko realnemu katalogowi 125 odkryć, na syntetycznym świecie --
 `technology-fixture.ts`, bo istniejące World Fixture Documenty mają
-`technologyStates`, ale żaden region się do nich nie linkuje);
+`technologyStates`, ale żaden region się do nich nie linkuje ---
+**naprawione 2026-09-26**, patrz „Regional Technology State Repair”
+przy M21);
 `technology-acceptance.test.ts` (3 testy, jeden na jedno zdanie
 Acceptance Gate wyżej). `pnpm typecheck`/`lint`/`test`/`build`/
 `test:e2e`: wszystkie PASS.
@@ -4354,9 +4356,38 @@ Decyzja właściciela: wariant D (Canonical Decisions `TECH-010`).
     znane światu (koniec „Grain --- Unknown” w inspektorze).
 -   **D3 OPEN:** trigger naturalnego odkrywania nieokreślony w
     dokumentacji --- warianty przedstawione właścicielowi. Przy analizie
-    wykryto blokadę: format fixture nie linkuje `TechnologyState` z
-    regionem (`Region.knowledge.technologyStateId` zawsze `undefined`),
-    więc system technologii M15 nie działa w świecie ładowanym z JSON
-    (0 odkryć przez 600 ticków) --- każdy trigger oparty na MIN-001
-    wymaga najpierw naprawy tego połączenia.
+    wykryto blokadę: `Region.knowledge.technologyStateId` nie był
+    linkowany, więc M15 nie działał w świecie z JSON --- naprawione
+    (sekcja niżej).
 -   **Odłożone:** ACTOR-SPECIFIC / LOCAL KNOWLEDGE MODEL.
+
+## Regional Technology State Repair (2026-09-26) --- DONE (pre-D3)
+
+Przyczyna: `createWorldState` wyprowadzał wszystkie back-references
+regionu (kohorty, złoża, osady, firmy, `marketId`,
+`regionalInventoryId`, połączenia) poza
+`Region.knowledge.technologyStateId`. Każdy świat budowany z danych
+(fixture JSON; proceduralny worldgen jeszcze nie istnieje) miał więc
+wyłączony system technologii (`economy-tick`: brak linku = pominięcie
+regionu). Naprawa w `createWorldState` wzorem `Market` (Entity Data
+Model §6/§28/§67 --- TechnologyState jest regionalny): link wyprowadzany
+z `TechnologyState.regionId`; drugi stan dla regionu albo sprzeczny,
+jawnie podany link = `InvariantViolationError`. Region bez
+TechnologyState pozostaje bez technologii --- kanon nie wymaga stanu w
+każdym regionie (Black Mountain: 4 z 8 regionów, te z osadami);
+rozstrzygnięcie to otwarta decyzja właściciela.
+
+Przebieg referencyjny Black Mountain po naprawie (bez zmian
+parametrów): po 12 tickach 2--4 odkrycia KNOWN na region, po 120 ---
+53--68 AVAILABLE, po 600 --- wszystkie 125 odkryć AVAILABLE w każdym z
+4 regionów (populacja 14--29 osób), wiedza domen 100/100; 2 adopcje
+PM (`manual_farming` → `watermill_milling`, MEC-004), 0 statusów
+ADOPTED. Fakty po 600 tickach: 34 640 (przed naprawą 5 416), w tym
+25 002 `technology_adoption_increased`; Chronicle: 738 wpisów (przed:
+48), w tym 690 `technology_adoption_wave`. Zgłoszone jako osobne
+problemy do decyzji (bez automatycznego tuningu): lawina
+technologiczna niezależna od skali populacji, zalew faktów
+`populationAccess` i wpisów Chronicle. Testy:
+`reference-technology.test.ts` (link, działanie pipeline'u,
+determinizm, zapis → odczyt), `world-state.test.ts` (inwarianty
+linku). D3 nadal OPEN.

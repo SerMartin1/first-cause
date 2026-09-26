@@ -241,12 +241,34 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
     }
     regionInventoryIdByRegion.set(inventory.locationRegionId, inventory.id);
   }
+  // Entity Data Model §6/§28/§67: TechnologyState jest regionalny --
+  // `Region.knowledge.technologyStateId` to back-reference wyprowadzany z
+  // `TechnologyState.regionId`, tak jak `marketId`/`regionalInventoryId`.
+  // Wcześniej nigdy nie był ustawiany, więc system technologii (M15) nie
+  // działał dla żadnego świata budowanego przez `createWorldState` (np.
+  // fixture JSON). Drugi stan dla tego samego regionu albo sprzeczny,
+  // ręcznie podany link są odrzucane -- nie nadpisywane po cichu.
+  const technologyStateIdByRegion = new Map<string, string>();
   for (const technologyState of technologyStates) {
     requireExists(
       regionsById,
       technologyState.regionId,
       `TechnologyState "${technologyState.id}".regionId`,
     );
+    if (technologyStateIdByRegion.has(technologyState.regionId)) {
+      throw new InvariantViolationError(
+        `Region "${technologyState.regionId}" has more than one TechnologyState ("${technologyStateIdByRegion.get(technologyState.regionId)}" and "${technologyState.id}") -- TechnologyState is regional (Entity Data Model §28)`,
+      );
+    }
+    technologyStateIdByRegion.set(technologyState.regionId, technologyState.id);
+  }
+  for (const region of regions) {
+    const declared = region.knowledge.technologyStateId;
+    if (declared !== undefined && declared !== technologyStateIdByRegion.get(region.id)) {
+      throw new InvariantViolationError(
+        `Region "${region.id}".knowledge.technologyStateId "${declared}" does not match a TechnologyState whose regionId is "${region.id}"`,
+      );
+    }
   }
 
   const regionIdsByContinent = groupIdsBy(
@@ -304,6 +326,10 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
         regionalInventoryId: regionInventoryIdByRegion.get(region.id),
       },
       connections: { connectionIds: connectionsByRegionId.get(region.id) ?? [] },
+      knowledge: {
+        ...region.knowledge,
+        technologyStateId: technologyStateIdByRegion.get(region.id),
+      },
     };
   }
 

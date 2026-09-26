@@ -12,12 +12,10 @@ import {
 
 /**
  * Mały, syntetyczny świat na potrzeby testów M15: 3 regiony ze
- * zlinkowanym `TechnologyState` (`Region.knowledge.technologyStateId`)
- * -- istniejące World Fixture Documenty (JSON) mają wpisy w
- * `technologyStates`, ale żaden region się dziś do nich nie linkuje
- * (`load-world-fixture.ts`'s `createRegion` nigdy nie ustawia
- * `knowledge.technologyStateId` -- fixture format go dziś nie obsługuje),
- * więc uruchomienie Technology na takim fixture'cie dziś byłoby no-opem.
+ * zlinkowanym `TechnologyState` (`Region.knowledge.technologyStateId`).
+ * Od naprawy 2026-09-26 `createWorldState` sam wyprowadza ten link z
+ * `TechnologyState.regionId` (także dla fixture JSON); jawne ustawienie
+ * poniżej jest z nim zgodne i sprawdzane (sprzeczny link = błąd).
  * `region_connected_a`/`region_connected_b` mają wspólne `Connection`
  * (dla `technology/diffusion`); `region_isolated` nie ma żadnego.
  */
