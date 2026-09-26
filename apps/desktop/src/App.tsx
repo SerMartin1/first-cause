@@ -4,8 +4,8 @@ import type { CoreStatus } from "@first-cause/shared";
 import { WorldScreen } from "./features/world/WorldScreen.js";
 import {
   FCAppShell,
+  FCNavigationRail,
   FCSimulationBar,
-  FCTopNavigation,
   type WorkerConnectionState,
 } from "./shell/index.js";
 
@@ -44,34 +44,41 @@ export function App() {
 
   return (
     <FCAppShell
-      topNavigation={
-        <FCTopNavigation
+      navigationRail={
+        <FCNavigationRail
           title={t("app.title")}
-          tabs={[{ id: "world", label: t("nav.world") }]}
-          activeTabId="world"
-          onTabChange={() => {
-            /* only one tab exists so far */
+          subtitle={t("app.subtitle")}
+          aria-label={t("nav.main")}
+          // UI-004: Economy / Technology / Chronicle / Architect nie mają jeszcze ekranów,
+          // więc nie są pokazywane jako atrapy (Golden UI World v1.3 §26.3 A).
+          entries={[{ id: "world", label: t("nav.world") }]}
+          activeId="world"
+          onSelect={() => {
+            /* jedyny istniejący ekran jest aktywny */
           }}
-        >
-          <details className="fc-world-diagnostics">
-            <summary>{t("world.diagnostics")}</summary>
+          system={
+            <div role="group" aria-label={t("language.label")}>
+              {(["pl", "en"] as const).map((lng) => (
+                <button
+                  key={lng}
+                  type="button"
+                  aria-pressed={i18n.resolvedLanguage === lng}
+                  onClick={() => void i18n.changeLanguage(lng)}
+                >
+                  {lng.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          }
+          footer={
             <FCSimulationBar
               workerState={workerState}
               workerStatusLabel={workerStatusLabel}
               {...(coreStatus ? { engineVersion: coreStatus.engineVersion } : {})}
             />
-          </details>
-          <div role="group" aria-label={t("language.label")}>
-            <button type="button" onClick={() => void i18n.changeLanguage("pl")}>
-              PL
-            </button>
-            <button type="button" onClick={() => void i18n.changeLanguage("en")}>
-              EN
-            </button>
-          </div>
-        </FCTopNavigation>
+          }
+        />
       }
-      simulationBar={null}
     >
       <WorldScreen />
     </FCAppShell>

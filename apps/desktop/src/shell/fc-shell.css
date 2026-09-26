@@ -1,52 +1,122 @@
-/* FCAppShell / FCTopNavigation / FCSimulationBar (UI Visual Design System v1.0 SS49.2). */
+/* FCAppShell / FCNavigationRail / FCSimulationBar (Golden UI World v1.3 §26.3 A). */
 
 .fc-app-shell {
+  --fc-rail-width: 176px;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: var(--fc-rail-width) minmax(0, 1fr);
 }
 
-.fc-app-shell__top-navigation {
-  border-bottom: var(--fc-border-width) solid var(--fc-border);
+.fc-app-shell__rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  border-right: var(--fc-border-width) solid var(--fc-border);
   background: var(--fc-bg-elevated);
-}
-
-.fc-app-shell__simulation-bar {
-  border-bottom: var(--fc-border-width) solid var(--fc-border);
-  background: var(--fc-surface-muted);
+  overflow: hidden;
 }
 
 .fc-app-shell__content {
-  flex: 1;
-  padding: var(--fc-space-6) var(--fc-space-8);
+  min-width: 0;
+  padding: var(--fc-space-3) var(--fc-space-4);
+}
+
+.fc-rail {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--fc-space-8);
+  gap: var(--fc-space-4);
+  padding: var(--fc-space-4) var(--fc-space-3);
+  box-sizing: border-box;
 }
 
-.fc-top-navigation {
+.fc-rail__brand {
   display: flex;
-  align-items: center;
-  gap: var(--fc-space-8);
-  padding: var(--fc-space-3) var(--fc-space-8);
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: var(--fc-space-3);
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
 }
 
-.fc-top-navigation__title {
+.fc-rail__title {
+  font-family: var(--fc-font-data);
+  font-size: var(--fc-text-section-title);
+  font-weight: 600;
+  letter-spacing: 0.06em;
   white-space: nowrap;
 }
 
-.fc-top-navigation__controls {
-  margin-left: auto;
+.fc-rail__subtitle {
+  font-family: var(--fc-font-data);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.fc-rail__entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fc-rail__entry {
+  width: 100%;
+  text-align: left;
+  padding: var(--fc-space-2) var(--fc-space-2);
+  border: 0;
+  border-left: var(--fc-border-width-accent) solid transparent;
+  background: transparent;
+  color: var(--fc-text-primary);
+  font-size: var(--fc-text-body);
+  cursor: pointer;
+}
+
+.fc-rail__entry:hover {
+  background: var(--fc-selection);
+}
+
+.fc-rail__entry--active {
+  background: var(--fc-selection);
+  border-left-color: var(--fc-accent);
+  font-weight: 600;
+}
+
+.fc-rail__system {
+  padding-top: var(--fc-space-3);
+  border-top: var(--fc-border-width) solid var(--fc-border);
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--fc-space-2);
+  font-size: var(--fc-text-label);
+}
+
+.fc-rail__system button {
+  padding: var(--fc-space-1) var(--fc-space-2);
+  border: var(--fc-border-width) solid var(--fc-border);
+  background: transparent;
+  color: var(--fc-text-primary);
+  font-size: var(--fc-text-label);
+  cursor: pointer;
+}
+
+.fc-rail__system button[aria-pressed="true"] {
+  background: var(--fc-text-primary);
+  color: var(--fc-bg-elevated);
+}
+
+.fc-rail__footer {
+  margin-top: auto;
+  font-size: var(--fc-text-caption);
+}
+
+.fc-rail :focus-visible {
+  outline: var(--fc-border-width-accent) solid var(--fc-accent);
+  outline-offset: 1px;
 }
 
 .fc-simulation-bar {
   display: flex;
-  align-items: center;
-  gap: var(--fc-space-3);
-  padding: var(--fc-space-2) var(--fc-space-8);
+  flex-direction: column;
+  gap: 2px;
 }
 
 .fc-simulation-bar--online .fc-simulation-bar__status {
@@ -63,4 +133,13 @@
 
 .fc-simulation-bar__version {
   color: var(--fc-text-muted);
+}
+
+@media (max-width: 1439px) {
+  .fc-app-shell {
+    --fc-rail-width: 144px;
+  }
+  .fc-rail__title {
+    font-size: var(--fc-text-subsection);
+  }
 }

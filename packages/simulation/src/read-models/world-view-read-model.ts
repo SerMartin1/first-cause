@@ -62,10 +62,54 @@ export interface WorldFlowView {
   readonly subjectId: string;
 }
 export interface WorldSnapshot {
+  readonly causalDrivers?: readonly WorldCauseSummary[];
   readonly summary: WorldSummaryReadModel;
   readonly regions: readonly WorldRegionView[];
   readonly connections: readonly WorldConnectionView[];
   readonly flows: readonly WorldFlowView[];
+}
+export type WorldAnalysisScope =
+  { readonly kind: "WORLD" } | { readonly kind: "REGION"; readonly regionId: string };
+export interface WorldWhyContext {
+  readonly scope: WorldAnalysisScope;
+  readonly itemId: string;
+  readonly itemKind: "cause" | "consequence" | "event" | "region";
+  readonly regionId?: string;
+}
+export interface WorldCauseSummary {
+  readonly id: string;
+  readonly factId: string;
+  readonly effectFactId: string;
+  readonly type: string;
+  readonly regionId: string;
+  readonly effectRegionId: string;
+  readonly tick: number;
+  readonly contribution: number;
+  readonly strength: number;
+}
+/** Recorded mechanisms only; strength ranks explanatory contribution, not forecast probability. */
+export function selectWorldAnalysis(
+  snapshot: WorldSnapshot,
+  scope: WorldAnalysisScope,
+  years: number,
+) {
+  return {
+    scope,
+    tick: snapshot.summary.currentTick,
+    causes: (snapshot.causalDrivers ?? [])
+      .filter(
+        (c) =>
+          c.tick < snapshot.summary.currentTick &&
+          c.tick >= snapshot.summary.currentTick - years * 12 &&
+          (scope.kind === "WORLD" || c.effectRegionId === scope.regionId),
+      )
+      .sort(
+        (a, b) => b.strength - a.strength || b.tick - a.tick || a.id.localeCompare(b.id),
+      )
+      .slice(0, 5),
+    // No world/regional forecast provider exists. Observed descendants are not projections.
+    projectionStatus: "UNAVAILABLE" as const,
+  };
 }
 export interface WorldView {
   readonly type: "WORLD_VIEW";
@@ -77,6 +121,8 @@ export interface WorldView {
   readonly speed: number;
 }
 export interface WorldWhyView {
+  readonly context?: WorldWhyContext;
+  readonly tick?: number;
   readonly type: "WORLD_WHY";
   readonly explanation: WhyExplanation;
   readonly facts: readonly SimulationFact[];
@@ -86,13 +132,22 @@ export type WorldRequest =
   | { readonly type: "GET_WORLD"; readonly years: number; readonly tick?: number }
   | { readonly type: "SET_WORLD_SPEED"; readonly speed: number }
   | { readonly type: "STEP_WORLD"; readonly ticks: number }
-  | { readonly type: "GET_WORLD_WHY"; readonly factId: string; readonly tick?: number };
+  | {
+      readonly type: "GET_WORLD_WHY";
+      readonly factId: string;
+      readonly tick?: number;
+      readonly context?: WorldWhyContext;
+    };
 export type WorldResponse = WorldView | WorldWhyView;
 export interface WorldApi {
   getWorld(years: number, tick?: number): Promise<WorldView>;
   setSpeed(speed: number): Promise<WorldView>;
   step(ticks: number): Promise<WorldView>;
-  explain(factId: string, tick?: number): Promise<WorldWhyView>;
+  explain(
+    factId: string,
+    tick?: number,
+    context?: WorldWhyContext,
+  ): Promise<WorldWhyView>;
 }
 
 /** Presentation projection only. No fictional geometry, urbanisation ratio or political state. */
@@ -187,7 +242,34 @@ export function buildWorldSnapshot(
       });
     }
   }
-  return { summary: buildWorldSummaryReadModel(state), regions, connections, flows };
+  const visibleFacts = new Map(
+    facts.filter((f) => f.tick < state.world.currentTick).map((f) => [f.id, f]),
+  );
+  const causalDrivers = edges.flatMap((edge): WorldCauseSummary[] => {
+    const source = visibleFacts.get(edge.sourceFactId),
+      effect = visibleFacts.get(edge.targetFactId);
+    if (!source || !effect || effect.tick < state.world.currentTick - 600) return [];
+    return [
+      {
+        id: edge.id,
+        factId: source.id,
+        effectFactId: effect.id,
+        type: source.type,
+        regionId: source.location.regionId,
+        effectRegionId: effect.location.regionId,
+        tick: effect.tick,
+        contribution: edge.contribution,
+        strength: edge.strength,
+      },
+    ];
+  });
+  return {
+    summary: buildWorldSummaryReadModel(state),
+    regions,
+    connections,
+    flows,
+    causalDrivers,
+  };
 }
 
 /** Session-local monthly read-model history, explicitly outside canonical state/save/RNG.
@@ -233,6 +315,7 @@ export function buildWorldWhyView(
   runner: WorldRunner,
   factId: string,
   tick = runner.tick,
+  context?: WorldWhyContext,
 ): WorldWhyView {
   const facts = runner.facts.filter((f) => f.tick < tick);
   if (!facts.some((f) => f.id === factId)) throw new Error("Unknown fact at this time");
@@ -257,6 +340,8 @@ export function buildWorldWhyView(
   );
   return {
     type: "WORLD_WHY",
+    ...(context ? { context } : {}),
+    tick,
     explanation,
     facts: facts.filter((f) => ids.has(f.id)),
     consequences: facts.filter((f) => descendants.has(f.id)).slice(0, 5),

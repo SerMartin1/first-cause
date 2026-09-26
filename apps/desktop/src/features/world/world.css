@@ -1,50 +1,456 @@
+/*
+ * World Screen -- kompozycja Golden UI World v1.3 §26.3–26.4 (M21-VIS-R1):
+ * B górny pasek · C Atlas + D pasek narzędzi · E inspektor · F pas analityczny ·
+ * G moduły wspierające (zwijane, pod pierwszym ekranem).
+ */
 .fc-world {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.85fr) minmax(500px, 3.1fr) minmax(240px, 1.05fr);
-  grid-template-areas: "time time time" "left atlas region" "timeline why ranking";
-  grid-template-rows: auto minmax(520px, calc(100vh - 360px)) auto;
-  gap: var(--fc-space-4);
+  --fc-inspector-width: clamp(288px, 21vw, 380px);
+  --fc-support-head: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fc-space-3);
   font-size: var(--fc-text-body);
 }
-.fc-world__time {
-  grid-area: time;
+
+/* Pierwszy ekran: viewport minus padding treści i pas nagłówków modułów G. */
+.fc-world__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--fc-inspector-width);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "bar bar" "atlas region" "analysis region";
+  column-gap: var(--fc-space-4);
+  row-gap: var(--fc-space-2);
+  height: calc(100vh - 3 * var(--fc-space-3) - var(--fc-support-head));
+  min-height: 560px;
+}
+
+/* B -- czas, World Pulse, sterowanie czasem: jeden ciągły pasek, bez kart KPI. */
+.fc-world__bar {
+  grid-area: bar;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--fc-space-4);
+  gap: var(--fc-space-2) var(--fc-space-6);
+  padding-bottom: var(--fc-space-2);
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
 }
-.fc-world__time > div {
+.fc-world__clock {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 260px;
+}
+.fc-world__clock strong {
+  font-size: var(--fc-text-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fc-world__clock .fc-data {
+  white-space: nowrap;
+}
+.fc-world__pulse {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--fc-space-4);
+  margin: 0;
+}
+.fc-world__pulse > div {
+  display: flex;
+  flex-direction: column;
+  padding-left: var(--fc-space-3);
+  border-left: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__pulse dt {
+  font-size: var(--fc-text-caption);
+  color: var(--fc-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.fc-world__pulse dd {
+  margin: 0;
+  white-space: nowrap;
+}
+.fc-world__pulse > .fc-caption {
+  white-space: nowrap;
+}
+.fc-world__delta {
+  font-size: var(--fc-text-label);
+  color: var(--fc-text-secondary);
+}
+.fc-world__delta--up {
+  color: var(--fc-positive);
+}
+.fc-world__delta--down {
+  color: var(--fc-negative);
+}
+.fc-world__speed {
+  display: flex;
   margin-left: auto;
 }
-.fc-world__left {
-  grid-area: left;
-  overflow-y: auto;
+.fc-world .fc-world__speed button {
+  padding: var(--fc-space-1) var(--fc-space-2);
+  border-right-width: 0;
 }
+.fc-world .fc-world__speed button:last-child {
+  border-right-width: var(--fc-border-width);
+  margin-left: var(--fc-space-2);
+}
+.fc-world__bar [role="alert"] {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--fc-negative);
+}
+
+/* C + D -- Living Atlas: największa ciągła powierzchnia; pasek narzędzi zwarty. */
 .fc-world__atlas {
   grid-area: atlas;
   min-width: 0;
-  background: var(--fc-surface-muted);
-  border: var(--fc-border-width) solid var(--fc-border);
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  background: var(--fc-surface-muted);
+  border: var(--fc-border-width) solid var(--fc-border);
 }
+.fc-world__atlas-toolbar {
+  background: var(--fc-bg-elevated);
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__atlas-toolbar .fc-tabs {
+  gap: 0;
+  flex-wrap: wrap;
+  border-bottom: 0;
+}
+.fc-world .fc-world__atlas-toolbar .fc-tabs__tab {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: var(--fc-border-width-accent) solid transparent;
+  padding: var(--fc-space-1) var(--fc-space-3);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.fc-world__atlas-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--fc-space-1) var(--fc-space-3);
+  padding: var(--fc-space-1) var(--fc-space-2);
+  border-top: var(--fc-border-width) solid var(--fc-border);
+  font-size: var(--fc-text-label);
+  color: var(--fc-text-secondary);
+}
+.fc-world .fc-world__atlas-tools select {
+  padding: 2px var(--fc-space-1);
+}
+.fc-world__region-picker {
+  margin-left: auto;
+}
+.fc-world__region-picker select {
+  max-width: 220px;
+}
+.fc-world__overlays {
+  position: relative;
+  z-index: 2;
+}
+.fc-world__overlays summary {
+  cursor: pointer;
+}
+.fc-world__overlays > div {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  min-width: 200px;
+  background: var(--fc-bg-elevated);
+  border: var(--fc-border-width) solid var(--fc-border);
+  padding: var(--fc-space-3);
+}
+.fc-world__overlays label {
+  display: block;
+  padding: var(--fc-space-1);
+}
+.fc-world__overlays p {
+  font-size: var(--fc-text-caption);
+}
+.fc-atlas {
+  min-height: 240px;
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+}
+.fc-atlas__canvas {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+.fc-atlas__caption {
+  position: absolute;
+  top: var(--fc-space-2);
+  left: var(--fc-space-3);
+  max-width: 70%;
+  font-size: var(--fc-text-caption);
+  color: var(--fc-text-secondary);
+  pointer-events: none;
+}
+.fc-atlas__caption p {
+  margin: 0;
+}
+.fc-atlas__caption .fc-world__mode-caption {
+  color: var(--fc-text-primary);
+}
+.fc-atlas__legend {
+  position: absolute;
+  right: var(--fc-space-2);
+  bottom: var(--fc-space-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--fc-space-2);
+  padding: var(--fc-space-1) var(--fc-space-2);
+  background: var(--fc-bg-elevated);
+  border: var(--fc-border-width) solid var(--fc-border);
+  font-size: var(--fc-text-caption);
+  pointer-events: none;
+}
+.fc-atlas__legend br {
+  display: none;
+}
+.fc-atlas__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fc-space-1);
+}
+.fc-atlas__legend i {
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--fc-text-secondary);
+}
+.fc-atlas__zoom {
+  position: absolute;
+  left: var(--fc-space-2);
+  bottom: var(--fc-space-2);
+  background: var(--fc-bg-elevated);
+}
+.fc-world .fc-atlas__zoom button {
+  padding: var(--fc-space-1) var(--fc-space-2);
+}
+
+/* E -- Selected Region Inspector: jedyna prawa kolumna, jawny stan pusty. */
 .fc-world__region {
   grid-area: region;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+  padding-left: var(--fc-space-4);
+  border-left: var(--fc-border-width) solid var(--fc-border);
 }
-.fc-world__timeline {
-  grid-area: timeline;
+.fc-world__region .fc-section {
+  margin-bottom: var(--fc-space-3);
 }
-.fc-world__why {
-  grid-area: why;
+.fc-world__region .fc-section__body {
+  gap: var(--fc-space-1);
 }
-.fc-world__ranking {
-  grid-area: ranking;
+.fc-world__region .fc-section__title {
+  font-size: var(--fc-text-subsection);
 }
-.fc-world .fc-section {
-  margin-bottom: var(--fc-space-6);
+.fc-world__region p {
+  margin: 0;
 }
+.fc-world__empty {
+  color: var(--fc-text-secondary);
+}
+.fc-world__region svg {
+  width: 100%;
+  height: auto;
+  max-height: 96px;
+}
+.fc-world__region .fc-tabs {
+  gap: 0;
+  flex-wrap: wrap;
+}
+.fc-world .fc-world__region .fc-tabs__tab {
+  flex: 1 0 auto;
+  border: 0;
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+  padding: var(--fc-space-1) var(--fc-space-2);
+  white-space: nowrap;
+}
+.fc-world .fc-world__region .fc-metric {
+  padding: var(--fc-space-1) 0;
+}
+.fc-world__region .fc-metric__value {
+  font-size: var(--fc-text-subsection);
+}
+.fc-world__inspector-actions {
+  display: flex;
+  gap: var(--fc-space-3);
+}
+.fc-world__latest-change {
+  display: flex;
+  flex-direction: column;
+}
+
+/* F -- pas analityczny bezpośrednio pod Atlasem (§25). */
+.fc-world__analysis {
+  grid-area: analysis;
+  min-width: 0;
+}
+.fc-world__scope {
+  margin-bottom: var(--fc-space-1);
+  font-size: var(--fc-text-label);
+}
+.fc-world .fc-world__scope button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 2px var(--fc-space-2);
+}
+.fc-world .fc-world__scope button[aria-pressed="true"] {
+  background: var(--fc-selection);
+  color: var(--fc-text-primary);
+  border-bottom-color: var(--fc-accent);
+}
+.fc-world__analysis-modules {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: var(--fc-space-4);
+}
+.fc-world__analysis-modules > section {
+  min-width: 0;
+  padding-right: var(--fc-space-3);
+  border-right: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__analysis-modules > section:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+.fc-world .fc-world__analysis .fc-section {
+  gap: var(--fc-space-1);
+  margin-bottom: 0;
+}
+.fc-world .fc-world__analysis .fc-section__title {
+  font-family: var(--fc-font-data);
+  font-size: var(--fc-text-label);
+  letter-spacing: 0.06em;
+  padding-bottom: var(--fc-space-1);
+}
+.fc-world__analysis .fc-section__body {
+  gap: 0;
+}
+.fc-world__analysis .fc-text-button {
+  padding: 2px 0;
+}
+.fc-world__analysis p {
+  margin: var(--fc-space-1) 0;
+}
+.fc-world__analysis small {
+  margin-left: var(--fc-space-2);
+  color: var(--fc-text-secondary);
+}
+.fc-world__quick-actions .fc-section__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: var(--fc-space-3);
+}
+
+/* G -- moduły wspierające: zwijane, podporządkowane Atlasowi. */
+.fc-world__support {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  column-gap: var(--fc-space-4);
+  border-top: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__module {
+  min-width: 0;
+}
+.fc-world__module > summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--fc-space-2);
+  min-height: calc(var(--fc-support-head) - 1px);
+  box-sizing: border-box;
+  padding-top: var(--fc-space-2);
+  cursor: pointer;
+}
+.fc-world__module > summary h2 {
+  margin: 0;
+  font-family: var(--fc-font-data);
+  font-size: var(--fc-text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.fc-world__module-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fc-space-2);
+  padding: var(--fc-space-2) 0 var(--fc-space-4);
+}
+.fc-world__events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.fc-world .fc-world__events button {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  border: 0;
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__events small {
+  color: var(--fc-text-secondary);
+}
+.fc-world .fc-world__events button[aria-pressed="true"] {
+  background: var(--fc-selection);
+  color: var(--fc-text-primary);
+}
+.fc-world__rows p,
+.fc-world__ranking li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--fc-space-2);
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__ranking ol {
+  margin: 0;
+  padding-left: var(--fc-space-4);
+}
+.fc-world__timeline input {
+  width: 100%;
+  accent-color: var(--fc-accent);
+}
+.fc-world__timeline-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--fc-space-2);
+}
+.fc-world .fc-world__timeline-events button {
+  border: 0;
+  padding: 2px 0;
+  text-align: left;
+  font-size: var(--fc-text-caption);
+}
+.fc-world__causes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fc-space-3);
+}
+.fc-world__causes > div {
+  min-width: 120px;
+  padding-right: var(--fc-space-3);
+  border-right: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-world__causes small {
+  display: block;
+}
+
+/* Wspólne formy kontrolek: tekst, cienkie linie, geometria prostokątna. */
 .fc-world .fc-section__title {
   font-family: var(--fc-font-history);
 }
@@ -81,209 +487,43 @@
 .fc-world .fc-text-button {
   border: 0;
 }
-.fc-world .fc-tabs {
-  gap: 0;
-  flex-wrap: wrap;
-}
-.fc-world .fc-tabs__tab {
-  flex: 1;
-  border: 0;
-  border-bottom: var(--fc-border-width) solid var(--fc-border);
-  padding: var(--fc-space-3) var(--fc-space-2);
-  white-space: nowrap;
-}
-.fc-world__atlas-tools,
-.fc-world__flow-tools {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--fc-space-3);
-  padding: var(--fc-space-2);
-}
-.fc-world__mode-caption {
-  margin: 0;
-  padding: var(--fc-space-2);
-  font-size: var(--fc-text-caption);
-}
-.fc-world__overlays {
-  position: relative;
-  margin-left: auto;
-  z-index: 2;
-}
-.fc-world__overlays summary {
-  cursor: pointer;
-}
-.fc-world__overlays > div {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  min-width: 180px;
-  background: var(--fc-bg-elevated);
-  border: var(--fc-border-width) solid var(--fc-border);
-  padding: var(--fc-space-3);
-}
-.fc-world__overlays label {
-  display: block;
-  padding: var(--fc-space-1);
-}
-.fc-world__overlays p {
-  font-size: var(--fc-text-caption);
-}
-.fc-atlas {
-  min-height: 260px;
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-  touch-action: none;
-}
-.fc-atlas__canvas {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  inset: 0;
-}
-.fc-atlas__caption {
-  position: absolute;
-  top: var(--fc-space-3);
-  left: var(--fc-space-3);
-  font-size: var(--fc-text-caption);
-  color: var(--fc-text-secondary);
-  pointer-events: none;
-}
-.fc-atlas__legend {
-  position: absolute;
-  right: var(--fc-space-3);
-  bottom: var(--fc-space-3);
-  padding: var(--fc-space-3);
-  background: var(--fc-bg-elevated);
-  font-size: var(--fc-text-caption);
-  pointer-events: none;
-}
-.fc-atlas__legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--fc-space-1);
-  margin-right: var(--fc-space-2);
-}
-.fc-atlas__legend i {
-  display: inline-block;
-  border-radius: 50%;
-  background: var(--fc-text-secondary);
-}
-.fc-atlas__zoom {
-  position: absolute;
-  left: var(--fc-space-3);
-  bottom: var(--fc-space-3);
-  background: var(--fc-bg-elevated);
-}
-.fc-world__region-picker {
-  padding: var(--fc-space-2);
-}
-.fc-world__region-picker select {
-  max-width: 100%;
-}
-.fc-world__events {
-  list-style: none;
-  padding: 0;
-}
-.fc-world__events button {
-  width: 100%;
-  display: grid;
-  gap: var(--fc-space-1);
-  text-align: left;
-  border: 0;
-  border-bottom: var(--fc-border-width) solid var(--fc-border);
-}
-.fc-world__events small {
-  color: var(--fc-text-secondary);
-}
-.fc-world__events button[aria-pressed="true"] {
-  background: var(--fc-selection);
-  color: var(--fc-text-primary);
-}
-.fc-world__region svg {
-  width: 100%;
-  height: auto;
-  max-height: 120px;
-}
-.fc-world__rows p,
-.fc-world__ranking li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--fc-space-2);
-  border-bottom: var(--fc-border-width) solid var(--fc-border);
-}
-.fc-world__ranking ol {
-  padding-left: var(--fc-space-4);
-}
-.fc-world__timeline input {
-  width: 100%;
-  accent-color: var(--fc-accent);
-}
-.fc-world__timeline-events {
-  max-height: 140px;
-  overflow: auto;
-}
-.fc-world__timeline-events button {
-  border: 0;
-  display: block;
-  text-align: left;
-}
-.fc-world__causes {
-  display: flex;
-  gap: var(--fc-space-3);
-  overflow-x: auto;
-  padding: var(--fc-space-3) 0;
-}
-.fc-world__causes > div {
-  min-width: 120px;
-  border-right: var(--fc-border-width) solid var(--fc-border);
-}
-.fc-world__causes small {
-  display: block;
-}
-.fc-world__why,
-.fc-world__timeline,
-.fc-world__ranking {
-  border-top: var(--fc-border-width) solid var(--fc-border);
-  padding-top: var(--fc-space-3);
-  max-height: 210px;
-  overflow-y: auto;
-}
-.fc-world-diagnostics {
-  position: relative;
-  font-size: var(--fc-text-caption);
-}
-.fc-world-diagnostics summary {
-  cursor: pointer;
-}
-.fc-world-diagnostics .fc-simulation-bar {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  z-index: 3;
-  white-space: nowrap;
-  background: var(--fc-bg-elevated);
-  border: var(--fc-border-width) solid var(--fc-border);
-}
 .fc-world :focus-visible {
   outline: var(--fc-border-width-accent) solid var(--fc-accent);
   outline-offset: 2px;
 }
-@media (max-width: 1150px) {
-  .fc-world {
-    grid-template-columns: minmax(160px, 0.7fr) minmax(400px, 2fr);
-    grid-template-areas: "time time" "left atlas" "region why" "timeline ranking";
-    grid-template-rows: auto minmax(520px, 65vh) auto auto;
+
+/* Wąskie okna: najpierw ustępują moduły G (Golden §19); Atlas i inspektor zostają. */
+@media (max-width: 1100px) {
+  .fc-world__stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(420px, 62vh) auto auto;
+    grid-template-areas: "bar" "atlas" "analysis" "region";
+    height: auto;
+  }
+  .fc-world__region {
+    overflow: visible;
+    padding-left: 0;
+    border-left: 0;
+  }
+  .fc-world__support {
+    grid-template-columns: 1fr 1fr;
   }
 }
 @media (max-width: 720px) {
-  .fc-world {
-    display: flex;
-    flex-direction: column;
+  .fc-world__analysis-modules,
+  .fc-world__support {
+    grid-template-columns: 1fr;
   }
-  .fc-world__atlas {
-    order: -1;
+}
+/* 1280–1439 px: okno porównania jest już widoczne w pasku Atlasu i w zakresie analizy. */
+@media (max-width: 1439px) {
+  .fc-world__bar {
+    column-gap: var(--fc-space-4);
+  }
+  .fc-world__pulse {
+    gap: var(--fc-space-3);
+  }
+  .fc-world__pulse > .fc-caption {
+    display: none;
   }
 }

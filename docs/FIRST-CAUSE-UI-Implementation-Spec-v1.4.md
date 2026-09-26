@@ -1,12 +1,14 @@
-# FIRST CAUSE --- UI Implementation Spec v1.3
+# FIRST CAUSE --- UI Implementation Spec v1.4
 
 **Status:** CANONICAL IMPLEMENTATION SPEC\
 **Projekt:** FIRST CAUSE\
-**Wersja:** 1.3\
+**Wersja:** 1.4 (2026-09-26 --- Addendum v1.4: kontrakt kompozycji
+World, wymagania Atlasu v2, WHY? UX, Visual Verification Gate)\
 **Rola:** techniczny kontrakt implementacyjny warstwy UI dla Codexa,
 Claude Code i człowieka.\
 **Nadrzędny dokument wizualny:**
-`FIRST-CAUSE-UI-Visual-Design-System-v1.3.md`\
+`FIRST-CAUSE-UI-Visual-Design-System-v1.4.md`; kompozycja World:
+`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md` §26\
 **Powiązany milestone:** M21 --- UI Vertical Slice\
 **Zasada nadrzędna:** implementacja ma odtwarzać intencję, hierarchię i
 zachowanie Design Systemu, a nie mechanicznie kopiować pojedyncze
@@ -43,9 +45,10 @@ W przypadku konfliktu obowiązuje kolejność:
 
 1.  `FIRST-CAUSE-Canonical-Decisions-v0.1`
 2.  `FIRST-CAUSE-Technology-Stack-Decision-v0.1`
-3.  `FIRST-CAUSE-UI-Visual-Design-System-v1.0`
+3.  `FIRST-CAUSE-UI-Visual-Design-System-v1.4` (dla kompozycji World:
+    `FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3` §26, `UI-014`)
 4.  `FIRST-CAUSE-UI-UX-World-Command-Center-Spec-v0.1`
-5.  niniejszy `FIRST-CAUSE-UI-Implementation-Spec-v1.0`
+5.  niniejszy `FIRST-CAUSE-UI-Implementation-Spec-v1.4`
 6.  Golden UI / mockupy jako referencje wizualne
 7.  lokalne decyzje implementacyjne
 
@@ -421,6 +424,11 @@ MUST zawierać:
 
 ### Top Navigation
 
+> **v1.4:** forma poziomej górnej nawigacji jest SUPERSEDED. Nawigacja
+> globalna to stały lewy rail (`UI-014`, Golden UI World v1.3 §26.3 A);
+> zakres sekcji poniżej (`UI-004`) obowiązuje. Górny pasek zawiera czas,
+> sterowanie czasem i World Pulse.
+
 Kanoniczne sekcje:
 
 ``` text
@@ -446,13 +454,21 @@ udostępnia je w danym etapie.
 
 Golden UI #1 jest pierwszym pełnym ekranem gracza.
 
+> **v1.4:** strefy ekranu i ich relacje określa Golden UI World v1.3
+> §26 (kontrakt wykonawczy: Addendum v1.4 §L). Punkty o `Important Now`
+> w prawym panelu i jego zastępowaniu przez `Region Context` są
+> SUPERSEDED: prawa kolumna jest wyłącznie Selected Region Inspectorem
+> z jawnym stanem pustym; `Important Now` / Recent Events są modułem
+> wspierającym (G).
+
 ## MUST
 
 -   Atlas jest dominantą wizualną,
 -   `Important Now` pokazuje preferowane 3, maksymalnie 4 wpisy,
 -   World Metrics nie są siatką kart,
 -   Recent History pokazuje causal thread,
--   wybranie regionu zastępuje `Important Now` przez `Region Context`,
+-   ~~wybranie regionu zastępuje `Important Now` przez `Region Context`~~
+    (superseded v1.4 --- patrz wyżej),
 -   overlay zmienia perspektywę świata, nie architekturę ekranu,
 -   `WHY?` jest dostępne dla znaczących zmian,
 -   powrót zachowuje kontekst viewport/selection tam, gdzie to możliwe.
@@ -514,7 +530,11 @@ Pokazuj:
 -   klastry,
 -   major regions,
 -   anomalie,
--   zagregowane przepływy.
+-   zagregowane przepływy,
+-   (v1.4) zagregowaną strukturę cywilizacji: klasę osady, obecność
+    przemysłu / wydobycia, poziom połączeń --- poziom WORLD nie jest
+    pustym diagramem kropek i linii (Living Atlas Visual Asset Spec
+    v1.3 §28.4).
 
 ### Region / medium density
 
@@ -550,7 +570,7 @@ Nazwy tylko dla:
 -   important/anomalous,
 -   major regions.
 
-Pozostałe regiony mogą być node-only.
+Pozostałe regiony mogą być node-only (bez etykiety; v1.4: node nadal niesie zagregowany znak struktury cywilizacji --- Living Atlas Visual Asset Spec v1.3 §28.4).
 
 ### HIGH
 
@@ -1279,7 +1299,7 @@ Najważniejsza zasada dla agentów implementujących:
 ## 36. Status v1.0
 
 `FIRST-CAUSE-UI-Implementation-Spec-v1.0.md` jest technicznym kontraktem
-wykonawczym dla `FIRST-CAUSE-UI-Visual-Design-System-v1.3.md`.
+wykonawczym dla `FIRST-CAUSE-UI-Visual-Design-System-v1.4.md`.
 
 Zmiany wymagające nowego wzorca wizualnego, zmiany stacku, zmiany
 granicy Simulation ↔ UI albo zmiany kanonicznego UX loopu nie są
@@ -1323,7 +1343,9 @@ Population markers use a bounded non-linear radius function.
 Implementation should expose tokens/config for `minRadius`, `maxRadius`,
 reference population and scale exponent/log mapping. Acceptance test:
 \~100k settlement is unmistakably larger than \~10k while both remain
-legible and selectable.
+legible and selectable. **v1.4:** the bound must not be reached near
+\~100k; ~100 → 10M+ must stay distinguishable (log/semantic scale +
+morphology, Living Atlas Visual Asset Spec v1.3 §28.2--28.3).
 
 ## 31.3 Atlas state model
 
@@ -1382,10 +1404,11 @@ System v1.1 and Golden UI #1.
 
 ## UI-03 / UI-04 source split
 
--   World layout: `FIRST-CAUSE-Golden-UI-World-Command-Center-v1.1.md`
+-   World layout: `FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md`
+    §26 (v1.4: updated from v1.1)
 -   Atlas style: `FIRST-CAUSE-Raw-Simulation-Atlas-v0.1.png`
 -   Symbol grammar: `FIRST-CAUSE-Visual-Alphabet-v1.1.png`
--   Atlas rules: `FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.2.md`
+-   Atlas rules: `FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.3.md`
 
 Reference PNGs are not production backgrounds.
 
@@ -1528,3 +1551,107 @@ Add at minimum:
     invented copy,
 7.  scope switching does not mutate Simulation State,
 8.  timeline cursor produces deterministic summary for the same state.
+
+------------------------------------------------------------------------
+
+# Addendum v1.4 --- World Screen canon resolution (2026-09-26)
+
+**Status:** CANONICAL --- Canonical Decisions `UI-014`, `UI-015`;
+Golden UI World v1.3 §26; Living Atlas Visual Asset Spec v1.3 §28.
+Stan implementacji: `FIRST-CAUSE-World-Atlas-Independent-Audit-2026-09-26.md`.
+
+Ten addendum jest kontraktem wykonawczym. Nie dodaje mechanik
+symulacji, nie zmienia Read Models w tej wersji dokumentu i nie
+uprawnia do implementacji poza bieżącym passem Roadmapy v0.6.
+
+## §L --- kontrakt kompozycji World (Pass 1, `M21-VIS-R1`)
+
+MUST:
+
+1.  stały lewy rail z zakresem `UI-004` + funkcje systemowe; brak
+    wpisów-atrap; zastępuje formę `FCTopNavigation` z §8.3 / §10
+    (nazwa komponentu railu jest decyzją implementacyjną Pass 1),
+2.  górny pasek: czas świata (rok / miesiąc / tick), sterowanie czasem
+    (`UI-013`), World Pulse (3--5 wskaźników, wartość + zmiana, bez
+    kart KPI),
+3.  Living Atlas jako największa ciągła powierzchnia ekranu (kierunkowo
+    ok. 55--60% obszaru roboczego); diagram dopasowany do płótna
+    (auto-fit), bez rozległych pustych obszarów,
+4.  kontrolki Atlasu (Map Mode, okno porównania, Flow Lens, overlaye,
+    zoom, wybór regionu) jako zwarty pasek narzędzi / overlay Atlasu;
+    nie jako stos formularzy nad i pod Atlasem,
+5.  prawa kolumna = Selected Region Inspector; jawny stan pusty bez
+    wyboru; `selectedEntityId` ≠ `analysisScope` (Addendum v1.3),
+6.  bezpośrednio pod Atlasem: Key Causes / Possible Consequences / Quick
+    Actions (Addendum v1.3); niedostępne projekcje komunikowane zwięźle,
+7.  moduły wspierające (Recent Events, Timeline, ranking, gospodarka)
+    zwijane i podporządkowane Atlasowi; pętla `EVENT → LOCATE →
+    INSPECT → WHY?` dostępna bez opuszczania World,
+8.  legenda Atlasu nie zasłania danych i nie zajmuje więcej miejsca niż
+    kodowane przez nią elementy,
+9.  1280×800: kolejność zwijania z Golden §19; Atlas i inspektor
+    zachowują priorytet; brak nakładania legendy na dane,
+10. brak zagnieżdżonych, równoległych obszarów przewijania jako
+    substytutu hierarchii treści.
+
+MUST NOT: zmieniać Simulation State, RNG ani checksum; dodawać Read
+Models, których nie wymaga ten pass.
+
+## §A --- wymagania Atlasu v2 (Pass 2--4, `M21-VIS-R2`...`R4`)
+
+Wymagania, nie implementacja w tej wersji dokumentu:
+
+-   kontrakt wizualny regionu umożliwia jednoczesne `industry[]`,
+    `extraction[]` i transport / infrastrukturę per połączenie (Living
+    Atlas Visual Asset Spec v1.3 §28.1), wyprowadzone z danych i
+    contentu (bez gałęzi per region / firma),
+-   morfologia osady wg klasy (§28.2), skala ~100 → 10M+ bez
+    zrównywania klas (§28.3),
+-   poziom WORLD pokazuje zagregowaną strukturę cywilizacji (§28.4),
+-   Map Modes v2: własne kodowanie, legenda per tryb, „zero” ≠ „brak
+    danych”, bez normalizacji ukrywającej skalę absolutną (§28.5),
+-   transport rysowany na krawędziach (§28.6).
+
+## §W --- WHY? / Causality UX (Pass 5, `M21-VIS-R5`)
+
+-   WHY? jest kontekstowe: kliknięcie WHY? przy konkretnej zmianie /
+    fakcie wyjaśnia przyczyny **tej** zmiany / faktu,
+-   jedna etykieta = jeden typ celu; przycisk komunikuje, co wyjaśnia
+    (np. `WHY? · <nazwa zmiany>`),
+-   nagłówek WHY? pokazuje wyjaśniany element i jego region oraz
+    osobno aktywny zakres analizy,
+-   Key Causes komunikują relację `PRZYCZYNA → SKUTEK` (przykład:
+    `Spadek populacji → Spadek zatrudnienia`; nie obowiązkowa treść);
+    jeśli Read Model nie przenosi typu skutku, rozszerzenie DTO jest
+    częścią tego passu,
+-   bez syntetyzowania przyczyn / skutków przez UI; bez prozy AI.
+
+## §V --- Visual Verification Gate (Pass 6, `M21-VIS-R6`)
+
+Wymagane dowody (szczegóły: Living Atlas Visual Asset Spec v1.3 §28.7):
+
+| Dowód | Wymaganie |
+| --- | --- |
+| 1920×1080 | ekran World, prawdziwy świat, domyślny zoom |
+| 1280×800 | **prawdziwy viewport**; screenshot `fullPage` nie jest substytutem |
+| Stany wyboru | WORLD bez regionu; WORLD z regionem; REGION scope z różną treścią niż WORLD |
+| Rozwój | 4 etapy (`EARLY / DEVELOPING / INDUSTRIAL / MODERN`) |
+| Map Modes | 8 trybów (`Population / Economy / Resources / Trade / Technology / Development / Stability / Δ Change`) dla każdego etapu (macierz 4 × 8) |
+| Stany | wzrost, stagnacja, decline / depleted |
+| Region testowy | zgodny z Living Atlas Visual Asset Spec §22 |
+
+PASS wymaga rozróżnialności etapów, trybów i stanów **bez czytania
+etykiet i liczb**, dominacji Atlasu na obu rozdzielczościach oraz
+przejścia Anti-AI Recognition Test. Fixture wizualny: produkcyjne typy
+Read Models, jawne oznaczenie danych deweloperskich, poza production
+entrypoint. Po przejściu bramki: ponowny niezależny audyt
+(`M21-VIS-04`) i human acceptance.
+
+## §S --- status
+
+| Etap | Spec | Implementacja |
+| --- | --- | --- |
+| `M21-VIS-01` Living Atlas spike | READY (Atlas Spec v1.3 §28) | FAIL --- reopened |
+| `M21-VIS-02` Map Mode Stress Test | READY (§28.5, §28.7) | FAIL --- reopened |
+| `M21-VIS-03` Golden UI integration | RESOLVED (Golden v1.3 §26) | PARTIAL |
+| `M21-VIS-03A` Context Scope | DONE | PASS (audyt 2026-09-26) |

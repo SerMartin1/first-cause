@@ -1,23 +1,20 @@
 import type { ReactNode } from "react";
 
 export interface FCAppShellProps {
-  readonly topNavigation: ReactNode;
-  readonly simulationBar: ReactNode;
+  readonly navigationRail: ReactNode;
   readonly children: ReactNode;
 }
 
 /**
- * FCAppShell (UI Visual Design System v1.0 SS49.2): the outermost
- * layout -- top navigation, simulation bar, then the active screen's
- * content. Only one screen exists so far (the technical shell); more
- * are added to `children`/`FCTopNavigation`'s tabs as they land
- * (M11+, full integration M21).
+ * FCAppShell: stały lewy rail nawigacyjny + obszar aktywnego ekranu
+ * (Golden UI World v1.3 §26.3 A, Canonical Decisions UI-004 / UI-014).
+ * Górny pasek czasu i World Pulse należy do ekranu World, bo czyta jego
+ * Read Model.
  */
-export function FCAppShell({ topNavigation, simulationBar, children }: FCAppShellProps) {
+export function FCAppShell({ navigationRail, children }: FCAppShellProps) {
   return (
     <div className="fc-app-shell">
-      <header className="fc-app-shell__top-navigation">{topNavigation}</header>
-      <div className="fc-app-shell__simulation-bar">{simulationBar}</div>
+      <nav className="fc-app-shell__rail">{navigationRail}</nav>
       <main className="fc-app-shell__content">{children}</main>
     </div>
   );

@@ -4,9 +4,91 @@ All notable changes to this repository are recorded here, newest first.
 
 Format: one entry per change/session, dated `YYYY-MM-DD`. This file
 tracks *what changed in the repo* (docs, roadmap, code); it is not a
-replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`
+replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
+
+## 2026-09-26
+
+- **M21-VIS-R1 --- kompozycja World Screen (PASS).** Wdrożono kanon
+  Golden UI World v1.3 §26 / UI Impl Spec v1.4 §L: lewy rail
+  (`FCNavigationRail`, tylko istniejący ekran World, bez atrap; usunięto
+  `FCTopNavigation`), górny pasek czasu z World Pulse (4 wskaźniki z
+  Read Modelu + Δ w oknie porównania) i sterowaniem czasem, Living Atlas
+  jako największa powierzchnia pierwszego ekranu (auto-fit diagramu,
+  zwarty pasek narzędzi, podpis trybu jako nakładka, legenda ograniczona
+  do zakresu istniejących osad), prawa kolumna = Selected Region
+  Inspector ze stanem pustym, pas Key Causes / Possible Consequences /
+  Quick Actions pod Atlasem, zwijane moduły wspierające (Recent Events,
+  Timeline, WHY?, ranking). Widok bazowy nazwany `Terrain` (tryb bez
+  warstwy danych, domyślny). Bez zmian symulacji, Read Models, RNG,
+  zapisu i semantyki Map Modes. Nowy E2E `tests/e2e/world-layout.spec.ts`
+  (prawdziwy viewport 1920×1080 i 1280×800, bez `fullPage`), testy
+  jednostkowe railu, inspektora, World Pulse, modułów G i `fitAtlas`.
+  Screenshoty: `docs/verification/world-r1-2026-09-26/`. Wynik i statusy
+  M21-VIS w Roadmap v0.6. Powód: audyt 2026-09-26 H1, H6, H7 (Atlas nie
+  dominował, brak railu i World Pulse, 1280×800 niezweryfikowane).
+
+- **M21-VIS Canon Resolution --- World Screen + Living Atlas (tylko
+  dokumentacja, bez zmian w kodzie).** Rozstrzygnięto konflikt kompozycji
+  World (Golden §5/§8/§12 i Roadmap M21-VIS-03 kontra Golden §25, a także
+  UI-003 70/30, proporcja 80--90% / 10--20%, `Important Now` w prawym
+  panelu, pozioma nawigacja) na korzyść decyzji właściciela: mockup
+  „FIRST CAUSE --- A LIVING WORLD” jest referencją kompozycyjną (nie
+  pixel-perfect), Living Atlas jest centralnym i dominującym elementem,
+  stały lewy rail (zakres UI-004), górny pasek czasu + World Pulse, prawy
+  Selected Region Inspector ze stanem pustym, warstwa analityczna pod
+  Atlasem, moduły wspierające podporządkowane. Nowe decyzje Canonical
+  Decisions `UI-014` (kompozycja) i `UI-015` (czytelność cywilizacji:
+  wiele elementów regionu naraz, morfologia osad, skala do 10M+, WORLD
+  nie pusty, Map Modes rozróżnialne, zero ≠ brak danych); `UI-003` →
+  SUPERSEDED. Nowe wersje: Golden UI World v1.3 (§26 jako jedyny kanon
+  kompozycji + tabela zapisów superseded), Living Atlas Visual Asset Spec
+  v1.3 (§28: RegionVisualProfile v2 jako wymaganie, morfologia, skala,
+  semantic zoom WORLD, Map Modes v2, transport na krawędziach, Visual
+  Verification Gate 4 × 8 + decline/depleted + prawdziwy viewport
+  1280×800; rozróżnienie identyfikatorów VIS-xx vs M21-VIS-xx), UI Visual
+  Design System v1.4 (znaczniki SUPERSEDED + Addendum v1.4), UI
+  Implementation Spec v1.4 (Addendum v1.4: §L kontrakt kompozycji, §A
+  wymagania Atlasu v2, §W WHY? UX z `PRZYCZYNA → SKUTEK`, §V Visual
+  Verification Gate, §S statusy), Implementation Roadmap v0.6 (statusy
+  M21-VIS wg audytu: VIS-01 i VIS-02 FAIL/reopened, VIS-03 PARTIAL,
+  VIS-03A PASS; remediation track `M21-VIS-R1`...`R6`). Dodano
+  `docs/FIRST-CAUSE-World-Atlas-Independent-Audit-2026-09-26.md`;
+  adnotacje statusu w UI/UX Spec v0.1 §13 i raporcie Scope z 2026-09-25.
+  Zaktualizowano odwołania do Roadmapy w AGENTS.md, README.md, Canonical
+  Decisions i tym pliku (wcześniej wskazywały nieistniejącą v0.2).
+  Implementacja wizualna wymaga ponownej walidacji; nic nie oznaczono
+  jako ukończone. Następny krok: `M21-VIS-R1` (World Screen Layout /
+  Composition) po osobnym poleceniu właściciela.
+
+- **World Context Scope session completion.** Final World regression run PASS
+  (13 tests), including explicit overlay switching without simulation commands.
+  Completed the report started on 2026-09-25 and retained its 24 screenshot
+  artifacts. All required verification commands passed; geographic Golden
+  acceptance and independent M21 audit remain explicitly open.
+
+## 2026-09-25
+
+- **Verification:** `pnpm.cmd typecheck`, `pnpm.cmd lint`, `pnpm.cmd test`
+  (129 files / 905 tests), `pnpm.cmd build`, and `pnpm.cmd test:e2e`
+  (3 tests) PASS. Lint retains one existing content-schema warning. Final
+  renderer-only typecheck also PASS. Preserved 24 screenshots in
+  `docs/verification/world-context-2026-09-25/`; visual review tightened the
+  bottom strip and corrected text resolution / screenshot frame synchronization.
+  Full geographic Golden acceptance and independent M21 audit remain open.
+- **M21-VIS-03A / World Context Scope.** Reused WorldSession, monthly read
+  models, Causality and the existing World/PixiJS screen. Added a shared explicit
+  WORLD/REGION scope for grounded causes and the honest unavailable-forecast
+  state, contextual quick actions, and scope/item/time handoff through WHY IPC.
+  Region selection remains separate; replacing/clearing selection returns to
+  WORLD. Added EN/PL text and regression coverage for scope/history/data integrity.
+- **Living Atlas visual spike.** Added data-driven settlement blocks and profile
+  symbols to the existing PixiJS renderer, plus an isolated, explicitly labelled
+  visual-development fixture for EARLY/DEVELOPING/INDUSTRIAL/MODERN and map-mode
+  screenshots. No synthetic timeline or geography was added to the simulation.
+  Verification results and remaining acceptance limits are recorded in
+  `docs/FIRST-CAUSE-World-Context-Scope-Report-2026-09-25.md`.
 
 ## 2026-09-23
 

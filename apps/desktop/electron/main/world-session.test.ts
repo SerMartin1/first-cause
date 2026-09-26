@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadEconomyContent } from "@first-cause/worldgen";
-import { WorldViewHistory, type WorldView } from "@first-cause/simulation";
+import {
+  selectWorldAnalysis,
+  WorldViewHistory,
+  type WorldView,
+} from "@first-cause/simulation";
 import { WorldSession } from "./world-session.js";
 
 // Root Vitest configuration runs desktop host tests from the repository root.
@@ -16,6 +20,58 @@ const raw = JSON.parse(
 const content = loadEconomyContent(root);
 
 describe("World session read-model boundary", () => {
+  it("derives scope summaries only from causal edges, freezes timeline results and preserves WHY handoff", () => {
+    const session = new WorldSession(raw, content);
+    session.handle({ type: "STEP_WORLD", ticks: 12 });
+    const view = session.handle({ type: "GET_WORLD", years: 1 }) as WorldView;
+    const before = JSON.stringify(session.runner.worldState);
+    const world = selectWorldAnalysis(view.current, { kind: "WORLD" }, 1);
+    expect(world.causes.length).toBeGreaterThan(0);
+    expect(world.projectionStatus).toBe("UNAVAILABLE");
+    for (const cause of world.causes) {
+      const edge = session.runner.causalEdges.find((e) => e.id === cause.id)!;
+      expect(edge.sourceFactId).toBe(cause.factId);
+      expect(edge.targetFactId).toBe(cause.effectFactId);
+      expect(edge.contribution).toBe(cause.contribution);
+    }
+    const item = world.causes[0]!;
+    const scope = { kind: "REGION" as const, regionId: item.effectRegionId };
+    const regional = selectWorldAnalysis(view.current, scope, 1);
+    expect(regional.causes.every((c) => c.effectRegionId === scope.regionId)).toBe(true);
+    const context = {
+      scope,
+      itemId: item.id,
+      itemKind: "cause" as const,
+      regionId: scope.regionId,
+    };
+    const why = session.handle({
+      type: "GET_WORLD_WHY",
+      factId: item.effectFactId,
+      tick: 12,
+      context,
+    });
+    expect(why).toMatchObject({ context, tick: 12 });
+    expect(JSON.stringify(session.runner.worldState)).toBe(before);
+    session.handle({ type: "STEP_WORLD", ticks: 12 });
+    const historical = session.handle({
+      type: "GET_WORLD",
+      years: 1,
+      tick: 12,
+    }) as WorldView;
+    expect(selectWorldAnalysis(historical.current, scope, 1)).toEqual(regional);
+    expect(
+      selectWorldAnalysis(
+        {
+          ...historical.current,
+          causalDrivers: [...historical.current.causalDrivers!].reverse(),
+        },
+        scope,
+        1,
+      ),
+    ).toEqual(regional);
+    const empty = session.handle({ type: "GET_WORLD", years: 1, tick: 0 }) as WorldView;
+    expect(selectWorldAnalysis(empty.current, { kind: "WORLD" }, 1).causes).toEqual([]);
+  });
   it("runs real content, produces exact monthly baselines, Chronicle and causal drilldown", () => {
     expect(content.errors).toEqual([]);
     const session = new WorldSession(raw, content);

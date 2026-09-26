@@ -3,14 +3,14 @@
 These rules apply to any agent (Claude Code, Codex, or otherwise)
 working in this repository. They summarize obligations that are
 explained in full in `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
-and `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`.
+and `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`.
 
 1. **Read `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md` first.** If
    something in another spec conflicts with it, the Canonical
    Decisions document wins. Do not resolve a conflict by picking
    whichever answer is easier to implement.
 2. **Read the current milestone in
-   `docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md`** before writing
+   `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`** before writing
    code. Its per-milestone "Documentation Readiness" field tells you
    which specs to read for that milestone specifically.
 3. **Implement only the current milestone.** Do not build a system

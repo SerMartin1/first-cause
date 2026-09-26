@@ -12,7 +12,7 @@ enabled it (`Butterfly Effect`).
 > starting with
 > [`FIRST-CAUSE-Canonical-Decisions-v0.1.md`](./docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md)
 > and
-> [`FIRST-CAUSE-Implementation-Roadmap-v0.2.md`](./docs/FIRST-CAUSE-Implementation-Roadmap-v0.2.md).
+> [`FIRST-CAUSE-Implementation-Roadmap-v0.6.md`](./docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md).
 
 ## Current milestone
 

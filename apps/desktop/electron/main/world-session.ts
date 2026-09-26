@@ -83,7 +83,12 @@ export class WorldSession {
         }
         break;
       case "GET_WORLD_WHY":
-        return buildWorldWhyView(this.runner, request.factId, request.tick);
+        return buildWorldWhyView(
+          this.runner,
+          request.factId,
+          request.tick,
+          request.context,
+        );
       default:
         throw new Error("Unknown world command");
     }

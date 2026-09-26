@@ -1,6 +1,8 @@
 import { create } from "zustand";
+import type { WorldAnalysisScope } from "@first-cause/simulation";
 import type { MapMode, Overlay, FlowLens, ChangeMetric } from "./atlas-model.js";
 interface WorldUiState {
+  analysisScope: WorldAnalysisScope;
   mapMode: MapMode;
   changeMetric: ChangeMetric;
   comparisonWindow: number;
@@ -19,7 +21,8 @@ interface WorldUiState {
   set: (patch: Partial<Omit<WorldUiState, "set">>) => void;
 }
 export const useWorldStore = create<WorldUiState>((set) => ({
-  mapMode: "population",
+  analysisScope: { kind: "WORLD" },
+  mapMode: "terrain",
   changeMetric: "population",
   comparisonWindow: 1,
   overlays: ["settlements", "names", "connections", "events"],
@@ -35,7 +38,10 @@ export const useWorldStore = create<WorldUiState>((set) => ({
   resourceId: "",
   discoveryId: "",
   set: (patch) =>
-    set({
+    set((state) => ({
+      ...("selectedEntityId" in patch && patch.selectedEntityId !== state.selectedEntityId
+        ? { analysisScope: { kind: "WORLD" as const } }
+        : {}),
       ...(("selectedEntityId" in patch ||
         "timelineCursor" in patch ||
         patch.focusMode === false) &&
@@ -43,5 +49,5 @@ export const useWorldStore = create<WorldUiState>((set) => ({
         ? { causalLink: undefined }
         : {}),
       ...patch,
-    }),
+    })),
 }));

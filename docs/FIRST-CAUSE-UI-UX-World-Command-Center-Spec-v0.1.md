@@ -206,7 +206,13 @@ Powinien odpowiadać przede wszystkim:
 
 # 13. World Command Center --- struktura
 
-Rekomendowany układ desktop 1920×1080:
+> **SUPERSEDED (2026-09-26):** układ poniżej jest historyczny.
+> Obowiązującą kompozycję ekranu World określa Canonical Decisions
+> `UI-014` i `FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md` §26
+> (lewy rail, górny pasek czasu i World Pulse, dominujący Living Atlas,
+> prawy Selected Region Inspector, warstwa analityczna pod Atlasem).
+
+Historyczny rekomendowany układ desktop 1920×1080:
 
 ``` text
 ┌─────────────────────────────────────────────────────────────────────┐

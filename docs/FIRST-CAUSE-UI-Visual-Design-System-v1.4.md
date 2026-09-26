@@ -1,8 +1,8 @@
-# FIRST CAUSE --- UI Visual Design System v1.3
+# FIRST CAUSE --- UI Visual Design System v1.4
 
 **Status:** CANONICAL / FROZEN IMPLEMENTATION BASELINE --- updated for
-Golden UI World v1.1 and Raw Simulation Atlas **Projekt:** FIRST CAUSE
-**Wersja:** 1.3 **Rola:** kanoniczny kontrakt wizualny i implementacyjny
+Golden UI World v1.3 (canon resolution 2026-09-26) and Raw Simulation
+Atlas **Projekt:** FIRST CAUSE **Wersja:** 1.4 **Rola:** kanoniczny kontrakt wizualny i implementacyjny
 UI FIRST CAUSE dla człowieka, Codexa, Claude Code i innych agentów.
 Wersja 1.0 zamraża kierunek po Golden UI Review, dwóch rundach
 benchmarku oraz finalnej walidacji WCC i World Economy.\
@@ -18,6 +18,13 @@ kierunku nie oznacza wykonanego odbioru implementacji.
 > narzędzie do obserwacji świata: atlas, terminal analityczny, archiwum
 > historyczne i laboratorium przyczynowości --- nie jak dashboard SaaS
 > ani demonstracja możliwości AI.**
+
+> **v1.4 (2026-09-26):** kompozycję ekranu World określa wyłącznie
+> `FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md` §26 (Canonical
+> Decisions `UI-014`). Wcześniejsze układy World w tym dokumencie (§13,
+> §19, §31 --- diagram, §50.2, Addendum v1.2 --- proporcja) są
+> historyczne w zakresie sprzecznym z §26; szczegóły w Addendum v1.4 na
+> końcu dokumentu.
 
 ## Changelog v1.0
 
@@ -486,10 +493,13 @@ Kolor powinien rozróżniać serie lub znaczenie danych.
 
 # 13. World Command Center
 
+> **v1.4:** kolejność stref poniżej jest historyczna; obowiązuje Golden
+> UI World v1.3 §26.3 (Atlas dominujący).
+
 World Command Center powinien przypominać **stół obserwacyjny świata**,
 nie stronę startową aplikacji.
 
-Priorytet wizualny:
+Priorytet wizualny (historyczny):
 
 1.  stan świata,
 2.  Living Atlas / World Network,
@@ -1126,7 +1136,12 @@ Dla desktopowego widoku referencyjnego 1920×1080 należy dążyć do około
 Atlas**. Wartość jest kierunkowa, nie stanowi sztywnego wymogu
 pikselowego.
 
-Rekomendowana hierarchia:
+> **v1.4:** cel 55--60% powierzchni dla Atlasu obowiązuje (kierunkowo).
+> Diagram poniżej jest SUPERSEDED przez Golden UI World v1.3 §26.4
+> (lewy rail, World Pulse w górnym pasku, prawa kolumna = Selected
+> Region Inspector, warstwa analityczna pod Atlasem).
+
+Rekomendowana hierarchia (historyczna):
 
 ``` text
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -1170,7 +1185,12 @@ Information Density.
 
 ### 32.2 Overlay modes
 
-Kanoniczne tryby atlasu:
+> **v1.4:** lista trybów poniżej jest historyczna; obowiązuje Golden UI
+> World v1.3 §26.3 D. Reguły wyciszania i semantyki koloru poniżej
+> obowiązują i są rozszerzone przez Living Atlas Visual Asset Spec v1.3
+> §28.5.
+
+Historyczne tryby atlasu:
 
 `DEFAULT | POPULATION | ECONOMY | TRADE | MIGRATION | RESOURCES | TECHNOLOGY`
 
@@ -1563,6 +1583,12 @@ funkcji świata.
 ------------------------------------------------------------------------
 
 # 19. Golden UI #1 --- World Command Center: decyzje zamrożone
+
+> **v1.4:** punkty o `Important Now` jako stałym prawym panelu
+> (zastępowanym przez Region Context) oraz o pasku pięciu World Metrics
+> poza górnym paskiem są SUPERSEDED przez Golden UI World v1.3 §26.3
+> (prawa kolumna = Selected Region Inspector z jawnym stanem pustym;
+> World Pulse w górnym pasku). Pozostałe punkty obowiązują.
 
 -   Jasny, neutralny interfejs; Living Scientific Atlas zamiast
     dekoracyjnej mapy fantasy.
@@ -2506,6 +2532,13 @@ interpretacja zostaje zaostrzona.
 
 ## 64.1 Kompozycja
 
+> **v1.4:** punkty o `Important Now` jako stałym panelu i jego
+> zastępowaniu przez `Region Context` są SUPERSEDED przez Golden UI
+> World v1.3 §26.3 (prawa kolumna = Selected Region Inspector z jawnym
+> stanem pustym; Important Now / Recent Events = moduł wspierający;
+> World Metrics = World Pulse w górnym pasku). Dominacja Atlasu
+> obowiązuje.
+
 -   Living Atlas pozostaje wizualnie dominujący.
 -   `Important Now` pozostaje stałym panelem z preferowanymi 3 i
     maksymalnie 4 znaczącymi sprawami.
@@ -2699,7 +2732,9 @@ Pokazywać:
 -   główne połączenia infrastrukturalne,
 -   tylko najważniejsze przepływy aktywnego overlayu,
 -   uproszczone osady wyłącznie tam, gdzie pomagają zrozumieć strukturę
-    regionu,
+    regionu (v1.4: każdy region zachowuje co najmniej zagregowany znak
+    struktury cywilizacji --- Living Atlas Visual Asset Spec v1.3
+    §28.4),
 -   geography jako spokojny kontekst.
 
 Nie pokazywać jednocześnie nazw wszystkich osad, wszystkich przepływów
@@ -2723,7 +2758,9 @@ W tym trybie:
 -   regiony mogą być agregowane w `FCAtlasCluster`,
 -   etykiety otrzymują wyłącznie major regions, selection, hover i
     znaczące anomalie,
--   settlement layer jest domyślnie ukryty lub agregowany,
+-   settlement layer jest agregowany --- **nigdy całkowicie ukryty**
+    (v1.4; Living Atlas Visual Asset Spec v1.3 §28.4: podstawowa
+    struktura cywilizacji jest czytelna już na poziomie WORLD),
 -   połączenia drugorzędne są ukrywane,
 -   flows są agregowane w korytarze,
 -   proceduralna winieta nie jest renderowana jako osobna miniatura przy
@@ -3035,8 +3072,11 @@ and MUST NOT be rendered as a player-facing heading.
 
 ## 50.2 Core composition
 
+> **v1.4:** Atlas-dominance obowiązuje. Kolejność stref poniżej jest
+> historyczna; obowiązuje Golden UI World v1.3 §26.3.
+
 The accepted World screen uses the Living Atlas as the dominant
-workspace. The screen hierarchy is:
+workspace. The screen hierarchy (historical) is:
 
 1.  global navigation and simulation time controls,
 2.  compact World Overview / World Pulse,
@@ -3056,7 +3096,11 @@ not a KPI dashboard.
     magnitude**. A settlement of \~100k inhabitants must be visibly
     larger than one of \~10k. Production implementation MUST use a
     bounded non-linear scale (sqrt/log-derived) so very large cities do
-    not dominate the viewport.
+    not dominate the viewport. **v1.4:** the bound must not equalise
+    City / Metropolis / Megacity classes (e.g. a cap reached at ~100k is
+    non-conforming); the range ~100 → 10M+ stays distinguishable through
+    log/semantic scale plus settlement morphology (Living Atlas Visual
+    Asset Spec v1.3 §28.2--28.3).
 -   Marker colour MUST NOT redundantly encode population. Colour is
     reserved for the active Map Mode / change state.
 -   Geography is contextual and calm: water, rivers, borders, restrained
@@ -3191,16 +3235,21 @@ data literally.
 The World Command Center is a **LIGHT LIVING SCIENTIFIC ATLAS +
 TEXT-FIRST SIMULATION TERMINAL**.
 
-Target balance is approximately **80--90% information/text/tables/data
-structure** and **10--20% graphical representation**, with the Living
-Atlas as the dominant graphical surface.
+> **SUPERSEDED (v1.4):** proporcja 80--90% / 10--20% nie obowiązuje dla
+> ekranu World. Living Atlas jest centralnym i dominującym wizualnie
+> elementem (Golden UI World v1.3 §26.2, `UI-014`).
+
+Historical target balance: approximately **80--90%
+information/text/tables/data structure** and **10--20% graphical
+representation**, with the Living Atlas as the dominant graphical
+surface.
 
 ## Source hierarchy
 
 For World implementation:
 
-1.  `Golden UI World Command Center v1.1` --- layout and information
-    hierarchy.
+1.  `Golden UI World Command Center v1.3` (§26) --- layout and
+    information hierarchy (v1.4: updated from v1.1).
 2.  `Raw Simulation Atlas v0.1` --- map character.
 3.  `Visual Alphabet v1.1` --- map symbol grammar.
 4.  `Living Atlas Visual Asset Spec v1.2` --- renderer/data contract.
@@ -3259,3 +3308,52 @@ selection/context instead of duplicating the scope selector.
 Consequences are visually distinguished from observed facts. Forecast
 ranges/confidence may use restrained notation, but never AI-chat
 language, sparkle metaphors or unsupported certainty.
+
+------------------------------------------------------------------------
+
+# Addendum v1.4 --- World Screen canon resolution (2026-09-26)
+
+**Status:** CANONICAL --- Canonical Decisions `UI-014`, `UI-015`.
+
+## Kompozycja
+
+Jedynym normatywnym opisem kompozycji ekranu World jest
+`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md` §26: stały lewy
+rail, górny pasek czasu i World Pulse, centralny i dominujący Living
+Atlas, prawa kolumna Selected Region Inspector (z jawnym stanem
+pustym), warstwa analityczna pod Atlasem (Key Causes / Possible
+Consequences / Quick Actions) oraz podporządkowane moduły wspierające.
+Referencją kompozycyjną jest mockup „FIRST CAUSE --- A LIVING WORLD”
+(nie pixel-perfect; kolory, ikony, teksty i dane przykładowe podlegają
+temu dokumentowi i Anti-AI Guidelines).
+
+## Zapisy historyczne w tym dokumencie
+
+| Sekcja | Stan |
+| --- | --- |
+| §13 kolejność priorytetów | historyczna |
+| §19 `Important Now` jako prawy panel; World Metrics poza górnym paskiem | superseded |
+| §49.2 `FCTopNavigation` jako forma nawigacji globalnej | superseded: lewy rail (zakres `UI-004`) |
+| §64.1 `Important Now` / `Region Context` w prawym panelu | superseded |
+| §31 diagram | superseded; cel 55--60% powierzchni dla Atlasu obowiązuje kierunkowo |
+| §32.2 lista trybów | superseded przez Golden v1.3 §26.3 D |
+| §50.2 kolejność stref | historyczna; Atlas-dominance obowiązuje |
+| §50.3 ograniczenie skali znacznika | doprecyzowane (bez zrównywania klas) |
+| Addendum v1.2 proporcja 80--90% / 10--20% | superseded |
+| §69.4 settlement layer „ukryty” | superseded: agregowany, nigdy ukryty |
+
+## Anti-AI --- doprecyzowanie
+
+Kierunek Anti-AI pozostaje bez zmian: bez generycznych kart SaaS,
+nadmiaru zaokrągleń, dekoracyjnych gradientów, zbędnych ozdobników i
+„AI dashboard look”; czytelna hierarchia typograficzna. Jednocześnie
+**„anti-AI” nie oznacza „surowego panelu administracyjnego”**: ekran
+zbudowany głównie z formularzy (selecty, pola wyboru) wokół małego
+diagramu nie przechodzi FIRST CAUSE Recognition Test (Anti-AI
+Guidelines §5.4). Tożsamość wizualną nadaje Living Atlas.
+
+## Map Modes i legendy
+
+Każdy Map Mode ma własne kodowanie i legendę; „zero” i „brak danych”
+mają różne oznaczenia; tryby nie mogą różnić się wyłącznie liczbą w
+etykiecie (Living Atlas Visual Asset Spec v1.3 §28.5).

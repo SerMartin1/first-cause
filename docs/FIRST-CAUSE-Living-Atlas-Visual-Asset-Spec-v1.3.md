@@ -1,17 +1,25 @@
-# FIRST CAUSE --- Living Atlas Visual Asset Spec v1.2
+# FIRST CAUSE --- Living Atlas Visual Asset Spec v1.3
 
 **Status:** CANONICAL VISUAL ASSET PRODUCTION SPEC\
 **Projekt:** FIRST CAUSE\
-**Wersja:** 1.2\
+**Wersja:** 1.3 (2026-09-26 --- §28: wymagania czytelności cywilizacji,
+Map Modes v2 i Visual Verification Gate po audycie z 2026-09-26)\
 **Powiązany milestone:** M21 --- UI Vertical Slice\
 **Kanoniczne referencje wizualne:**
-`FIRST-CAUSE-Raw-Simulation-Atlas-v0.1.png`,
-`FIRST-CAUSE-Visual-Alphabet-v1.1.png`,
-`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.1.md`
+`docs/visual-reference/FIRST-CAUSE-Raw-Simulation-Atlas-v0.1(1).png`,
+`docs/golden-ui/FIRST-CAUSE-Visual-Alphabet-v1.1(1).png`,
+`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md`
 
-**Powiązane dokumenty:** `FIRST-CAUSE-UI-Visual-Design-System-v1.1.md`,
-`FIRST-CAUSE-UI-Implementation-Spec-v1.1.md`,
-`FIRST-CAUSE-Golden-UI-01-World-v1.0.png`
+**Powiązane dokumenty:** `FIRST-CAUSE-Canonical-Decisions-v0.1.md`
+(`UI-014`, `UI-015`), `FIRST-CAUSE-UI-Visual-Design-System-v1.4.md`,
+`FIRST-CAUSE-UI-Implementation-Spec-v1.4.md`,
+`docs/golden-ui/FIRST-CAUSE-Golden-UI-01-World-v1.0.png` (historyczna
+referencja v1.1)
+
+> **Identyfikatory bramek:** `VIS-01`...`VIS-10` w §23 tego dokumentu to
+> bramki odbioru **assetów**. Etapy harmonogramu w Roadmapie mają
+> prefiks `M21-VIS-xx` (np. `M21-VIS-01` = implementation spike). W
+> dokumentach przekrojowych zawsze używać pełnego prefiksu.
 
 > **Living Atlas nie jest ilustracją świata. Jest wizualnym zapisem
 > stanu, rozwoju i zmian symulacji.**
@@ -1256,3 +1264,156 @@ Then render the same geography under available:
 
 PASS requires that the base map remains subordinate to the selected data
 layer and that the same region remains recognizable across time.
+
+> **v1.3:** kryterium PASS rozszerza §28.7 (Visual Verification Gate).
+> Rozróżnialność etapów i trybów wyłącznie przez etykietę, liczbę w
+> etykiecie lub liczbę identycznych bloków nie spełnia bramki.
+
+------------------------------------------------------------------------
+
+# 28. v1.3 --- wymagania po niezależnym audycie 2026-09-26
+
+**Status:** CANONICAL --- wymagania (Canonical Decisions `UI-015`).
+Sekcja nie implementuje niczego i nie projektuje nowego Entity Data
+Model. Opisuje, co kontrakt Read Model → wizualizacja musi docelowo
+umożliwiać. Źródło stanu faktycznego:
+`FIRST-CAUSE-World-Atlas-Independent-Audit-2026-09-26.md`.
+
+## 28.1 Wiele elementów regionu naraz (RegionVisualProfile v2)
+
+Region może jednocześnie posiadać np. kopalnię, hutę, tartak, drogę,
+kolej i wydobycie żelaza. Atlas musi móc przedstawić je **równocześnie**.
+Pojedyncza wartość typu `industry = mine` nie jest docelowym
+ograniczeniem reprezentacji.
+
+Docelowo kontrakt wizualny regionu powinien móc niezależnie wyrażać co
+najmniej:
+
+``` text
+industry[]      — rodzina sektora + skala + stan, wiele pozycji
+extraction[]    — rodzina metody wydobycia + stan, wiele pozycji
+transport / infrastructure per connection — poziom na krawędzi, nie na węźle
+```
+
+lub równoważny model zgodny z istniejącą architekturą Read Models.
+Wymagania:
+
+-   wszystkie pola wynikają z istniejących danych (`NO DECORATION
+    WITHOUT INFORMATION`, VIS-09); brak danych = brak pola, nie
+    domysł,
+-   rodzina metody wydobycia i rodzina sektora wynikają z danych
+    contentu (JSON + Zod), nie z gałęzi kodu per zasób / firmę / region
+    (AGENTS.md reguły 7--8),
+-   progi skali/stanu są konfigurowalne i oznaczone `TODO tuning`,
+-   rozszerzenie nie zmienia Simulation Model, determinizmu, RNG ani
+    formatu zapisu.
+
+## 28.2 Morfologia osad
+
+Rozwój osady nie może być przedstawiany wyłącznie jako „więcej
+identycznych kwadratów w większej siatce”. Reprezentacja komunikuje
+zmianę **struktury**. Semantyka kierunkowa (zasada wizualna, nie
+specyfikacja renderera):
+
+``` text
+Hamlet      → małe skupisko
+Village     → rozwój wzdłuż lokalnego układu komunikacyjnego
+Town        → wyraźniejszy rdzeń
+City        → rdzeń + dzielnice / struktura gospodarcza
+Metropolis  → złożona, wielocentryczna struktura
+```
+
+Układ jest deterministyczny (np. z `vignetteSeed`), mieści się w
+znaczniku selekcji i nie sugeruje funkcji, których nie ma w danych.
+Kategorie §4A.1 / §6.1 pozostają źródłem klas.
+
+## 28.3 Skalowanie populacji
+
+Wizualny rozwój osady nie kończy się przy ok. 100 000 mieszkańców.
+System musi rozróżniać szeroki zakres, np.:
+
+``` text
+100 · 1 000 · 10 000 · 100 000 · 1 000 000 · 10 000 000+
+```
+
+Skalowanie nie jest liniowe: logarytmiczne / semantyczne, połączone ze
+zmianą morfologii (§28.2). Ograniczenie maksymalnego rozmiaru znacznika
+jest dozwolone (§6.2), ale górna granica nie może zrównywać klas
+City / Metropolis / Megacity --- rozróżnienie niesie wtedy morfologia.
+Legenda skali wynika z faktycznego zakresu danych, nie ze stałych
+wartości.
+
+## 28.4 Semantic Zoom --- poziom WORLD
+
+Uzupełnia §13 i Design System v1.4 §69:
+
+-   poziom WORLD nie może być niemal pustym diagramem kropek i linii,
+-   już na WORLD gracz odczytuje podstawową strukturę cywilizacji:
+    klasę osady, obecność przemysłu / wydobycia, poziom połączeń,
+-   na HIGH DENSITY warstwa osad jest **agregowana**, nigdy całkowicie
+    ukryta,
+-   zoom dodaje szczegóły; nie ujawnia dopiero istnienia podstawowych
+    elementów świata,
+-   symbole profilu nie są dostępne wyłącznie po selekcji lub zbliżeniu.
+
+## 28.5 Map Modes v2 --- rozróżnialność semantyczna
+
+Uzupełnia §14:
+
+-   każdy Map Mode ma **własne kodowanie** (kolor/rampa, kształt,
+    grubość krawędzi, przygaszenie warstw) --- dwa tryby nie mogą
+    różnić się wyłącznie liczbą w etykiecie,
+-   warstwa cywilizacji pozostaje widoczna i przygaszona; tryb nie
+    zamienia gramatyki symbolu osady na inną (np. bloki → koło),
+-   każdy tryb ma legendę opisującą aktywne kodowanie, kierunek skali
+    (np. czy wyższa presja = gorzej) i jednostkę,
+-   **„zero” ≠ „brak danych”**: oba stany mają różne, jawne
+    oznaczenie,
+-   normalizacja intensywności nie może ukrywać skali absolutnej
+    (np. jeden region zawsze „100%”),
+-   tryb bez danych w Read Models jest disabled, nie fabrykowany.
+
+Kierunkowe kodowania (do potwierdzenia w implementacji, w granicach
+Visual Alphabet v1.1 §8): Economy --- rampa wartości; Resources ---
+kształt klasy zasobu + wielkość złoża; Trade --- grubość i kierunek
+krawędzi; Technology --- znaki poziomu; Development --- infrastruktura
+krawędzi; Stability --- rampa presji z jawnym kierunkiem; Δ Change ---
+skala rozbieżna; Population --- rozmiar + zmiana.
+
+## 28.6 Transport na połączeniach
+
+Infrastruktura transportowa (trail / road / railway / highway i ich
+odpowiedniki z §8) jest rysowana **na krawędziach między regionami**
+zgodnie z poziomem połączenia, a nie jako znacznik pod osadą.
+
+## 28.7 Visual Verification Gate
+
+Odbiór Atlasu (Roadmap v0.6 `M21-VIS-R6`) wymaga zestawu dowodów:
+
+1.  **1920×1080** --- ekran World,
+2.  **prawdziwy viewport 1280×800** --- screenshot viewportu, nie
+    `fullPage`; `fullPage` nie jest substytutem tego testu,
+3.  WORLD bez zaznaczonego regionu i WORLD z zaznaczonym regionem,
+4.  macierz **4 etapy rozwoju × 8 Map Modes** (`EARLY / DEVELOPING /
+    INDUSTRIAL / MODERN` × `Population / Economy / Resources / Trade /
+    Technology / Development / Stability / Δ Change`),
+5.  stany **wzrostu, stagnacji oraz decline / depleted** (VIS-05),
+6.  region testowy zgodny z §22 (iron + coal, metallurgy, road + rail),
+7.  prawdziwy świat (nie tylko fixture) na domyślnym poziomie zoomu.
+
+PASS wymaga, aby bez czytania etykiet etapu i liczb:
+
+-   etapy różniły się strukturą osady, przemysłu, wydobycia i połączeń,
+-   każdy Map Mode był rozpoznawalny wizualnie,
+-   stan decline / depleted był odróżnialny od active,
+-   Atlas pozostał dominującą powierzchnią ekranu (Golden UI World v1.3
+    §26.2).
+
+Fixture wizualny musi być zgodny z produkcyjnymi typami Read Models i
+jawnie oznaczony jako dane deweloperskie (UI Implementation Spec v1.4).
+
+## 28.8 Status
+
+-   **Spec:** READY.
+-   **Implementacja:** NIE SPEŁNIA --- audyt 2026-09-26 (BLOCKER B1, B2;
+    HIGH H2, H3). Kontynuacja: Roadmap v0.6 `M21-VIS-R2`...`R6`.

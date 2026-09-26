@@ -51,6 +51,8 @@ test("World atlas: events, WHY, history, map modes and locale share the real wor
     const live = await window.evaluate(() => window.firstCauseWorld.getWorld(1));
     expect(live.current.summary.currentTick).toBe(12);
     expect(live.baseline?.summary.currentTick).toBe(0);
+    // Moduły wspierające startują zwinięte (Golden UI World v1.3 §26.3 G).
+    await window.locator(".fc-world__recent > summary").click();
     await expect(window.locator(".fc-world__events button").first()).toBeVisible();
     await window.locator(".fc-world__events button").first().click();
     await expect(window.locator(".fc-world__region .fc-region-vignette")).toBeVisible();
@@ -66,6 +68,29 @@ test("World atlas: events, WHY, history, map modes and locale share the real wor
     await window
       .locator(".fc-world__region-picker select")
       .selectOption(explainedRegion!.regionId);
+    const scope = window.getByRole("group", { name: "Analysis scope" });
+    await expect(
+      scope.getByRole("button", { name: "WORLD", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await window.screenshot({
+      path: testInfo.outputPath("context-world-selected.png"),
+      fullPage: true,
+    });
+    await scope.getByRole("button", { name: explainedRegion!.name, exact: true }).click();
+    await expect(window.getByTestId("analysis-causes")).toHaveAttribute(
+      "data-scope",
+      "REGION",
+    );
+    await expect(window.getByTestId("analysis-consequences")).toHaveAttribute(
+      "data-scope",
+      "REGION",
+    );
+    await window.screenshot({
+      path: testInfo.outputPath("context-region.png"),
+      fullPage: true,
+    });
+    await scope.getByRole("button", { name: "WORLD", exact: true }).click();
+    expect(await window.evaluate(() => window.firstCauseWorld.getWorld(1))).toEqual(live);
     await window.locator(".fc-world__latest-change button").click();
     await expect(window.locator(".fc-world__causes > div").first()).toBeVisible();
     await window
@@ -108,6 +133,7 @@ test("World atlas: events, WHY, history, map modes and locale share the real wor
       path: testInfo.outputPath("world-change-10y.png"),
       fullPage: true,
     });
+    await window.locator(".fc-world__timeline > summary").click();
     await window.getByRole("slider", { name: "World Timeline" }).fill("0");
     await expect(window.getByRole("button", { name: "Advance 1 year" })).toBeDisabled();
     await expect(window.locator(".fc-world__timeline")).toContainText("Historical view");
@@ -119,15 +145,15 @@ test("World atlas: events, WHY, history, map modes and locale share the real wor
     await expect(window.getByRole("button", { name: "Advance 1 year" })).toBeEnabled();
     const beforeLocale = await window.evaluate(() => window.firstCauseWorld.getWorld(1));
     await window.getByRole("button", { name: "PL", exact: true }).click();
-    await expect(window.getByRole("heading", { name: "Przegląd świata" })).toBeVisible();
+    await expect(
+      window.getByRole("heading", { name: "NAJWAŻNIEJSZE PRZYCZYNY" }),
+    ).toBeVisible();
     expect(await window.evaluate(() => window.firstCauseWorld.getWorld(1))).toEqual(
       beforeLocale,
     );
     await window.setViewportSize({ width: 1280, height: 800 });
-    await window.screenshot({
-      path: testInfo.outputPath("world-pl-1280.png"),
-      fullPage: true,
-    });
+    await window.evaluate(() => window.scrollTo(0, 0));
+    await window.screenshot({ path: testInfo.outputPath("world-pl-1280.png") });
     expect(
       await window.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,

@@ -1,15 +1,25 @@
-# FIRST CAUSE --- Golden UI: World Command Center v1.2
+# FIRST CAUSE --- Golden UI: World Command Center v1.3
 
 **Status:** CANONICAL GOLDEN UI / APPROVED IMPLEMENTATION REFERENCE ---
-context scope update\
+v1.3 canon resolution (2026-09-26)\
 **Scope:** World Command Center + contextual Region Inspector\
-**Reference visual:** approved 1920×1080 light-background World Command
-Center mockup supplied with v1.1\
-**Parent documents:** `FIRST-CAUSE-UI-Visual-Design-System-v1.2`,
-`FIRST-CAUSE-UI-Implementation-Spec-v1.2`,
+**Reference visual:** zaakceptowany mockup kompozycyjny „FIRST CAUSE ---
+A LIVING WORLD” (decyzja właściciela 2026-09-26, §26); wcześniejszy
+`docs/golden-ui/FIRST-CAUSE-Golden-UI-01-World-v1.0.png` pozostaje
+referencją historyczną v1.1\
+**Parent documents:** `FIRST-CAUSE-Canonical-Decisions-v0.1` (UI-014,
+UI-015), `FIRST-CAUSE-UI-Visual-Design-System-v1.4`,
+`FIRST-CAUSE-UI-Implementation-Spec-v1.4`,
 `FIRST-CAUSE-UI-UX-World-Command-Center-Spec-v0.1`,
-`FIRST-CAUSE-Canonical-Decisions-v0.1`,
-`FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.2`
+`FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.3`
+
+> **v1.3 --- jeden kanon kompozycji World.** Sekcja §26 jest
+> normatywnym i jedynym obowiązującym opisem kompozycji ekranu World.
+> Zapisy §1 (proporcja 80--90% / 10--20%), §5 (diagram struktury),
+> §7 (lista wpisów railu), §8 (World Overview nad Atlasem), §9.5
+> (lista overlayów) i §12 (dolny pas Regions/Economy/Events/Population)
+> są **SUPERSEDED** w zakresie opisanym w §26.5. Pozostałe sekcje
+> obowiązują, o ile nie są sprzeczne z §26.
 
 ------------------------------------------------------------------------
 
@@ -27,7 +37,11 @@ The screen must communicate one idea immediately:
 > Living Scientific Atlas --- not a graphic-heavy god game and not a
 > SaaS dashboard.**
 
-Target balance for the World Command Center:
+> **SUPERSEDED (v1.3, §26.5):** poniższa proporcja 80--90% / 10--20%
+> nie obowiązuje. Living Atlas jest centralnym i dominującym wizualnie
+> elementem ekranu (§26.2). Zakaz dekoracyjnej ilustracji pozostaje.
+
+Target balance for the World Command Center (historical, v1.1--v1.2):
 
 -   **\~80--90% information / text / tables / data structure**,
 -   **\~10--20% graphical representation**, dominated by the Living
@@ -162,6 +176,9 @@ Use for:
 
 ## 5. Global screen structure
 
+> **SUPERSEDED (v1.3):** diagram poniżej jest historyczny. Obowiązującą
+> strukturę stref definiuje §26.3.
+
 Reference desktop target: **1920×1080**.
 
 The screen consists of five persistent structural zones:
@@ -232,7 +249,13 @@ actions, but tooltips are mandatory.
 
 The navigation rail is narrow and stable.
 
-Canonical high-level entries:
+> **v1.3:** forma lewego railu jest kanoniczna (§26.3 A). Funkcjonalny
+> zakres wpisów wyznacza Canonical Decisions UI-004 (World, Economy,
+> Technology, Chronicle, Architect) + funkcje systemowe. Lista poniżej
+> jest SUPERSEDED jako normatywna: dodatkowe wpisy (Regions, Population,
+> Firms, WHY? / Trace Cause) wymagają decyzji właściciela (§26.8).
+
+Historical v1.1 entries:
 
 ``` text
 WORLD
@@ -271,6 +294,10 @@ Do not assign decorative icons to every number, row, trend, or event.
 ------------------------------------------------------------------------
 
 ## 8. World Overview header
+
+> **SUPERSEDED (v1.3):** World Overview nie jest osobnym pasem nad
+> Atlasem. Kanoniczne metryki poniżej tworzą **World Pulse** w górnym
+> pasku (§26.3 B). Recent Events są modułem wspierającym (§26.3 G).
 
 The upper central strip contains a compact overview rather than large
 cards.
@@ -374,7 +401,10 @@ Do not render all possible flows simultaneously.
 
 ### 9.5 Overlays
 
-Canonical overlay modes:
+> **SUPERSEDED (v1.3):** listę trybów definiuje §26.3 D (Map Modes);
+> Migration jest rodziną overlayu/Flow Lens, nie Map Mode.
+
+Historical overlay modes (v1.0):
 
 ``` text
 DEFAULT | POPULATION | ECONOMY | TRADE | MIGRATION | RESOURCES | TECHNOLOGY
@@ -472,6 +502,13 @@ Region/Firms deep view.
 ------------------------------------------------------------------------
 
 ## 12. Bottom information strip
+
+> **SUPERSEDED (v1.3):** warstwą bezpośrednio pod Atlasem jest
+> analityczny pas decyzyjny z §25 (Key Causes / Possible Consequences /
+> Quick Actions). Moduły 12.1--12.4 są **modułami wspierającymi**
+> (§26.3 G): mogą istnieć, ale nie są obowiązkowym dolnym pasem i nie
+> mogą zmniejszać dominacji Atlasu. Reguły formy (rules, bez kart,
+> jeden mały wykres z jasnym pytaniem) nadal obowiązują.
 
 The bottom strip contains compact analytical modules. They are separated
 by rules and headers, not floating cards.
@@ -1005,3 +1042,192 @@ Prefer: - text, - underline/rule, - subtle selected background, - square
 geometry.
 
 Avoid: - pills, - gradients, - glow, - oversized badges.
+
+------------------------------------------------------------------------
+
+## 26. v1.3 --- Canon Resolution: kompozycja World Screen (2026-09-26)
+
+**Status:** CANONICAL --- decyzja właściciela projektu z 2026-09-26,
+zarejestrowana w Canonical Decisions jako `UI-014` i `UI-015`. Ta sekcja
+jest **jedynym** obowiązującym opisem kompozycji ekranu World. Nie
+istnieje równoległy wariant.
+
+### 26.1 Referencja
+
+World Screen jest projektowany według hierarchii kompozycyjnej
+zaakceptowanego mockupu **„FIRST CAUSE --- A LIVING WORLD”**.
+
+Mockup jest referencją **kompozycyjną i funkcjonalną**, nie wymaganiem
+pixel-perfect. Ustala:
+
+-   hierarchię i kompozycję stref,
+-   proporcje funkcjonalne i relacje między obszarami,
+-   priorytet Living Atlas,
+-   sposób myślenia o ekranie World.
+
+Nie ustala: dokładnych wartości px, kolorów pojedynczych elementów,
+ikon, tekstów, liczby tabel, danych przykładowych ani fikcyjnych nazw.
+Wszystkie szczegóły wizualne podlegają UI Visual Design System v1.4 i
+Anti-AI Quality & Design Guidelines v0.1.
+
+### 26.2 Zasada nadrzędna
+
+> **LIVING ATLAS JEST CENTRALNYM I DOMINUJĄCYM WIZUALNIE ELEMENTEM
+> WORLD SCREEN.**
+
+Pierwsze wrażenie gracza: *„Widzę żyjący świat, a wokół niego znajdują
+się narzędzia pozwalające mi go zrozumieć.”* Ekran nie może sprawiać
+wrażenia panelu administracyjnego z diagramem pośrodku.
+
+Atlas zajmuje największą ciągłą powierzchnię ekranu. Kierunkowy cel:
+ok. 55--60% obszaru roboczego między railem, górnym paskiem i
+inspektorem (Design System v1.4 §31). Wartość jest kierunkowa, nie jest
+sztywnym budżetem pikseli. Kontrolki Atlasu (Map Mode, porównanie,
+Flow Lens, overlaye, zoom) są zwartym paskiem narzędzi lub overlayem
+Atlasu i nie mogą odbierać mu znaczącej części wysokości.
+
+„Anti-AI” nie oznacza „surowego panelu administracyjnego”. Tożsamość
+wizualną produktu nadaje Living Atlas.
+
+### 26.3 Strefy ekranu (hierarchia kanoniczna)
+
+**A. Globalna nawigacja --- stały lewy rail.** Wąski i stabilny.
+Zakres wpisów: Canonical Decisions `UI-004` (World, Economy, Technology,
+Chronicle, Architect) + funkcje systemowe (Save / Load / Settings /
+Exit). Etykieta jest identyfikatorem głównym; ikona pomocnicza.
+Wpis dla ekranu, który jeszcze nie istnieje, jest ukryty albo disabled
+--- nie jest atrapą.
+
+**B. Górny pasek świata / World Pulse.** Czas świata (rok / miesiąc /
+tick zgodnie z modelem), sterowanie czasem (`UI-013`) i 3--5
+najważniejszych wskaźników World Pulse z kanonicznej listy §8
+(wartość + zmiana w oknie porównania). World Pulse jest ciągłym
+paskiem orientacyjnym, nie siatką kart KPI.
+
+**C. Living Atlas.** Centralny obszar. Pokazuje --- stopniowo, zgodnie
+z Semantic Zoom i Map Modes --- teren, osadnictwo, infrastrukturę,
+zasoby, gospodarkę, przemysł, transport, zmiany, problemy i istotne
+wydarzenia. Nie jest klasyczną mapą geograficzną (`UI-002`); obowiązują
+warstwy `GEOGRAPHY → CIVILIZATION → SIMULATION DATA` (§24.2) i
+Living Atlas Visual Asset Spec v1.3 §28. Poziom WORLD nie może być
+niemal pustym diagramem kropek i linii: już na nim gracz odczytuje
+podstawową strukturę cywilizacji; zoom dodaje szczegóły, a nie ujawnia
+istnienia podstawowych elementów świata.
+
+**D. Map Modes.** Jeden główny tryb naraz. Kanoniczny zestaw:
+`Terrain (widok bazowy, dawniej DEFAULT) | Political | Population |
+Economy | Resources | Trade | Technology | Development | Stability |
+Δ Change`. Tryb bez danych w Read Models jest widoczny jako disabled
+(np. Political) i nie jest fabrykowany. Każdy tryb przekazuje wizualnie
+**inną informację** (własne kodowanie, własna legenda, jawne rozróżnienie
+„zero” vs „brak danych”) --- Living Atlas Visual Asset Spec v1.3 §28.5.
+Migration, trade flows i technology diffusion są overlayami / Flow Lens,
+nie Map Modes.
+
+**E. Selected Region Inspector --- prawa kolumna.** Kontekstowy
+inspektor aktualnie wybranego regionu; nie drugi globalny dashboard.
+Bez wybranego regionu pokazuje jawny stan pusty. Zawartość i progressive
+disclosure: §10 oraz Design System v1.4 §50.8. Rozdział
+`selectedEntityId` ≠ `analysisScope` (§25.2) pozostaje w mocy: wybór
+regionu zmienia inspektor, nie zakres analizy.
+
+**F. Warstwa analityczna pod Atlasem.** Bezpośrednio pod Atlasem:
+`Key Causes | Possible Consequences | Quick Actions` ze wspólnym
+przełącznikiem zakresu `ŚWIAT | [REGION]` (§25). Brak projekcji modelu
+komunikowany jawnie i zwięźle; niedostępny moduł nie zajmuje pełnej
+szerokości statycznym tekstem. Key Causes komunikują relację
+`PRZYCZYNA → SKUTEK` (§26.6). Prognozy spekulacyjne nie są
+prezentowane jako fakty.
+
+**G. Moduły wspierające.** Recent Events, World Timeline, kontekstowy
+ranking regionów, podsumowanie gospodarki, odnośniki do Chronicle i
+inne zestawienia wspierają Atlas. Nie mogą go wizualnie zdominować,
+mogą być zwijane i jako pierwsze ustępują miejsca przy mniejszej
+rozdzielczości (§19). Pętla `EVENT → LOCATE → INSPECT → WHY?` (§24.5)
+musi pozostać dostępna bez opuszczania World. Dokładne rozmieszczenie
+modułów G jest decyzją implementacyjną Pass 1 (Roadmap v0.6
+M21-VIS-R1) w granicach tej sekcji.
+
+### 26.4 Schemat stref (niepikselowy)
+
+``` text
+┌────┬────────────────────────────────────────────────────────────────┐
+│    │ B  CZAS · STEROWANIE CZASEM · WORLD PULSE (3–5 wskaźników)      │
+│ A  ├──────────────────────────────────────────────┬─────────────────┤
+│    │                                              │ E  SELECTED      │
+│ L  │  C  LIVING ATLAS                             │    REGION        │
+│ E  │     (+ zwarty pasek Map Modes / narzędzi)    │    INSPECTOR     │
+│ W  │                                              │                  │
+│ Y  │     największa ciągła powierzchnia ekranu    │  (jawny stan     │
+│    │                                              │   pusty)         │
+│ R  ├──────────────────────────────────────────────┤                  │
+│ A  │ F  KEY CAUSES │ POSSIBLE CONSEQ. │ QUICK ACT. │                  │
+│ I  ├──────────────────────────────────────────────┴─────────────────┤
+│ L  │ G  moduły wspierające (Recent Events, Timeline, ranking…),     │
+│    │    zwijane, podporządkowane Atlasowi                            │
+└────┴────────────────────────────────────────────────────────────────┘
+```
+
+Schemat określa relacje stref, nie proporcje pikselowe.
+
+### 26.5 Zapisy superseded
+
+| Dokument / sekcja | Zapis historyczny | Obowiązuje teraz |
+| --- | --- | --- |
+| Canonical Decisions `UI-003` | ok. 70% tekst / 30% wizualizacja sieci | `UI-014`: Atlas dominujący |
+| Golden §1 | 80--90% informacja / 10--20% grafika | §26.2 |
+| Golden §5 | top bar + left nav + World Overview nad Atlasem + dolny pas 4 modułów | §26.3--26.4 |
+| Golden §7 | lista 9 wpisów railu | §26.3 A (`UI-004`) |
+| Golden §8 | World Overview jako pas nad Atlasem | World Pulse w pasku B |
+| Golden §9.5 | DEFAULT … MIGRATION … jako overlay modes | §26.3 D |
+| Golden §12 | dolny pas Regions / Economy / Events / Population | F (§25) + moduły wspierające G |
+| Roadmap v0.5 M21-VIS-03 | bottom Regions/Economy/Events/Population strip | Roadmap v0.6 M21-VIS-03 |
+| UI/UX Spec v0.1 §13 | World Status lewo / Important Now prawo / Recent History dół | §26.3 |
+| UI Implementation Spec v1.3 §10 | pozioma `Top Navigation` | lewy rail (§26.3 A) |
+| UI Implementation Spec v1.3 §11 | `Important Now` w prawym panelu, zastępowane przez Region Context | prawa kolumna = inspektor ze stanem pustym |
+| Design System v1.3 §13, §19, §31 (diagram), §50.2 | wcześniejsze układy i kolejności stref | §26.3 |
+| Design System v1.3 Addendum v1.2 | 80--90% informacja / 10--20% grafika | §26.2 |
+| Design System v1.3 §69.4 | settlement layer na HIGH DENSITY „ukryty” | zagregowany, nigdy całkowicie ukryty |
+
+Dokumenty historyczne nie są przepisywane; ich zapisy obowiązują tylko
+tam, gdzie nie są sprzeczne z tą sekcją.
+
+### 26.6 WHY? --- zasada kontekstowa
+
+-   WHY? jest kontekstowe: WHY? przy konkretnej zmianie / fakcie
+    wyjaśnia przyczyny **tej** zmiany / faktu. Ta sama etykieta nie
+    może prowadzić do różnych celów; przycisk komunikuje, co wyjaśnia.
+-   Nagłówek wyjaśnienia wskazuje wyjaśniany element i jego region
+    oraz --- osobno --- aktywny zakres analizy.
+-   Key Causes komunikują relację przyczynową w modelu
+    `PRZYCZYNA → SKUTEK` (np. `Spadek populacji → Spadek zatrudnienia`;
+    przykład, nie obowiązkowa treść), a nie listę luźnych faktów.
+-   Źródłem pozostają fakty i krawędzie Causality Engine; UI nie
+    syntetyzuje przyczyn ani skutków.
+
+### 26.7 Walidacja
+
+Akceptacja ekranu World wymaga przejścia **Visual Verification Gate**
+(UI Implementation Spec v1.4, Addendum v1.4 §V; Living Atlas Visual
+Asset Spec v1.3 §28.7), w tym prawdziwego viewportu 1280×800 (nie
+screenshotu fullPage). Zastępuje to listę kroków z §24.7 jako kryterium
+odbioru; kroki §24.7 pozostają jego podzbiorem.
+
+### 26.8 Otwarte decyzje właściciela
+
+-   Czy rail ma zawierać wpisy spoza `UI-004` (Regions, Population,
+    Firms, WHY? / Trace Cause, Causality). Do decyzji obowiązuje `UI-004`.
+-   Dołączenie pliku mockupu „FIRST CAUSE --- A LIVING WORLD” do
+    `docs/golden-ui/` (Canonical Decisions §199: odbiór zgodności
+    wizualnej wymaga dostępnej referencji).
+-   Potwierdzenie nazwy `Terrain` dla widoku bazowego (dawniej
+    `DEFAULT`).
+
+### 26.9 Status
+
+-   **Spec:** RESOLVED --- jeden kanon kompozycji World.
+-   **Implementacja:** PARTIAL --- Context Scope (§25) zgodny;
+    kompozycja (rail, World Pulse, dominacja Atlasu, inspektor jako
+    jedyna prawa kolumna, podporządkowanie modułów G) niezgodna ---
+    zob. `FIRST-CAUSE-World-Atlas-Independent-Audit-2026-09-26.md` i
+    Roadmap v0.6 M21-VIS-R1.

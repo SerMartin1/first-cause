@@ -1,6 +1,8 @@
 import type { WorldRegionView, WorldSnapshot } from "@first-cause/simulation";
 
 export const MAP_MODES = [
+  // Widok bazowy (dawniej DEFAULT): osadnictwo i połączenia bez warstwy danych.
+  "terrain",
   "political",
   "population",
   "economy",
@@ -84,6 +86,7 @@ export const MODE_METRICS: Record<
   MapMode,
   (r: WorldRegionView, world: WorldSnapshot, ctx: ModeContext) => number | undefined
 > = {
+  terrain: () => undefined,
   political: () => undefined,
   population: (r, _w, ctx) => {
     const before = ctx.baseline?.regions.find(
@@ -137,4 +140,43 @@ export function atlasPositions(
     }),
   );
   return positions;
+}
+
+export interface AtlasBounds {
+  readonly minX: number;
+  readonly minY: number;
+  readonly maxX: number;
+  readonly maxY: number;
+}
+export interface AtlasInsets {
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly left: number;
+}
+/**
+ * Auto-fit diagramu (UI Impl Spec v1.4 §L.3): skala i środek wolnego prostokąta
+ * płótna po odjęciu obszarów zajętych przez nakładki (podpis, legenda, zoom).
+ * Czysta prezentacja -- nie zmienia pozycji regionów ani danych.
+ */
+export function fitAtlas(
+  bounds: AtlasBounds,
+  size: { readonly width: number; readonly height: number },
+  insets: AtlasInsets,
+  maxScale: number,
+): { scale: number; centerX: number; centerY: number } {
+  const width = Math.max(1, size.width - insets.left - insets.right);
+  const height = Math.max(1, size.height - insets.top - insets.bottom);
+  return {
+    scale: Math.max(
+      0.05,
+      Math.min(
+        maxScale,
+        width / Math.max(1, bounds.maxX - bounds.minX),
+        height / Math.max(1, bounds.maxY - bounds.minY),
+      ),
+    ),
+    centerX: insets.left + width / 2,
+    centerY: insets.top + height / 2,
+  };
 }

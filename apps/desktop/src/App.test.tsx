@@ -60,6 +60,22 @@ describe("App", () => {
     expect(screen.getByText("FIRST CAUSE")).toBeInTheDocument();
   });
 
+  it("renders a left navigation rail with only existing screens", () => {
+    render(
+      <I18nextProvider i18n={createTestI18n()}>
+        <App />
+      </I18nextProvider>,
+    );
+
+    const rail = screen.getByRole("list", { name: "Main navigation" });
+    const entries = rail.querySelectorAll("button");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toHaveTextContent("World");
+    expect(entries[0]).toHaveAttribute("aria-current", "page");
+    for (const missing of ["Economy", "Technology", "Chronicle", "Architect"])
+      expect(screen.queryByRole("button", { name: missing })).toBeNull();
+  });
+
   it("shows the Simulation Worker status once the mocked IPC call resolves", async () => {
     render(
       <I18nextProvider i18n={createTestI18n()}>

@@ -1157,12 +1157,14 @@ Starsze fragmenty sugerujące centralną klasyczną mapę są superseded.
 
 # 102. UI-003 --- proporcja kierunkowa
 
-**Status:** TARGET
+**Status:** SUPERSEDED (2026-09-26) przez `UI-014`
 
-Około: - 70% text/data/history/analytics, - 30% abstract network
-visualization.
+Historycznie: około 70% text/data/history/analytics, 30% abstract
+network visualization.
 
-Nie jest to sztywny pixel budget.
+Dla ekranu World obowiązuje `UI-014`: Living Atlas jest centralnym i
+dominującym wizualnie elementem. Pozostałe ekrany zachowują charakter
+text-first (`UI-001`).
 
 ------------------------------------------------------------------------
 
@@ -1175,6 +1177,9 @@ Nie jest to sztywny pixel budget.
 3.  Technology
 4.  Chronicle
 5.  Architect
+
+Forma (od 2026-09-26, `UI-014`): stały lewy navigation rail + funkcje
+systemowe. Dodanie kolejnych wpisów wymaga decyzji właściciela.
 
 ------------------------------------------------------------------------
 
@@ -1272,6 +1277,55 @@ Nie renderuje wszystkich informacji naraz.
 -   ×4
 -   ×10
 -   ×100
+
+------------------------------------------------------------------------
+
+# 112A. UI-014 --- kompozycja World Screen (2026-09-26)
+
+**Status:** CANONICAL --- decyzja właściciela projektu
+
+World Screen jest projektowany według hierarchii kompozycyjnej
+zaakceptowanego mockupu „FIRST CAUSE --- A LIVING WORLD” (referencja
+kompozycyjna i funkcjonalna, nie pixel-perfect).
+
+-   **Living Atlas jest centralnym i dominującym wizualnie elementem.**
+-   Stały lewy navigation rail (zakres `UI-004`).
+-   Górny pasek: czas świata, sterowanie czasem, World Pulse.
+-   Prawa kolumna: Selected Region Inspector z jawnym stanem pustym;
+    `selectedEntityId` ≠ `analysisScope`.
+-   Pod Atlasem: Key Causes / Possible Consequences / Quick Actions
+    (wspólny zakres `ŚWIAT | [REGION]`).
+-   Ranking, gospodarka, Recent Events, Timeline, Chronicle: moduły
+    wspierające, nie dominują Atlasu.
+
+Jedyny normatywny opis: `FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md`
+§26. Supersedes `UI-003` oraz sprzeczne układy wymienione w §26.5 tego
+dokumentu.
+
+------------------------------------------------------------------------
+
+# 112B. UI-015 --- czytelność cywilizacji w Living Atlas (2026-09-26)
+
+**Status:** CANONICAL --- wymaganie; implementacja w Roadmap v0.6
+M21-VIS-R2...R4
+
+-   Atlas musi móc jednocześnie reprezentować wiele elementów
+    gospodarczych i infrastrukturalnych regionu (np. kopalnia + huta +
+    tartak + droga + kolej + wydobycie żelaza). Pojedyncza wartość
+    `industry` nie jest docelowym ograniczeniem reprezentacji.
+-   Rozwój osady komunikuje zmianę morfologii, nie wyłącznie „więcej
+    identycznych kwadratów w większej siatce”.
+-   Wizualny rozwój osady nie kończy się przy ok. 100 000 mieszkańców;
+    skala jest logarytmiczna / semantyczna i rozróżnia zakres od ok. 100
+    do 10 000 000+.
+-   Poziom WORLD nie jest niemal pustym diagramem; zoom dodaje
+    szczegóły, nie ujawnia istnienia podstawowych elementów świata.
+-   Każdy Map Mode przekazuje wizualnie inną informację; „zero” ≠
+    „brak danych”.
+
+Szczegóły: `FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.3.md` §28.
+Nie zmienia Simulation Model ani Entity Data Model; dotyczy kontraktu
+Read Model → wizualizacja.
 
 ------------------------------------------------------------------------
 
@@ -1759,7 +1813,7 @@ Vertical Slice ma udowodnić:
 
 Stan na 2026-09-17: **M0 = DONE; M0.1 Audit Fixes = DONE; M1–M6 =
 DONE; M7 = READY (not started)**. Bieżący zakres i statusy określa
-`FIRST-CAUSE-Implementation-Roadmap-v0.2.md` (sekcje "Wyniki
+`FIRST-CAUSE-Implementation-Roadmap-v0.6.md` (sekcje "Wyniki
 wykonania" per milestone) -- ten wpis nie był aktualizowany od M1 i
 przez to błędnie wskazywał M1 jako kolejny krok mimo ukończonych
 commitów M1–M6; poprawiono przy okazji przeglądu naprawczego M6 (RNG
@@ -2115,9 +2169,12 @@ pozostałych locale wymagają weryfikacji przy ich aktywacji.
 **Status:** VS / CANONICAL
 
 Kierunek Living Scientific Atlas i reguły gęstości/semantic zoom określa
-`FIRST-CAUSE-UI-Visual-Design-System-v1.0.md`; kontrakty wykonawcze określa
-`FIRST-CAUSE-UI-Implementation-Spec-v1.0.md`. Szczegóły layoutu podlegają
-prototypowaniu w tych granicach. Nie wpływa to na Simulation Model.
+`FIRST-CAUSE-UI-Visual-Design-System-v1.4.md`; kontrakty wykonawcze określa
+`FIRST-CAUSE-UI-Implementation-Spec-v1.4.md`; kontrakt Read Model →
+Atlas określa `FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.3.md`.
+Kompozycja ekranu World jest zamrożona w `UI-014` (Golden UI World v1.3
+§26); szczegóły layoutu podlegają prototypowaniu w tych granicach. Nie
+wpływa to na Simulation Model.
 
 ------------------------------------------------------------------------
 
@@ -2146,8 +2203,9 @@ Dodatkowe dokumenty tylko, jeśli system ich dotyczy.
 
 Kanoniczna specyfikacja ekonomii to
 `FIRST-CAUSE-Production-Economy-Master-v0.1-PL.md`; plik `-POLSKI` jest
-wyłącznie odsyłaczem. UI stosuje Design System v1.0 i Implementation
-Spec v1.0, z pierwszeństwem niniejszego rejestru.
+wyłącznie odsyłaczem. UI stosuje Design System v1.4, Implementation
+Spec v1.4, Golden UI World v1.3 i Living Atlas Visual Asset Spec v1.3,
+z pierwszeństwem niniejszego rejestru.
 
 **Dostępność źródeł (2026-09-16):**
 
@@ -2162,6 +2220,12 @@ Spec v1.0, z pierwszeństwem niniejszego rejestru.
   lub trwałe odnośniki nie są dostępne w repo. Przed odbiorem zgodności
   wizualnej trzeba je udostępnić. Do tego czasu można wdrażać tekstowe
   kontrakty, lecz nie deklarować zgodności z nieobejrzanymi mockupami.
+  **Stan 2026-09-26:** w repo są `docs/golden-ui/FIRST-CAUSE-Golden-UI-01-World-v1.0.png`,
+  `docs/golden-ui/FIRST-CAUSE-Visual-Alphabet-v1.1(1).png` i
+  `docs/visual-reference/FIRST-CAUSE-Raw-Simulation-Atlas-v0.1(1).png`.
+  Mockup kompozycyjny „FIRST CAUSE --- A LIVING WORLD” (`UI-014`) nie
+  jest jeszcze dołączony; do tego czasu normatywny jest tekst Golden UI
+  World v1.3 §26.
 
 ------------------------------------------------------------------------
 

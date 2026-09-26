@@ -1,21 +1,33 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Application } from "pixi.js";
 import type { WorldView } from "@first-cause/simulation";
-import { atlasPositions, MODE_METRICS, populationRadius } from "./atlas-model.js";
+import {
+  atlasPositions,
+  fitAtlas,
+  MODE_METRICS,
+  populationRadius,
+  type AtlasInsets,
+} from "./atlas-model.js";
 import { useWorldStore } from "./world-store.js";
+import { drawProfileAlphabet, settlementBlocks } from "./visual-alphabet.js";
 
 export function FCLivingAtlas({
   view,
   resourceId,
   discoveryId,
+  caption,
 }: {
   readonly view: WorldView;
   readonly resourceId: string;
   readonly discoveryId: string;
+  /** Opis aktywnego trybu mapy jako nakładka Atlasu, nie osobny wiersz nad płótnem. */
+  readonly caption?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const host = useRef<HTMLDivElement>(null);
+  const captionBox = useRef<HTMLDivElement>(null);
+  const legendBox = useRef<HTMLDivElement>(null);
   const app = useRef<Application>();
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -73,18 +85,53 @@ export function FCLivingAtlas({
       const old = renderer.stage.removeChildren();
       old.forEach((child) => child.destroy({ children: true }));
       const scene = new Container();
-      const scale =
-        Math.min(renderer.screen.width / 960, renderer.screen.height / 640) *
-        ui.zoomLevel;
       const positions = atlasPositions(view.current);
+      // Auto-fit: zasięg diagramu (węzły + rzędy osad + znaki profilu) wpisany w wolny
+      // obszar płótna; legenda rezerwuje pas dolny albo prawy -- wybierany jest ten,
+      // który daje większą skalę, więc legenda nie zasłania węzłów.
+      const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+      for (const region of view.current.regions) {
+        const p = positions.get(region.regionId)!;
+        const row = region.settlements.reduce(
+          (sum, s) => sum + populationRadius(s.population) * 2 + 12,
+          0,
+        );
+        bounds.minX = Math.min(bounds.minX, p.x - 30);
+        bounds.maxX = Math.max(bounds.maxX, p.x + Math.max(44, row));
+        bounds.minY = Math.min(bounds.minY, p.y - 40);
+        bounds.maxY = Math.max(bounds.maxY, p.y + 60);
+      }
+      if (!Number.isFinite(bounds.minX))
+        Object.assign(bounds, { minX: 0, minY: 0, maxX: 960, maxY: 640 });
+      const viewport = { width: renderer.screen.width, height: renderer.screen.height };
+      const top = (captionBox.current?.offsetHeight ?? 0) + 16;
+      const legend = {
+        width: (legendBox.current?.offsetWidth ?? 0) + 16,
+        height: (legendBox.current?.offsetHeight ?? 0) + 16,
+      };
+      // Etykiety regionów stoją po prawej stronie węzła w stałym rozmiarze ekranowym.
+      const labelSpace = 140;
+      const maxScale = Math.min(viewport.width / 960, viewport.height / 640) * 1.8;
+      const fits = (
+        [
+          { top, right: labelSpace, bottom: Math.max(48, legend.height), left: 24 },
+          { top, right: labelSpace + legend.width, bottom: 48, left: 24 },
+        ] satisfies AtlasInsets[]
+      ).map((insets) => fitAtlas(bounds, viewport, insets, maxScale));
+      const fit = fits[0]!.scale >= fits[1]!.scale ? fits[0]! : fits[1]!;
+      const scale = fit.scale * ui.zoomLevel;
       const focus =
         ui.focusMode && ui.selectedEntityId
           ? positions.get(ui.selectedEntityId)
           : undefined;
       scene.scale.set(scale);
       scene.position.set(
-        focus ? renderer.screen.width / 2 - focus.x * scale : pan.x,
-        focus ? renderer.screen.height / 2 - focus.y * scale : pan.y,
+        focus
+          ? fit.centerX - focus.x * scale
+          : fit.centerX - ((bounds.minX + bounds.maxX) / 2) * scale + pan.x,
+        focus
+          ? fit.centerY - focus.y * scale
+          : fit.centerY - ((bounds.minY + bounds.maxY) / 2) * scale + pan.y,
       );
       renderer.stage.addChild(scene);
       const styles = getComputedStyle(host.current!);
@@ -216,14 +263,34 @@ export function FCLivingAtlas({
           region.settlements.forEach((settlement, index) => {
             const radius = populationRadius(settlement.population);
             const offset = index * (radius * 2 + 12);
-            const g = new Graphics()
-              .circle(offset, 0, radius)
-              .fill({ color: fill, alpha: intensity })
-              .stroke({ color: color("--fc-bg-elevated"), width: 2 });
+            const g = new Graphics();
+            if (ui.mapMode === "population")
+              g.circle(offset, 0, radius).fill({ color: fill, alpha: intensity });
+            else {
+              const blocks = settlementBlocks(settlement.population);
+              const unit = (radius * 2) / Math.ceil(Math.sqrt(blocks.length));
+              for (const b of blocks)
+                g.rect(
+                  offset + b.x * unit - unit * 0.4,
+                  b.y * unit - unit * 0.4,
+                  unit * 0.8,
+                  unit * 0.8,
+                ).fill({ color: fill, alpha: intensity });
+            }
             node.addChild(g);
             if (selected)
               g.circle(offset, 0, radius + 5).stroke({ color: accent, width: 2 });
           });
+        if (ui.overlays.includes("settlements") && (selected || ui.zoomLevel >= 1.6)) {
+          const profileMarks = new Graphics();
+          profileMarks.y =
+            Math.max(
+              0,
+              ...region.settlements.map((s) => populationRadius(s.population)),
+            ) + 4;
+          drawProfileAlphabet(profileMarks, region.profile, neutral);
+          node.addChild(profileMarks);
+        }
         if (selected && !region.settlements.length)
           marker.circle(0, 0, 12).stroke({ color: accent, width: 2 });
         if (ui.hoveredRegionId === region.regionId)
@@ -259,7 +326,11 @@ export function FCLivingAtlas({
             ? "—"
             : `${signed ? "Δ " : ""}${signed && value > 0 ? "+" : ""}${value.toLocaleString(i18n.language, { maximumFractionDigits: 1 })}`;
         const label = new Text({
-          text: `${region.name}\n${ui.mapMode === "population" ? `${region.population.toLocaleString(i18n.language)} · ` : ""}${metricLabel}`,
+          resolution: Math.max(1, scale * window.devicePixelRatio),
+          text:
+            ui.mapMode === "terrain"
+              ? region.name
+              : `${region.name}\n${ui.mapMode === "population" ? `${region.population.toLocaleString(i18n.language)} · ` : ""}${metricLabel}`,
           style: {
             fontFamily: "IBM Plex Sans",
             fontSize: 13 / Math.max(0.5, scale),
@@ -287,11 +358,25 @@ export function FCLivingAtlas({
         } else label.destroy();
       }
       renderer.render();
+      host.current?.setAttribute(
+        "data-rendered-tick",
+        String(view.current.summary.currentTick),
+      );
+      host.current?.setAttribute("data-rendered-mode", ui.mapMode);
     });
     return () => {
       cancelled = true;
     };
   }, [ready, view, ui, pan, size, resourceId, discoveryId, i18n.language]);
+  // Legenda obejmuje tylko zakres istniejących osad (do pierwszego progu >= największej),
+  // więc nie zajmuje więcej miejsca niż kodowane elementy (UI Impl Spec v1.4 §L.8).
+  const largest = Math.max(
+    0,
+    ...view.current.regions.flatMap((r) => r.settlements.map((s) => s.population)),
+  );
+  const legendSteps = [1000, 10000, 100000].filter(
+    (_, i, all) => i === 0 || all[i - 1]! < largest,
+  );
   return (
     <div
       className="fc-atlas"
@@ -330,8 +415,9 @@ export function FCLivingAtlas({
         aria-label={t("world.atlas")}
       />
       {failed && <p role="status">{t("world.canvasUnavailable")}</p>}
-      <div className="fc-atlas__caption">
-        {t("world.schematic")}
+      <div className="fc-atlas__caption" ref={captionBox}>
+        {caption}
+        <p>{t("world.schematic")}</p>
         {ui.causalLink && (
           <p>
             {t(
@@ -342,13 +428,17 @@ export function FCLivingAtlas({
           </p>
         )}
       </div>
-      <div className="fc-atlas__legend">
+      <div className="fc-atlas__legend" ref={legendBox}>
         <strong>{t("world.markerPopulation")}</strong>
         <br />
-        {[1000, 10000, 100000].map((n) => (
+        {legendSteps.map((n) => (
           <span key={n}>
             <i
-              style={{ width: populationRadius(n) * 2, height: populationRadius(n) * 2 }}
+              style={{
+                width: populationRadius(n) * 2,
+                height: populationRadius(n) * 2,
+                borderRadius: ui.mapMode === "population" ? "50%" : 0,
+              }}
             />
             {n.toLocaleString(i18n.language)}
           </span>

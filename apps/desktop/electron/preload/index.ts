@@ -49,10 +49,11 @@ const worldApi: WorldApi = {
   setSpeed: (speed) =>
     ipcRenderer.invoke("first-cause:world", { type: "SET_WORLD_SPEED", speed }),
   step: (ticks) => ipcRenderer.invoke("first-cause:world", { type: "STEP_WORLD", ticks }),
-  explain: (factId, tick) =>
+  explain: (factId, tick, context) =>
     ipcRenderer.invoke("first-cause:world", {
       type: "GET_WORLD_WHY",
       factId,
+      ...(context ? { context } : {}),
       ...(tick === undefined ? {} : { tick }),
     }),
 };

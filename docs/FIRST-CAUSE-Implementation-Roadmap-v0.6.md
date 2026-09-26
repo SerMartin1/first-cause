@@ -1,8 +1,9 @@
-# FIRST CAUSE --- Implementation Roadmap v0.5
+# FIRST CAUSE --- Implementation Roadmap v0.6
 
 **Status:** dokument kanoniczny / żywy (living document)\
 **Projekt:** FIRST CAUSE\
-**Wersja:** 0.5\
+**Wersja:** 0.6 (2026-09-26 --- M21 World Screen / Living Atlas Canon
+Resolution i remediation track `M21-VIS-R1`...`R6`)\
 **Rola:** przełożenie istniejącej dokumentacji na wykonywalną kolejność
 implementacji Vertical Slice --- od pustego repozytorium do
 `VS Freeze`.\
@@ -10,10 +11,12 @@ implementacji Vertical Slice --- od pustego repozytorium do
 `FIRST-CAUSE-Master-Documentation-Consistency-Implementation-Readiness-Audit-v0.1.md`
 
 **Dokumenty UI obowiązujące dla harmonogramu:**
-`FIRST-CAUSE-UI-Visual-Design-System-v1.3.md`,
-`FIRST-CAUSE-UI-Implementation-Spec-v1.3.md`,
-`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.1.md`,
-`FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.2.md`
+`FIRST-CAUSE-UI-Visual-Design-System-v1.4.md`,
+`FIRST-CAUSE-UI-Implementation-Spec-v1.4.md`,
+`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md`,
+`FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.3.md`; stan
+implementacji World/Atlas:
+`FIRST-CAUSE-World-Atlas-Independent-Audit-2026-09-26.md`
 
 > **Ten dokument nie tworzy nowej koncepcji gry. Tłumaczy istniejące,
 > już zatwierdzone specyfikacje na kolejność, w jakiej powstanie kod.**
@@ -3584,10 +3587,11 @@ blockerem).
 (całość, zwłaszcza §1--50, §180--221),
 `FIRST-CAUSE-Canonical- Decisions-v0.1.md` (UI-001--013),
 `FIRST-CAUSE-Vertical-Slice-Spec- v0.1.md` (§41--45),
-`FIRST-CAUSE-UI-Visual-Design-System-v1.3.md`,
-`FIRST-CAUSE-UI-Implementation-Spec-v1.3.md`,
-`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.1.md`,
-`FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.2.md`.
+`FIRST-CAUSE-UI-Visual-Design-System-v1.4.md`,
+`FIRST-CAUSE-UI-Implementation-Spec-v1.4.md`,
+`FIRST-CAUSE-Golden-UI-World-Command-Center-v1.3.md` (kompozycja
+World: §26),
+`FIRST-CAUSE-Living-Atlas-Visual-Asset-Spec-v1.3.md`.
 
 ------------------------------------------------------------------------
 
@@ -3989,7 +3993,12 @@ tuning), a nie modyfikujemy zakresu tego dokumentu w locie.
 > następne, dlaczego właśnie teraz, od czego to zależy i po czym
 > poznamy, że możemy przejść dalej.**
 
-Następny krok: **M21 --- UI Vertical Slice**, IN PROGRESS --
+**Aktualizacja v0.6 (2026-09-26):** następnym krokiem jest
+**`M21-VIS-R1` --- World Screen Layout / Composition Implementation
+Pass** (sekcja „M21 Visual Track update --- 2026-09-26”). Poniższy
+akapit opisuje stan z v0.2 i jest historyczny.
+
+Następny krok (v0.2): **M21 --- UI Vertical Slice**, IN PROGRESS --
 rozpoczynamy od Visual Production Track i **Golden UI #1 --- World
 Command Center 1920×1080**, a następnie przechodzimy do Living Atlas,
 Region Detail i pierwszego Visual Conformance Audit. M21 dostarcza
@@ -4120,17 +4129,30 @@ performance.
 
 ## M21-VIS-03 --- Golden UI integration
 
-Integrate the validated Atlas into World Command Center v1.1.
+> **v0.6 (2026-09-26):** kryteria poniżej zastąpiono kanonem Golden UI
+> World v1.3 §26 (`UI-014`). Wymóg „bottom Regions/Economy/Events/
+> Population strip” i osobnego „compact World Overview” jest
+> SUPERSEDED. Historyczny tekst v0.5 zachowano niżej.
 
-The final screenshot must preserve:
+Integrate the validated Atlas into the World screen defined by Golden UI
+World v1.3 §26.
 
--   top-bar world pulse,
--   stable left navigation,
--   compact World Overview,
--   Atlas as largest graphical surface,
--   contextual Region Inspector,
--   bottom Regions/Economy/Events/Population strip,
+The final screenshot must show:
+
+-   stable left navigation rail (`UI-004` scope),
+-   top bar with world time, time controls and World Pulse,
+-   Living Atlas as the central, dominant and largest surface,
+-   right-column Selected Region Inspector with explicit empty state,
+-   analytical layer under the Atlas (Key Causes / Possible
+    Consequences / Quick Actions, M21-VIS-03A),
+-   supporting modules (Recent Events, Timeline, ranking) subordinate
+    to the Atlas,
 -   context-first navigation.
+
+Historical v0.5 criteria (superseded): top-bar world pulse; stable left
+navigation; compact World Overview; Atlas as largest graphical surface;
+contextual Region Inspector; bottom Regions/Economy/Events/Population
+strip; context-first navigation.
 
 ## M21-VIS-04 --- Independent audit
 
@@ -4149,7 +4171,9 @@ Audit scope:
 
 ## M21-VIS-05 --- Freeze and next screen
 
-Only after M21-VIS-01 through M21-VIS-04 PASS:
+Only after M21-VIS-01 through M21-VIS-04 PASS (v0.6: including the
+remediation track `M21-VIS-R1`...`R6` below and a repeated independent
+audit after `M21-VIS-R6`):
 
 1.  freeze `FIRST CAUSE Visual Direction v1.0`,
 2.  proceed to Golden UI #2 --- Region Detail,
@@ -4178,3 +4202,92 @@ projections, - no unsupported cause/consequence is synthesized by UI, -
 screenshot review confirms compact Anti-AI styling.
 
 This task is completed as part of M21-VIS-03 before independent audit.
+
+------------------------------------------------------------------------
+
+# M21 Visual Track update --- 2026-09-26 (Canon Resolution + audit)
+
+## Wejście
+
+1.  Niezależny audyt `M21-VIS-04` wykonany 2026-09-26:
+    `FIRST-CAUSE-World-Atlas-Independent-Audit-2026-09-26.md`
+    (2 × BLOCKER, 7 × HIGH, 12 × MEDIUM, 6 × LOW).
+2.  Decyzja właściciela projektu 2026-09-26: kompozycja World wg
+    mockupu „FIRST CAUSE --- A LIVING WORLD”; Living Atlas centralny i
+    dominujący --- Canonical Decisions `UI-014`, `UI-015`; Golden UI
+    World v1.3 §26 jako jedyny kanon kompozycji.
+3.  Status `PASS` części wizualnej w
+    `FIRST-CAUSE-World-Context-Scope-Report-2026-09-25.md` nie
+    obowiązuje (zob. adnotację w tym raporcie).
+
+## Status etapów M21-VIS
+
+| Etap | Spec status | Implementation status | Uzasadnienie |
+| --- | --- | --- | --- |
+| `M21-VIS-01` Living Atlas spike | READY (Atlas Spec v1.3 §28) | **FAIL --- REOPENED** | rozwój = skala + liczba bloków; cap skali przy ~100k; brak wydobycia; `industry` jednowartościowe; WORLD bez warstwy cywilizacji (audyt B1, H2) |
+| `M21-VIS-02` Map Mode Stress Test | READY (Atlas Spec v1.3 §28.5, §28.7) | **FAIL --- REOPENED** | 4 tryby w tym samym kolorze; legenda stała; „zero” = „brak danych” (audyt B2, H3) |
+| `M21-VIS-03` Golden UI integration | RESOLVED (Golden v1.3 §26) | **PARTIAL** | Context Scope zgodny; brak railu i World Pulse; Atlas nie dominuje; 1280×800 niezweryfikowane (audyt H1, H6, H7) |
+| `M21-VIS-03A` Context Scope | DONE | **PASS** | potwierdzone audytem; uwagi komunikacyjne przeniesione do `M21-VIS-R5` |
+| `M21-VIS-04` Independent audit | DONE (2026-09-26) | --- | ponowny audyt wymagany po `M21-VIS-R6` |
+| `M21-VIS-05` Freeze | BLOCKED | --- | wymaga PASS `M21-VIS-01`...`04` |
+
+Status nie jest nadawany na podstawie samego istnienia implementacji.
+
+## Remediation track (kolejność obowiązująca)
+
+Passy są realizowane sekwencyjnie; każdy kończy się raportem, wynikami
+`pnpm typecheck / lint / test / build` (i `test:e2e`, gdy dotyczy) oraz
+wpisem w `CHANGELOG.md`. Kolejny pass startuje dopiero po poleceniu
+właściciela.
+
+| Pass | Etap | Zakres | Zamyka |
+| --- | --- | --- | --- |
+| 1 | `M21-VIS-R1` World Screen Layout / Composition | kontrakt UI Impl Spec v1.4 §L: lewy rail, górny pasek z World Pulse, Atlas dominujący z auto-fit i zwartym paskiem narzędzi, prawa kolumna = inspektor, warstwa analityczna pod Atlasem, moduły wspierające zwijane, 1280×800 | audyt H1, H6, H7, M7--M11 (część layoutowa) |
+| 2 | `M21-VIS-R2` RegionVisualProfile v2 + Visual Grammar | `industry[]`, `extraction[]`, infrastruktura per połączenie z danych i contentu (Atlas Spec v1.3 §28.1, §28.6); bez zmian Simulation Model | audyt B1 (kontrakt), M6 |
+| 3 | `M21-VIS-R3` Settlement Morphology + Population Scaling + Civilization Readability | §28.2--28.4; WORLD z zagregowaną strukturą cywilizacji | audyt B1 (rendering), H2 |
+| 4 | `M21-VIS-R4` Map Modes v2 + legends + zero/no-data | §28.5; legenda per tryb | audyt B2, H3, M2--M5 |
+| 5 | `M21-VIS-R5` Causality / WHY? UX | UI Impl Spec v1.4 §W: WHY? kontekstowe, `PRZYCZYNA → SKUTEK`, jednoznaczne etykiety | audyt H4, H5, M12 |
+| 6 | `M21-VIS-R6` Visual Verification Gate | UI Impl Spec v1.4 §V + Atlas Spec v1.3 §28.7; potem ponowny `M21-VIS-04` i human acceptance | audyt M1, L6; bramka `M21-VIS-05` |
+
+Poza zakresem track: nowe mechaniki symulacji, geometria geograficzna
+(M22), zmiany ekonomii, determinizmu i formatu zapisu.
+
+## Wynik `M21-VIS-R1` (2026-09-26) --- PASS
+
+Kompozycja World wg Golden UI World v1.3 §26.3--26.4 i UI Impl Spec
+v1.4 §L. Decyzje właściciela dla tego passu: rail pokazuje tylko
+istniejące ekrany (dziś wyłącznie World; Economy / Technology /
+Chronicle / Architect ukryte do czasu powstania ekranów, bez atrap);
+`Terrain` jest nazwą widoku bazowego (dawniej `DEFAULT`); mockup
+`docs/golden-ui/FIRST-CAUSE-Golden-UI-World-v1.3-reference.png` jest
+referencją kompozycyjną.
+
+-   **A** `FCNavigationRail` zamiast `FCTopNavigation` (176 px; 144 px
+    poniżej 1440 px): World + język PL/EN + stan workera w stopce.
+-   **B** górny pasek: świat, rok / miesiąc / tick, World Pulse (4
+    wskaźniki z Read Modelu, wartość + Δ w oknie porównania), sterowanie
+    czasem `UI-013` + „Przesuń o rok”.
+-   **C/D** Atlas wypełnia pierwszy ekran; zwarty pasek narzędzi (tryby
+    + jeden wiersz kontrolek, w tym wybór regionu); podpis trybu jako
+    nakładka; auto-fit diagramu z rezerwacją miejsca na legendę; tryb
+    bazowy `Terrain` (bez warstwy danych). Renderer, symbole i semantyka
+    trybów bez zmian.
+-   **E** prawa kolumna = Selected Region Inspector z jawnym stanem
+    pustym; `selectedEntityId` ≠ `analysisScope` zachowane.
+-   **F** Key Causes / Possible Consequences / Quick Actions pod
+    Atlasem, bez wewnętrznego przewijania.
+-   **G** Recent Events, World Timeline, WHY?, ranking: zwijane moduły
+    pod pierwszym ekranem (domyślnie zwinięte; WHY? rozwija się przy
+    nowym wyjaśnieniu).
+
+Pomiar (Playwright, prawdziwy viewport, `tests/e2e/world-layout.spec.ts`):
+Atlas 62,7% obszaru roboczego przy 1920×1080 (płótno 1314×790) i 52,3%
+przy 1280×800 (płótno 798×492); brak poziomego przewijania; Atlas,
+pas F i sterowanie czasem w pierwszym ekranie. Screenshoty:
+`docs/verification/world-r1-2026-09-26/`.
+
+Statusy po R1: `M21-VIS-01` FAIL (reopened), `M21-VIS-02` FAIL
+(reopened), `M21-VIS-03` PARTIAL (kompozycja zgodna; czytelność Atlasu
+R2--R4, WHY? R5, bramka R6), `M21-VIS-03A` PASS, `M21-VIS-04` ponowny
+audyt po R6, `M21-VIS-05` BLOCKED. Następny pass: `M21-VIS-R2` (po
+poleceniu właściciela).
