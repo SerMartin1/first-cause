@@ -439,6 +439,10 @@
     { "id": "technology_black_mountain", "regionId": "region_black_mountain" },
     { "id": "technology_green_valley", "regionId": "region_green_valley" },
     { "id": "technology_riverside", "regionId": "region_riverside" },
-    { "id": "technology_coastal_reach", "regionId": "region_coastal_reach" }
+    { "id": "technology_coastal_reach", "regionId": "region_coastal_reach" },
+    { "id": "technology_highland_pass", "regionId": "region_highland_pass" },
+    { "id": "technology_timberland", "regionId": "region_timberland" },
+    { "id": "technology_stonefield", "regionId": "region_stonefield" },
+    { "id": "technology_windward_hills", "regionId": "region_windward_hills" }
   ]
 }

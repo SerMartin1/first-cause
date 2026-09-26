@@ -71,6 +71,40 @@ describe("Black Mountain reference world -- regional technology (M15 live)", () 
     expect(knowledge.some((level) => level > 0)).toBe(true);
   });
 
+  it("every region has a TechnologyState; empty regions stay inactive (no knowledge, no discoveries -- not even T0)", () => {
+    const runner = referenceRunner();
+    const regions = Object.values(runner.worldState.regions);
+    expect(regions.every((r) => r.knowledge.technologyStateId !== undefined)).toBe(true);
+    for (let i = 0; i < 120; i++) runner.step();
+    const empty = Object.values(runner.worldState.regions).filter(
+      (r) => r.population.totalPopulation <= 0,
+    );
+    expect(empty.length).toBeGreaterThan(0);
+    for (const region of empty) {
+      const state =
+        runner.worldState.technologyStates[region.knowledge.technologyStateId!]!;
+      expect(Object.values(state.knowledge).every((k) => k === 0)).toBe(true);
+      expect(Object.keys(state.discoveries)).toEqual([]);
+    }
+  });
+
+  it("rejects a world where a region has no TechnologyState (not silently created)", () => {
+    const raw = JSON.parse(
+      readFileSync(
+        path.join(REPO_ROOT, "tests/worldgen/fixtures/black_mountain_reference.json"),
+        "utf-8",
+      ),
+    ) as { technologyStates: { regionId: string }[] };
+    const result = loadWorldFixture({
+      ...raw,
+      technologyStates: raw.technologyStates.filter(
+        (t) => t.regionId !== "region_timberland",
+      ),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" | ")).toContain("region_timberland");
+  });
+
   it("is deterministic: same seed + fixture + ticks gives an identical state", () => {
     const a = referenceRunner();
     const b = referenceRunner();

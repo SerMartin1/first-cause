@@ -448,6 +448,12 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       if (!technologyStateId) continue;
       let technologyState = technologyStates[technologyStateId];
       if (!technologyState) continue;
+      // Decyzja właściciela 2026-09-26: każdy region ma TechnologyState, ale
+      // region bez populacji ma stan nieaktywny -- nie ma kto tworzyć wiedzy
+      // ani dokonywać odkryć (także T0 o progu 0). Stan wraca do gry, gdy
+      // region zostanie zasiedlony (np. migracją). Strumień RNG regionu nie
+      // jest wtedy ruszany, więc inne regiony pozostają deterministyczne.
+      if (region.population.totalPopulation <= 0) continue;
 
       const rng = discoveryRng(regionId);
 

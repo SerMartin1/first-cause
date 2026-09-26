@@ -227,6 +227,22 @@ export function loadWorldFixture(
       technologyStates,
     });
 
+    // Decyzja właściciela 2026-09-26: każdy region ma dokładnie jeden
+    // TechnologyState (duplikat odrzuca już `createWorldState`). Brak stanu to
+    // niespójny świat -- odrzucany, nigdy nie dotwarzany po cichu.
+    const regionsWithoutTechnology = Object.values(worldState.regions)
+      .filter((region) => region.knowledge.technologyStateId === undefined)
+      .map((region) => region.id)
+      .sort();
+    if (regionsWithoutTechnology.length > 0)
+      return {
+        ok: false,
+        errors: regionsWithoutTechnology.map(
+          (regionId) =>
+            `Region "${regionId}" has no TechnologyState -- every region must have exactly one (owner decision 2026-09-26)`,
+        ),
+      };
+
     const knowledgeErrors = options.productionRecipesByMethodId
       ? validateInitialResourceKnowledge(worldState, options.productionRecipesByMethodId)
       : [];

@@ -14,7 +14,9 @@ function testRng(seed: string): RngStream {
 /** Populacja, przy której przyrost przy danej wiedzy wynosi `gain` (odwrócenie wzoru). */
 function populationForGain(gain: number, knowledge = 0): number {
   const { ratePerTickAtReference, referencePopulation } = KNOWLEDGE_GAIN_TODO_TUNING;
-  return referencePopulation * (gain / (ratePerTickAtReference * (1 - knowledge / 100))) ** 2;
+  return (
+    referencePopulation * (gain / (ratePerTickAtReference * (1 - knowledge / 100))) ** 2
+  );
 }
 
 describe("knowledgeGainPerTick (owner decision 2026-09-26: variant B + diminishing returns)", () => {
@@ -102,7 +104,9 @@ describe("accumulateRegionalKnowledge", () => {
         }).technologyState;
       return state.knowledge.agriculture_food ?? 0;
     };
-    expect(run(200_000, "knowledge-populous")).toBeGreaterThan(run(2_000, "knowledge-sparse"));
+    expect(run(200_000, "knowledge-populous")).toBeGreaterThan(
+      run(2_000, "knowledge-sparse"),
+    );
   });
 
   it("never exceeds 100", () => {

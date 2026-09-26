@@ -1155,6 +1155,9 @@ TechnologyState:
 
 Status: - UNKNOWN - KNOWN - AVAILABLE - ADOPTED
 
+Każdy Region ma dokładnie jeden TechnologyState; region bez populacji ma
+stan nieaktywny (Canonical Decisions `TECH-011`).
+
 `eligibility` może być cache i musi dać się odtworzyć.
 
 ------------------------------------------------------------------------

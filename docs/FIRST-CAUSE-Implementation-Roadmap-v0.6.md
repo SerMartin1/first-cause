@@ -4403,5 +4403,8 @@ linku). D3 nadal OPEN.
     testem `technology-pacing.test.ts`: ≤ 100 osób → T0--T2 po 200 latach;
     2 000 → T3--T4; 20 000 → T5; 200 000 → T6 w 100--180 lat (benchmark:
     112--131). Regiony Black Mountain (10--30 osób) pozostają na T0--T1.
--   **Dalej:** `TechnologyState` w każdym regionie (region bez populacji
-    nieaktywny), ponowny przebieg referencyjny, potem D3 (N2) i R3.
+-   **TechnologyState w każdym regionie (krok 3, `TECH-011`):** loader
+    odrzuca region bez stanu; Black Mountain ma 8 stanów (4 puste
+    regiony nieaktywne); region bez populacji nie tworzy wiedzy ani
+    odkryć.
+-   **Dalej:** ponowny przebieg referencyjny (krok 4), potem D3 (N2) i R3.

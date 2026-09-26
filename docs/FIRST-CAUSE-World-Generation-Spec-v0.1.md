@@ -272,6 +272,10 @@ knowledge/discovery/adoption muszą być spójne.
 > Fixture deklaruje startowy stan wiedzy jawnie
 > (`resourceDeposits[].discovery`); niespójny stan jest odrzucany
 > (`validateInitialResourceKnowledge`), nie naprawiany w runtime.
+>
+> **2026-09-26 (`TECH-011`):** generator / fixture tworzy `TechnologyState`
+> dla **każdego** regionu (także pustego --- stan nieaktywny); brak stanu
+> jest błędem walidacji świata.
 
 ------------------------------------------------------------------------
 

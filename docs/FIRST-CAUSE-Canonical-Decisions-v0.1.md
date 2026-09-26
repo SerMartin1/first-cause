@@ -778,10 +778,28 @@ PHYSICAL EXISTENCE → UNKNOWN → DISCOVERY POSSIBILITY
     naturalnego odkrycia: **OPEN** --- dokumentacja (VS Spec §31,
     Technology Discovery Catalog MIN-001/MIN-008/MIN-011) nie określa go
     jednoznacznie; wybór modelu należy do właściciela.
+-   **Zależność od TECH-011:** naturalne odkrywanie (D3) działa w każdym
+    zamieszkanym regionie, bo każdy region ma `TechnologyState`.
 -   **Odłożone:** ACTOR-SPECIFIC / LOCAL KNOWLEDGE MODEL (wiedza per
     aktor / region, PerceivedState z zapisem, dyfuzja wiedzy, wiedza
     gracza jako osobny byt) --- osobny przyszły problem projektowy, bez
     implementacji „na zapas”.
+
+------------------------------------------------------------------------
+
+# 61B. TECH-011 --- TechnologyState w każdym regionie (2026-09-26)
+
+**Status:** CANONICAL --- decyzja właściciela
+
+-   Każdy Region ma **dokładnie jeden** `TechnologyState`
+    (`Region.knowledge.technologyStateId` ↔ `TechnologyState.regionId`).
+    Brak stanu albo drugi stan to niespójny świat, odrzucany przez
+    walidację (nie dotwarzany w runtime).
+-   Region bez populacji ma stan **nieaktywny**: nie tworzy wiedzy i nie
+    dokonuje odkryć (także T0). Stan wraca do gry, gdy region zostanie
+    zasiedlony.
+-   Tempo: przyrost wiedzy rośnie z pierwiastkiem populacji i maleje z
+    poziomem wiedzy; pasma docelowe --- OPEN-004.
 
 ------------------------------------------------------------------------
 

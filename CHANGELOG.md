@@ -10,6 +10,16 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-26
 
+- **TECH-011 --- TechnologyState w każdym regionie (decyzja właściciela 6,
+  krok 3 z 4).** Nowa decyzja kanoniczna (Canonical Decisions §61B):
+  każdy region ma dokładnie jeden `TechnologyState`; loader świata odrzuca
+  region bez stanu; region bez populacji jest w pipeline technologii
+  nieaktywny (bez wiedzy i odkryć, także T0). Black Mountain uzupełniony o
+  4 stany (Highland Pass, Timberland, Stonefield, Windward Hills). Testy w
+  `reference-technology.test.ts`. Adnotacje: Entity Data Model §28, World
+  Generation Spec §22, Roadmap v0.6. Przy okazji sformatowane dwa pliki
+  testów z poprzedniego commita.
+
 - **M15 --- model tempa technologii (decyzje właściciela 1--3, krok 2 z 4).**
   Przyrost wiedzy `0.0283 · √(p/20 000) · (1 − K/100)` na domenę na tick
   (wariant B + malejący przyrost; pusty region nie zdobywa wiedzy), progi

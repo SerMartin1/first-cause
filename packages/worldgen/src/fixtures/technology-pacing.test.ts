@@ -18,7 +18,10 @@ import { loadEconomyContent } from "../content/load-economy-content.js";
  * prawdziwe reguły 125 odkryć z contentu. Region izolowany jest dolnym
  * oszacowaniem -- dyfuzja w połączonym świecie tylko przyspiesza odkrycia.
  */
-const REPO_ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../..");
+const REPO_ROOT = path.resolve(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "../../../..",
+);
 const content = loadEconomyContent(REPO_ROOT);
 const rules = content.discoveryEligibilityRulesById;
 
@@ -42,7 +45,12 @@ function simulate(population: number, seed: string) {
       rng,
     }).technologyState;
     state = updateEligibility(state, rules).technologyState;
-    const breakthroughs = evaluateBreakthroughs({ technologyState: state, regionId: "r", tick, rng });
+    const breakthroughs = evaluateBreakthroughs({
+      technologyState: state,
+      regionId: "r",
+      tick,
+      rng,
+    });
     state = breakthroughs.technologyState;
     for (const fact of breakthroughs.facts) {
       const tier = rules[fact.subject.entityId]!.tier;
