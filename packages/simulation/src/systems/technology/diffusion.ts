@@ -116,7 +116,9 @@ export function growAvailability(
         values: { before: "KNOWN", after: "AVAILABLE" },
       });
     }
-    if (pressure > 0) {
+    // Causality §7: fakt raz -- gdy presja sąsiadów po raz pierwszy zaczyna
+    // działać na to odkrycie w tym regionie -- nie w każdym ticku dyfuzji.
+    if (pressure > 0 && entry.diffusionSource === undefined) {
       facts.push({
         type: "discovery_diffused",
         subject: { entityType: "discovery", entityId: discoveryId },

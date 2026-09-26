@@ -137,6 +137,20 @@ describe("growAvailability", () => {
     ).toBe(true);
   });
 
+  it("Causality §7: discovery_diffused is emitted once, when diffusion starts -- not every tick", () => {
+    let state = setDiscoveryState(createTechnologyState({ id: "t1", regionId: "r1" }), "d1", {
+      status: "KNOWN",
+    });
+    let diffused = 0;
+    for (let tick = 0; tick < 3; tick++) {
+      const result = growAvailability(state, { d1: { pressure: 0.2, sourceRegionId: "r2" } });
+      state = result.technologyState;
+      diffused += result.facts.filter((f) => f.type === "discovery_diffused").length;
+    }
+    expect(state.discoveries.d1?.status).toBe("KNOWN");
+    expect(diffused).toBe(1);
+  });
+
   it("availability ≠ adoption: crossing AVAILABLE never touches any adoption axis", () => {
     let technologyState = createTechnologyState({ id: "t1", regionId: "r1" });
     technologyState = setDiscoveryState(technologyState, "d1", {

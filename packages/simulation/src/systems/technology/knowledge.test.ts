@@ -19,12 +19,29 @@ describe("accumulateRegionalKnowledge", () => {
     });
 
     expect(result.technologyState.knowledge.agriculture_food).toBe(1);
+    // Causality §7: zwykły przyrost poniżej progu tieru nie jest faktem.
+    expect(result.facts).toEqual([]);
+  });
+
+  it("emits knowledge_increased only when a tier threshold is crossed", () => {
+    // Próg T1 = 10: 9 -> 10 przekracza go.
+    const technologyState = setDomainKnowledge(
+      createTechnologyState({ id: "t1", regionId: "r1" }),
+      "agriculture_food",
+      9,
+    );
+    const result = accumulateRegionalKnowledge({
+      technologyState,
+      domainIds: ["agriculture_food"],
+      population: 5000,
+      rng: testRng("knowledge-threshold"),
+    });
     expect(result.facts).toEqual([
       {
         type: "knowledge_increased",
         subject: { entityType: "knowledge_domain", entityId: "agriculture_food" },
         location: { regionId: "r1" },
-        values: { before: 0, after: 1, delta: 1 },
+        values: { before: 9, after: 10, delta: 1 },
       },
     ]);
   });
@@ -68,7 +85,15 @@ describe("accumulateRegionalKnowledge", () => {
   });
 
   it("accumulates independently per domain, processed in sorted order", () => {
-    const technologyState = createTechnologyState({ id: "t1", regionId: "r1" });
+    const technologyState = setDomainKnowledge(
+      setDomainKnowledge(
+        createTechnologyState({ id: "t1", regionId: "r1" }),
+        "agriculture_food",
+        9,
+      ),
+      "science_society",
+      9,
+    );
     const result = accumulateRegionalKnowledge({
       technologyState,
       domainIds: ["science_society", "agriculture_food"],
@@ -76,8 +101,8 @@ describe("accumulateRegionalKnowledge", () => {
       rng: testRng("knowledge-multi-domain"),
     });
 
-    expect(result.technologyState.knowledge.agriculture_food).toBe(1);
-    expect(result.technologyState.knowledge.science_society).toBe(1);
+    expect(result.technologyState.knowledge.agriculture_food).toBe(10);
+    expect(result.technologyState.knowledge.science_society).toBe(10);
     expect(result.facts.map((f) => f.subject.entityId)).toEqual([
       "agriculture_food",
       "science_society",

@@ -68,6 +68,7 @@ import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js
 import type { DecisionSnapshot } from "../systems/economy/company-ai/decision-snapshot.js";
 import { accumulateRegionalKnowledge } from "../systems/technology/knowledge.js";
 import {
+  detectTierReached,
   evaluateBreakthroughs,
   updateEligibility,
   type DiscoveryEligibilityRule,
@@ -557,6 +558,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         }
       }
 
+      const technologyStateBeforeAvailability = technologyState;
       const availabilityResult = growAvailability(technologyState, diffusionSignals);
       technologyState = availabilityResult.technologyState;
       const availableFactIndexByDiscoveryId: Record<string, number> = {};
@@ -593,6 +595,34 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         });
       }
       availableFactIndexByRegionAndDiscovery[regionId] = availableFactIndexByDiscoveryId;
+
+      // Region wchodzi w nowy tier (decyzja właściciela 2026-09-26): skutek
+      // udostępnienia odkrycia z wyższego tieru w TYM ticku.
+      const tierFact = detectTierReached(
+        technologyStateBeforeAvailability,
+        technologyState,
+        discoveryEligibilityRulesById,
+      );
+      if (tierFact) {
+        facts.push(tierFact);
+        const enablingDiscoveryId = Object.keys(availableFactIndexByDiscoveryId)
+          .sort()
+          .find(
+            (discoveryId) =>
+              discoveryEligibilityRulesById[discoveryId]?.tier === tierFact.values.after,
+          );
+        causalLinks.push({
+          targetIndex: facts.length - 1,
+          source:
+            enablingDiscoveryId !== undefined
+              ? { kind: "sameBatch", index: availableFactIndexByDiscoveryId[enablingDiscoveryId]! }
+              : { kind: "external", key: `region:${regionId}:technology_tier` },
+          type: "DIRECT",
+          factor: { key: "tier_discovery_available", contribution: 1 },
+          mechanism: "odkrycie z wyższego tieru stało się dostępne w regionie",
+          system: "technology-diffusion",
+        });
+      }
 
       const populationAccessResult = applyPopulationAccess(technologyState);
       technologyState = populationAccessResult.technologyState;

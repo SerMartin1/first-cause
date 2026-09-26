@@ -8,6 +8,10 @@
  */
 :root {
   color-scheme: light;
+  /* Stała rezerwa na pionowy pasek przewijania: rozwinięcie modułów G pod
+     pierwszym ekranem nie może zmieniać szerokości (a przez zawijanie
+     tekstu -- wysokości) Atlasu (kontrakt R1, UI Impl Spec v1.4 §L). */
+  scrollbar-gutter: stable;
 }
 
 body {

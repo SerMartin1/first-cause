@@ -272,7 +272,16 @@ Minimalne rodziny:
 -   discovery_occurred
 -   discovery_diffused
 -   discovery_became_available
--   technology_adoption_increased
+-   technology_adoption_increased (adopcja przemysłowa --- zmiana metody
+    produkcji)
+-   technology_population_access_reached (2026-09-26: próg dostępu
+    populacji, osobna oś TECH-006)
+-   technology_tier_reached (2026-09-26: region wchodzi w nowy tier)
+
+> **2026-09-26 (decyzja właściciela, zgodnie z §7):** fakty technologii
+> powstają przy zdarzeniach, nie przy przyrostach --- `knowledge_increased`
+> tylko przy przekroczeniu progu tieru, `discovery_diffused` raz (gdy
+> dyfuzja zaczyna działać), dostęp populacji tylko przy progach.
 
 ## 6.10 Environment
 

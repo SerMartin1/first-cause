@@ -340,6 +340,12 @@ discovery occurred, - major PM adoption wave, - resource depletion
 milestone, - regional boom, - regional bust, - major intervention
 consequence.
 
+> **2026-09-26 (decyzja właściciela):** dodano `technology_tier_reached`
+> (region wchodzi w nowy tier technologiczny; pierwszy region w świecie =
+> świat wchodzi w tier). `technology_adoption_wave` opiera się wyłącznie
+> na adopcji przemysłowej (zmiany metod produkcji), nie na dostępie
+> populacji, i śledzi pierwszą adopcję każdej technologii w świecie.
+
 ------------------------------------------------------------------------
 
 # 23. Event Importance Baseline
@@ -1307,6 +1313,10 @@ I odwrotnie: - bezpośredni skutek interwencji może być mało historyczny.
 
 System przechowuje informacje typu: - firstInSettlement, -
 firstInRegion, - firstInContinent, - firstInWorld.
+
+> **2026-09-26:** „pierwszość” domyślnie liczona jest per kategorię;
+> `noveltyPolicy.subjectKeyed: true` liczy ją per podmiot (np. pierwsza
+> adopcja danej technologii, §42 „first technology adoption”).
 
 Nie wymaga skanowania pełnej historii za każdym razem.
 

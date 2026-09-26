@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createTechnologyState, setDiscoveryState, setDomainKnowledge } from "@first-cause/entities";
 import { createWorldRng, type RngStream } from "../../core/rng.js";
 import {
+  availableTechnologyTier,
   computeEligibleDiscoveryIds,
+  detectTierReached,
   evaluateBreakthroughs,
   updateEligibility,
   type DiscoveryEligibilityRule,
@@ -173,5 +175,38 @@ describe("evaluateBreakthroughs", () => {
 
     expect(result.facts).toEqual([]);
     expect(result.technologyState.discoveries.d1?.discoveredTick).toBe(3);
+  });
+});
+
+describe("technology tier reached (owner decision 2026-09-26)", () => {
+  const rules = {
+    t0: discoveryRule({ tier: 0 }),
+    t1: discoveryRule({ tier: 1 }),
+    t3: discoveryRule({ tier: 3 }),
+  };
+  const base = createTechnologyState({ id: "t", regionId: "r1" });
+
+  it("a region's tier is the highest tier among its AVAILABLE/ADOPTED discoveries", () => {
+    let state = setDiscoveryState(base, "t3", { status: "KNOWN" });
+    expect(availableTechnologyTier(state, rules)).toBe(-1);
+    state = setDiscoveryState(state, "t1", { status: "AVAILABLE" });
+    expect(availableTechnologyTier(state, rules)).toBe(1);
+  });
+
+  it("emits technology_tier_reached when the tier rises to T1+, keyed by tier (world novelty = first region)", () => {
+    const before = setDiscoveryState(base, "t1", { status: "AVAILABLE" });
+    const after = setDiscoveryState(before, "t3", { status: "AVAILABLE" });
+    expect(detectTierReached(before, after, rules)).toEqual({
+      type: "technology_tier_reached",
+      subject: { entityType: "technology_tier", entityId: "tier_3" },
+      location: { regionId: "r1" },
+      values: { before: 1, after: 3, delta: 2 },
+    });
+  });
+
+  it("T0 is the starting point, not an event; no change means no fact", () => {
+    const t0 = setDiscoveryState(base, "t0", { status: "AVAILABLE" });
+    expect(detectTierReached(base, t0, rules)).toBeUndefined();
+    expect(detectTierReached(t0, t0, rules)).toBeUndefined();
   });
 });

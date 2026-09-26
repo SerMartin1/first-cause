@@ -25,6 +25,12 @@ import { clamp } from "../economy/company-ai/decision-framework.js";
 export const INDUSTRY_ADOPTION_STEP_TODO_TUNING = 0.1;
 export const ADOPTION_THRESHOLD_TODO_TUNING = 0.5; // przekroczenie industryAdoption -> status ADOPTED
 export const POPULATION_ACCESS_RATE_TODO_TUNING = 0.02;
+/**
+ * Progi `populationAccess`, których przekroczenie jest zdarzeniem
+ * (Causality §7; decyzja właściciela 2026-09-26: „większość populacji”
+ * i „pełny dostęp”). TODO tuning.
+ */
+export const POPULATION_ACCESS_MILESTONES_TODO_TUNING: readonly number[] = [0.5, 1];
 
 /**
  * Czysty gate: czy każde odkrycie, którego wymaga `productionMethodId`
@@ -100,6 +106,10 @@ export interface ApplyPopulationAccessResult {
  * Prosty proxy (dziś nie istnieje lepszy sygnał populacyjny per
  * odkrycie w contencie): `populationAccess` każdego odkrycia
  * `AVAILABLE`/`ADOPTED` rośnie o stałą stawkę na tick, clamp do `[0, 1]`.
+ * Fakt `technology_population_access_reached` powstaje tylko przy
+ * przekroczeniu progu z `POPULATION_ACCESS_MILESTONES_TODO_TUNING` -- osobny
+ * typ niż `technology_adoption_increased` (adopcja przemysłowa), bo to dwie
+ * różne osie TECH-006.
  */
 export function applyPopulationAccess(
   technologyState: TechnologyState,
@@ -116,11 +126,15 @@ export function applyPopulationAccess(
     if (after === before) continue;
 
     state = setDiscoveryState(state, discoveryId, { populationAccess: after });
+    const milestone = POPULATION_ACCESS_MILESTONES_TODO_TUNING.find(
+      (threshold) => before < threshold && after >= threshold,
+    );
+    if (milestone === undefined) continue;
     facts.push({
-      type: "technology_adoption_increased",
+      type: "technology_population_access_reached",
       subject: { entityType: "discovery", entityId: discoveryId },
       location: { regionId: state.regionId },
-      values: { before, after, delta: after - before },
+      values: { before, after: milestone, delta: milestone - before },
     });
   }
 

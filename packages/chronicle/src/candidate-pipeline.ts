@@ -58,6 +58,7 @@ const RAW_FACT_TYPE_TO_EVENT_TYPE_TODO_TUNING: Readonly<Record<string, string>> 
   settlement_stage_changed: "settlement_stage_changed",
   discovery_occurred: "discovery_occurred",
   technology_adoption_increased: "technology_adoption_wave",
+  technology_tier_reached: "technology_tier_reached",
 };
 
 /** SS7 Relative Magnitude: a 100%+ relative change already saturates the component to `1`. */
@@ -265,7 +266,11 @@ function scoreFactAsCandidate(
   let isFirstOccurrence = false;
   if (eventType.noveltyPolicy.tracksFirst) {
     const scopeId = noveltyScopeId(eventType.noveltyPolicy.scope, fact);
-    isFirstOccurrence = noveltyRegistry.recordAndCheckFirst(eventType.category, eventType.noveltyPolicy.scope, scopeId);
+    // `subjectKeyed`: „pierwsze” per podmiot (np. pierwsza adopcja TEJ technologii w świecie).
+    const noveltyCategory = eventType.noveltyPolicy.subjectKeyed === true
+      ? `${eventType.category}:${fact.subject.entityType}:${fact.subject.entityId}`
+      : eventType.category;
+    isFirstOccurrence = noveltyRegistry.recordAndCheckFirst(noveltyCategory, eventType.noveltyPolicy.scope, scopeId);
     novelty = isFirstOccurrence ? 1 : 0;
   }
 

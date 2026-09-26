@@ -115,6 +115,39 @@ describe("buildChronicleCandidates", () => {
     expect(second[0]?.isFirstOccurrence).toBe(false);
   });
 
+  it("subjectKeyed novelty: first adoption of EACH technology in the world, not only the first technology event", () => {
+    const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
+      makeEventType({
+        id: "technology_adoption_wave",
+        category: "technology",
+        candidateThreshold: 1,
+        noveltyPolicy: { tracksFirst: true, scope: "world", subjectKeyed: true },
+      }),
+    ]);
+    const noveltyRegistry = createNoveltyRegistry();
+    const adopt = (id: string, discoveryId: string, regionId: string, tick: number) =>
+      buildChronicleCandidates({
+        facts: [
+          makeFact({
+            id,
+            type: "technology_adoption_increased",
+            tick,
+            subject: { entityType: "discovery", entityId: discoveryId },
+            location: { regionId },
+          }),
+        ],
+        edges: EMPTY_EDGES,
+        architectInfluenceByFactId: EMPTY_INFLUENCE,
+        eventTypes,
+        currentTick: tick,
+        noveltyRegistry,
+        activeProcessRegistry: createActiveProcessRegistry(),
+      })[0]?.isFirstOccurrence;
+    expect(adopt("f1", "mec_004", "region_1", 0)).toBe(true);
+    expect(adopt("f2", "agr_003", "region_1", 1)).toBe(true); // inna technologia -- też pierwsza w świecie
+    expect(adopt("f3", "mec_004", "region_2", 2)).toBe(false); // ta sama technologia w innym regionie
+  });
+
   it("a strong outgoing causal edge raises significance enough to clear a threshold a bare fact would miss", () => {
     const eventTypes = DefinitionRegistry.fromDefinitions<EventTypeDefinition>([
       makeEventType({ id: "resource_discovered", baseSignificance: 0, candidateThreshold: 25 }),

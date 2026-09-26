@@ -180,3 +180,43 @@ export function evaluateBreakthroughs(
 
   return { technologyState, facts };
 }
+
+/**
+ * Tier technologiczny regionu = najwyższy tier wśród jego odkryć
+ * `AVAILABLE`/`ADOPTED` (technologia użyteczna, nie tylko znana); `-1` gdy
+ * brak. Czysta funkcja nad `TechnologyState` + regułami contentu.
+ */
+export function availableTechnologyTier(
+  technologyState: TechnologyState,
+  discoveryRulesById: Readonly<Record<string, DiscoveryEligibilityRule>>,
+): number {
+  let tier = -1;
+  for (const [discoveryId, entry] of Object.entries(technologyState.discoveries)) {
+    if (entry.status !== "AVAILABLE" && entry.status !== "ADOPTED") continue;
+    tier = Math.max(tier, discoveryRulesById[discoveryId]?.tier ?? -1);
+  }
+  return tier;
+}
+
+/**
+ * „Region wchodzi w nowy tier” (decyzja właściciela 2026-09-26, nowe
+ * zdarzenie Chronicle `technology_tier_reached`). Fakt tylko przy wzroście
+ * tieru regionu do co najmniej T1 (T0 to punkt wyjścia, nie zdarzenie).
+ * Podmiot to tier (`technology_tier:tier_N`), więc nowość w skali świata
+ * w Chronicle oznacza „świat wchodzi w tier N” (pierwszy region).
+ */
+export function detectTierReached(
+  before: TechnologyState,
+  after: TechnologyState,
+  discoveryRulesById: Readonly<Record<string, DiscoveryEligibilityRule>>,
+): FactInput<number> | undefined {
+  const tierBefore = availableTechnologyTier(before, discoveryRulesById);
+  const tierAfter = availableTechnologyTier(after, discoveryRulesById);
+  if (tierAfter <= tierBefore || tierAfter < 1) return undefined;
+  return {
+    type: "technology_tier_reached",
+    subject: { entityType: "technology_tier", entityId: `tier_${tierAfter}` },
+    location: { regionId: after.regionId },
+    values: { before: Math.max(0, tierBefore), after: tierAfter, delta: tierAfter - Math.max(0, tierBefore) },
+  };
+}

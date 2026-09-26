@@ -10,6 +10,25 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-26
 
+- **M15 --- granularność faktów technologii i Chronicle (decyzje właściciela
+  4 i 5, krok 1 z 4).** Zgodnie z Causality Engine §7 fakty technologii
+  opisują zdarzenia, nie przyrosty: `knowledge_increased` tylko przy
+  przekroczeniu progu tieru, `discovery_diffused` raz (gdy dyfuzja zaczyna
+  działać), dostęp populacji jako nowy typ
+  `technology_population_access_reached` tylko przy progach 0.5 / 1.0
+  (TODO tuning); `technology_adoption_increased` oznacza wyłącznie adopcję
+  przemysłową. Chronicle: `technology_adoption_wave` śledzi pierwszą
+  adopcję każdej technologii w świecie (nowa opcja
+  `noveltyPolicy.subjectKeyed`, domyślnie wyłączona); nowy typ zdarzenia
+  `technology_tier_reached` (region wchodzi w tier T1+; pierwszy region =
+  świat wchodzi w tier) z faktem, szablonem i tłumaczeniami EN/PL. Przebieg
+  referencyjny 600 ticków: fakty 34 640 → 7 720, Chronicle 738 → 74 (w tym
+  24 wejścia w tier). Aktualizacja Causality §6.9 i Chronicle §22/§119.
+  Przy okazji: `scrollbar-gutter: stable` w `index.css` -- rozwinięcie
+  modułów G nie zmienia już szerokości strony (pojawienie się paska
+  przewijania zawijało tekst pasa F i zmniejszało Atlas o 18 px przy
+  1280×800; test R1 to wykrył po zmianie treści wpisów).
+
 - **Regional Technology State Repair (pre-D3).** Przyczyna: `createWorldState`
   nie wyprowadzał `Region.knowledge.technologyStateId` z
   `TechnologyState.regionId` (jako jedyny back-reference regionu), więc

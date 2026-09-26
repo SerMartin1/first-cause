@@ -41,6 +41,13 @@ export type AggregationPolicy = z.infer<typeof AggregationPolicySchema>;
 export const NoveltyPolicySchema = z.object({
   tracksFirst: z.boolean().default(false),
   scope: z.enum(["settlement", "region", "continent", "world"]).default("world"),
+  /**
+   * Chronicle Spec §42/§48 („first technology adoption”, „pierwsza huta w
+   * regionie”): gdy `true`, „pierwszość” liczona jest per podmiot faktu
+   * (np. per technologia), a nie per całą kategorię. Domyślnie `false` --
+   * (także brak pola) -- zachowanie istniejących typów zdarzeń bez zmian.
+   */
+  subjectKeyed: z.boolean().optional(),
 });
 export type NoveltyPolicy = z.infer<typeof NoveltyPolicySchema>;
 

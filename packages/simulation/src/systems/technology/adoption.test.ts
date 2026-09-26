@@ -81,6 +81,25 @@ describe("applyPopulationAccess", () => {
     expect(result.technologyState.discoveries.known_only?.populationAccess).toBe(0);
     expect(result.technologyState.discoveries.available?.populationAccess).toBeGreaterThan(0);
   });
+
+  it("Causality §7: incremental access growth is not a fact; only crossing a milestone is", () => {
+    let state = setDiscoveryState(createTechnologyState({ id: "t1", regionId: "r1" }), "d1", {
+      status: "AVAILABLE",
+    });
+    const facts = [];
+    for (let tick = 0; tick < 60; tick++) {
+      const result = applyPopulationAccess(state);
+      state = result.technologyState;
+      facts.push(...result.facts);
+    }
+    expect(state.discoveries.d1?.populationAccess).toBe(1);
+    expect(facts.map((f) => [f.type, f.values.after])).toEqual([
+      ["technology_population_access_reached", 0.5],
+      ["technology_population_access_reached", 1],
+    ]);
+    // Dostęp populacji to inna oś niż adopcja przemysłowa -- nigdy ten sam typ faktu.
+    expect(facts.some((f) => f.type === "technology_adoption_increased")).toBe(false);
+  });
 });
 
 // "PM adoption/rejection test" (lista Testy M15 z roadmapy): mechanizm

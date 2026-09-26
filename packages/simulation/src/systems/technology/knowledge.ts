@@ -4,6 +4,7 @@ import type { FactInput } from "@first-cause/causality";
 import type { RngStream } from "../../core/rng.js";
 import { clamp } from "../economy/company-ai/decision-framework.js";
 import { stochasticRound } from "../population/demography.js";
+import { TIER_KNOWLEDGE_THRESHOLD_TODO_TUNING } from "./discoveries.js";
 
 /**
  * Regionalna akumulacja wiedzy (`technology/knowledge`, M15, AI Decision
@@ -35,10 +36,10 @@ export interface AccumulateRegionalKnowledgeResult {
 /**
  * READ (`technologyState`/`population`/`domainIds`) -> CALCULATE (przyrost
  * per domena) -> VALIDATE (clamp 0..100) -> COMMIT (`setDomainKnowledge`)
- * -> EMIT FACTS (`knowledge_increased`, tylko gdy zaokrąglony poziom
- * faktycznie się zmienił -- stochastyczne zaokrąglanie oznacza, że
- * większość ticków/domen nie widzi zmiany, a fakt dla zerowej delty
- * byłby tylko szumem).
+ * -> EMIT FACTS (`knowledge_increased` wyłącznie przy przekroczeniu progu
+ * tieru -- Causality Engine §7 „Fact Granularity”: zwykły przyrost wiedzy
+ * nie jest zdarzeniem; zdarzeniem jest zmiana tego, co region może odkryć.
+ * Decyzja właściciela 2026-09-26).
  */
 export function accumulateRegionalKnowledge(
   input: AccumulateRegionalKnowledgeInput,
@@ -57,6 +58,10 @@ export function accumulateRegionalKnowledge(
     if (after === before) continue;
 
     technologyState = setDomainKnowledge(technologyState, domainId, after);
+    const crossesTierThreshold = TIER_KNOWLEDGE_THRESHOLD_TODO_TUNING.some(
+      (threshold) => threshold > 0 && before < threshold && after >= threshold,
+    );
+    if (!crossesTierThreshold) continue;
     facts.push({
       type: "knowledge_increased",
       subject: { entityType: "knowledge_domain", entityId: domainId },

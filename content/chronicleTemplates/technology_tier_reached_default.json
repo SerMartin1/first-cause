@@ -1,0 +1,9 @@
+{
+  "id": "technology_tier_reached_default",
+  "factOrEventType": "technology_tier_reached",
+  "titleKey": "content.chronicleTemplate.technology_tier_reached_default.title",
+  "bodyKey": "content.chronicleTemplate.technology_tier_reached_default.body",
+  "requiredData": ["regionName", "tier", "noveltyScope"],
+  "variants": {},
+  "implementationPhase": "VS"
+}

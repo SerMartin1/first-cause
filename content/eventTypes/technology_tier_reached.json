@@ -1,19 +1,19 @@
 {
-  "id": "technology_adoption_wave",
-  "nameKey": "content.eventType.technology_adoption_wave.name",
+  "id": "technology_tier_reached",
+  "nameKey": "content.eventType.technology_tier_reached.name",
   "category": "technology",
-  "baseSignificance": 25,
+  "baseSignificance": 45,
   "candidateThreshold": 25,
   "aggregationPolicy": {
-    "windowTicks": 12,
-    "scope": "entity"
+    "windowTicks": 1,
+    "scope": "region"
   },
   "noveltyPolicy": {
     "tracksFirst": true,
     "scope": "world",
     "subjectKeyed": true
   },
-  "durationPolicy": "SUSTAINED",
+  "durationPolicy": "STRUCTURAL",
   "anchorPolicy": {
     "alwaysAnchor": false
   },
