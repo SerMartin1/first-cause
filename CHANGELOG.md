@@ -10,6 +10,17 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-26
 
+- **M15 --- model tempa technologii (decyzje właściciela 1--3, krok 2 z 4).**
+  Przyrost wiedzy `0.0283 · √(p/20 000) · (1 − K/100)` na domenę na tick
+  (wariant B + malejący przyrost; pusty region nie zdobywa wiedzy), progi
+  tierów `[0, 4, 10, 18, 30, 46, 80]` zamiast liniowych (rosnące odstępy).
+  Nowy stały test pasm `technology-pacing.test.ts` (≤ 100 osób → T0--T2 po
+  200 latach, 2 000 → T3--T4, 20 000 → T5, 200 000 → T6 w 100--180 lat).
+  Adnotacja przy OPEN-004, sekcja „Technology pacing” w Roadmap v0.6,
+  przepisane testy `knowledge.test.ts`, dostosowane progi w testach
+  eligibility i test referencyjny (osady Black Mountain nie przekraczają
+  progu tieru w pierwszym roku).
+
 - **M15 --- granularność faktów technologii i Chronicle (decyzje właściciela
   4 i 5, krok 1 z 4).** Zgodnie z Causality Engine §7 fakty technologii
   opisują zdarzenia, nie przyrosty: `knowledge_increased` tylko przy

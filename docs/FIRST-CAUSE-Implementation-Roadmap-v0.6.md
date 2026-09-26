@@ -4391,3 +4391,17 @@ technologiczna niezależna od skali populacji, zalew faktów
 `reference-technology.test.ts` (link, działanie pipeline'u,
 determinizm, zapis → odczyt), `world-state.test.ts` (inwarianty
 linku). D3 nadal OPEN.
+
+## Technology pacing (2026-09-26) --- decyzje właściciela 1--3, 4, 5
+
+-   **Fakty i Chronicle (krok 1, `086cff6`):** fakty technologii przy
+    zdarzeniach (Causality §7), osobny typ dostępu populacji, nowe
+    zdarzenie `technology_tier_reached`, nowość per technologia.
+-   **Tempo (krok 2):** `gain = 0.0283 · √(p/20 000) · (1 − K/100)` na
+    domenę na tick (0 dla pustego regionu); progi tierów
+    `[0, 4, 10, 18, 30, 46, 80]`. Pasma docelowe (OPEN-004) sprawdzane
+    testem `technology-pacing.test.ts`: ≤ 100 osób → T0--T2 po 200 latach;
+    2 000 → T3--T4; 20 000 → T5; 200 000 → T6 w 100--180 lat (benchmark:
+    112--131). Regiony Black Mountain (10--30 osób) pozostają na T0--T1.
+-   **Dalej:** `TechnologyState` w każdym regionie (region bez populacji
+    nieaktywny), ponowny przebieg referencyjny, potem D3 (N2) i R3.

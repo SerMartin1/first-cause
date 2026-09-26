@@ -1047,7 +1047,7 @@ describe("runEconomyTick -- M15 Technology wiring (technology/knowledge|discover
       id: "cohort_tech_test",
       regionId: region.id,
       ageGroup: "AGE_25_44",
-      population: 5000, // zgodne z KNOWLEDGE_GAIN_TODO_TUNING.populationDivisor -- przyrost dokładnie 1/tick
+      population: 5000,
       economicClass: "WORKING",
       skillLevel: "UNSKILLED",
     });

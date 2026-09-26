@@ -2155,6 +2155,13 @@ Do tuningu.
 
 Do tuningu.
 
+> **2026-09-26 (decyzja właściciela):** zaakceptowano model tempa
+> (przyrost wiedzy ∝ √populacji z malejącym przyrostem, rosnące odstępy
+> progów tierów) i **pasma docelowe** jako kryteria testu: izolowana osada
+> ≤ 100 osób --- T0--T2 po 200 latach; ~2 000 --- T3--T4; ~20 000 --- T5;
+> ≥ 200 000 --- T6 po ok. 100--180 latach. Konkretne liczby pozostają
+> tuningiem, ale muszą utrzymać test pasm (`technology-pacing.test.ts`).
+
 ------------------------------------------------------------------------
 
 # 192. OPEN-005 --- exact price sensitivity

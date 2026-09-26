@@ -31,8 +31,8 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..
 describe("M15 Acceptance Gate", () => {
   it("region bez wymaganej wiedzy nie może odkryć zaawansowanej technologii", () => {
     // T6 (tier 6) wymaga knowledge >= 80 (TIER_KNOWLEDGE_THRESHOLD_TODO_TUNING).
-    // populationPerRegion=20_000 daje ~1.5 wiedzy/tick -- po 20 tickach
-    // knowledge jest wciąż daleko poniżej 80, więc discovery MUSI zostać UNKNOWN.
+    // Przy populationPerRegion=20_000 przyrost to ~0.03 wiedzy/tick -- po 20
+    // tickach knowledge jest daleko poniżej 80, więc discovery MUSI zostać UNKNOWN.
     let worldState: WorldState = buildTechnologyTestWorld();
     const rng = createWorldRng("acceptance-eligibility");
     const discoveryEligibilityRulesById = {

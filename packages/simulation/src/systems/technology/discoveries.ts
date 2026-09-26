@@ -39,8 +39,13 @@ export function parseDiscoveryEligibilityRule(
 ): DiscoveryEligibilityRule {
   return { primaryDomainId, tier, prerequisites };
 }
+/**
+ * Progi wiedzy tierów T0..T6 (OPEN-004, TODO tuning). 2026-09-26 (decyzja
+ * właściciela „wyższe tiery trudniejsze”): rosnące odstępy 4/6/8/12/16/34
+ * zamiast liniowych, razem z malejącym przyrostem wiedzy (`knowledge.ts`).
+ */
 export const TIER_KNOWLEDGE_THRESHOLD_TODO_TUNING: readonly number[] = [
-  0, 10, 20, 30, 45, 60, 80,
+  0, 4, 10, 18, 30, 46, 80,
 ]; // T0..T6
 
 export const BREAKTHROUGH_BASE_CHANCE_TODO_TUNING = 0.03;

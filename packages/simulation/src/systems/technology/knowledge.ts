@@ -15,11 +15,31 @@ import { TIER_KNOWLEDGE_THRESHOLD_TODO_TUNING } from "./discoveries.js";
  * domena<->archetyp, których warstwa contentu jeszcze nie ma -- świadomie
  * odłożone, nie wymyślone, AGENTS.md "configurable placeholder + TODO
  * tuning").
+ *
+ * Model tempa (decyzja właściciela 2026-09-26, wariant B + „trudniejsze
+ * wyższe tiery”): `gain = rate · (p / pRef)^0.5 · (1 − K/100)` na domenę
+ * na tick. Pierwiastek: wiedza rośnie z liczbą możliwych wymian między
+ * ludźmi, mniej niż liniowo; pusty region nie zdobywa wiedzy. Czynnik
+ * `(1 − K/100)`: malejący przyrost -- każdy kolejny punkt wiedzy jest
+ * trudniejszy. Parametry skalibrowane benchmarkiem pod zaakceptowane pasma
+ * docelowe (Roadmap v0.6, „Technology pacing”); OPEN-004 (TODO tuning).
  */
 export const KNOWLEDGE_GAIN_TODO_TUNING = {
-  baseRatePerTick: 0.5,
-  populationDivisor: 5000,
+  ratePerTickAtReference: 0.0283,
+  referencePopulation: 20_000,
+  populationExponent: 0.5,
 } as const;
+
+/** Czysta funkcja przyrostu wiedzy jednej domeny w jednym ticku (przed zaokrągleniem stochastycznym). */
+export function knowledgeGainPerTick(population: number, knowledge: number): number {
+  if (!(population > 0)) return 0;
+  const scale = Math.pow(
+    population / KNOWLEDGE_GAIN_TODO_TUNING.referencePopulation,
+    KNOWLEDGE_GAIN_TODO_TUNING.populationExponent,
+  );
+  const remaining = clamp(1 - knowledge / 100, 0, 1);
+  return KNOWLEDGE_GAIN_TODO_TUNING.ratePerTickAtReference * scale * remaining;
+}
 
 export interface AccumulateRegionalKnowledgeInput {
   readonly technologyState: TechnologyState;
@@ -50,9 +70,7 @@ export function accumulateRegionalKnowledge(
 
   for (const domainId of [...input.domainIds].sort()) {
     const before = technologyState.knowledge[domainId] ?? 0;
-    const gain =
-      KNOWLEDGE_GAIN_TODO_TUNING.baseRatePerTick *
-      (1 + population / KNOWLEDGE_GAIN_TODO_TUNING.populationDivisor);
+    const gain = knowledgeGainPerTick(population, before);
     const after = clamp(before + stochasticRound(gain, rng), 0, 100);
 
     if (after === before) continue;

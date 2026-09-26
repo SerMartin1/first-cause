@@ -30,7 +30,7 @@ describe("computeEligibleDiscoveryIds (discovery eligibility test)", () => {
     const technologyState = setDomainKnowledge(
       createTechnologyState({ id: "t1", regionId: "r1" }),
       "agriculture_food",
-      5, // próg dla T1 to 10
+      3, // próg dla T1 to 4 (2026-09-26)
     );
     const discoveries = { d1: discoveryRule({ tier: 1 }) };
 
@@ -41,7 +41,7 @@ describe("computeEligibleDiscoveryIds (discovery eligibility test)", () => {
     const technologyState = setDomainKnowledge(
       createTechnologyState({ id: "t1", regionId: "r1" }),
       "agriculture_food",
-      10,
+      4,
     );
     const discoveries = { d1: discoveryRule({ tier: 1 }) };
 

@@ -53,16 +53,22 @@ describe("Black Mountain reference world -- regional technology (M15 live)", () 
       expect(state.technologyStates[technologyStateId!]!.regionId).toBe(regionId);
   });
 
-  it("runs the technology pipeline: knowledge accumulates and discoveries occur", () => {
+  it("runs the technology pipeline: discoveries occur and knowledge accumulates", () => {
     const runner = referenceRunner();
     for (let i = 0; i < 12; i++) runner.step();
-    const types = new Set(runner.facts.map((f) => f.type));
-    expect(types).toContain("knowledge_increased");
-    expect(types).toContain("discovery_occurred");
+    // T0 (próg 0) jest do wzięcia od startu w regionach zamieszkanych.
+    expect(new Set(runner.facts.map((f) => f.type))).toContain("discovery_occurred");
     const known = Object.values(runner.worldState.technologyStates).flatMap((t) =>
       Object.values(t.discoveries).filter((d) => d.status !== "UNKNOWN"),
     );
     expect(known.length).toBeGreaterThan(0);
+    // Osady po 10--30 osób zdobywają wiedzę bardzo wolno (pasmo: ≤ T2 po 200 latach),
+    // ale ją zdobywają -- sprawdzane w horyzoncie 100 lat.
+    for (let i = 12; i < 1200; i++) runner.step();
+    const knowledge = Object.values(runner.worldState.technologyStates).flatMap((t) =>
+      Object.values(t.knowledge),
+    );
+    expect(knowledge.some((level) => level > 0)).toBe(true);
   });
 
   it("is deterministic: same seed + fixture + ticks gives an identical state", () => {
