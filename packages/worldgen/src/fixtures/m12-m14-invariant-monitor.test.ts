@@ -109,6 +109,12 @@ describe("Black Mountain fixture -- M12-M14 multi-seed 120-tick invariant monito
         // P0-05a
         const eligibleByRegionId = new Map<string, number>();
         for (const cohort of Object.values(worldState.populationCohorts)) {
+          // Populacja to całe osoby (POP-001) -- ułamek wyciekał kiedyś z
+          // ułamkowego `housing.capacity` przez limit migracji.
+          expect(
+            Number.isInteger(cohort.population),
+            `tick ${tick}: cohort "${cohort.id}".population must be an integer, got ${cohort.population}`,
+          ).toBe(true);
           const eligible = eligibleLaborForce(cohort);
           expect(
             cohort.employment,

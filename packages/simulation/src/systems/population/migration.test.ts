@@ -239,6 +239,42 @@ describe("selectDestinationSettlement (SET-003, FC-MIGRATION-003 hard cap)", () 
     expect(choice.settlementId).toBeUndefined();
     expect(choice.remainingCapacity).toBe(0);
   });
+
+  it("counts remaining capacity in whole people when housing.capacity is fractional (no fractional migrants)", () => {
+    const growing = {
+      ...createSettlement({
+        id: "settlement_growing",
+        regionId: "region_dest",
+        name: "Growing",
+        foundedTick: 0,
+      }),
+      // `society/housing.ts` podnosi capacity ułamkowym krokiem.
+      housing: { capacity: 12.45, cost: 0, pressure: 0 },
+    };
+
+    const partial = selectDestinationSettlement({
+      destinationRegion: {
+        ...destinationRegion,
+        settlements: { settlementIds: [growing.id] },
+      },
+      settlementsById: { [growing.id]: growing },
+      settlementPopulationById: new Map([[growing.id, 10]]),
+    });
+    expect(partial.settlementId).toBe(growing.id);
+    expect(partial.remainingCapacity).toBe(2); // floor(2.45)
+
+    // Mniej niż jedno wolne miejsce = brak miejsca, nie „0.45 osoby”.
+    const almostFull = selectDestinationSettlement({
+      destinationRegion: {
+        ...destinationRegion,
+        settlements: { settlementIds: [growing.id] },
+      },
+      settlementsById: { [growing.id]: growing },
+      settlementPopulationById: new Map([[growing.id, 12]]),
+    });
+    expect(almostFull.settlementId).toBeUndefined();
+    expect(almostFull.remainingCapacity).toBe(0);
+  });
 });
 
 function buildCohort(overrides: Partial<PopulationCohort> = {}): PopulationCohort {
@@ -301,7 +337,9 @@ describe("applyMigrationFlow (FC-MIGRATION-005 accounting)", () => {
       ],
     });
 
-    const inFactIndex = result.facts.findIndex((f) => f.type === "population_migrated_in");
+    const inFactIndex = result.facts.findIndex(
+      (f) => f.type === "population_migrated_in",
+    );
     const inLinks = result.causalLinks.filter((link) => link.targetIndex === inFactIndex);
     const jobsLink = inLinks.find((link) => link.factor.key === "jobs")!;
     const wageLink = inLinks.find((link) => link.factor.key === "wage")!;
@@ -427,6 +465,20 @@ describe("applyMigrationFlow (FC-MIGRATION-005 accounting)", () => {
         existingDestinationCohort: undefined,
       }),
     ).toThrow(/exceeds source cohort/);
+  });
+
+  it("throws on a fractional migrantCount (population is whole people, fail loud)", () => {
+    const sourceCohort = buildCohort({ population: 10 });
+    expect(() =>
+      applyMigrationFlow({
+        sourceCohort,
+        migrantCount: 2.45,
+        destinationRegionId: "region_b",
+        destinationSettlementId: undefined,
+        tick: 0,
+        existingDestinationCohort: undefined,
+      }),
+    ).toThrow(/must be an integer/);
   });
 
   it("emits no facts and leaves both cohorts unchanged for a zero migrantCount", () => {

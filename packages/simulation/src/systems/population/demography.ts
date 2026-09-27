@@ -1,6 +1,6 @@
 import type { AgeGroup, PopulationCohort } from "@first-cause/entities";
 import type { FactInput, FactLocation } from "@first-cause/causality";
-import { assertNonNegative } from "../../core/validation.js";
+import { assertInteger, assertNonNegative } from "../../core/validation.js";
 import type { PendingCausalLink } from "../../core/causal-links.js";
 import type { RngStream } from "../../core/rng.js";
 import { eligibleLaborForce } from "../economy/labor/employment.js";
@@ -240,8 +240,15 @@ export function applyMonthlyDemography(
     );
     const birthsIn = ageGroup === "AGE_0_14" ? births : 0;
 
-    const after = assertNonNegative(
-      before - deaths[ageGroup]! - (agingOut[ageGroup] ?? 0) + agingIn + birthsIn,
+    // Wszystkie składniki (zgony, starzenie, urodzenia) są całkowite
+    // (`stochasticRound`), więc całkowita populacja na wejściu daje
+    // całkowitą na wyjściu; ułamek tutaj oznacza, że przyszedł z zewnątrz
+    // (np. migracja) -- fail-loud zamiast cichego przenoszenia go dalej.
+    const after = assertInteger(
+      assertNonNegative(
+        before - deaths[ageGroup]! - (agingOut[ageGroup] ?? 0) + agingIn + birthsIn,
+        `applyMonthlyDemography(${cohort.id}).population`,
+      ),
       `applyMonthlyDemography(${cohort.id}).population`,
     );
 
@@ -270,7 +277,8 @@ export function applyMonthlyDemography(
           key: fact.type === "population_increased" ? "birth_rate" : "death_rate",
           contribution: Math.sign(after - before),
         },
-        mechanism: "roczna stopa urodzeń/śmierci/starzenia, skonwertowana na miesięczne prawdopodobieństwo",
+        mechanism:
+          "roczna stopa urodzeń/śmierci/starzenia, skonwertowana na miesięczne prawdopodobieństwo",
         system: "demography",
       });
     }
@@ -293,7 +301,8 @@ export function applyMonthlyDemography(
           key: "population_change",
           contribution: Math.sign(employmentAfter - employmentBefore),
         },
-        mechanism: "zmiana populacji (śmierć/starzenie się poza wiek produkcyjny) wymusiła uzgodnienie zatrudnienia",
+        mechanism:
+          "zmiana populacji (śmierć/starzenie się poza wiek produkcyjny) wymusiła uzgodnienie zatrudnienia",
         system: "demography",
       });
     }

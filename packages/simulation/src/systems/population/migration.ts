@@ -6,7 +6,11 @@ import {
   type Settlement,
 } from "@first-cause/entities";
 import type { CausalFactor, FactInput, FactLocation } from "@first-cause/causality";
-import { InvariantViolationError, assertNonNegative } from "../../core/validation.js";
+import {
+  InvariantViolationError,
+  assertInteger,
+  assertNonNegative,
+} from "../../core/validation.js";
 import { offsetCausalLinks, type PendingCausalLink } from "../../core/causal-links.js";
 import type { RngStream } from "../../core/rng.js";
 import { clamp } from "../economy/company-ai/decision-framework.js";
@@ -270,7 +274,16 @@ export function selectDestinationSettlement(input: {
     const settlement = input.settlementsById[settlementId];
     if (!settlement) continue;
     const currentPopulation = input.settlementPopulationById.get(settlementId) ?? 0;
-    const remaining = Math.max(0, settlement.housing.capacity - currentPopulation);
+    // `housing.capacity` rośnie w sposób ciągły (`society/housing.ts`
+    // goni cel ułamkowym krokiem), ale ludzie są niepodzielni: wolne
+    // miejsca liczymy w pełnych osobach (floor). Bez tego ułamkowa
+    // pojemność przez `Math.min(...)` niżej trafiała wprost do
+    // `migrantCount`, a stamtąd do populacji kohort (ułamkowa populacja
+    // regionu, np. 23.45).
+    const remaining = Math.max(
+      0,
+      Math.floor(settlement.housing.capacity - currentPopulation),
+    );
     if (!best || remaining > best.remainingCapacity) {
       best = { settlementId, remainingCapacity: remaining };
     }
@@ -356,8 +369,11 @@ export function applyMigrationFlow(
   input: ApplyMigrationFlowInput,
 ): ApplyMigrationFlowResult {
   const { sourceCohort, existingDestinationCohort } = input;
-  const migrantCount = assertNonNegative(
-    input.migrantCount,
+  // Populacja jest liczbą całkowitą (POP-001: kohorty ludzi, nie ułamki
+  // osób) -- ułamkowy przepływ to błąd wywołującego, nie coś do cichego
+  // zaokrąglenia tutaj.
+  const migrantCount = assertInteger(
+    assertNonNegative(input.migrantCount, "applyMigrationFlow().migrantCount"),
     "applyMigrationFlow().migrantCount",
   );
   if (migrantCount > sourceCohort.population) {
