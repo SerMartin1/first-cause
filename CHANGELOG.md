@@ -10,6 +10,18 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-27
 
+- **Zamknięcie M21-VIS-R3 po akceptacji wizualnej (etap systemu
+  wizualnego, bez nowej mechaniki symulacji).** Właściciel zaakceptował
+  R3 i refinement R3.1: czytelne przejście Town → City (City jako
+  wielopłatowa struktura z jednym dominującym rdzeniem i dzielnicami),
+  zachowana hierarchia City → Metropolis → Megacity, poprawione osie
+  Megacity (kończą się na satelitach). Macierz: 10 vs 100 PARTIAL
+  (zaakceptowane), pozostałe porównania i osie Megacity PASS; bez
+  regresji Black Mountain, D3, industry / extraction i connections.
+  Zaakceptowane prymitywy i reguły morfologii dopisane do Visual
+  Alphabet (Atlas Spec §4A.1); §28 i Roadmap oznaczone jako DONE /
+  HUMAN VISUAL ACCEPTED. R4 nierozpoczęte.
+
 - **M21-VIS-R3.1 --- refinement morfologii City i osi Megacity (czeka na
   akceptację wizualną).** City ~100k ma teraz jeden główny rdzeń i 2--3
   dzielnice jako osobne płaty zabudowy (pierwsza zrośnięta przewężeniem,

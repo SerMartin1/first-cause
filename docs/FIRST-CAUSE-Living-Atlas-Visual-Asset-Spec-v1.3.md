@@ -241,6 +241,59 @@ Kategorie wpływają na strukturę znaku i poziom informacji.
 **Capital / Regional Capital / State Capital są modifierami funkcji, a
 nie kategoriami populacyjnymi.**
 
+### Morfologia osad (`M21-VIS-R3` / `R3.1`, HUMAN VISUAL ACCEPTED 2026-09-27)
+
+Populacja zmienia **strukturę** znaku osady, nie tylko jego rozmiar
+(§28.2). Znak jest symboliczny --- nie jest planem miasta ani
+budynkami 1:1.
+
+**Prymitywy** (jedyne dozwolone elementy znaku osady):
+
+-   **ślad osady (footprint)** --- promień znaku z log10 populacji z
+    górnym limitem (§28.3); wszystkie elementy znaku mieszczą się w
+    nim;
+-   **ślad zabudowy** --- mały prostokąt o stałym rozmiarze (skala osady
+    rośnie liczbą śladów, nie ich wielkością);
+-   **skupisko** --- kilka śladów zabudowy razem (zwarta zabudowa
+    dzielnicy);
+-   **oś** --- łamana linia wewnątrz osady (ramię wzrostu, połączenie
+    rdzenia z dzielnicą lub płatów ze sobą); nigdy nie przechodzi przez
+    środek jako szprycha i kończy się w punkcie struktury osady;
+-   **obszar zabudowy** --- kanciasty płat (lub kilka płatów) jednym
+    kryjącym odcieniem `--fc-atlas-urban`, z konturem
+    `--fc-atlas-urban-edge` tylko po zewnętrznej krawędzi sumy płatów;
+-   **rdzeń** --- pełny, kanciasty wielokąt (centrum osady);
+-   **osada satelitarna** --- skupisko przy krawędzi śladu megacity.
+
+**Klasy morfologii** grupują kategorie powyżej bez zmiany ich granic:
+
+| Klasa | Kategorie | Struktura |
+|---|---|---|
+| Hamlet | < 500 | 2 oddalone ślady zabudowy albo skupisko 4 śladów ze ścieżką |
+| Village | 500--5k | zabudowa wzdłuż jednej drogi, przy większej wsi odgałęzienie |
+| Town | 5k--50k | jeden zwarty obszar zabudowy, jeden rdzeń, 3--4 krótkie ramiona wzrostu |
+| City | 50k--500k | jeden dominujący rdzeń w głównym obszarze + 2--3 dzielnice jako osobne płaty różnej wielkości (największa może być zrośnięta przewężeniem, pozostałe za niewielką przerwą), połączone z rdzeniem osiami; bez efektu gwiazdy |
+| Metropolis | 500k--5M | wielopłatowa struktura (dwa zrośnięte płaty), co najmniej dwa rdzenie, dzielnice |
+| Megacity | 5M+ | policentryczna: 4--5 płatów z własnymi rdzeniami połączonymi osiami, osady satelitarne; osie zewnętrzne kończą się na satelitach, nie w pustej przestrzeni |
+
+**Wariacja:** 3 autorskie układy × lustro, wybierane deterministycznie
+stabilnym hashem id osady (bez RNG, bez `Math.random()`); ta sama
+osada przy tej samej populacji i zoomie wygląda zawsze tak samo.
+Wygląd nie wpływa na symulację.
+
+**Semantic zoom (WORLD / REGION / LOCAL, §13):** poziom zoomu dokłada
+wyłącznie ślady / skupiska zabudowy --- **nie zmienia klasy osady ani
+jej podstawowej morfologii** (obszar, rdzenie, osie). Różnica
+Town → City istnieje już na WORLD. Najmniejsze osady mają minimalny
+rozmiar ekranowy bez zmiany kolejności rozmiarów (§28.3).
+
+**Osie osady ≠ trasy między regionami:** osie są częścią znaku osady;
+infrastruktura między regionami jest rysowana na krawędziach (§28.6) i
+nie jest zmieniana przez morfologię.
+
+**Budżet:** ≤ 60 prymitywów na osadę (UI Implementation Spec, Living
+Atlas); wiele osad na region zgodnie z §28.4 i Design System §69.4.
+
 ## 4A.2 Resource classes
 
 Nie używać jednej kategorii `resource deposit` dla wszystkich zasobów.
@@ -1327,8 +1380,8 @@ Układ jest deterministyczny (np. z `vignetteSeed`), mieści się w
 znaczniku selekcji i nie sugeruje funkcji, których nie ma w danych.
 Kategorie §4A.1 / §6.1 pozostają źródłem klas.
 
-**Implementacja `M21-VIS-R3` (2026-09-27, czeka na akceptację
-wizualną właściciela):** sześć klas morfologii grupuje kategorie §4A.1
+**Implementacja `M21-VIS-R3` (2026-09-27, HUMAN VISUAL ACCEPTED ---
+reguły kanoniczne: §4A.1 „Morfologia osad”):** sześć klas morfologii grupuje kategorie §4A.1
 bez zmiany ich granic (Hamlet < 500; Village 500--5k; Town 5k--50k;
 City 50k--500k; Metropolis 500k--5M; Megacity 5M+). Znak składa się z
 pięciu autorskich prymitywów: ślad zabudowy (stały rozmiar), skupisko
@@ -1352,8 +1405,8 @@ teren, osady są elementami wewnątrz; wiele osad w regionie układanych
 jest bez nakładania (budżet WORLD / REGION / LOCAL = 3 / 6 / 12,
 nadmiar agregowany jako kropki „+n”). Kod:
 `apps/desktop/src/features/world/settlement-morphology.ts`,
-`atlas-grammar.ts` (`layoutSettlements`). Prymitywy nie są jeszcze
-dopisane do §4A (Visual Alphabet) --- dopiero po akceptacji.
+`atlas-grammar.ts` (`layoutSettlements`). Prymitywy dopisane do §4A.1
+po akceptacji wizualnej (2026-09-27).
 
 ## 28.3 Skalowanie populacji
 
@@ -1456,5 +1509,5 @@ jawnie oznaczony jako dane deweloperskie (UI Implementation Spec v1.4).
 -   **Spec:** READY.
 -   **Implementacja:** NIE SPEŁNIA --- audyt 2026-09-26 (BLOCKER B1, B2;
     HIGH H2, H3). Kontynuacja: Roadmap v0.6 `M21-VIS-R2`...`R6`.
-    §28.2--§28.4: implementacja `M21-VIS-R3` (2026-09-27) --- czeka na
-    HUMAN VISUAL ACCEPTANCE właściciela.
+    §28.2--§28.4: `M21-VIS-R3` / `R3.1` --- DONE, HUMAN VISUAL
+    ACCEPTED (2026-09-27).

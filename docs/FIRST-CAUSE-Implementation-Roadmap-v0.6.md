@@ -4467,7 +4467,7 @@ linku). D3 nadal OPEN.
     ma symbolu); brak contentu wydobycia rudy żelaza (archetyp/PM) ---
     łańcuch VS §31 kończy się na „gospodarka może ocenić opportunity”.
 
-## Wynik `M21-VIS-R3` (2026-09-27) --- IMPLEMENTATION PASS, CZEKA NA HUMAN VISUAL ACCEPTANCE
+## Wynik `M21-VIS-R3` (2026-09-27) --- DONE, HUMAN VISUAL ACCEPTED
 
 Settlement Morphology + Population Scaling + Civilization Readability wg
 Atlas Spec v1.3 §28.2--§28.4 (szczegóły modelu: tam). Populacja zmienia
@@ -4509,7 +4509,7 @@ discovery → economic opportunity → extraction → economic
 consequences). Szczegółowa mechanika --- do zaprojektowania przy
 starcie zadania, na polecenie właściciela.
 
-## Wynik `M21-VIS-R3.1` (2026-09-27) --- refinement R3, CZEKA NA HUMAN VISUAL ACCEPTANCE
+## Wynik `M21-VIS-R3.1` (2026-09-27) --- refinement R3, DONE, HUMAN VISUAL ACCEPTED
 
 Wąska poprawka R3 (bez zmian klas, footprintu, semantic zoom, budżetów,
 wariantów, UI i symulacji): City dostało strukturalne dzielnice (osobne
@@ -4522,3 +4522,27 @@ się na osadach satelitarnych w obrębie śladu. 10 vs 100 pozostaje
 `FC_WRITE_VERIFICATION=1`, tak samo spec R3 --- zatwierdzony zestaw R3
 nie jest nadpisywany zwykłym `test:e2e`). Prymitywy R3/R3.1 nadal poza
 Visual Alphabet §4A do akceptacji całego R3.
+
+## Zamknięcie `M21-VIS-R3` (2026-09-27) --- CLOSED / HUMAN VISUAL ACCEPTED
+
+Akceptacja właściciela na podstawie materiałów
+`docs/verification/world-r3-1-2026-09-27/` (town-vs-city,
+megacity-axis-check, ladder 10 → 10M+, civilization 1920×1080,
+morphology sheet). R3 i refinement R3.1 wykonane.
+
+| Porównanie | Wynik |
+| --- | --- |
+| 10 vs 100 | PARTIAL --- zaakceptowane przez właściciela dla R3 |
+| 100 vs 1k | PASS |
+| 1k vs 10k | PASS |
+| 10k vs 100k | PASS |
+| 100k vs 1M | PASS |
+| 1M vs 10M+ | PASS |
+| Osie Megacity | PASS |
+
+Regresje: Black Mountain PASS, industry / extraction PASS, connections
+PASS, D3 (TECH-012) PASS. Zaakceptowane prymitywy i reguły morfologii
+dopisane do Atlas Spec §4A.1 („Morfologia osad”). Obserwacja na
+później (nie zadanie): ewentualne strojenie minimalnego ekranowego
+śladu osad na WORLD przy dużych światach. Następny etap:
+`M21-VIS-R4` --- NOT STARTED (na osobne polecenie właściciela).
