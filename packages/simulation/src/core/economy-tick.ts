@@ -14,6 +14,7 @@ import {
   type WorldState,
 } from "@first-cause/entities";
 import type { CausalFactor, FactInput } from "@first-cause/causality";
+import type { ResourceDiscoveryRules } from "@first-cause/content";
 import {
   directionalEdgeType,
   offsetCausalLinks,
@@ -57,6 +58,7 @@ import {
 } from "../systems/economy/transport/modes.js";
 import { regenerateDeposit } from "../systems/resources/renewable.js";
 import { usableDepositQuantity } from "../systems/resources/deposit-lifecycle.js";
+import { evaluateNaturalDepositDiscovery } from "../systems/resources/natural-discovery.js";
 import {
   assessFinancialHealth,
   decideLabor,
@@ -229,6 +231,15 @@ export interface RunEconomyTickInput {
    */
   readonly requiredDiscoveryIdsByMethodId?: Readonly<Record<string, readonly string[]>>;
   /**
+   * D3 (Canonical Decisions TECH-012): `resource.id` ->
+   * `ResourceDefinition.discoveryRules` z contentu. Brak wpisu = zasób nie
+   * jest odkrywany naturalnie. Domyślnie `{}` (naturalne odkrywanie
+   * wyłączone -- wsteczna zgodność).
+   */
+  readonly resourceDiscoveryRulesByResourceId?: Readonly<
+    Record<string, ResourceDiscoveryRules>
+  >;
+  /**
    * M17 (CE-07): `"${entityType}:${entityId}:${type}" -> najnowszy fact
    * id`, narastająco budowane przez `WorldRunner` z KAŻDEGO ticka (nie
    * tylko tego, jeszcze niewyemitowanego) -- pozwala systemom cytować
@@ -345,6 +356,7 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   const discoveryEligibilityRulesById = input.discoveryEligibilityRulesById ?? {};
   const knowledgeDomainIds = input.knowledgeDomainIds ?? [];
   const requiredDiscoveryIdsByMethodId = input.requiredDiscoveryIdsByMethodId ?? {};
+  const resourceDiscoveryRulesByResourceId = input.resourceDiscoveryRulesByResourceId ?? {};
   const priorFactIndex = input.priorFactIndex ?? {};
 
   const regions: Record<string, Region> = { ...worldState.regions };
@@ -650,6 +662,62 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       }
 
       technologyStates[technologyStateId] = technologyState;
+    }
+  }
+
+  // 2.6 Naturalne odkrywanie złóż (D3, Canonical Decisions TECH-012):
+  // PO technologii (świeże `technologyStates` tego ticka), PRZED Company
+  // AI (krok 3) -- złoże potwierdzone w tym ticku gospodarka może ocenić
+  // od razu, ale nigdy wcześniej niż jest DISCOVERED (TECH-010). Pusty
+  // region sam nie odkrywa (TECH-011). Deterministycznie, bez RNG.
+  if (Object.keys(resourceDiscoveryRulesByResourceId).length > 0) {
+    for (const regionId of regionIds) {
+      const region = regions[regionId]!;
+      if (region.population.totalPopulation <= 0) continue;
+      const technologyStateId = region.knowledge.technologyStateId;
+      const technologyState = technologyStateId
+        ? technologyStates[technologyStateId]
+        : undefined;
+      if (!technologyState) continue;
+
+      for (const depositId of [...region.resources.depositIds].sort()) {
+        const deposit = resourceDeposits[depositId];
+        if (!deposit) continue;
+        const rules = resourceDiscoveryRulesByResourceId[deposit.resourceDefinitionId];
+        if (!rules) continue;
+        const result = evaluateNaturalDepositDiscovery({
+          deposit,
+          rules,
+          technologyState,
+          tick,
+        });
+        if (result.facts.length === 0) continue;
+        resourceDeposits[depositId] = result.deposit;
+
+        const baseIndex = facts.length;
+        facts.push(...result.facts);
+        causalLinks.push(...offsetCausalLinks(result.causalLinks, baseIndex));
+        result.enablingDiscoveryIds.forEach((discoveryId, offset) => {
+          const availableIndex =
+            availableFactIndexByRegionAndDiscovery[regionId]?.[discoveryId];
+          const priorAvailableFactId =
+            priorFactIndex[`discovery:${discoveryId}:discovery_became_available`];
+          causalLinks.push({
+            targetIndex: baseIndex + offset,
+            source:
+              availableIndex !== undefined
+                ? { kind: "sameBatch", index: availableIndex }
+                : priorAvailableFactId !== undefined
+                  ? { kind: "priorFact", factId: priorAvailableFactId }
+                  : { kind: "external", key: `discovery:${discoveryId}:available` },
+            type: "ENABLING",
+            factor: { key: `discovery:${discoveryId}`, contribution: 1 },
+            mechanism:
+              "technologia regionu pozwala rozpoznać złoże o tej głębokości (ResourceDefinition.discoveryRules)",
+            system: "resource-discovery",
+          });
+        });
+      }
     }
   }
 

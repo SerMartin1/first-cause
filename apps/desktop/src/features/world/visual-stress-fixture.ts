@@ -42,6 +42,7 @@ export function visualStressView(index: number): WorldView {
     population,
     largestSettlement: { id: "visual_settlement", name: "Reference settlement", stage },
     resourceDefinitionIds: ["iron_ore"],
+    suspectedDepositCount: 0,
     companyArchetypeIds: [],
     connectedRegionIds: [],
     migrationAttraction: 0,
@@ -108,6 +109,10 @@ export function visualStressView(index: number): WorldView {
         quantity: 100_000 - index * 20_000,
         extractionRate: index * 100,
         depleted: false,
+        // D3: szczegóły ASSESSED -- domyślne wartości encji, bez podanej głębokości.
+        depth: undefined,
+        quality: 1,
+        accessibility: 1,
       },
     ],
     technology: {

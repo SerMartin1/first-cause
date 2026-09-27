@@ -10,6 +10,31 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-27
 
+- **D3 --- naturalne odkrywanie złóż, model A + a (decyzja właściciela,
+  Canonical Decisions TECH-012).** Świat sam odkrywa złoża przez istniejący
+  system technologii, deterministycznie i bez RNG: MIN-001 ujawnia złoże
+  płytkie (UNKNOWN → DISCOVERED, VS §31) albo podejrzewa głębsze
+  (→ SUSPECTED), MIN-008 rozszerza wykrywanie UNKNOWN → SUSPECTED (nie
+  potwierdza), MIN-011 ocenia głębokie złoża (→ ASSESSED, z SUSPECTED przez
+  DISCOVERED w tym samym ticku). Każde kwalifikujące się złoże regionu
+  reaguje na bramkę w tym samym ticku; pusty region sam nie odkrywa.
+  Reguły są contentem (`ResourceDefinition.discoveryRules.detection[]`,
+  typowany schemat Zod, referencje walidowane także w ścieżkach
+  zagnieżdżonych); `iron_ore.json` dostał progi głębokości (TODO tuning).
+  Głębokość złoża jest jawna: `stock.depth` niepodane = `undefined`, nie
+  `0`, i nie kwalifikuje się do żadnej reguły; fixture'y Black Mountain
+  (oba) mają jawne `depth: 10` tylko dla rudy żelaza. Fakty przy zmianie
+  statusu (`resource_suspected` nowy, łańcuch discovered → assessed),
+  Chronicle bez zmian (tylko `resource_discovered`). Read Models według
+  macierzy ujawniania: licznik SUSPECTED bez typu, szczegóły
+  (głębokość/jakość/dostępność) tylko dla ASSESSED, redakcja ID złoża
+  nieznanego światu w widoku WHY. Przebieg referencyjny: ruda żelaza
+  DISCOVERED w ticku 80 (gdy MIN-001 staje się AVAILABLE), tempo
+  technologii bez zmian. Docs: Canonical Decisions (TECH-012, TECH-010
+  zamknięte OPEN), Technology Discovery Catalog, Entity Data Model, World
+  Generation Spec, VS Spec §31, Causality Engine §6.1, AI Decision Model
+  §113, Roadmap v0.6. Architect Spec bez zmian (UNKNOWN → DISCOVERED).
+
 - **Fixture Black Mountain: pełna struktura wieku + wariant ~200
   (decyzje właściciela 2A+3C wariant C, 2B wariant B4).** Prototyp
   `black_mountain_reference.json` zostaje przy ~50 (World Generation Spec

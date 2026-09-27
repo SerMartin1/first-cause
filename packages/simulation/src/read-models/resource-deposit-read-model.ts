@@ -27,6 +27,28 @@ export interface ResourceDepositReadModel {
   readonly quantity: number | undefined;
   readonly extractionRate: number;
   readonly depleted: boolean;
+  /**
+   * D3 (TECH-012, macierz ujawniania): parametry dokładniejszego
+   * rozpoznania -- tylko dla ASSESSED; dla DISCOVERED zawsze `undefined`
+   * (minimal disclosure). `depth` bywa `undefined` także w ASSESSED, gdy
+   * dane złoża jej nie podają (brak danych ≠ geologia).
+   */
+  readonly depth: number | undefined;
+  readonly quality: number | undefined;
+  readonly accessibility: number | undefined;
+}
+
+function assessedDetails(
+  deposit: WorldState["resourceDeposits"][string],
+): Pick<ResourceDepositReadModel, "depth" | "quality" | "accessibility"> {
+  if (deposit.discovery.status !== "ASSESSED") {
+    return { depth: undefined, quality: undefined, accessibility: undefined };
+  }
+  return {
+    depth: deposit.stock.depth,
+    quality: deposit.stock.quality,
+    accessibility: deposit.stock.accessibility,
+  };
 }
 
 function buildOne(state: WorldState, depositId: string): ResourceDepositReadModel {
@@ -40,6 +62,7 @@ function buildOne(state: WorldState, depositId: string): ResourceDepositReadMode
     quantity: deposit.stock.quantity,
     extractionRate: deposit.extraction.currentExtraction,
     depleted: deposit.depleted,
+    ...assessedDetails(deposit),
   };
 }
 

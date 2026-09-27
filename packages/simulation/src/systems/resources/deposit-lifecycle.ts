@@ -4,6 +4,7 @@ import {
   type ResourceDeposit,
 } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
+import type { PendingCausalLink } from "../../core/causal-links.js";
 
 /**
  * Discovery lifecycle (World Generation Spec SS13, Entity Data Model
@@ -34,12 +35,43 @@ export interface DiscoverDepositInput {
 export interface DiscoverDepositResult {
   readonly deposit: ResourceDeposit;
   readonly facts: readonly FactInput<DepositDiscoveryStatus>[];
+  /**
+   * D3: `resource_assessed` ← `resource_discovered` (`sameBatch`), gdy jedno
+   * wywołanie przeprowadza złoże przez oba etapy -- indeksy względne do
+   * własnej tablicy `facts` (patrz `offsetCausalLinks`).
+   */
+  readonly causalLinks: readonly PendingCausalLink[];
+}
+
+function statusFact(
+  deposit: ResourceDeposit,
+  type: "resource_suspected" | "resource_discovered" | "resource_assessed",
+  before: DepositDiscoveryStatus,
+  after: DepositDiscoveryStatus,
+): FactInput<DepositDiscoveryStatus> {
+  return {
+    type,
+    subject: { entityType: "resourceDeposit", entityId: deposit.id },
+    location: { regionId: deposit.regionId },
+    values: { before, after },
+  };
 }
 
 /**
  * Advances `deposit.discovery` toward `targetStatus`. A no-op (same
  * deposit, no facts) if the deposit has already reached that status or
  * further -- discovery never regresses.
+ *
+ * D3 (Canonical Decisions TECH-012): każda rzeczywista zmiana statusu
+ * daje dokładnie jeden fakt -- `resource_suspected` / `resource_discovered`
+ * / `resource_assessed`. ASSESSED semantycznie wymaga potwierdzonego
+ * istnienia (Entity Data Model §9: „znane światu od DISCOVERED”), więc
+ * skok spod DISCOVERED prosto do ASSESSED przechodzi logicznie przez
+ * DISCOVERED w tym samym ticku: dwa fakty (discovered, potem assessed) z
+ * krawędzią przyczynową między nimi. Bezpośrednie potwierdzenie
+ * (UNKNOWN → DISCOVERED) nie udaje przejścia przez SUSPECTED.
+ * `discoveredTick`/`discoveredByEntityId` opisują potwierdzenie istnienia,
+ * więc ustawia je dopiero osiągnięcie DISCOVERED (albo wyżej).
  */
 export function discoverDeposit(
   deposit: ResourceDeposit,
@@ -51,42 +83,55 @@ export function discoverDeposit(
     );
   }
 
-  const currentRank = DISCOVERY_RANK[deposit.discovery.status];
+  const currentStatus = deposit.discovery.status;
+  const currentRank = DISCOVERY_RANK[currentStatus];
   const targetRank = DISCOVERY_RANK[input.targetStatus];
 
   if (targetRank <= currentRank) {
-    return { deposit, facts: [] };
+    return { deposit, facts: [], causalLinks: [] };
   }
 
+  const confirmsExistence = targetRank >= DISCOVERY_RANK.DISCOVERED;
   const nextDeposit: ResourceDeposit = {
     ...deposit,
     discovery: {
       status: input.targetStatus,
-      discoveredTick: deposit.discovery.discoveredTick ?? input.tick,
-      discoveredByEntityId:
-        deposit.discovery.discoveredByEntityId ?? input.discoveredByEntityId,
+      discoveredTick: confirmsExistence
+        ? (deposit.discovery.discoveredTick ?? input.tick)
+        : deposit.discovery.discoveredTick,
+      discoveredByEntityId: confirmsExistence
+        ? (deposit.discovery.discoveredByEntityId ?? input.discoveredByEntityId)
+        : deposit.discovery.discoveredByEntityId,
       confidence: Math.max(deposit.discovery.confidence, input.confidence),
     },
   };
 
   const facts: FactInput<DepositDiscoveryStatus>[] = [];
-  if (input.targetStatus === "DISCOVERED") {
-    facts.push({
-      type: "resource_discovered",
-      subject: { entityType: "resourceDeposit", entityId: deposit.id },
-      location: { regionId: deposit.regionId },
-      values: { before: deposit.discovery.status, after: "DISCOVERED" },
-    });
-  } else if (input.targetStatus === "ASSESSED") {
-    facts.push({
-      type: "resource_assessed",
-      subject: { entityType: "resourceDeposit", entityId: deposit.id },
-      location: { regionId: deposit.regionId },
-      values: { before: deposit.discovery.status, after: "ASSESSED" },
-    });
+  const causalLinks: PendingCausalLink[] = [];
+  if (input.targetStatus === "SUSPECTED") {
+    facts.push(statusFact(deposit, "resource_suspected", currentStatus, "SUSPECTED"));
+  } else if (input.targetStatus === "DISCOVERED") {
+    facts.push(statusFact(deposit, "resource_discovered", currentStatus, "DISCOVERED"));
+  } else {
+    let assessedFrom: DepositDiscoveryStatus = currentStatus;
+    if (currentRank < DISCOVERY_RANK.DISCOVERED) {
+      facts.push(statusFact(deposit, "resource_discovered", currentStatus, "DISCOVERED"));
+      assessedFrom = "DISCOVERED";
+    }
+    facts.push(statusFact(deposit, "resource_assessed", assessedFrom, "ASSESSED"));
+    if (facts.length === 2) {
+      causalLinks.push({
+        targetIndex: 1,
+        source: { kind: "sameBatch", index: 0 },
+        type: "ENABLING",
+        factor: { key: "deposit_confirmed", contribution: 1 },
+        mechanism: "ocena złoża wymaga potwierdzenia jego istnienia",
+        system: "resource-discovery",
+      });
+    }
   }
 
-  return { deposit: nextDeposit, facts };
+  return { deposit: nextDeposit, facts, causalLinks };
 }
 
 /**

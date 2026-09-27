@@ -1,4 +1,4 @@
-import type { WorldState } from "@first-cause/entities";
+import { isDepositKnownToWorld, type WorldState } from "@first-cause/entities";
 import {
   explainWhy,
   type SimulationFact,
@@ -321,6 +321,22 @@ export class WorldViewHistory {
   }
 }
 
+/**
+ * D3 (TECH-012, macierz ujawniania): fakt o złożu nieznanym światu
+ * (UNKNOWN / SUSPECTED w bieżącym stanie) nie może zdradzić ID złoża --
+ * ID contentu/fixture'a zwykle zawiera typ zasobu. Typ faktu i region
+ * pozostają (odpowiadają temu, co SUSPECTED ujawnia: „w regionie mogą
+ * występować zasoby”).
+ */
+export const UNDISCLOSED_DEPOSIT_ID = "undisclosed";
+
+function discloseFact(state: WorldState, fact: SimulationFact): SimulationFact {
+  if (fact.subject.entityType !== "resourceDeposit") return fact;
+  const deposit = state.resourceDeposits[fact.subject.entityId];
+  if (deposit && isDepositKnownToWorld(deposit)) return fact;
+  return { ...fact, subject: { ...fact.subject, entityId: UNDISCLOSED_DEPOSIT_ID } };
+}
+
 export function buildWorldWhyView(
   runner: WorldRunner,
   factId: string,
@@ -353,7 +369,12 @@ export function buildWorldWhyView(
     ...(context ? { context } : {}),
     tick,
     explanation,
-    facts: facts.filter((f) => ids.has(f.id)),
-    consequences: facts.filter((f) => descendants.has(f.id)).slice(0, 5),
+    facts: facts
+      .filter((f) => ids.has(f.id))
+      .map((f) => discloseFact(runner.worldState, f)),
+    consequences: facts
+      .filter((f) => descendants.has(f.id))
+      .slice(0, 5)
+      .map((f) => discloseFact(runner.worldState, f)),
   };
 }

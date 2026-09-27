@@ -771,13 +771,14 @@ PHYSICAL EXISTENCE → UNKNOWN → DISCOVERY POSSIBILITY
     stan świata jest odrzucany przez walidację, nie naprawiany w runtime.
 -   **Wiedza gracza = globalny stan odkrycia.** UI i Read Models nie
     ujawniają istnienia, typu, ilości, jakości ani rezerwy złoża
-    nieznanego światu.
+    nieznanego światu. Jedyny wyjątek to sygnał „w regionie może
+    występować złoże” dla SUSPECTED (bez typu, ID i danych) --- pełna
+    macierz ujawniania: TECH-012.
 -   **D3 --- naturalne odkrywanie:** świat musi móc odkrywać złoża bez
     gracza; interwencja Architekta `reveal_resource_deposit` może
     przyspieszyć odkrycie, ale nie jest jedyną drogą. Trigger
-    naturalnego odkrycia: **OPEN** --- dokumentacja (VS Spec §31,
-    Technology Discovery Catalog MIN-001/MIN-008/MIN-011) nie określa go
-    jednoznacznie; wybór modelu należy do właściciela.
+    naturalnego odkrycia: **rozstrzygnięty w TECH-012** (model A + a,
+    2026-09-27).
 -   **Zależność od TECH-011:** naturalne odkrywanie (D3) działa w każdym
     zamieszkanym regionie, bo każdy region ma `TechnologyState`.
 -   **Odłożone:** ACTOR-SPECIFIC / LOCAL KNOWLEDGE MODEL (wiedza per
@@ -800,6 +801,67 @@ PHYSICAL EXISTENCE → UNKNOWN → DISCOVERY POSSIBILITY
     zasiedlony.
 -   Tempo: przyrost wiedzy rośnie z pierwiastkiem populacji i maleje z
     poziomem wiedzy; pasma docelowe --- OPEN-004.
+
+------------------------------------------------------------------------
+
+# 61C. TECH-012 --- naturalne odkrywanie złóż, model A + a (2026-09-27)
+
+**Status:** CANONICAL --- decyzja właściciela (zamyka OPEN triggera D3
+z TECH-010)
+
+``` text
+PHYSICAL EXISTENCE → UNKNOWN → SUSPECTED → DISCOVERED → ASSESSED
+→ ECONOMIC USE
+```
+
+-   **Status = poziom wiedzy o konkretnym złożu.** Technologia nie musi
+    przesuwać złoża dokładnie o jeden status. Status nigdy się nie cofa.
+-   **Bramki (znaczenie z Technology Discovery Catalog, bez
+    reinterpretacji):**
+    -   **MIN-001** --- złoże płytkie / łatwo wykrywalne: UNKNOWN →
+        DISCOVERED (VS §31); głębsze w zasięgu MIN-001: UNKNOWN →
+        SUSPECTED.
+    -   **MIN-008** --- rozszerza wykrywanie w regionie: UNKNOWN →
+        SUSPECTED dla złóż poza zasięgiem MIN-001. **Nie** przeprowadza
+        SUSPECTED → DISCOVERED.
+    -   **MIN-011** --- głębokie złoża: SUSPECTED lub DISCOVERED →
+        ASSESSED. ASSESSED wymaga potwierdzonego istnienia, więc z
+        SUSPECTED przejście biegnie logicznie przez DISCOVERED w tym
+        samym ticku (dwa fakty, krawędź przyczynowa między nimi).
+-   **Wybór złoża (wariant a):** deterministycznie, bez RNG. Gdy
+    odkrycie z reguły jest w regionie co najmniej `AVAILABLE`, **każde**
+    złoże regionu spełniające regułę przechodzi do statusu docelowego w
+    tym samym ticku.
+-   **Reguły należą do contentu:** `ResourceDefinition.discoveryRules.
+    detection[]` = `{discoveryId, targetStatus, minDepth?, maxDepth?,
+    fromStatuses?}` (granice głębokości włącznie). Silnik nie zna
+    konkretnych zasobów ani odkryć. Zasób bez reguł nie jest odkrywany
+    naturalnie. Progi głębokości są `TODO tuning`.
+-   **Głębokość jest jawną właściwością danych złoża.** `stock.depth`
+    niepodane (`undefined`) ≠ jawne `0`; złoże bez podanej głębokości
+    nie spełnia żadnej reguły --- brak danych nie jest geologią.
+-   **SUSPECTED** = „w regionie mogą występować zasoby”; nie daje użycia
+    gospodarczego (TECH-010) ani danych ekonomicznych.
+-   **Pusty region** sam nie odkrywa złóż (TECH-011); eksploracja
+    pustych regionów bez kontaktu --- DEFERRED. Architekt działa według
+    swojej specyfikacji (`reveal_resource_deposit`: UNKNOWN →
+    DISCOVERED).
+-   **Fakty:** każda rzeczywista zmiana statusu = jeden fakt
+    (`resource_suspected` / `resource_discovered` / `resource_assessed`),
+    brak zmiany = brak faktu. Chronicle bez zmian: istniejący typ
+    zdarzenia `resource_discovered`; podejrzenia i oceny nie są
+    zdarzeniami historycznymi.
+-   **Macierz ujawniania (Read Models / UI, minimal disclosure):**
+
+| Informacja | UNKNOWN | SUSPECTED | DISCOVERED | ASSESSED |
+|---|---|---|---|---|
+| istnienie | nie | tylko „możliwe złoże w regionie” (liczba) | tak | tak |
+| typ zasobu | nie | nie | tak | tak |
+| lokalizacja | nie | region (bez ID złoża) | region | region |
+| głębokość | nie | nie | nie | tak (jeśli podana w danych) |
+| ilość / rezerwa | nie | nie | tak | tak |
+| jakość, dostępność | nie | nie | nie | tak |
+| stan wydobycia | nie | nie | tak | tak |
 
 ------------------------------------------------------------------------
 

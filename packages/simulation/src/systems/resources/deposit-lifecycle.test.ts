@@ -19,7 +19,7 @@ describe("discoverDeposit (discovery boundary: TECH-009)", () => {
     expect(deposit.stock.quantity).toBe(1000);
   });
 
-  it("advances UNKNOWN -> SUSPECTED and emits no fact (not a listed CE-01 fact type)", () => {
+  it("advances UNKNOWN -> SUSPECTED and emits one resource_suspected fact (D3); SUSPECTED is not a confirmed discovery", () => {
     const deposit = buildHiddenIronOre();
     const result = discoverDeposit(deposit, {
       tick: 5,
@@ -28,8 +28,42 @@ describe("discoverDeposit (discovery boundary: TECH-009)", () => {
     });
 
     expect(result.deposit.discovery.status).toBe("SUSPECTED");
-    expect(result.deposit.discovery.discoveredTick).toBe(5);
-    expect(result.facts).toEqual([]);
+    // `discoveredTick` opisuje potwierdzenie istnienia (DISCOVERED+), nie podejrzenie.
+    expect(result.deposit.discovery.discoveredTick).toBeUndefined();
+    expect(result.facts).toEqual([
+      {
+        type: "resource_suspected",
+        subject: { entityType: "resourceDeposit", entityId: "deposit_001" },
+        location: { regionId: "region_001" },
+        values: { before: "UNKNOWN", after: "SUSPECTED" },
+      },
+    ]);
+  });
+
+  it("UNKNOWN/SUSPECTED -> ASSESSED passes logically through DISCOVERED: two facts with a causal link, same tick", () => {
+    const suspected = discoverDeposit(buildHiddenIronOre(), {
+      tick: 5,
+      targetStatus: "SUSPECTED",
+      confidence: 0.5,
+    }).deposit;
+    const result = discoverDeposit(suspected, {
+      tick: 9,
+      targetStatus: "ASSESSED",
+      confidence: 1,
+    });
+
+    expect(result.deposit.discovery.status).toBe("ASSESSED");
+    expect(result.deposit.discovery.discoveredTick).toBe(9);
+    expect(result.facts.map((f) => [f.type, f.values.before, f.values.after])).toEqual([
+      ["resource_discovered", "SUSPECTED", "DISCOVERED"],
+      ["resource_assessed", "DISCOVERED", "ASSESSED"],
+    ]);
+    expect(result.causalLinks).toEqual([
+      expect.objectContaining({
+        targetIndex: 1,
+        source: { kind: "sameBatch", index: 0 },
+      }),
+    ]);
   });
 
   it("advances to DISCOVERED and emits resource_discovered", () => {

@@ -198,6 +198,7 @@ Minimalne rodziny:
 
 ## 6.1 Resources
 
+-   resource_suspected
 -   resource_discovered
 -   resource_assessed
 -   extraction_started
@@ -205,6 +206,11 @@ Minimalne rodziny:
 -   extraction_decreased
 -   resource_economically_exhausted
 -   resource_depleted
+
+Fakty odkrycia złoża powstają tylko przy rzeczywistej zmianie statusu
+(jeden fakt na zmianę); przejście spod DISCOVERED do ASSESSED w jednym
+ticku daje `resource_discovered` → `resource_assessed` z krawędzią
+między nimi (Canonical Decisions `TECH-012`).
 
 ## 6.2 Companies
 

@@ -172,6 +172,11 @@ ResourceDefinition może definiować `terrainAffinity`, `climateAffinity`,
 Zasoby geologiczne powinny tworzyć logiczne klastry. Regionalne braki są
 pożądane, bo tworzą handel i specjalizację.
 
+Głębokość złoża (`stock.depth`) generator zapisuje jawnie, gdy zasób ma
+reguły naturalnego odkrywania (`ResourceDefinition.discoveryRules`);
+brak głębokości nie jest traktowany jako złoże powierzchniowe
+(Canonical Decisions `TECH-012`).
+
 ------------------------------------------------------------------------
 
 # 14. Finite i renewable resources

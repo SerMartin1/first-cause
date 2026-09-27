@@ -74,6 +74,7 @@ const runner = createWorldRunner({
   knowledgeDomainIds: content.knowledgeDomainIds,
   requiredDiscoveryIdsByMethodId: content.requiredDiscoveryIdsByMethodId,
   pmCandidatesByCurrentMethodId: content.pmCandidatesByCurrentMethodId,
+  resourceDiscoveryRulesByResourceId: content.resourceDiscoveryRulesByResourceId,
 });
 
 console.log(`[first-cause] Etap 1 economy demo -- running ${ticks} ticks`);

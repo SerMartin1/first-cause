@@ -41,6 +41,7 @@ export type ContentTypeName = (typeof CONTENT_TYPE_NAMES)[number];
  * dependency cycles (Technology Stack Decision SS22).
  */
 export interface ReferenceFieldSpec {
+  /** Nazwa pola albo ścieżka (`a.b`, `a.list[].id`) -- patrz `readPathValues`. */
   readonly field: string;
   readonly targetType: ContentTypeName;
   readonly cardinality: "one" | "many";

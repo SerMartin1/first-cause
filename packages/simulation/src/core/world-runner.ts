@@ -65,6 +65,8 @@ export interface WorldRunnerConfig extends HeadlessRunnerConfig {
   readonly discoveryEligibilityRulesById?: RunEconomyTickInput["discoveryEligibilityRulesById"];
   readonly knowledgeDomainIds?: RunEconomyTickInput["knowledgeDomainIds"];
   readonly requiredDiscoveryIdsByMethodId?: RunEconomyTickInput["requiredDiscoveryIdsByMethodId"];
+  /** D3: przekazane 1:1 do `runEconomyTick` -- domyślnie brak naturalnego odkrywania złóż. */
+  readonly resourceDiscoveryRulesByResourceId?: RunEconomyTickInput["resourceDiscoveryRulesByResourceId"];
   /**
    * M17 (CE-09): jeśli ustawione, `step()` wywołuje `pruneCausalMemory`
    * co N ticków na WŁASNYM `causalEdgeStore`/mapie wpływu tego runnera
@@ -423,6 +425,12 @@ export class WorldRunner {
         : {}),
       ...(this.config.requiredDiscoveryIdsByMethodId !== undefined
         ? { requiredDiscoveryIdsByMethodId: this.config.requiredDiscoveryIdsByMethodId }
+        : {}),
+      ...(this.config.resourceDiscoveryRulesByResourceId !== undefined
+        ? {
+            resourceDiscoveryRulesByResourceId:
+              this.config.resourceDiscoveryRulesByResourceId,
+          }
         : {}),
       ...(this.config.pmCandidatesByCurrentMethodId !== undefined
         ? { pmCandidatesByCurrentMethodId: this.config.pmCandidatesByCurrentMethodId }

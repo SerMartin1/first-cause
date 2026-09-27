@@ -62,3 +62,25 @@ describe("createResourceDeposit", () => {
     });
   });
 });
+
+describe("createResourceDeposit -- depth contract (D3, TECH-012)", () => {
+  const base = {
+    id: "deposit_depth",
+    resourceDefinitionId: "ore",
+    regionId: "region_a",
+    initialQuantity: 10,
+    renewable: false,
+  };
+
+  it("keeps a missing depth as undefined -- missing data is never a surface deposit", () => {
+    expect(createResourceDeposit(base).stock.depth).toBeUndefined();
+  });
+
+  it("keeps an explicit depth of 0 distinct from a missing one", () => {
+    expect(createResourceDeposit({ ...base, depth: 0 }).stock.depth).toBe(0);
+  });
+
+  it("rejects a negative depth", () => {
+    expect(() => createResourceDeposit({ ...base, depth: -1 })).toThrow();
+  });
+});

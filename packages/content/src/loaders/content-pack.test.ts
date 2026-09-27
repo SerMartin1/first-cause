@@ -139,6 +139,35 @@ describe("loadContentPack -- CONTENT-010 semantic validation", () => {
     ).toBe(true);
   });
 
+  it("D3: detects a missing discovery referenced by a nested discoveryRules path", () => {
+    const brokenOre = {
+      ...ironOre,
+      discoveryRules: {
+        detection: [
+          {
+            discoveryId: "nonexistent_discovery",
+            targetStatus: "DISCOVERED",
+            maxDepth: 30,
+          },
+        ],
+      },
+    };
+    const result = loadContentPack({
+      definitions: { resource: [brokenOre] },
+      locales: { en: FULL_EN_LOCALE },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(
+      result.errors.some(
+        (error) =>
+          error.includes("Missing reference") &&
+          error.includes("discoveryRules.detection[].discoveryId") &&
+          error.includes("nonexistent_discovery"),
+      ),
+    ).toBe(true);
+  });
+
   it("detects a missing reference", () => {
     const brokenGood = { ...flour, downstreamGoodIds: ["nonexistent_good"] };
     const result = loadContentPack({

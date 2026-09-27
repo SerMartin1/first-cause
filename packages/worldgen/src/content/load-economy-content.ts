@@ -12,6 +12,7 @@ import {
   type LocaleBundle,
   type ProductionMethodDefinition,
   type ResourceDefinition,
+  type ResourceDiscoveryRules,
   type TransportModeDefinition,
 } from "@first-cause/content";
 import {
@@ -74,6 +75,15 @@ export interface LoadEconomyContentResult {
    * gate'owania (wstecznie zgodne).
    */
   readonly requiredDiscoveryIdsByMethodId: Readonly<Record<string, readonly string[]>>;
+  /**
+   * D3 (Canonical Decisions TECH-012): `resource.id` ->
+   * `ResourceDefinition.discoveryRules`, tylko zasoby z niepustą listą
+   * `detection` -- gotowe do `RunEconomyTickInput.
+   * resourceDiscoveryRulesByResourceId`.
+   */
+  readonly resourceDiscoveryRulesByResourceId: Readonly<
+    Record<string, ResourceDiscoveryRules>
+  >;
   /**
    * Audytowe P0 (M15-M16 remediation, 2026-09-19): `productionMethodId
    * (bazowa, `discoveries: []`) -> productionMethodId` (upgrade, `discoveries`
@@ -203,6 +213,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       discoveryEligibilityRulesById: {},
       knowledgeDomainIds: [],
       requiredDiscoveryIdsByMethodId: {},
+      resourceDiscoveryRulesByResourceId: {},
       pmCandidatesByCurrentMethodId: {},
       sectorByCompanyArchetypeId: {},
       extractionFamilyByResourceId: {},
@@ -256,9 +267,12 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
   const resourceRegistry = result.registries.resource as
     DefinitionRegistry<ResourceDefinition> | undefined;
   const extractionFamilyByResourceId: Record<string, string> = {};
+  const resourceDiscoveryRulesByResourceId: Record<string, ResourceDiscoveryRules> = {};
   for (const definition of resourceRegistry?.all() ?? []) {
     if (definition.extractionFamily)
       extractionFamilyByResourceId[definition.id] = definition.extractionFamily;
+    if (definition.discoveryRules.detection.length > 0)
+      resourceDiscoveryRulesByResourceId[definition.id] = definition.discoveryRules;
   }
 
   const entrepreneurshipCandidatesByArchetypeId: Record<
@@ -322,6 +336,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     discoveryEligibilityRulesById,
     knowledgeDomainIds: Object.keys(knowledgeDomainDefinitionsById).sort(),
     requiredDiscoveryIdsByMethodId,
+    resourceDiscoveryRulesByResourceId,
     pmCandidatesByCurrentMethodId,
     sectorByCompanyArchetypeId,
     extractionFamilyByResourceId,

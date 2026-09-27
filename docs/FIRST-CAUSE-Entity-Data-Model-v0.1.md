@@ -408,6 +408,11 @@ ResourceDefinition:
 
 38 zasobów jest contentem, nie 38 specjalnymi klasami kodu.
 
+`discoveryRules` (od D3, Canonical Decisions `TECH-012`) ma strukturę
+`detection[]`: `{discoveryId, targetStatus, minDepth?, maxDepth?,
+fromStatuses?}` --- reguły naturalnego odkrywania złóż tego zasobu.
+Brak reguł = zasób nie jest odkrywany naturalnie.
+
 ------------------------------------------------------------------------
 
 # 9. RESOURCE DEPOSIT
@@ -459,6 +464,20 @@ ASSESSED
 Złoże jest „znane światu” od `DISCOVERED` (`isDepositKnownToWorld`).
 Dopiero wtedy może być gospodarczo użyte i ujawnione graczowi
 (Canonical Decisions `TECH-010`); `SUSPECTED` nie wystarcza.
+
+Znaczenie statusów, bramki technologiczne i zakres ujawniania na
+każdym poziomie: Canonical Decisions `TECH-012`. ASSESSED oznacza
+dokładniejsze rozpoznanie istniejących pól (`depth`, `quality`,
+`accessibility`), nie nowe parametry geologiczne.
+`discoveredTick` / `discoveredByEntityId` opisują potwierdzenie
+istnienia (DISCOVERED lub wyżej), nie samo podejrzenie.
+
+### Głębokość
+
+`stock.depth` jest jawną właściwością danych złoża (abstrakcyjna
+jednostka modelu). Wartość niepodana (`undefined`) nie jest równa `0`
+i nie oznacza złoża powierzchniowego --- takie złoże nie spełnia żadnej
+reguły naturalnego odkrywania (`TECH-012`).
 
 ### Reguły
 
@@ -1880,7 +1899,8 @@ przebudowy fundamentów.
 
 ### Odkrycie
 
-Technology/Mining system zmienia:
+Technology/Mining system zmienia (MIN-001, złoże z jawną płytką
+głębokością --- Canonical Decisions `TECH-012`):
 
 ``` text
 deposit.discovery.status:

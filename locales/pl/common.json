@@ -14,6 +14,8 @@
   "world.fact.migration_in": "Napływ migracyjny",
   "world.fact.migration_out": "Odpływ migracyjny",
   "world.fact.housing_pressure_changed": "Zmiana presji mieszkaniowej",
+  "world.fact.resource_suspected": "Podejrzenie występowania złoża",
+  "world.fact.resource_assessed": "Złoże dokładnie rozpoznane",
   "world.strength.PRIMARY": "Główna",
   "world.strength.SIGNIFICANT": "Znacząca",
   "world.strength.MINOR": "Niewielka",

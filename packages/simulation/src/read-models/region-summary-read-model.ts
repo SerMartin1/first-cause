@@ -25,6 +25,12 @@ export interface RegionSummaryReadModel {
     | { readonly id: string; readonly name: string; readonly stage: SettlementStage }
     | undefined;
   readonly resourceDefinitionIds: readonly string[];
+  /**
+   * D3 (TECH-012, macierz ujawniania): liczba złóż SUSPECTED w regionie --
+   * „w regionie mogą występować zasoby”. Celowo bez typu zasobu, ilości,
+   * jakości, głębokości i ID złoża (minimal disclosure).
+   */
+  readonly suspectedDepositCount: number;
   readonly companyArchetypeIds: readonly string[];
   readonly connectedRegionIds: readonly string[];
   /** M13's push/pull signal (`Region.cached.migrationAttraction`, `population/migration.ts`), freshly computed each tick -- audytowe P1-08, dotąd nieujawnione żadnym Read Modelem. */
@@ -71,6 +77,10 @@ export function buildRegionSummaryReadModel(
     ),
   ].sort();
 
+  const suspectedDepositCount = region.resources.depositIds.filter(
+    (id) => state.resourceDeposits[id]?.discovery.status === "SUSPECTED",
+  ).length;
+
   const companyArchetypeIds = [
     ...new Set(
       region.economy.companyIds
@@ -102,6 +112,7 @@ export function buildRegionSummaryReadModel(
         }
       : undefined,
     resourceDefinitionIds,
+    suspectedDepositCount,
     companyArchetypeIds,
     connectedRegionIds,
     migrationAttraction: region.cached.migrationAttraction,

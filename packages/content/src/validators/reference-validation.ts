@@ -73,17 +73,42 @@ function readPhase(definition: AnyDefinition): ContentPhase | undefined {
   return value === "VS" || value === "MVP" || value === "FULL" ? value : undefined;
 }
 
+/**
+ * Wartości pod ścieżką pola. Poza nazwą pola najwyższego poziomu ścieżka
+ * może schodzić w zagnieżdżone obiekty (`a.b`) i tablice obiektów
+ * (`a.list[].id`) -- np. `discoveryRules.detection[].discoveryId` (D3).
+ */
+function readPathValues(root: unknown, path: string): unknown[] {
+  let current: unknown[] = [root];
+  for (const segment of path.split(".")) {
+    const isArray = segment.endsWith("[]");
+    const key = isArray ? segment.slice(0, -2) : segment;
+    const next: unknown[] = [];
+    for (const value of current) {
+      if (value === null || typeof value !== "object") continue;
+      const child = (value as Record<string, unknown>)[key];
+      if (isArray) {
+        if (Array.isArray(child)) next.push(...child);
+      } else if (child !== undefined) {
+        next.push(child);
+      }
+    }
+    current = next;
+  }
+  return current;
+}
+
 function readFieldValues(
   definition: AnyDefinition,
   refField: ReferenceFieldSpec,
 ): readonly string[] {
-  const raw = (definition as Record<string, unknown>)[refField.field];
+  const values = readPathValues(definition, refField.field);
   if (refField.cardinality === "one") {
-    return typeof raw === "string" ? [raw] : [];
+    return values.filter((value): value is string => typeof value === "string");
   }
-  return Array.isArray(raw)
-    ? raw.filter((value): value is string => typeof value === "string")
-    : [];
+  return values
+    .flatMap((value) => (Array.isArray(value) ? value : [value]))
+    .filter((value): value is string => typeof value === "string");
 }
 
 function detectDependencyCycles(

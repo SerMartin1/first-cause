@@ -261,7 +261,8 @@
       "resourceDefinitionId": "iron_ore",
       "regionId": "region_black_mountain",
       "initialQuantity": 5000,
-      "renewable": false
+      "renewable": false,
+      "depth": 10
     },
     {
       "id": "deposit_green_valley_grain",

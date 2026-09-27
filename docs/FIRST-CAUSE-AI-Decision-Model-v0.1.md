@@ -1491,6 +1491,11 @@ Po discovery: - opportunity może się pojawić.
 > ukryty stock nie wpływa na żadną decyzję. Testy regresyjne:
 > `production.test.ts` („discovery gate”),
 > `resource-discovery-boundary.test.ts`.
+>
+> **2026-09-27 (`TECH-012`, D3):** „nieznane światu” obejmuje także
+> SUSPECTED; „po discovery” = DISCOVERED lub ASSESSED, także po
+> naturalnym odkryciu przez technologię regionu. Test:
+> `natural-resource-discovery.test.ts` (H/I).
 
 ------------------------------------------------------------------------
 

@@ -16,7 +16,15 @@ export interface DepositStock {
   readonly initialQuantity: number;
   /** 0..1. */
   readonly quality: number;
-  readonly depth: number;
+  /**
+   * Głębokość złoża w abstrakcyjnej jednostce modelu (D3, decyzja
+   * właściciela 2026-09-27). `undefined` = głębokość NIE podana w danych
+   * -- to NIE jest „złoże powierzchniowe”: brak danych nigdy nie jest
+   * interpretowany jako geologia. Reguły naturalnego odkrywania
+   * (`ResourceDefinition.discoveryRules`) działają wyłącznie na złożach z
+   * jawną głębokością.
+   */
+  readonly depth: number | undefined;
   /** 0..1. */
   readonly accessibility: number;
 }
@@ -87,6 +95,7 @@ export function createResourceDeposit(
   assertNonEmpty(input.resourceDefinitionId, "ResourceDeposit.resourceDefinitionId");
   assertNonEmpty(input.regionId, "ResourceDeposit.regionId");
   assertNonNegative(input.initialQuantity, "ResourceDeposit.initialQuantity");
+  if (input.depth !== undefined) assertNonNegative(input.depth, "ResourceDeposit.depth");
 
   if (input.renewable && !input.renewableState) {
     throw new RangeError(
@@ -108,7 +117,7 @@ export function createResourceDeposit(
       quantity: input.initialQuantity,
       initialQuantity: input.initialQuantity,
       quality: input.quality ?? 1,
-      depth: input.depth ?? 0,
+      depth: input.depth,
       accessibility: input.accessibility ?? 1,
     },
     renewable: input.renewable,

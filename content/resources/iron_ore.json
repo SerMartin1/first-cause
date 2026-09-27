@@ -5,5 +5,18 @@
   "renewable": false,
   "basePrice": 6,
   "extractionFamily": "shaft_mine",
+  "discoveryRules": {
+    "detection": [
+      { "discoveryId": "min_001", "targetStatus": "DISCOVERED", "maxDepth": 30 },
+      { "discoveryId": "min_001", "targetStatus": "SUSPECTED", "maxDepth": 150 },
+      { "discoveryId": "min_008", "targetStatus": "SUSPECTED", "maxDepth": 600 },
+      {
+        "discoveryId": "min_011",
+        "targetStatus": "ASSESSED",
+        "minDepth": 150,
+        "fromStatuses": ["SUSPECTED", "DISCOVERED"]
+      }
+    ]
+  },
   "implementationPhase": "VS"
 }

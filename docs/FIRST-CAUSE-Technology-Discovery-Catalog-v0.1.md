@@ -189,28 +189,26 @@ obietnice.
 
 ## 4.2 Górnictwo i Metalurgia (MIN)
 
-> **Korekta 2026-09-26 (Canonical Decisions `TECH-010`):** pozycje
-> MIN-001, MIN-008 i MIN-011 opisane jako „Realne” przez
-> `deposit-lifecycle.ts` **nie są podłączone** --- `discoverDeposit` woła
-> dziś wyłącznie interwencja Architekta, a `content/discoveries/min_001.
-> json` ma puste `unlocks`. Trigger naturalnego odkrywania złóż (D3)
-> czeka na decyzję właściciela; dokumentacja nie określa go
-> jednoznacznie (który stan MIN-001, jakie „warunki regionu”, SUSPECTED
-> czy DISCOVERED, co znaczy „powierzchniowe”).
+> **D3 rozstrzygnięte 2026-09-27 (Canonical Decisions `TECH-012`,
+> model A + a):** MIN-001, MIN-008 i MIN-011 działają przez dane ---
+> `ResourceDefinition.discoveryRules.detection[]` (content) i jawną
+> `stock.depth` złoża; deterministycznie, każde kwalifikujące się złoże
+> regionu w tym samym ticku. Znaczenie pozycji poniżej jest bez zmian;
+> „powierzchniowe” i „głębokie” to progi głębokości z reguł zasobu.
 
 | ID | Nazwa | Tier | Prerekwizyty | Odblokowuje |
 |---|---|---|---|---|
-| MIN-001 | Rozpoznawanie złóż powierzchniowych | T0 | brak | **Realne**: przesuwa `discovery.status` UNKNOWN→SUSPECTED/DISCOVERED (`deposit-lifecycle.ts`) |
+| MIN-001 | Rozpoznawanie złóż powierzchniowych | T0 | brak | **Realne**: przesuwa `discovery.status` UNKNOWN→DISCOVERED (złoża płytkie) albo UNKNOWN→SUSPECTED (głębsze w zasięgu MIN-001) --- TECH-012 (`natural-discovery.ts`) |
 | MIN-002 | Obróbka kamienia | T0 | brak | **(nowy content PM)** materiał "kamień ciosany" |
 | MIN-003 | Organizacja kopalni | T1 | MIN-001 | **(nowy content PM)** wyższa capacity ekstrakcji |
 | MIN-004 | Podstawowy wytop żelaza | T1 | MIN-001 | **(nowy content PM)** z Iron Ore -- Black Mountain scenario |
 | MIN-005 | Stopy miedzi (brąz) | T1 | MIN-001 | **(nowy content PM)** tańsza wczesna alternatywa metalu |
 | MIN-006 | Kontrola temperatury pieca | T1 | MIN-004 | Realne: wyższa jakość/wydajność wytopu |
 | MIN-007 | Odwadnianie kopalń | T1 | MIN-003 | Realne: wydobycie przy wysokim `waterAccess`/nisko położonych złożach |
-| MIN-008 | Prospekcja geologiczna | T2 | MIN-001 | Realne: przyspiesza UNKNOWN→SUSPECTED w całym regionie |
+| MIN-008 | Prospekcja geologiczna | T2 | MIN-001 | Realne: przyspiesza UNKNOWN→SUSPECTED w całym regionie (rozszerza wykrywanie na złoża poza zasięgiem MIN-001; nie potwierdza SUSPECTED→DISCOVERED --- TECH-012) |
 | MIN-009 | Wentylacja podziemna | T2 | MIN-003 | Realne: warunek konieczny dla MIN-011 |
 | MIN-010 | Ulepszony piec hutniczy | T2 | MIN-006 | Realne: wyższa capacity wytopu |
-| MIN-011 | Głębokie górnictwo | T2 | MIN-007, MIN-009 | Realne: przesuwa `discovery.status` na ASSESSED dla głębokich złóż |
+| MIN-011 | Głębokie górnictwo | T2 | MIN-007, MIN-009 | Realne: przesuwa `discovery.status` na ASSESSED dla głębokich złóż (z SUSPECTED przez DISCOVERED w tym samym ticku --- TECH-012) |
 | MIN-012 | Kruszenie i wzbogacanie rudy | T2 | MIN-003 | Realne: podnosi `quality` wydobywanej rudy |
 | MIN-013 | Odlewnictwo | T3 | MIN-006 | **(nowy content PM)** alternatywna ścieżka narzędzi |
 | MIN-014 | Produkcja stali | T3 | MIN-010 | **(nowy content PM)** najwyższy tier metalu |

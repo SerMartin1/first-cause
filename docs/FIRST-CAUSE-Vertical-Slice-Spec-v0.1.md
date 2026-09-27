@@ -760,6 +760,11 @@ Black Mountain: - Iron Ore istnieje od początku w seedzie, - status może
 być `UNKNOWN`, - MIN-001 + warunki regionu umożliwiają odkrycie, -
 odkrycie tworzy fakt, - dopiero potem firmy mogą ocenić opportunity.
 
+Doprecyzowanie (Canonical Decisions `TECH-012`, 2026-09-27): „warunki
+regionu” = region zamieszkany (TECH-011) i złoże z jawną głębokością w
+zasięgu reguły MIN-001 dla tego zasobu; płytkie złoże przechodzi
+UNKNOWN → DISCOVERED, głębsze tylko do SUSPECTED.
+
 To jest jeden z najważniejszych testów całej filozofii FIRST CAUSE.
 
 ------------------------------------------------------------------------

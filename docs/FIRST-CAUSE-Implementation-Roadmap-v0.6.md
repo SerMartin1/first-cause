@@ -4348,7 +4348,7 @@ pass: `M21-VIS-R3` (na osobne polecenie właściciela). Przed R3 otwarta
 decyzja właściciela: niespójność „firma eksploatuje złoże UNKNOWN”
 (analiza przyczynowa 2026-09-26, bez zmian w symulacji).
 
-## Resource Discovery Boundary (2026-09-26) --- D1 + D2 DONE, D3 OPEN
+## Resource Discovery Boundary (2026-09-26) --- D1 + D2 DONE, D3 DONE (2026-09-27)
 
 Decyzja właściciela: wariant D (Canonical Decisions `TECH-010`).
 
@@ -4364,8 +4364,9 @@ Decyzja właściciela: wariant D (Canonical Decisions `TECH-010`).
 -   **UI:** `ResourceDepositReadModel` i
     `RegionSummaryReadModel.resourceDefinitionIds` zawierają tylko złoża
     znane światu (koniec „Grain --- Unknown” w inspektorze).
--   **D3 OPEN:** trigger naturalnego odkrywania nieokreślony w
-    dokumentacji --- warianty przedstawione właścicielowi. Przy analizie
+-   **D3 (pierwotnie OPEN, zamknięte 2026-09-27 --- sekcja „Natural
+    Resource Discovery D3” niżej):** trigger naturalnego odkrywania był
+    nieokreślony w dokumentacji --- warianty przedstawione właścicielowi. Przy analizie
     wykryto blokadę: `Region.knowledge.technologyStateId` nie był
     linkowany, więc M15 nie działał w świecie z JSON --- naprawione
     (sekcja niżej).
@@ -4435,3 +4436,33 @@ linku). D3 nadal OPEN.
     liczone tylko dla zatrudnionych kohort (brak modelu
     samozaopatrzenia), `housing.pressure` w praktyce stale 0. Wymaga
     osobnej decyzji projektowej przed implementacją.
+
+## Natural Resource Discovery D3 (2026-09-27) --- DONE, model A + a (TECH-012)
+
+-   **Kanon:** Canonical Decisions `TECH-012` (bramki MIN-001/MIN-008/
+    MIN-011 zgodne z katalogiem, deterministyczny wybór złóż, jawna
+    głębokość, macierz ujawniania).
+-   **Dane:** `ResourceDefinition.discoveryRules.detection[]` (Zod,
+    walidacja referencji `discoveryId` przez ścieżkę
+    `discoveryRules.detection[].discoveryId`); `iron_ore.json`: MIN-001
+    DISCOVERED do głębokości 30, SUSPECTED do 150; MIN-008 SUSPECTED do
+    600; MIN-011 ASSESSED od 150 (z SUSPECTED/DISCOVERED) --- progi
+    `TODO tuning`. `ResourceDeposit.stock.depth` może być `undefined`
+    (nie podano); Black Mountain: jawne `depth: 10` tylko dla rudy
+    żelaza (oba fixture'y).
+-   **Silnik:** `systems/resources/natural-discovery.ts` (czysta
+    funkcja, punkt stały, bez RNG); krok 2.6 ticku po technologii, przed
+    Company AI; pusty region pomijany (TECH-011). `discoverDeposit`:
+    fakt `resource_suspected`, łańcuch discovered → assessed,
+    `discoveredTick` dopiero od DISCOVERED.
+-   **Read Models:** `RegionSummaryReadModel.suspectedDepositCount`,
+    `ResourceDepositReadModel.depth/quality/accessibility` tylko dla
+    ASSESSED, redakcja ID złoża nieznanego światu w widoku WHY.
+-   **Przebieg referencyjny (600 ticków):** MIN-001 AVAILABLE w Black
+    Mountain w ticku 80 → ruda żelaza DISCOVERED w tym samym ticku
+    (1 fakt, 1 wpis Chronicle); MIN-008/MIN-011 nie pojawiają się w 200
+    lat; tempo technologii identyczne jak bez D3.
+-   **Odłożone:** eksploracja pustych regionów; wizualna reprezentacja
+    SUSPECTED w Atlasie (DEFERRED TO VISUAL PASS --- Visual Alphabet nie
+    ma symbolu); brak contentu wydobycia rudy żelaza (archetyp/PM) ---
+    łańcuch VS §31 kończy się na „gospodarka może ocenić opportunity”.

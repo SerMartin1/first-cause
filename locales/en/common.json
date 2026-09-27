@@ -14,6 +14,8 @@
   "world.fact.migration_in": "Migration inflow",
   "world.fact.migration_out": "Migration outflow",
   "world.fact.housing_pressure_changed": "Housing pressure changed",
+  "world.fact.resource_suspected": "Possible resource deposit suspected",
+  "world.fact.resource_assessed": "Resource deposit assessed",
   "world.strength.PRIMARY": "Primary",
   "world.strength.SIGNIFICANT": "Significant",
   "world.strength.MINOR": "Minor",
