@@ -46,6 +46,10 @@
   --fc-atlas-relief: #8c8575;
   --fc-atlas-water: #7d9aa5;
   --fc-atlas-water-fill: #cddadb;
+  /* M21-VIS-R3: obszar zabudowy osady (Atlas Spec §28.2) -- ciepła szarość, odróżnialna
+     od gruntu, bez konkurowania z kolorami semantycznymi Map Modes. */
+  --fc-atlas-urban: #cfc8b8;
+  --fc-atlas-urban-edge: #8e8676;
 
   /* Typography (SS5, SS54 role contract) */
   --fc-font-ui: "IBM Plex Sans", system-ui, sans-serif;

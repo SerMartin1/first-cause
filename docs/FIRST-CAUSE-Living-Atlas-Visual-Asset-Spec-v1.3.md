@@ -1327,6 +1327,28 @@ Układ jest deterministyczny (np. z `vignetteSeed`), mieści się w
 znaczniku selekcji i nie sugeruje funkcji, których nie ma w danych.
 Kategorie §4A.1 / §6.1 pozostają źródłem klas.
 
+**Implementacja `M21-VIS-R3` (2026-09-27, czeka na akceptację
+wizualną właściciela):** sześć klas morfologii grupuje kategorie §4A.1
+bez zmiany ich granic (Hamlet < 500; Village 500--5k; Town 5k--50k;
+City 50k--500k; Metropolis 500k--5M; Megacity 5M+). Znak składa się z
+pięciu autorskich prymitywów: ślad zabudowy (stały rozmiar), skupisko
+śladów (dzielnica), łamana oś komunikacyjna (nigdy przez środek osady),
+obszar zabudowy (kryjący odcień z konturem sumy płatów) i rdzeń.
+Struktura według klasy: przysiółek --- 2 oddalone ślady albo skupisko
+4 śladów ze ścieżką; wieś --- zabudowa wzdłuż drogi; miasteczko ---
+rdzeń w zwartej zabudowie z osiami wzrostu; miasto --- rdzeń +
+dzielnice; metropolia --- dwa zrośnięte płaty, rdzeń główny i wtórny;
+megacity --- 4--5 płatów z własnymi rdzeniami połączonymi w łańcuch i
+osady satelitarne. Wariant: 3 autorskie układy × lustro, wybierane
+stabilnym hashem id osady (bez RNG). Semantic zoom zmienia tylko ilość
+zabudowy, nie klasę ani szkielet. Region ≠ osada: pole regionu to
+teren, osady są elementami wewnątrz; wiele osad w regionie układanych
+jest bez nakładania (budżet WORLD / REGION / LOCAL = 3 / 6 / 12,
+nadmiar agregowany jako kropki „+n”). Kod:
+`apps/desktop/src/features/world/settlement-morphology.ts`,
+`atlas-grammar.ts` (`layoutSettlements`). Prymitywy nie są jeszcze
+dopisane do §4A (Visual Alphabet) --- dopiero po akceptacji.
+
 ## 28.3 Skalowanie populacji
 
 Wizualny rozwój osady nie kończy się przy ok. 100 000 mieszkańców.
@@ -1342,6 +1364,17 @@ jest dozwolone (§6.2), ale górna granica nie może zrównywać klas
 City / Metropolis / Megacity --- rozróżnienie niesie wtedy morfologia.
 Legenda skali wynika z faktycznego zakresu danych, nie ze stałych
 wartości.
+
+**Implementacja `M21-VIS-R3` (2026-09-27):** promień śladu osady to
+odcinkowo liniowa funkcja log10 populacji (`TODO tuning`): 10 → 3.5 ·
+100 → 5.5 · 1k → 8.5 · 10k → 12.5 · 100k → 17.5 · 1M → 23 · 10M → 30 ·
+≥ 100M → 33 (limit; jednostki diagramu, pole regionu ma promień 58).
+10M zajmuje ~27% pola regionu. Najmniejsze osady mają minimalny
+promień ekranowy 7 px (powiększenie ≤ ×1.6, tylko gdy ślad byłby
+mniejszy), więc nie znikają przy oddaleniu, a kolejność rozmiarów
+pozostaje monotoniczna. Legenda „Skala osadnictwa” pokazuje próbki klas
+od najmniejszej do największej obecnej w danych. Tryb Population
+(kodowanie kołem) bez zmian --- należy do `M21-VIS-R4`.
 
 ## 28.4 Semantic Zoom --- poziom WORLD
 
@@ -1417,3 +1450,5 @@ jawnie oznaczony jako dane deweloperskie (UI Implementation Spec v1.4).
 -   **Spec:** READY.
 -   **Implementacja:** NIE SPEŁNIA --- audyt 2026-09-26 (BLOCKER B1, B2;
     HIGH H2, H3). Kontynuacja: Roadmap v0.6 `M21-VIS-R2`...`R6`.
+    §28.2--§28.4: implementacja `M21-VIS-R3` (2026-09-27) --- czeka na
+    HUMAN VISUAL ACCEPTANCE właściciela.

@@ -886,6 +886,11 @@ MUST mieć:
 -   batch updates,
 -   brak pełnego React rerender dla każdego node.
 
+`M21-VIS-R3` (2026-09-27): morfologia osady to stała, mała liczba
+prymitywów (≤ 60 na osadę na LOCAL, test jednostkowy), rysowana jednym
+obiektem `Graphics` na region; bez tysięcy budynków i bez cache ---
+geometria jest czystą funkcją id + populacji.
+
 ## React
 
 MUST:

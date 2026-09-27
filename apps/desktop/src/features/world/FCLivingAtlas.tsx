@@ -20,13 +20,23 @@ import {
   resourceGlyph,
   routePrimitives,
   routeStyle,
-  settlementBlocks,
   terrainPrimitives,
   type Ink,
   type Primitive,
 } from "./visual-alphabet.js";
-import { buildAtlasGrammar, type AtlasGlyph } from "./atlas-grammar.js";
-import { FCAtlasGlyph, legendLabel } from "./FCAtlasGlyph.js";
+import {
+  buildAtlasGrammar,
+  type AtlasGlyph,
+  type RegionGrammar,
+} from "./atlas-grammar.js";
+import { FCAtlasGlyph, FCSettlementSample, legendLabel } from "./FCAtlasGlyph.js";
+import {
+  formatPopulationCompact,
+  MORPHOLOGY_CLASSES,
+  MORPHOLOGY_CLASS_SAMPLE,
+  morphologyClass,
+  settlementMorphology,
+} from "./settlement-morphology.js";
 
 /** Skala znaków aktywności względem układu 12×12 i odstępy w rzędzie (jednostki diagramu). */
 const GLYPH_K = 1.45;
@@ -34,6 +44,42 @@ const GLYPH_STEP = 22;
 const GLYPH_ROW_STEP = 23;
 /** TODO tuning: maksymalna liczba pozycji klucza znaków rozwiniętego domyślnie. */
 const SYMBOL_KEY_OPEN_MAX = 8;
+
+/**
+ * TODO tuning: minimalny promień śladu osady na ekranie (px) i maksymalne
+ * powiększenie z tego powodu. Najmniejsze osady nie znikają przy oddaleniu
+ * (§13: im dalej, tym bardziej znak zamiast ilustracji); duże osady nie są
+ * powiększane, a kolejność rozmiarów pozostaje monotoniczna.
+ */
+const MIN_SETTLEMENT_PX = 7;
+const MAX_SETTLEMENT_BOOST = 1.6;
+function settlementBoost(radius: number, scale: number): number {
+  return Math.max(
+    1,
+    Math.min(MAX_SETTLEMENT_BOOST, MIN_SETTLEMENT_PX / (radius * scale)),
+  );
+}
+
+/** TODO tuning: maksymalna liczba kropek osad zagregowanych (reszta jako „+n”). */
+const MINOR_SETTLEMENT_DOTS = 5;
+
+/** Zasięg układu osad regionu względem węzła (R3): lewa/prawa krawędź i dół śladów. */
+function settlementExtent(region: RegionGrammar | undefined): {
+  left: number;
+  right: number;
+  bottom: number;
+} {
+  const placed = region?.settlements ?? [];
+  if (!placed.length) return { left: 0, right: 0, bottom: 0 };
+  const minor = region?.minorSettlements ?? 0;
+  const right = Math.max(...placed.map((p) => p.x + p.radius));
+  return {
+    left: Math.min(...placed.map((p) => p.x - p.radius)),
+    // Kropki osad zagregowanych stoją za prawą krawędzią ostatniego śladu.
+    right: right + (minor > 0 ? 6 + Math.min(minor, MINOR_SETTLEMENT_DOTS) * 3.2 + 8 : 0),
+    bottom: Math.max(...placed.map((p) => p.y + p.radius)),
+  };
+}
 
 /** Szerokość miejsca znaku w rzędzie: duży zakład / kompleks ma drugą halę (§10.3), więc szerszy krok. */
 function glyphSlot(glyph: AtlasGlyph): number {
@@ -162,23 +208,19 @@ export function FCLivingAtlas({
       const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
       for (const region of view.current.regions) {
         const p = positions.get(region.regionId)!;
-        const row = region.settlements.reduce(
-          (sum, s) => sum + populationRadius(s.population) * 2 + 12,
-          0,
+        const rg = grammar.regions.find((r) => r.regionId === region.regionId);
+        const extent = settlementExtent(rg);
+        bounds.minX = Math.min(bounds.minX, p.x - REGION_FIELD_RADIUS, p.x + extent.left);
+        bounds.maxX = Math.max(
+          bounds.maxX,
+          p.x + Math.max(REGION_FIELD_RADIUS, extent.right),
         );
-        bounds.minX = Math.min(bounds.minX, p.x - REGION_FIELD_RADIUS);
-        bounds.maxX = Math.max(bounds.maxX, p.x + Math.max(REGION_FIELD_RADIUS, row));
         bounds.minY = Math.min(bounds.minY, p.y - REGION_FIELD_RADIUS);
-        const glyphRows =
-          grammar.regions.find((r) => r.regionId === region.regionId)?.rows.length ?? 0;
-        const radius = Math.max(
-          8,
-          ...region.settlements.map((s) => populationRadius(s.population)),
-        );
+        const glyphRows = rg?.rows.length ?? 0;
         bounds.maxY = Math.max(
           bounds.maxY,
           p.y + REGION_FIELD_RADIUS + 12,
-          p.y + radius + GLYPH_ROW_STEP * (0.8 + glyphRows),
+          p.y + Math.max(8, extent.bottom) + GLYPH_ROW_STEP * (0.8 + glyphRows),
         );
       }
       if (!Number.isFinite(bounds.minX))
@@ -378,44 +420,86 @@ export function FCLivingAtlas({
         node.position.set(point.x, point.y);
         node.alpha = ui.focusMode && !selected ? 0.28 : 1;
         scene.addChild(node);
-        const marker = new Graphics()
-          .circle(0, 0, 4)
-          .fill({ color: fill, alpha: intensity });
+        // Punkt węzła tylko dla regionu bez widocznych osad -- inaczej zasłaniałby
+        // drobne ślady przysiółka (R3); osada sama niesie kolor trybu.
+        const hasSettlements =
+          ui.overlays.includes("settlements") && region.settlements.length > 0;
+        const marker = new Graphics();
+        // Region bez osad w widoku bazowym: pusty pierścień (miejsce w świecie, nie osada).
+        if (!hasSettlements && ui.mapMode === "terrain")
+          marker.circle(0, 0, 3.5).stroke({ color: neutral, width: 1, alpha: 0.7 });
+        else if (!hasSettlements)
+          marker.circle(0, 0, 4).fill({ color: fill, alpha: intensity });
         node.addChild(marker);
-        if (ui.overlays.includes("settlements"))
-          region.settlements.forEach((settlement, index) => {
-            const radius = populationRadius(settlement.population);
-            const offset = index * (radius * 2 + 12);
-            const g = new Graphics();
+        const rg = regionGrammar.get(region.regionId);
+        const extent = settlementExtent(rg);
+        if (ui.overlays.includes("settlements") && rg) {
+          // R3: jeden obiekt Graphics na region (batching); osada = morfologia z klasy
+          // populacji, nie powiększony znacznik. Tryb Population (R4) bez zmian: koło.
+          const g = new Graphics();
+          for (const placed of rg.settlements) {
+            const boost = settlementBoost(placed.radius, scale);
             if (ui.mapMode === "population")
-              g.circle(offset, 0, radius).fill({ color: fill, alpha: intensity });
-            else {
-              const blocks = settlementBlocks(settlement.population);
-              const unit = (radius * 2) / Math.ceil(Math.sqrt(blocks.length));
-              for (const b of blocks)
-                g.rect(
-                  offset + b.x * unit - unit * 0.4,
-                  b.y * unit - unit * 0.4,
-                  unit * 0.8,
-                  unit * 0.8,
-                ).fill({ color: fill, alpha: intensity });
-            }
-            node.addChild(g);
-            if (selected)
-              g.circle(offset, 0, radius + 5).stroke({ color: accent, width: 2 });
-          });
+              g.circle(placed.x, placed.y, populationRadius(placed.population)).fill({
+                color: fill,
+                alpha: intensity,
+              });
+            else
+              drawPrimitives(
+                g,
+                settlementMorphology({
+                  settlementId: placed.settlementId,
+                  population: placed.population,
+                  detail: grammar.zoom,
+                }).primitives,
+                // Zabudowa i jej krawędź mają stały odcień Atlasu; ślady i rdzenie niosą kolor trybu.
+                (ink) => (ink === "ink" ? fill : inkColor(ink)),
+                { dx: placed.x, dy: placed.y, k: boost, alpha: intensity },
+              );
+          }
+          // Zaznaczenie: jeden obrys całej grupy osad regionu (nie pierścień na każdej osadzie).
+          if (selected && rg.settlements.length) {
+            const reach = Math.max(
+              ...rg.settlements.map(
+                (p) => Math.abs(p.y) + p.radius * settlementBoost(p.radius, scale),
+              ),
+            );
+            g.ellipse(
+              (extent.left + extent.right) / 2,
+              0,
+              (extent.right - extent.left) / 2 + 5,
+              reach + 5,
+            ).stroke({ color: accent, width: 1.5 });
+          }
+          // Osady ponad budżet zoomu: zagregowane kropki (+n), nigdy ukryte (§28.4).
+          const lastRight = Math.max(0, ...rg.settlements.map((p) => p.x + p.radius));
+          for (let i = 0; i < Math.min(rg.minorSettlements, MINOR_SETTLEMENT_DOTS); i++)
+            g.circle(lastRight + 6 + i * 3.2, (i % 2) * 2 - 1, 1.1).fill({
+              color: fill,
+              alpha: intensity,
+            });
+          node.addChild(g);
+          if (rg.minorSettlements > MINOR_SETTLEMENT_DOTS) {
+            const more = new Text({
+              resolution: Math.max(1, scale * window.devicePixelRatio),
+              text: `+${rg.minorSettlements - MINOR_SETTLEMENT_DOTS}`,
+              style: {
+                fontFamily: "IBM Plex Sans",
+                fontSize: 9 / Math.max(0.5, scale),
+                fill: neutral,
+              },
+            });
+            more.position.set(lastRight + 6 + MINOR_SETTLEMENT_DOTS * 3.2, -5);
+            node.addChild(more);
+          }
+        }
         // CIVILIZATION / aktywność: `industry[]` (rząd 1) oraz `extraction[]` + znane zasoby (rząd 2),
         // obecne na każdym poziomie zoomu (§28.4); semantic zoom zmienia agregację, nie obecność.
         const rows = regionGrammar.get(region.regionId)?.rows ?? [];
         if (ui.overlays.includes("settlements") && rows.length) {
           const marks = new Graphics();
           marks.alpha = dataMode ? 0.6 : 1;
-          const top =
-            Math.max(
-              8,
-              ...region.settlements.map((s) => populationRadius(s.population)),
-            ) +
-            GLYPH_ROW_STEP * 0.8;
+          const top = Math.max(8, extent.bottom) + GLYPH_ROW_STEP * 0.8;
           // Kartograficzne „halo” papieru pod rzędem znaków: znaki nie giną pod liniami tras.
           const paper = color("--fc-bg");
           const layouts = rows.map(rowLayout);
@@ -510,7 +594,8 @@ export function FCLivingAtlas({
             fill: color("--fc-text-primary"),
           },
         });
-        label.position.set(point.x + 44, point.y - 12);
+        // Etykieta obok śladu osad (duże osady nie wchodzą pod napis).
+        label.position.set(point.x + Math.max(44, extent.right + 8), point.y - 12);
         const box = { x: label.x, y: label.y, w: label.width, h: label.height };
         const collides = labelBoxes.some(
           (b) =>
@@ -537,6 +622,17 @@ export function FCLivingAtlas({
       );
       host.current?.setAttribute("data-rendered-mode", ui.mapMode);
       host.current?.setAttribute("data-semantic-zoom", grammar.zoom);
+      // R3 (testy E2E): klasy morfologii faktycznie narysowane -- niezależne od locale.
+      host.current?.setAttribute(
+        "data-settlement-classes",
+        ui.overlays.includes("settlements") && ui.mapMode !== "population"
+          ? [...new Set(grammar.regions.flatMap((r) => r.settlements.map((p) => p.cls)))]
+              .sort(
+                (a, b) => MORPHOLOGY_CLASSES.indexOf(a) - MORPHOLOGY_CLASSES.indexOf(b),
+              )
+              .join(",")
+          : "",
+      );
     });
     return () => {
       cancelled = true;
@@ -553,15 +649,22 @@ export function FCLivingAtlas({
     grammar,
     symbolsOpen,
   ]);
-  // Legenda obejmuje tylko zakres istniejących osad (do pierwszego progu >= największej),
+  // Legenda obejmuje tylko zakres istniejących osad (§28.3: z danych, nie ze stałych progów),
   // więc nie zajmuje więcej miejsca niż kodowane elementy (UI Impl Spec v1.4 §L.8).
-  const largest = Math.max(
-    0,
-    ...view.current.regions.flatMap((r) => r.settlements.map((s) => s.population)),
+  const populations = view.current.regions.flatMap((r) =>
+    r.settlements.map((s) => s.population),
   );
+  const largest = Math.max(0, ...populations);
   const legendSteps = [1000, 10000, 100000].filter(
     (_, i, all) => i === 0 || all[i - 1]! < largest,
   );
+  // R3: próbki klas morfologii od najmniejszej do największej obecnej klasy.
+  const classRange = populations.length
+    ? MORPHOLOGY_CLASSES.slice(
+        MORPHOLOGY_CLASSES.indexOf(morphologyClass(Math.min(...populations))),
+        MORPHOLOGY_CLASSES.indexOf(morphologyClass(largest)) + 1,
+      )
+    : [];
   return (
     <div
       className="fc-atlas"
@@ -614,21 +717,38 @@ export function FCLivingAtlas({
         )}
       </div>
       <div className="fc-atlas__legend" ref={legendBox} data-testid="atlas-legend">
-        <div className="fc-atlas__legend-row">
-          <strong>{t("world.markerPopulation")}</strong>
-          {legendSteps.map((n) => (
-            <span key={n}>
-              <i
-                style={{
-                  width: populationRadius(n) * 2,
-                  height: populationRadius(n) * 2,
-                  borderRadius: ui.mapMode === "population" ? "50%" : 0,
-                }}
-              />
-              {n.toLocaleString(i18n.language)}
-            </span>
-          ))}
-        </div>
+        {ui.mapMode === "population" ? (
+          <div className="fc-atlas__legend-row">
+            <strong>{t("world.markerPopulation")}</strong>
+            {legendSteps.map((n) => (
+              <span key={n}>
+                <i
+                  style={{
+                    width: populationRadius(n) * 2,
+                    height: populationRadius(n) * 2,
+                  }}
+                />
+                {n.toLocaleString(i18n.language)}
+              </span>
+            ))}
+          </div>
+        ) : (
+          classRange.length > 0 && (
+            <div className="fc-atlas__legend-row" data-testid="settlement-scale-legend">
+              <strong>{t("world.atlas.settlementScale")}</strong>
+              {classRange.map((cls) => (
+                <span key={cls} data-settlement-class={cls}>
+                  <FCSettlementSample population={MORPHOLOGY_CLASS_SAMPLE[cls]} />
+                  {t(`world.atlas.settlementClass.${cls}`, { defaultValue: cls })}{" "}
+                  <small>
+                    ~
+                    {formatPopulationCompact(MORPHOLOGY_CLASS_SAMPLE[cls], i18n.language)}
+                  </small>
+                </span>
+              ))}
+            </div>
+          )
+        )}
         {grammar.legend.length > 0 && (
           <button
             type="button"

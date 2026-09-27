@@ -1,33 +1,6 @@
 import type { Graphics } from "pixi.js";
 import { fnv1a32 } from "@first-cause/simulation";
 
-/** Authored cartographic primitives. No era inference, invented facilities or RNG. */
-export function settlementBlocks(
-  population: number,
-): readonly { x: number; y: number }[] {
-  const count =
-    population < 500
-      ? 1
-      : population < 2_000
-        ? 3
-        : population < 10_000
-          ? 5
-          : population < 50_000
-            ? 9
-            : population < 100_000
-              ? 12
-              : population < 500_000
-                ? 16
-                : population < 1_000_000
-                  ? 20
-                  : 25;
-  const cols = Math.ceil(Math.sqrt(count));
-  return Array.from({ length: count }, (_, i) => ({
-    x: (i % cols) - (cols - 1) / 2,
-    y: Math.floor(i / cols) - (Math.ceil(count / cols) - 1) / 2,
-  }));
-}
-
 /*
  * M21-VIS-R2 --- Visual Alphabet Atlasu jako dane (Atlas Spec v1.3 §4A,
  * §9, §10, §27.3). Każdy znak to lista prymitywów geometrycznych w
@@ -50,7 +23,9 @@ export type Ink =
   | "groundFertile"
   | "groundDry"
   | "groundCold"
-  | "groundWet";
+  | "groundWet"
+  | "urban"
+  | "urbanEdge";
 
 export const INK_TOKEN: Readonly<Record<Ink, string>> = {
   ink: "--fc-text-secondary",
@@ -66,6 +41,8 @@ export const INK_TOKEN: Readonly<Record<Ink, string>> = {
   groundDry: "--fc-atlas-ground-dry",
   groundCold: "--fc-atlas-ground-cold",
   groundWet: "--fc-atlas-ground-wet",
+  urban: "--fc-atlas-urban",
+  urbanEdge: "--fc-atlas-urban-edge",
 };
 
 export type Primitive =

@@ -2,8 +2,16 @@ import type {
   RegionVisualIndustry,
   RegionVisualProfile,
   WorldConnectionView,
+  WorldRegionView,
   WorldSnapshot,
 } from "@first-cause/simulation";
+import {
+  morphologyClass,
+  morphologyVariant,
+  settlementFootprint,
+  type MorphologyClass,
+  type MorphologyVariant,
+} from "./settlement-morphology.js";
 import type {
   GlyphState,
   GroundTone,
@@ -91,10 +99,84 @@ export type AtlasGlyph =
       readonly state: GlyphState;
     };
 
+/**
+ * M21-VIS-R3: jedna osada w układzie regionu (współrzędne względem węzła
+ * regionu, jednostki diagramu). Region ≠ osada: pole regionu to teren,
+ * osada jest elementem wewnątrz niego.
+ */
+export interface SettlementGrammar {
+  readonly settlementId: string;
+  readonly population: number;
+  readonly cls: MorphologyClass;
+  readonly variant: MorphologyVariant;
+  readonly radius: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * TODO tuning: ile osad regionu rysować pełną morfologią na danym poziomie
+ * zoomu (§13, §28.4). Reszta jest agregowana w `minorSettlements` --
+ * na HIGH DENSITY warstwa osad jest agregowana, nigdy ukryta.
+ */
+export const SETTLEMENT_BUDGET: Readonly<Record<AtlasSemanticZoom, number>> = {
+  WORLD: 3,
+  REGION: 6,
+  LOCAL: 12,
+};
+/** Odstęp między śladami sąsiednich osad (jednostki diagramu). */
+const SETTLEMENT_GAP = 5;
+/** Autorskie przesunięcia pionowe kolejnych osad -- rząd osad nie jest idealną linią. */
+const SETTLEMENT_DY = [0, 5, -4, 8, -7, 3, -2, 9, -8, 6, -5, 2] as const;
+
+/**
+ * Układ osad regionu: największa w środku węzła, kolejne naprzemiennie po
+ * prawej i lewej (bez nakładania śladów), stabilne sortowanie
+ * populacja → id. Nie zakłada „1 region = 1 osada”.
+ */
+export function layoutSettlements(
+  settlements: WorldRegionView["settlements"],
+  zoom: AtlasSemanticZoom,
+): { readonly placed: readonly SettlementGrammar[]; readonly minor: number } {
+  const ordered = [...settlements].sort(
+    (a, b) => b.population - a.population || a.settlementId.localeCompare(b.settlementId),
+  );
+  const shown = ordered.slice(0, SETTLEMENT_BUDGET[zoom]);
+  let right = 0,
+    left = 0;
+  const placed = shown.map((s, i): SettlementGrammar => {
+    const radius = settlementFootprint(s.population);
+    let x = 0;
+    if (i === 0) {
+      right = radius;
+      left = radius;
+    } else if (i % 2 === 1) {
+      x = right + SETTLEMENT_GAP + radius;
+      right = x + radius;
+    } else {
+      x = -(left + SETTLEMENT_GAP + radius);
+      left = -x + radius;
+    }
+    return {
+      settlementId: s.settlementId,
+      population: s.population,
+      cls: morphologyClass(s.population),
+      variant: morphologyVariant(s.settlementId),
+      radius,
+      x,
+      y: SETTLEMENT_DY[i % SETTLEMENT_DY.length]!,
+    };
+  });
+  return { placed, minor: ordered.length - shown.length };
+}
+
 export interface RegionGrammar {
   readonly regionId: string;
   readonly terrain: TerrainTexture;
   readonly seed: number;
+  /** R3: osady z pełną morfologią (budżet zoomu) i liczba osad zagregowanych. */
+  readonly settlements: readonly SettlementGrammar[];
+  readonly minorSettlements: number;
   /** Rząd 1: działalność gospodarcza; rząd 2: wydobycie + znane zasoby. */
   readonly rows: readonly (readonly AtlasGlyph[])[];
   /** Pozycje pominięte przez budżet (pokazywane jako „+n”, nigdy po cichu). */
@@ -196,10 +278,12 @@ function worstFirst(states: readonly GlyphState[]): GlyphState {
 }
 
 function regionGrammar(
-  profile: RegionVisualProfile,
+  region: WorldRegionView,
   zoom: AtlasSemanticZoom,
   options: AtlasGrammarOptions,
 ): RegionGrammar {
+  const profile: RegionVisualProfile = region.profile;
+  const layout = layoutSettlements(region.settlements, zoom);
   const industry = [...(profile.industry ?? [])].sort(
     (a, b) =>
       STATE_PRIORITY[a.state] - STATE_PRIORITY[b.state] ||
@@ -226,6 +310,8 @@ function regionGrammar(
     regionId: profile.regionId,
     terrain: terrainTexture(profile),
     seed: profile.vignetteSeed,
+    settlements: layout.placed,
+    minorSettlements: layout.minor,
   };
 
   if (zoom === "WORLD") {
@@ -332,7 +418,7 @@ export function buildAtlasGrammar(
   options: AtlasGrammarOptions,
 ): AtlasGrammar {
   const zoom = semanticZoom(options.zoomLevel, snapshot.regions.length);
-  const regions = snapshot.regions.map((r) => regionGrammar(r.profile, zoom, options));
+  const regions = snapshot.regions.map((r) => regionGrammar(r, zoom, options));
   const edges = snapshot.connections.map((c) => edgeGrammar(c, zoom));
   const legend = new Map<string, LegendEntry>();
   const add = (entry: LegendEntry) => legend.set(legendKey(entry), entry);

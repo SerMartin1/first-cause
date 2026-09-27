@@ -2766,6 +2766,12 @@ W tym trybie:
 -   proceduralna winieta nie jest renderowana jako osobna miniatura przy
     każdym regionie.
 
+`M21-VIS-R3` (2026-09-27): agregacja osad działa per region --- WORLD
+rysuje pełną morfologię najwyżej 3 osad regionu (REGION 6, LOCAL 12,
+`TODO tuning`), pozostałe jako kropki z licznikiem „+n”. Obszar
+zabudowy używa tokenów `--fc-atlas-urban` i `--fc-atlas-urban-edge`
+(ciepła szarość, odrębna od kolorów semantycznych Map Modes).
+
 ## 69.5 FCAtlasCluster
 
 `FCAtlasCluster` jest komponentem agregacyjnym, a nie nowym typem encji

@@ -69,11 +69,20 @@ export const VISUAL_WORLD_CONTENT: BuildRegionVisualProfileOptions = {
   },
 };
 
-interface RegionSpec {
+export interface VisualSettlementSpec {
+  readonly stage: SettlementStage;
+  readonly population: number;
+  /** R3: nazwa kolejnej osady regionu (pierwsza dziedziczy nazwę regionu). */
+  readonly name?: string;
+}
+
+export interface RegionSpec {
   readonly id: string;
   readonly name: string;
   readonly geography: CreateRegionGeographyInput;
-  readonly settlement?: { readonly stage: SettlementStage; readonly population: number };
+  readonly settlement?: VisualSettlementSpec;
+  /** R3: wiele osad w jednym regionie (dopisywane po `settlement`). */
+  readonly settlements?: readonly VisualSettlementSpec[];
   readonly companies?: readonly {
     readonly archetypeId: string;
     readonly employees: number;
@@ -92,7 +101,7 @@ interface RegionSpec {
   }[];
 }
 
-const geo = (
+export const geo = (
   terrain: CreateRegionGeographyInput["terrain"],
   climate: CreateRegionGeographyInput["climate"],
   fertility: number,
@@ -240,6 +249,14 @@ const REGIONS: readonly RegionSpec[] = [
   },
 ];
 
+export interface ConnectionSpec {
+  readonly a: string;
+  readonly b: string;
+  readonly level: number;
+  readonly modes: readonly string[];
+  readonly disrupted?: boolean;
+}
+
 const CONNECTIONS: readonly {
   readonly a: string;
   readonly b: string;
@@ -321,10 +338,44 @@ function preparedDeposit(
   return deposit;
 }
 
+/** Wszystkie osady regionu: `settlement` (id `<region>_settlement`), potem `settlements[]`. */
+function settlementsOf(
+  spec: RegionSpec,
+): { readonly id: string; readonly spec: VisualSettlementSpec }[] {
+  return [
+    ...(spec.settlement ? [{ id: `${spec.id}_settlement`, spec: spec.settlement }] : []),
+    ...(spec.settlements ?? []).map((settlement, i) => ({
+      id: `${spec.id}_settlement_${i + 1}`,
+      spec: settlement,
+    })),
+  ];
+}
+
 export function visualWorldView(): WorldView {
-  const world = createWorld({
+  return buildVisualWorldView({
     id: "dev_visual_world",
     seed: "visual-r2",
+    regions: REGIONS,
+    connections: CONNECTIONS,
+  });
+}
+
+/**
+ * Buduje prawdziwy `WorldState` z opisu regionów i liczy widok
+ * PRODUKCYJNYM `buildWorldSnapshot` (R2; R3 dokłada fixture'y morfologii
+ * w `visual-morphology-fixture.ts`). VISUAL DEVELOPMENT DATA ONLY.
+ */
+export function buildVisualWorldView(input: {
+  readonly id: string;
+  readonly seed: string;
+  readonly regions: readonly RegionSpec[];
+  readonly connections: readonly ConnectionSpec[];
+}): WorldView {
+  const REGIONS = input.regions;
+  const CONNECTIONS = input.connections;
+  const world = createWorld({
+    id: input.id,
+    seed: input.seed,
     name: "VISUAL DEVELOPMENT DATA",
     configuration: { regionCount: REGIONS.length, worldSizePreset: "dev" },
   });
@@ -338,29 +389,42 @@ export function visualWorldView(): WorldView {
     }),
   );
   const settlements = REGIONS.flatMap((spec) =>
-    spec.settlement
-      ? [
-          createSettlement({
-            id: `${spec.id}_settlement`,
-            regionId: spec.id,
-            name: spec.name,
-            foundedTick: 0,
-            stage: spec.settlement.stage,
-          }),
-        ]
-      : [],
+    settlementsOf(spec).map(({ id, spec: settlement }, i) =>
+      createSettlement({
+        id,
+        regionId: spec.id,
+        name: settlement.name ?? (i === 0 ? spec.name : `${spec.name} ${i + 1}`),
+        foundedTick: 0,
+        stage: settlement.stage,
+      }),
+    ),
   );
-  const cohorts = REGIONS.map((spec) =>
-    createPopulationCohort({
-      id: `${spec.id}_cohort`,
-      regionId: spec.id,
-      ...(spec.settlement ? { settlementId: `${spec.id}_settlement` } : {}),
-      ageGroup: "AGE_25_44",
-      population: spec.settlement?.population ?? 0,
-      economicClass: "WORKING",
-      skillLevel: "SKILLED",
-    }),
-  );
+  // Jedna kohorta na osadę (id pierwszej bez zmian względem R2); region bez osad -- pusta kohorta.
+  const cohorts = REGIONS.flatMap((spec) => {
+    const own = settlementsOf(spec);
+    if (!own.length)
+      return [
+        createPopulationCohort({
+          id: `${spec.id}_cohort`,
+          regionId: spec.id,
+          ageGroup: "AGE_25_44",
+          population: 0,
+          economicClass: "WORKING",
+          skillLevel: "SKILLED",
+        }),
+      ];
+    return own.map(({ id, spec: settlement }, i) =>
+      createPopulationCohort({
+        id: i === 0 ? `${spec.id}_cohort` : `${id}_cohort`,
+        regionId: spec.id,
+        settlementId: id,
+        ageGroup: "AGE_25_44",
+        population: settlement.population,
+        economicClass: "WORKING",
+        skillLevel: "SKILLED",
+      }),
+    );
+  });
   const companySpecs = REGIONS.flatMap((spec) =>
     (spec.companies ?? []).map((company, i) => ({ region: spec.id, i, company })),
   );

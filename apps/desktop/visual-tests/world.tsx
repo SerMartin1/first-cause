@@ -7,6 +7,11 @@ import en from "../../../locales/en/common.json";
 import pl from "../../../locales/pl/common.json";
 import { App } from "../src/App.js";
 import { visualWorldView } from "../src/features/world/visual-world-fixture.js";
+import {
+  civilizationView,
+  morphologyLadderView,
+  morphologyVariantsView,
+} from "../src/features/world/visual-morphology-fixture.js";
 import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
@@ -15,12 +20,21 @@ import "@fontsource/source-serif-4/400.css";
 import "../src/index.css";
 
 /**
- * M21-VIS-R2 harness: pełny ekran World (kompozycja R1 bez zmian) na
+ * M21-VIS-R2/R3 harness: pełny ekran World (kompozycja R1 bez zmian) na
  * VISUAL DEVELOPMENT DATA z `visual-world-fixture.ts`. Ładowany wyłącznie
  * przez test E2E w oknie bez preloadu; API świata jest statycznym widokiem
  * fixture'u (brak symulacji, brak komend zmieniających stan).
  */
-const view = visualWorldView();
+// R3: `?fixture=ladder|variants|civilization` wybiera fixture morfologii; domyślnie fixture R2.
+const fixture = new URLSearchParams(window.location.search).get("fixture");
+const view =
+  fixture === "ladder"
+    ? morphologyLadderView()
+    : fixture === "variants"
+      ? morphologyVariantsView()
+      : fixture === "civilization"
+        ? civilizationView()
+        : visualWorldView();
 const world: WorldApi = {
   getWorld: () => Promise.resolve(view),
   setSpeed: () => Promise.resolve(view),

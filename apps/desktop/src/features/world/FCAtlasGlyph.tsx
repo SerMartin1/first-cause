@@ -9,6 +9,7 @@ import {
   type Ink,
   type Primitive,
 } from "./visual-alphabet.js";
+import { settlementMorphology } from "./settlement-morphology.js";
 
 /** Te same prymitywy co renderer PixiJS -- legenda pokazuje dokładnie znak z mapy (Atlas Spec v1.3 §4A). */
 function primitivesFor(entry: LegendEntry): Primitive[] {
@@ -38,16 +39,10 @@ function primitivesFor(entry: LegendEntry): Primitive[] {
 
 const color = (ink: Ink | undefined) => (ink ? `var(${INK_TOKEN[ink]})` : "none");
 
-export function FCAtlasGlyph({ entry }: { readonly entry: LegendEntry }) {
+function PrimitiveShapes({ primitives }: { readonly primitives: readonly Primitive[] }) {
   return (
-    <svg
-      className="fc-atlas-glyph"
-      viewBox="-10 -10 20 20"
-      width={20}
-      height={20}
-      aria-hidden="true"
-    >
-      {primitivesFor(entry).map((p, i) =>
+    <>
+      {primitives.map((p, i) =>
         p.kind === "circle" ? (
           <circle
             key={i}
@@ -79,6 +74,46 @@ export function FCAtlasGlyph({ entry }: { readonly entry: LegendEntry }) {
           />
         ),
       )}
+    </>
+  );
+}
+
+export function FCAtlasGlyph({ entry }: { readonly entry: LegendEntry }) {
+  return (
+    <svg
+      className="fc-atlas-glyph"
+      viewBox="-10 -10 20 20"
+      width={20}
+      height={20}
+      aria-hidden="true"
+    >
+      <PrimitiveShapes primitives={primitivesFor(entry)} />
+    </svg>
+  );
+}
+
+/**
+ * R3: próbka klasy morfologii w legendzie -- te same prymitywy co na mapie,
+ * w skali proporcjonalnej do śladu (legenda mówi o strukturze i skali naraz).
+ */
+export function FCSettlementSample({ population }: { readonly population: number }) {
+  const morphology = settlementMorphology({
+    settlementId: "legend-sample",
+    population,
+    detail: "REGION",
+  });
+  // Stała skala px/jednostkę -- większa klasa zajmuje więcej miejsca, jak na mapie.
+  const extent = morphology.radius + 2;
+  const size = Math.max(12, Math.round(extent * 1.05));
+  return (
+    <svg
+      className="fc-atlas-glyph"
+      viewBox={`${-extent} ${-extent} ${extent * 2} ${extent * 2}`}
+      width={size}
+      height={size}
+      aria-hidden="true"
+    >
+      <PrimitiveShapes primitives={morphology.primitives} />
     </svg>
   );
 }

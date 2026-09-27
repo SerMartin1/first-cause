@@ -10,6 +10,25 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-27
 
+- **M21-VIS-R3 --- morfologia osad, skalowanie populacji, czytelność
+  cywilizacji (implementacja; czeka na akceptację wizualną właściciela).**
+  Osada na Atlasie zmienia strukturę wraz z populacją zamiast rosnącej
+  siatki kwadratów: 6 klas (granice §4A.1), 5 autorskich prymitywów
+  (ślad, skupisko, łamana oś, obszar zabudowy, rdzeń), 3 warianty ×
+  lustro ze stabilnego hasha id (bez RNG); ślad log10 z limitem (10M ≈
+  27% pola regionu), minimalny rozmiar ekranowy najmniejszych osad; wiele
+  osad w regionie bez nakładania, budżet WORLD/REGION/LOCAL 3/6/12 z
+  agregacją „+n”; region bez osad jako pusty pierścień; zaznaczenie jako
+  jeden obrys grupy; legenda „Skala osadnictwa” z zakresu danych (EN/PL);
+  tokeny `--fc-atlas-urban(-edge)`. Tryb Population bez zmian (R4).
+  Fixture'y wizualne R3 (drabina 10 → 10M+, warianty, świat z kilkoma
+  centrami) + arkusz morfologii, testy jednostkowe (A--K, P) i E2E
+  `world-r3.spec.ts`, screenshoty `docs/verification/world-r3-2026-09-27/`.
+  Docs: Atlas Spec §28.2/§28.3/§28.8, Design System §69.4, UI Impl Spec
+  (Living Atlas), Roadmap (wynik R3). Zapisano w Roadmapie backlog
+  **CONTENT-IRON-01** (łańcuch wydobycia rudy żelaza, VS §31) ---
+  niezaimplementowany.
+
 - **D3 --- naturalne odkrywanie złóż, model A + a (decyzja właściciela,
   Canonical Decisions TECH-012).** Świat sam odkrywa złoża przez istniejący
   system technologii, deterministycznie i bez RNG: MIN-001 ujawnia złoże

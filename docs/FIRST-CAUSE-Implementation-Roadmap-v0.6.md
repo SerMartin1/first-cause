@@ -4466,3 +4466,45 @@ linku). D3 nadal OPEN.
     SUSPECTED w Atlasie (DEFERRED TO VISUAL PASS --- Visual Alphabet nie
     ma symbolu); brak contentu wydobycia rudy żelaza (archetyp/PM) ---
     łańcuch VS §31 kończy się na „gospodarka może ocenić opportunity”.
+
+## Wynik `M21-VIS-R3` (2026-09-27) --- IMPLEMENTATION PASS, CZEKA NA HUMAN VISUAL ACCEPTANCE
+
+Settlement Morphology + Population Scaling + Civilization Readability wg
+Atlas Spec v1.3 §28.2--§28.4 (szczegóły modelu: tam). Populacja zmienia
+strukturę znaku osady (6 klas z kategorii §4A.1, 5 autorskich
+prymitywów, 3 warianty × lustro z hasha id), nie tylko rozmiar; ślad
+skaluje się logarytmicznie z limitem; wiele osad na region z budżetem
+semantic zoom i agregacją „+n”; region bez osad = pusty pierścień
+(region ≠ osada); legenda skali z zakresu danych. Stara siatka bloków
+(`settlementBlocks`) usunięta. Bez zmian: Simulation Model, RNG,
+zapis, Map Modes (R4), WHY? (R5), geometria (M22), D3/TECH-012.
+Fixture'y wizualne: `visual-morphology-fixture.ts` (drabina 10 → 10M+,
+warianty, świat z kilkoma centrami), harness
+`visual-tests/world.html?fixture=...` i arkusz `morphology.html`.
+Screenshoty: `docs/verification/world-r3-2026-09-27/`; E2E
+`tests/e2e/world-r3.spec.ts`. Statusy: `M21-VIS-01` pozostaje FAIL
+(reopened) do akceptacji wizualnej R3 i R4; następny pass `M21-VIS-R4`
+dopiero po akceptacji wyglądu R3.
+
+## Backlog: CONTENT-IRON-01 --- Iron Ore Extraction Vertical Chain (2026-09-27)
+
+**Status:** BACKLOG --- zapisane, niezaimplementowane; nie blokuje
+`M21-VIS-R3`.
+
+D3 (TECH-012) potwierdził, że ruda żelaza Black Mountain jest
+naturalnie odkrywana (MIN-001 → DISCOVERED w ticku 80), ale content
+nie ma archetypu firmy ani metody produkcji wydobywającej rudę żelaza,
+więc łańcuch VS §31 kończy się na „resource discovery → economic
+opportunity”. Zakres przyszłego zadania:
+
+``` text
+discovered iron ore deposit → economic opportunity → decyzja AI o
+rozpoczęciu działalności → firma / archetyp wydobywczy → metoda
+produkcji wydobycia rudy żelaza → extraction → regional inventory /
+market → dalsze wykorzystanie rudy przez gospodarkę
+```
+
+Cel: pełne przejście scenariusza VS §31 (technology → resource
+discovery → economic opportunity → extraction → economic
+consequences). Szczegółowa mechanika --- do zaprojektowania przy
+starcie zadania, na polecenie właściciela.

@@ -15,7 +15,7 @@ import { WorldScreen } from "./WorldScreen.js";
 import { useWorldStore } from "./world-store.js";
 import { fitAtlas, MODE_METRICS, populationRadius } from "./atlas-model.js";
 import { visualStressView } from "./visual-stress-fixture.js";
-import { settlementBlocks } from "./visual-alphabet.js";
+import { morphologyClass } from "./settlement-morphology.js";
 
 vi.mock("./FCLivingAtlas.js", () => ({
   FCLivingAtlas: ({ caption }: { caption?: ReactNode }) => (
@@ -250,9 +250,10 @@ describe("World UI", () => {
       }
       expect(JSON.stringify(v)).toBe(before);
       expect(r.profile.terrain).toBe("mountains");
-      return settlementBlocks(r.population).length;
+      return morphologyClass(r.population);
     });
-    expect(counts).toEqual([1, 9, 16, 25]);
+    // R3: etapy różnią się strukturą osady (klasa morfologii), nie liczbą identycznych bloków.
+    expect(counts).toEqual(["hamlet", "town", "city", "metropolis"]);
   });
   it("renders honest empty states and keeps map modes separate from overlays", async () => {
     mount();
