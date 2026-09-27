@@ -1163,6 +1163,16 @@ rynku" dla Black Mountain), 4 TechnologyState. Zgodne z World Generation
 Spec §64 "Pierwszy prototyp" (8--12 regionów, \~50 populacji, 3--5
 osad).
 
+*Aktualizacja 2026-09-27 (decyzja właściciela 2A+3C, wariant C):* każda
+z 8 rodzin kohort ma pełną strukturę wieku (33 kohorty, sumy rodzin i
+regionów bez zmian, nadal 50), więc żadna rodzina nie jest z góry
+bezpłodna. Obok powstał wariant
+`tests/worldgen/fixtures/black_mountain_vs_scale.json` -- ten sam świat
+(te same regiony, osady, złoża, firmy, połączenia i seed), ale 198
+populacji w skali Reference VS (VS Spec §2.3, World Generation Spec
+§17), do długich przebiegów demografii i tempa technologii. Prototyp
+zostaje przy §64.
+
 **Testy:** 21 nowych testów Vitest -- strukturalne odrzucenie złego JSON
 (`loadWorldFixture`), 7 testów na konkretnym fixture Black Mountain
 (liczba regionów/populacja, hidden Iron Ore + brak wymuszonej kopalni,
@@ -4408,3 +4418,20 @@ linku). D3 nadal OPEN.
     regiony nieaktywne); region bez populacji nie tworzy wiedzy ani
     odkryć.
 -   **Dalej:** ponowny przebieg referencyjny (krok 4), potem D3 (N2) i R3.
+
+## Demografia małych populacji (2026-09-27) --- decyzje właściciela 2A+3C (C), 2B (B4)
+
+-   **Ułamkowa populacja naprawiona:** wolne miejsca mieszkaniowe liczone
+    w pełnych osobach; migracja i demografia wymagają całkowitej
+    populacji (fail-loud).
+-   **Diagnoza:** demografia bez sprzężenia stabilizującego to losowy
+    dryf wokół zastępowalności; przy \~12 osobach na region prototypu
+    (§64) region może wymrzeć zależnie od seeda. Przy 198 osobach
+    (`black_mountain_vs_scale.json`) żaden region nie wymarł w 7 seedach
+    × 200 lat, a pierwsza adopcja technologii (`watermill_milling`,
+    wymaga `mec_004`) pojawiła się w 3/7 przebiegów.
+-   **Odłożone (B4):** sprzężenie płodności/śmiertelności z żywnością
+    i przeludnieniem (Simulation Model §4.5). Blokery: `needs.survival`
+    liczone tylko dla zatrudnionych kohort (brak modelu
+    samozaopatrzenia), `housing.pressure` w praktyce stale 0. Wymaga
+    osobnej decyzji projektowej przed implementacją.

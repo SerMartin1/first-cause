@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import type { WorldState } from "@first-cause/entities";
 import { loadWorldFixture } from "./load-world-fixture.js";
 
 const REPO_ROOT = path.resolve(
@@ -9,12 +10,40 @@ const REPO_ROOT = path.resolve(
   "../../../..",
 );
 
-function readBlackMountainFixture(): unknown {
-  const filePath = path.join(
-    REPO_ROOT,
-    "tests/worldgen/fixtures/black_mountain_reference.json",
-  );
+function readBlackMountainFixture(fileName = "black_mountain_reference.json"): unknown {
+  const filePath = path.join(REPO_ROOT, "tests/worldgen/fixtures", fileName);
   return JSON.parse(readFileSync(filePath, "utf-8"));
+}
+
+/**
+ * Każda rodzina kohort (ta sama tożsamość bez `ageGroup`) musi mieć
+ * dorosłych 25--44 -- jedyną grupę rodzącą w demografii M6. Rodzina bez
+ * nich jest z góry skazana na wymarcie (dawny `riverside_elders`:
+ * tylko 45--64). Zwraca klucze rodzin, które tego nie spełniają.
+ */
+function familiesWithoutChildbearingAdults(state: WorldState): string[] {
+  const adultsByFamily = new Map<string, number>();
+  for (const cohort of Object.values(state.populationCohorts)) {
+    const key = [
+      cohort.regionId,
+      cohort.settlementId ?? "",
+      cohort.economicClass,
+      cohort.skillLevel,
+    ].join("|");
+    const adults = cohort.ageGroup === "AGE_25_44" ? cohort.population : 0;
+    adultsByFamily.set(key, (adultsByFamily.get(key) ?? 0) + adults);
+  }
+  return [...adultsByFamily]
+    .filter(([, adults]) => adults <= 0)
+    .map(([key]) => key)
+    .sort();
+}
+
+function totalPopulationOf(state: WorldState): number {
+  return Object.values(state.regions).reduce(
+    (sum, region) => sum + region.population.totalPopulation,
+    0,
+  );
 }
 
 describe("loadWorldFixture -- structural (rejects bad JSON with a readable error)", () => {
@@ -96,11 +125,11 @@ describe("Black Mountain Reference fixture (Implementation Roadmap M4, World Gen
   it("has 8 regions, one continent, ~50 population (World Generation Spec SS64 prototype scale)", () => {
     expect(Object.keys(state.regions)).toHaveLength(8);
     expect(Object.keys(state.continents)).toHaveLength(1);
-    const totalPopulation = Object.values(state.regions).reduce(
-      (sum, region) => sum + region.population.totalPopulation,
-      0,
-    );
-    expect(totalPopulation).toBe(50);
+    expect(totalPopulationOf(state)).toBe(50);
+  });
+
+  it("every cohort family has childbearing adults (full age structure, no family doomed from Tick 0)", () => {
+    expect(familiesWithoutChildbearingAdults(state)).toEqual([]);
   });
 
   it("Black Mountain's Iron Ore exists physically but is hidden/unknown, and mining is not forced (SS16/SS53)", () => {
@@ -160,6 +189,52 @@ describe("Black Mountain Reference fixture (Implementation Roadmap M4, World Gen
     const connection = state.connections.connection_black_mountain_highland_pass!;
     expect(connection.geography.physicalDistance).toBeGreaterThan(0);
     expect(connection.geography.terrainDifficulty).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Wariant ~200 populacji (decyzja właściciela 2026-09-27): ten sam świat
+ * co prototyp (§64, ~50), ale w skali populacji Reference VS (VS Spec
+ * §2.3, World Generation Spec §17) -- do długich przebiegów demografii
+ * i tempa technologii, gdzie ~12 osób na region to za mało.
+ */
+describe("Black Mountain VS-scale fixture (~200 population variant of the prototype)", () => {
+  const result = loadWorldFixture(
+    readBlackMountainFixture("black_mountain_vs_scale.json"),
+  );
+
+  it("loads without validation errors", () => {
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  const state = result.worldState!;
+  const prototype = loadWorldFixture(readBlackMountainFixture()).worldState!;
+
+  it("has ~200 population (VS Spec §2.3 / World Generation Spec §17 scale)", () => {
+    expect(totalPopulationOf(state)).toBe(198);
+  });
+
+  it("every cohort family has childbearing adults", () => {
+    expect(familiesWithoutChildbearingAdults(state)).toEqual([]);
+  });
+
+  it("differs from the prototype only in population: same regions, settlements, deposits, companies and connections", () => {
+    expect(Object.keys(state.regions).sort()).toEqual(
+      Object.keys(prototype.regions).sort(),
+    );
+    // `population` osady to cache sumy kohort (DATA-004) -- z definicji inny.
+    const withoutPopulation = (ws: WorldState) =>
+      Object.fromEntries(
+        Object.entries(ws.settlements).map(
+          ([id, { population: _population, ...rest }]) => [id, rest],
+        ),
+      );
+    expect(withoutPopulation(state)).toEqual(withoutPopulation(prototype));
+    expect(state.resourceDeposits).toEqual(prototype.resourceDeposits);
+    expect(state.companies).toEqual(prototype.companies);
+    expect(state.connections).toEqual(prototype.connections);
+    expect(state.world.seed).toBe(prototype.world.seed);
   });
 });
 

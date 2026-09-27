@@ -8,6 +8,42 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-09-27
+
+- **Fixture Black Mountain: pełna struktura wieku + wariant ~200
+  (decyzje właściciela 2A+3C wariant C, 2B wariant B4).** Prototyp
+  `black_mountain_reference.json` zostaje przy ~50 (World Generation Spec
+  §64), ale każda z 8 rodzin kohort ma teraz wszystkie grupy wieku (33
+  kohorty; sumy rodzin i regionów bez zmian), więc żadna rodzina nie jest
+  z góry bezpłodna (dawniej `riverside_elders`: tylko 45--64). Nowy
+  `black_mountain_vs_scale.json`: ten sam świat i seed, 198 populacji
+  (VS §2.3, WG §17) do długich przebiegów -- 7 seedów × 200 lat: żaden
+  region nie wymiera, pierwsza adopcja technologii w 3/7 (prototyp: 3/7
+  seedów z wymarłym regionem, adopcja 1/7). Testy w
+  `load-world-fixture.test.ts` (kompletność rodzin w obu fixture'ach,
+  198 populacji, wariant różni się od prototypu tylko populacją).
+  Sprzężenie demografii z żywnością/przeludnieniem odłożone (B4):
+  `needs.survival` liczone tylko dla zatrudnionych kohort, pozostałe mają
+  domyślne 0 (brak samozaopatrzenia), `housing.pressure` stale 0.
+  Adnotacje: Roadmap v0.6 (M4 dane fixture, nowa sekcja „Demografia
+  małych populacji”).
+
+- **Poprawka: ułamkowa populacja (np. Green Valley 23.45).** Przyczyna:
+  `housing.capacity` rośnie ułamkowym krokiem (`society/housing.ts`), a
+  `selectDestinationSettlement` zwracało ułamkowe `remainingCapacity`,
+  które przez `Math.min(...)` trafiało do `migrantCount` i dalej do
+  populacji kohort (w referencyjnym przebiegu od ticku 51). Wolne miejsca
+  liczone teraz w pełnych osobach (`Math.floor`); `applyMigrationFlow` i
+  `applyMonthlyDemography` twardo wymagają całkowitej populacji
+  (`assertInteger`, fail-loud). Testy: ułamkowa pojemność i ułamkowy
+  `migrantCount` w `migration.test.ts`, niezmiennik całkowitej populacji
+  w monitorze `m12-m14-invariant-monitor.test.ts`. Diagnoza spadku
+  Riverside (dryf losowy małych kohort, bez stabilizacji demografii) i
+  braku wpisu Chronicle o pierwszej adopcji technologii w małym świecie
+  (jedyna ścieżka PM `watermill_milling` wymaga `mec_004` → T1 w
+  `construction_mechanics`, nieosiągalne przy populacji ~10--90) --
+  zgłoszone właścicielowi, bez zmian w kodzie.
+
 ## 2026-09-26
 
 - **TECH-011 --- TechnologyState w każdym regionie (decyzja właściciela 6,

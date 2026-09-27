@@ -1,8 +1,8 @@
 {
   "world": {
-    "id": "world_black_mountain_reference",
+    "id": "world_black_mountain_vs_scale",
     "seed": "black-mountain-reference-v1",
-    "name": "Black Mountain Reference",
+    "name": "Black Mountain VS Scale",
     "configuration": { "regionCount": 8, "worldSizePreset": "prototype-8-12" }
   },
   "continents": [{ "id": "continent_mainland", "name": "Mainland" }],
@@ -325,7 +325,7 @@
       "regionId": "region_black_mountain",
       "settlementId": "settlement_black_mountain_camp",
       "ageGroup": "AGE_0_14",
-      "population": 1,
+      "population": 5,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -334,7 +334,7 @@
       "regionId": "region_black_mountain",
       "settlementId": "settlement_black_mountain_camp",
       "ageGroup": "AGE_15_24",
-      "population": 1,
+      "population": 3,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -343,7 +343,7 @@
       "regionId": "region_black_mountain",
       "settlementId": "settlement_black_mountain_camp",
       "ageGroup": "AGE_25_44",
-      "population": 3,
+      "population": 6,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -352,6 +352,15 @@
       "regionId": "region_black_mountain",
       "settlementId": "settlement_black_mountain_camp",
       "ageGroup": "AGE_45_64",
+      "population": 3,
+      "economicClass": "WORKING",
+      "skillLevel": "SKILLED"
+    },
+    {
+      "id": "cohort_black_mountain_workers_65_plus",
+      "regionId": "region_black_mountain",
+      "settlementId": "settlement_black_mountain_camp",
+      "ageGroup": "AGE_65_PLUS",
       "population": 1,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
@@ -361,7 +370,7 @@
       "regionId": "region_black_mountain",
       "settlementId": "settlement_black_mountain_camp",
       "ageGroup": "AGE_0_14",
-      "population": 1,
+      "population": 3,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -370,7 +379,7 @@
       "regionId": "region_black_mountain",
       "settlementId": "settlement_black_mountain_camp",
       "ageGroup": "AGE_15_24",
-      "population": 1,
+      "population": 4,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -379,7 +388,16 @@
       "regionId": "region_black_mountain",
       "settlementId": "settlement_black_mountain_camp",
       "ageGroup": "AGE_25_44",
-      "population": 2,
+      "population": 3,
+      "economicClass": "POOR",
+      "skillLevel": "UNSKILLED"
+    },
+    {
+      "id": "cohort_black_mountain_youth_45_64",
+      "regionId": "region_black_mountain",
+      "settlementId": "settlement_black_mountain_camp",
+      "ageGroup": "AGE_45_64",
+      "population": 1,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -388,7 +406,7 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_0_14",
-      "population": 2,
+      "population": 10,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -397,7 +415,7 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_15_24",
-      "population": 1,
+      "population": 6,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -406,7 +424,7 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_25_44",
-      "population": 4,
+      "population": 9,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -415,7 +433,7 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_45_64",
-      "population": 1,
+      "population": 6,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -424,7 +442,7 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_65_PLUS",
-      "population": 1,
+      "population": 2,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -433,7 +451,7 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_0_14",
-      "population": 2,
+      "population": 6,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -442,7 +460,7 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_15_24",
-      "population": 1,
+      "population": 5,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -451,7 +469,7 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_25_44",
-      "population": 2,
+      "population": 9,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -460,7 +478,16 @@
       "regionId": "region_green_valley",
       "settlementId": "settlement_green_valley_hamlet",
       "ageGroup": "AGE_45_64",
-      "population": 1,
+      "population": 4,
+      "economicClass": "POOR",
+      "skillLevel": "UNSKILLED"
+    },
+    {
+      "id": "cohort_green_valley_children_65_plus",
+      "regionId": "region_green_valley",
+      "settlementId": "settlement_green_valley_hamlet",
+      "ageGroup": "AGE_65_PLUS",
+      "population": 2,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -469,7 +496,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_0_14",
-      "population": 2,
+      "population": 7,
       "economicClass": "MIDDLE",
       "skillLevel": "SKILLED"
     },
@@ -478,7 +505,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_15_24",
-      "population": 1,
+      "population": 4,
       "economicClass": "MIDDLE",
       "skillLevel": "SKILLED"
     },
@@ -487,7 +514,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_25_44",
-      "population": 3,
+      "population": 8,
       "economicClass": "MIDDLE",
       "skillLevel": "SKILLED"
     },
@@ -496,7 +523,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_45_64",
-      "population": 1,
+      "population": 4,
       "economicClass": "MIDDLE",
       "skillLevel": "SKILLED"
     },
@@ -505,7 +532,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_65_PLUS",
-      "population": 1,
+      "population": 2,
       "economicClass": "MIDDLE",
       "skillLevel": "SKILLED"
     },
@@ -514,7 +541,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_0_14",
-      "population": 2,
+      "population": 10,
       "economicClass": "WORKING",
       "skillLevel": "UNSKILLED"
     },
@@ -523,7 +550,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_15_24",
-      "population": 1,
+      "population": 7,
       "economicClass": "WORKING",
       "skillLevel": "UNSKILLED"
     },
@@ -532,7 +559,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_25_44",
-      "population": 2,
+      "population": 12,
       "economicClass": "WORKING",
       "skillLevel": "UNSKILLED"
     },
@@ -541,7 +568,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_45_64",
-      "population": 1,
+      "population": 7,
       "economicClass": "WORKING",
       "skillLevel": "UNSKILLED"
     },
@@ -550,7 +577,7 @@
       "regionId": "region_riverside",
       "settlementId": "settlement_riverside_village",
       "ageGroup": "AGE_65_PLUS",
-      "population": 1,
+      "population": 3,
       "economicClass": "WORKING",
       "skillLevel": "UNSKILLED"
     },
@@ -559,7 +586,7 @@
       "regionId": "region_coastal_reach",
       "settlementId": "settlement_coastal_reach_hamlet",
       "ageGroup": "AGE_0_14",
-      "population": 1,
+      "population": 8,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -568,7 +595,7 @@
       "regionId": "region_coastal_reach",
       "settlementId": "settlement_coastal_reach_hamlet",
       "ageGroup": "AGE_15_24",
-      "population": 1,
+      "population": 5,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -577,7 +604,7 @@
       "regionId": "region_coastal_reach",
       "settlementId": "settlement_coastal_reach_hamlet",
       "ageGroup": "AGE_25_44",
-      "population": 3,
+      "population": 6,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -586,7 +613,16 @@
       "regionId": "region_coastal_reach",
       "settlementId": "settlement_coastal_reach_hamlet",
       "ageGroup": "AGE_45_64",
-      "population": 1,
+      "population": 5,
+      "economicClass": "WORKING",
+      "skillLevel": "SKILLED"
+    },
+    {
+      "id": "cohort_coastal_reach_workers_65_plus",
+      "regionId": "region_coastal_reach",
+      "settlementId": "settlement_coastal_reach_hamlet",
+      "ageGroup": "AGE_65_PLUS",
+      "population": 2,
       "economicClass": "WORKING",
       "skillLevel": "SKILLED"
     },
@@ -595,7 +631,7 @@
       "regionId": "region_coastal_reach",
       "settlementId": "settlement_coastal_reach_hamlet",
       "ageGroup": "AGE_0_14",
-      "population": 1,
+      "population": 5,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -604,7 +640,7 @@
       "regionId": "region_coastal_reach",
       "settlementId": "settlement_coastal_reach_hamlet",
       "ageGroup": "AGE_15_24",
-      "population": 1,
+      "population": 4,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     },
@@ -613,7 +649,25 @@
       "regionId": "region_coastal_reach",
       "settlementId": "settlement_coastal_reach_hamlet",
       "ageGroup": "AGE_25_44",
-      "population": 2,
+      "population": 7,
+      "economicClass": "POOR",
+      "skillLevel": "UNSKILLED"
+    },
+    {
+      "id": "cohort_coastal_reach_youth_45_64",
+      "regionId": "region_coastal_reach",
+      "settlementId": "settlement_coastal_reach_hamlet",
+      "ageGroup": "AGE_45_64",
+      "population": 3,
+      "economicClass": "POOR",
+      "skillLevel": "UNSKILLED"
+    },
+    {
+      "id": "cohort_coastal_reach_youth_65_plus",
+      "regionId": "region_coastal_reach",
+      "settlementId": "settlement_coastal_reach_hamlet",
+      "ageGroup": "AGE_65_PLUS",
+      "population": 1,
       "economicClass": "POOR",
       "skillLevel": "UNSKILLED"
     }
