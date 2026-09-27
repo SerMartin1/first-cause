@@ -186,6 +186,19 @@ const QUARTER: readonly (readonly [number, number, number])[] = [
   [-0.8, -2, 0.25],
 ];
 
+/**
+ * R3.1: dzielnice miasta -- [indeks kierunku w tabeli wariantu, odległość
+ * środka (×R), promień płata (×R)]. Ręcznie ustalone, nierówne: pierwsza
+ * największa i zrośnięta z rdzeniem przewężeniem, dwie kolejne mniejsze,
+ * oddzielone wąską przerwą (ta sama tabela dla wszystkich wariantów --
+ * różnicę daje kierunek z `LANE_ANGLES` wariantu i lustro).
+ */
+const CITY_DISTRICTS: readonly (readonly [number, number, number])[] = [
+  [0, 0.72, 0.3],
+  [2, 0.84, 0.2],
+  [4, 0.8, 0.16],
+];
+
 /** Rozmiar śladu zabudowy -- stały (skala osady rośnie liczbą śladów, nie ich wielkością). */
 const PLOT = 2.1;
 /** Ślad w przysiółku / wsi: nieco większy, żeby najmniejsze osady nie ginęły na WORLD (TODO tuning). */
@@ -447,23 +460,51 @@ export function settlementMorphology(
       break;
     }
     case "city": {
-      // Rdzeń + dzielnice (zwarte skupiska) + główne osie.
-      out.push(
-        ...builtArea(frame, [{ x: 0, y: 0, r: R * 0.8, table: shapeA, twist: 0.2 }]),
+      // R3.1: jeden główny rdzeń + wyraźne dzielnice (osobne płaty zabudowy).
+      // Dzielnice mają różną wielkość i odległość: pierwsza zrośnięta przewężeniem
+      // (silniejszy kierunek wzrostu), kolejne oddzielone wąską przerwą. Połączenia
+      // biegną od rdzenia do środka dzielnicy -- kończą się w punkcie struktury.
+      const main: [number, number] = polar(angles[3]!, R * 0.08);
+      const districts = CITY_DISTRICTS.slice(0, 2 + (t > 0.5 ? 1 : 0)).map(
+        ([slot, distance, radius], i) => ({
+          center: polar(angles[slot]! + 0.18 * i, R * distance),
+          radius: R * radius,
+          table: OUTLINES[(v + i + 1) % 3]!,
+        }),
       );
-      const districts = 2 + (t > 0.5 ? 1 : 0) + (extra > 1 ? 1 : 0);
-      for (let i = 0; i < districts; i++) {
-        const [x, y] = polar(angles[i + 1]! + 0.35, R * 0.48);
-        out.push(...quarter(frame, x, y, extra === 0 ? 3 : 4, angles[i + 1]!));
-      }
-      for (let i = 0; i < 3; i++)
-        out.push(outboundLane(frame, angles, i, R * 0.62, R * 1.05));
-      const k = polar(angles[3]!, R * 0.12);
-      out.push(core(frame, k[0], k[1], R * 0.24, shapeB, 0.6));
-      for (let i = 0; i < 1 + extra; i++) {
-        const [x, y] = polar(angles[(i + 3) % 5]! + 0.5, R * 0.95);
-        out.push(plot(frame, x, y, angles[i]!));
-      }
+      out.push(
+        ...builtArea(frame, [
+          { x: main[0], y: main[1], r: R * 0.58, table: shapeA, twist: 0.2 },
+          ...districts.map((d, i) => ({
+            x: d.center[0],
+            y: d.center[1],
+            r: d.radius,
+            table: d.table,
+            twist: 0.7 + i,
+          })),
+        ]),
+      );
+      districts.forEach((d, i) =>
+        out.push(lane(frame, main, d.center, LANE_BEND[(i + 1) % 5]!, 0.8)),
+      );
+      // Jedna krótka oś wzrostu za najsilniejszą (pierwszą) dzielnicą.
+      const [first] = districts;
+      out.push(
+        lane(
+          frame,
+          first!.center,
+          polar(angles[CITY_DISTRICTS[0]![0]]! + 0.12, R * 0.98),
+          0.2,
+          0.7,
+        ),
+      );
+      if (extra > 0)
+        districts.forEach((d, i) =>
+          out.push(
+            ...quarter(frame, d.center[0], d.center[1], extra > 1 ? 3 : 2, angles[i]!),
+          ),
+        );
+      out.push(core(frame, main[0], main[1], R * 0.22, shapeB, 0.6));
       break;
     }
     case "metropolis": {
@@ -529,26 +570,28 @@ export function settlementMorphology(
       }
       for (let i = 1; i < centers.length; i++)
         out.push(lane(frame, centers[i - 1]!, centers[i]!, LANE_BEND[i % 5]!, 0.95));
-      out.push(lane(frame, centers[1]!, polar(angles[1]! + 0.3, R * 1.08), 0.2, 0.85));
-      out.push(
-        lane(
-          frame,
-          centers[centers.length - 1]!,
-          polar(angles[4]! - 0.25, R * 1.05),
-          -0.2,
-          0.85,
-        ),
+      // R3.1: osie zewnętrzne kończą się na osadzie satelitarnej (punkt struktury),
+      // od najbliższego płata -- nie wychodzą w pustą przestrzeń.
+      const satellites = [0, 1, 2].map((i) =>
+        polar(angles[(i + 2) % 5]! + 0.55, R * 0.98),
       );
+      for (const satellite of satellites.slice(0, 2)) {
+        const nearest = [...centers].sort(
+          (a, b) =>
+            Math.hypot(a[0] - satellite[0], a[1] - satellite[1]) -
+            Math.hypot(b[0] - satellite[0], b[1] - satellite[1]),
+        )[0]!;
+        out.push(lane(frame, nearest, satellite, 0.12, 0.8));
+      }
       centers.forEach(([x, y], i) =>
         out.push(
           core(frame, x, y, R * (i === 0 ? 0.13 : 0.1), OUTLINES[(v + i + 1) % 3]!, i),
         ),
       );
       // Przyległe skupiska na obrzeżach (satelity), 2 śladów każde.
-      for (let i = 0; i < 3; i++) {
-        const [x, y] = polar(angles[(i + 2) % 5]! + 0.55, R * 0.98);
-        out.push(...quarter(frame, x, y, 2 + (extra > 1 ? 1 : 0), angles[i]!));
-      }
+      satellites.forEach(([x, y], i) =>
+        out.push(...quarter(frame, x, y, 2 + (extra > 1 ? 1 : 0), angles[i]!)),
+      );
       break;
     }
   }

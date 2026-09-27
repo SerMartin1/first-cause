@@ -15,6 +15,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const mainEntry = path.resolve(__dirname, "../../apps/desktop/out/main/index.js");
 /** Screenshoty R3 trafiają wprost do dokumentacji weryfikacji (do akceptacji właściciela). */
 const OUT = path.resolve(__dirname, "../../docs/verification/world-r3-2026-09-27");
+/**
+ * Zatwierdzony zestaw R3 w `docs/` nadpisujemy tylko świadomie
+ * (`FC_WRITE_VERIFICATION=1`); zwykły `test:e2e` pisze do test-results.
+ */
+const shot = (name: string) =>
+  process.env.FC_WRITE_VERIFICATION ? path.join(OUT, name) : test.info().outputPath(name);
 const R2_REFERENCE = path.resolve(
   __dirname,
   "../../docs/verification/world-r2-2026-09-26/r2-fixture-1920x1080-world-none.png",
@@ -129,7 +135,7 @@ test("M21-VIS-R3: Black Mountain WORLD at 1920×1080 and 1280×800 (real viewpor
       expect(await settlementClasses(page)).toBe("hamlet");
       await expect(page.locator("[data-settlement-class]")).toHaveCount(1);
       await page.screenshot({
-        path: path.join(OUT, `r3-${width}x${height}-black-mountain.png`),
+        path: shot(`r3-${width}x${height}-black-mountain.png`),
       });
     }
     // N: zmiana języka nie zmienia morfologii (klasy liczone z danych, nie z tekstu).
@@ -138,7 +144,7 @@ test("M21-VIS-R3: Black Mountain WORLD at 1920×1080 and 1280×800 (real viewpor
     await atlasSettled(page);
     expect(await settlementClasses(page)).toBe(before);
     await expect(page.getByTestId("settlement-scale-legend")).toContainText("Przysiółek");
-    await page.screenshot({ path: path.join(OUT, "r3-1280x800-black-mountain-pl.png") });
+    await page.screenshot({ path: shot("r3-1280x800-black-mountain-pl.png") });
     await page.getByRole("button", { name: "EN" }).click();
     // H: warstwa wizualna nie mutuje świata.
     expect(await page.evaluate(() => window.firstCauseWorld.getWorld(1))).toEqual(live);
@@ -173,7 +179,7 @@ test("M21-VIS-R3: population morphology fixtures -- ladder 10 → 10M+, variants
     await sheet.setViewportSize({ width: 1300, height: 1080 });
     await expect(sheet.locator("svg[data-cls]")).toHaveCount(35);
     await sheet.screenshot({
-      path: path.join(OUT, "r3-morphology-sheet.png"),
+      path: shot("r3-morphology-sheet.png"),
       fullPage: true,
     });
     await sheet.close();
@@ -185,13 +191,13 @@ test("M21-VIS-R3: population morphology fixtures -- ladder 10 → 10M+, variants
     );
     await expect(ladder.locator("[data-settlement-class]")).toHaveCount(6);
     expect(await noHorizontalScroll(ladder)).toBe(true);
-    await ladder.screenshot({ path: path.join(OUT, "r3-fixture-ladder-10-to-10M.png") });
+    await ladder.screenshot({ path: shot("r3-fixture-ladder-10-to-10M.png") });
     await ladder.close();
 
     // Warianty tej samej klasy (~100k ×3, ~10M ×3).
     const variants = await openFixture(app, server, "variants", 1920, 1080);
     expect(await settlementClasses(variants)).toBe("city,megacity");
-    await variants.screenshot({ path: path.join(OUT, "r3-fixture-variants.png") });
+    await variants.screenshot({ path: shot("r3-fixture-variants.png") });
     await variants.close();
 
     // D / L / M: WORLD z kilkoma dużymi centrami, oba viewporty.
@@ -208,7 +214,7 @@ test("M21-VIS-R3: population morphology fixtures -- ladder 10 → 10M+, variants
       expect(await noHorizontalScroll(civ)).toBe(true);
       expect(await layoutInsideViewport(civ)).toEqual(["ok", "ok", "ok"]);
       await civ.screenshot({
-        path: path.join(OUT, `r3-civilization-${width}x${height}.png`),
+        path: shot(`r3-civilization-${width}x${height}.png`),
       });
     }
 
@@ -218,7 +224,7 @@ test("M21-VIS-R3: population morphology fixtures -- ladder 10 → 10M+, variants
     await expect(civ.locator(".fc-world__region")).toContainText("Coal Basin");
     await atlasSettled(civ);
     await civ.screenshot({
-      path: path.join(OUT, "r3-civilization-coexistence-selected.png"),
+      path: shot("r3-civilization-coexistence-selected.png"),
     });
 
     // E: zbliżenie -- semantic zoom LOCAL pokazuje więcej osad i szczegółów morfologii.
@@ -231,12 +237,12 @@ test("M21-VIS-R3: population morphology fixtures -- ladder 10 → 10M+, variants
       "data-semantic-zoom",
       "LOCAL",
     );
-    await civ.screenshot({ path: path.join(OUT, "r3-civilization-zoom-local.png") });
+    await civ.screenshot({ path: shot("r3-civilization-zoom-local.png") });
     await civ.close();
 
     // F: R2 → R3 na tym samym fixture R2 (obraz R2 z archiwum weryfikacji).
     const r2world = await openFixture(app, server, "r2", 1920, 1080);
-    const r3Path = path.join(OUT, "r3-fixture-r2-world.png");
+    const r3Path = shot("r3-fixture-r2-world.png");
     await r2world.screenshot({ path: r3Path });
     const toData = (file: string) =>
       `data:image/png;base64,${readFileSync(file).toString("base64")}`;
@@ -248,7 +254,7 @@ test("M21-VIS-R3: population morphology fixtures -- ladder 10 → 10M+, variants
         <figure style="margin:0;width:956px"><figcaption>R3 (2026-09-27)</figcaption>
           <img style="width:956px" src="${toData(r3Path)}"></figure></body>`,
     );
-    await r2world.screenshot({ path: path.join(OUT, "r3-comparison-r2-vs-r3.png") });
+    await r2world.screenshot({ path: shot("r3-comparison-r2-vs-r3.png") });
   } finally {
     await app.close();
     await server.close();

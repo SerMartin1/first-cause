@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import {
+  morphologyVariant,
   settlementMorphology,
   type MorphologyDetail,
 } from "../src/features/world/settlement-morphology.js";
@@ -17,16 +18,41 @@ import "../src/index.css";
  * warianty (różne id) na poziomie REGION oraz ta sama osada na WORLD i
  * LOCAL. Wszystkie znaki w tej samej skali px/jednostkę -- rozmiar jest
  * porównywalny między wierszami, jak na mapie.
+ *
+ * R3.1: `?pops=10000,100000,1000000` wybiera wiersze (np. Town / City /
+ * Metropolis), `?cols=variants` zostawia tylko kolumny A/B/C.
  */
-const POPULATIONS = [12, 120, 1_200, 12_000, 120_000, 1_200_000, 12_000_000];
-const LABELS = ["~10", "~100", "~1k", "~10k", "~100k", "~1M", "~10M+"];
-const COLUMNS: readonly { id: string; detail: MorphologyDetail; title: string }[] = [
-  { id: "sheet_a", detail: "REGION", title: "variant · id A" },
-  { id: "sheet_b", detail: "REGION", title: "variant · id B" },
-  { id: "sheet_c", detail: "REGION", title: "variant · id C" },
-  { id: "sheet_a", detail: "WORLD", title: "id A · WORLD" },
-  { id: "sheet_a", detail: "LOCAL", title: "id A · LOCAL" },
+const params = new URLSearchParams(window.location.search);
+const DEFAULT_POPULATIONS = [12, 120, 1_200, 12_000, 120_000, 1_200_000, 12_000_000];
+const POPULATIONS = params.get("pops")
+  ? params.get("pops")!.split(",").map(Number)
+  : DEFAULT_POPULATIONS;
+const label = (n: number) =>
+  `~${new Intl.NumberFormat("en", { notation: "compact" }).format(n)}${n >= 1e7 ? "+" : ""}`;
+const LABELS = POPULATIONS.map(label);
+
+/**
+ * Id osady, której stabilny hash daje żądany wariant (0/1/2) -- deterministyczne
+ * wyszukiwanie, bez losowania; kolumny A/B/C zawsze pokazują trzy różne układy.
+ */
+function idForVariant(base: string, variant: number): string {
+  for (let i = 0; ; i++) {
+    const id = `${base}_${i}`;
+    if (morphologyVariant(id).index === variant) return id;
+  }
+}
+const ALL_COLUMNS: readonly {
+  variant: number;
+  detail: MorphologyDetail;
+  title: string;
+}[] = [
+  { variant: 0, detail: "REGION", title: "variant A" },
+  { variant: 1, detail: "REGION", title: "variant B" },
+  { variant: 2, detail: "REGION", title: "variant C" },
+  { variant: 0, detail: "WORLD", title: "variant A · WORLD" },
+  { variant: 0, detail: "LOCAL", title: "variant A · LOCAL" },
 ];
+const COLUMNS = params.get("cols") === "variants" ? ALL_COLUMNS.slice(0, 3) : ALL_COLUMNS;
 /** px na jednostkę diagramu (mapa przy 1920×1080 ma ~1.3; tu powiększenie dla oceny kształtu). */
 const SCALE = 4;
 const CELL = 30 * 2 * SCALE;
@@ -86,7 +112,7 @@ function Sheet() {
             <th style={{ padding: 4, textAlign: "right" }}>{LABELS[row]}</th>
             {COLUMNS.map((c) => {
               const m = settlementMorphology({
-                settlementId: `${c.id}_${row}`,
+                settlementId: idForVariant(`sheet_${row}`, c.variant),
                 population,
                 detail: c.detail,
               });

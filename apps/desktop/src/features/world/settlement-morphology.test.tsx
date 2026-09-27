@@ -199,6 +199,61 @@ describe("settlement morphology -- semantic zoom detail and primitive budget (G,
   });
 });
 
+describe("R3.1 -- town vs city structure and megacity axes", () => {
+  const ids = ["r31_a", "r31_b", "r31_c", "r31_d", "r31_e", "r31_f"];
+  const details = ["WORLD", "REGION", "LOCAL"] as const;
+  /** Płaty zabudowy (kryjące wypełnienia `urban`) -- główny obszar + dzielnice. */
+  const lobes = builtAreas;
+
+  it("A/B/C: town is one compact area with one core; city adds districts but keeps exactly one core -- already on WORLD", () => {
+    for (const id of ids)
+      for (const detail of details) {
+        const town = morph(12_000, id, detail).primitives;
+        const city = morph(120_000, id, detail).primitives;
+        expect(lobes(town), `${id}/${detail}`).toBe(1);
+        expect(cores(town)).toBe(1);
+        expect(lobes(city), `${id}/${detail}`).toBeGreaterThanOrEqual(3);
+        expect(cores(city)).toBe(1);
+      }
+    // Większe miasto dostaje trzecią dzielnicę, nadal z jednym rdzeniem.
+    expect(lobes(morph(400_000, "r31_a").primitives)).toBe(4);
+    expect(cores(morph(400_000, "r31_a").primitives)).toBe(1);
+  });
+
+  it("D/E: metropolis stays more complex than city, megacity more than metropolis", () => {
+    for (const id of ids) {
+      const city = morph(120_000, id).primitives;
+      const metro = morph(1_200_000, id).primitives;
+      const mega = morph(12_000_000, id).primitives;
+      expect(cores(metro)).toBeGreaterThanOrEqual(2);
+      expect(cores(metro)).toBeGreaterThan(cores(city));
+      expect(cores(mega)).toBeGreaterThan(cores(metro));
+      expect(lobes(mega)).toBeGreaterThan(lobes(metro));
+    }
+  });
+
+  it("F: city and megacity axes end inside the footprint (structural points), never in empty space", () => {
+    const laneVertices = (ps: readonly Primitive[]) =>
+      ps
+        .filter((p) => p.kind === "poly" && !p.closed && p.stroke === "ink")
+        .flatMap((p) => {
+          const pts = (p as { points: readonly number[] }).points;
+          return Array.from({ length: pts.length / 2 }, (_, i) =>
+            Math.hypot(pts[2 * i]!, pts[2 * i + 1]!),
+          );
+        });
+    for (const population of [120_000, 400_000, 5_000_000, 12_000_000, 90_000_000])
+      for (const id of ids)
+        for (const detail of details) {
+          const m = morph(population, id, detail);
+          const far = Math.max(...laneVertices(m.primitives));
+          expect(far, `${population}/${id}/${detail}`).toBeLessThanOrEqual(
+            m.radius * 1.02,
+          );
+        }
+  });
+});
+
 describe("population labels (§16)", () => {
   it("compact format follows the locale", () => {
     expect(

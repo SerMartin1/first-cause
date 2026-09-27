@@ -1339,7 +1339,13 @@ Struktura według klasy: przysiółek --- 2 oddalone ślady albo skupisko
 rdzeń w zwartej zabudowie z osiami wzrostu; miasto --- rdzeń +
 dzielnice; metropolia --- dwa zrośnięte płaty, rdzeń główny i wtórny;
 megacity --- 4--5 płatów z własnymi rdzeniami połączonymi w łańcuch i
-osady satelitarne. Wariant: 3 autorskie układy × lustro, wybierane
+osady satelitarne. *R3.1 (2026-09-27):* miasto = jeden główny rdzeń w
+głównym obszarze zabudowy + 2--3 dzielnice jako osobne płaty o różnej
+wielkości (pierwsza zrośnięta przewężeniem, kolejne za wąską przerwą),
+połączone z rdzeniem łamanymi osiami kończącymi się w środku dzielnicy
+--- różnica Town → City widoczna już na WORLD; osie zewnętrzne megacity
+kończą się na osadach satelitarnych (w obrębie śladu), nie w pustej
+przestrzeni. Wariant: 3 autorskie układy × lustro, wybierane
 stabilnym hashem id osady (bez RNG). Semantic zoom zmienia tylko ilość
 zabudowy, nie klasę ani szkielet. Region ≠ osada: pole regionu to
 teren, osady są elementami wewnątrz; wiele osad w regionie układanych

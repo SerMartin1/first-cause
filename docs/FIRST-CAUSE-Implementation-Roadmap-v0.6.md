@@ -4508,3 +4508,17 @@ Cel: pełne przejście scenariusza VS §31 (technology → resource
 discovery → economic opportunity → extraction → economic
 consequences). Szczegółowa mechanika --- do zaprojektowania przy
 starcie zadania, na polecenie właściciela.
+
+## Wynik `M21-VIS-R3.1` (2026-09-27) --- refinement R3, CZEKA NA HUMAN VISUAL ACCEPTANCE
+
+Wąska poprawka R3 (bez zmian klas, footprintu, semantic zoom, budżetów,
+wariantów, UI i symulacji): City dostało strukturalne dzielnice (osobne
+płaty zabudowy z jednym głównym rdzeniem), żeby Town ~10k i City ~100k
+różniły się strukturą, nie tylko skalą; osie zewnętrzne Megacity kończą
+się na osadach satelitarnych w obrębie śladu. 10 vs 100 pozostaje
+świadomie PARTIAL (zaakceptowane przez właściciela dla R3). Materiały:
+`docs/verification/world-r3-1-2026-09-27/`; E2E
+`tests/e2e/world-r3-1.spec.ts` (zapis do `docs/` tylko z
+`FC_WRITE_VERIFICATION=1`, tak samo spec R3 --- zatwierdzony zestaw R3
+nie jest nadpisywany zwykłym `test:e2e`). Prymitywy R3/R3.1 nadal poza
+Visual Alphabet §4A do akceptacji całego R3.

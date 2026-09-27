@@ -10,6 +10,20 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-27
 
+- **M21-VIS-R3.1 --- refinement morfologii City i osi Megacity (czeka na
+  akceptację wizualną).** City ~100k ma teraz jeden główny rdzeń i 2--3
+  dzielnice jako osobne płaty zabudowy (pierwsza zrośnięta przewężeniem,
+  kolejne za wąską przerwą), połączone z rdzeniem krótkimi łamanymi
+  osiami -- różni się od Town ~10k strukturą już na WORLD. Osie zewnętrzne
+  Megacity kończą się na osadach satelitarnych w obrębie śladu (wcześniej
+  do 1.08R w pustkę). Bez zmian klas, footprintu, semantic zoom, budżetu
+  (≤ 60 prymitywów), wariantów, UI i symulacji. Nowe testy (struktura
+  Town/City/Metropolis/Megacity, zasięg osi), arkusz morfologii z
+  parametrami `?pops=`/`?cols=` i wariantami A/B/C, E2E
+  `world-r3-1.spec.ts`; specy R3/R3.1 zapisują do `docs/` tylko z
+  `FC_WRITE_VERIFICATION=1`. Materiały:
+  `docs/verification/world-r3-1-2026-09-27/`.
+
 - **M21-VIS-R3 --- morfologia osad, skalowanie populacji, czytelność
   cywilizacji (implementacja; czeka na akceptację wizualną właściciela).**
   Osada na Atlasie zmienia strukturę wraz z populacją zamiast rosnącej
