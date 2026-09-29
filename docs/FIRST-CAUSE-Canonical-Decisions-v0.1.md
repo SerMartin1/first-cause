@@ -626,6 +626,28 @@ wzrostu.
 
 ------------------------------------------------------------------------
 
+# 52A. SET-LIFECYCLE-001 --- populacja 0 = koniec aktywnej osady
+
+**Status:** CANONICAL (decyzja właściciela, 2026-09-29)
+
+-   Settlement ma jawny stan cyklu życia `SettlementStatus`: `ACTIVE`
+    | `ABANDONED`; status jest jedynym źródłem prawdy o aktywności osady.
+-   Settlement population = 0 → osada przechodzi `ACTIVE → ABANDONED`
+    **w tym samym ticku symulacji** (reguła: znana populacja `=== 0`;
+    bez okresu oczekiwania i bez progów typu „< 10”). Przejście
+    następuje dokładnie raz i emituje fakt `settlement_abandoned`.
+-   ABANDONED settlement pozostaje encją historyczną (id, nazwa, region,
+    historia) dla Chronicle, WHY? i Causality Engine; nie jest usuwana z
+    World State.
+-   ABANDONED nie jest aktywną osadą: nie jest liczona w SETTLEMENTS,
+    nie ma aktywnej morfologii na Atlasie, nie jest celem migracji i nie
+    przyjmuje nowych firm.
+-   Ponowne zasiedlenie **nie reaktywuje** tej samej osady: powstaje
+    nowa Settlement z nowym id i statusem `ACTIVE`.
+-   REGION ≠ SETTLEMENT: region może poprawnie istnieć bez aktywnej osady.
+
+------------------------------------------------------------------------
+
 # 53. TECH-001 --- brak klasycznego tech tree
 
 **Status:** CANONICAL

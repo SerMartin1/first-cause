@@ -384,3 +384,83 @@ export function evaluateSettlementGrowth(
 
   return { settlement, pressure, facts, causalLinks };
 }
+
+export interface AbandonSettlementInput {
+  readonly settlement: Settlement;
+  readonly tick: number;
+  /** Populacja osady po migracji i demografii TEGO ticka (świeżo z kohort, nie z cache). */
+  readonly population: number;
+  /**
+   * Indeksy (w tablicy faktów wywołującego) faktów tego ticka, które
+   * zmniejszyły populację tej osady (zgony, wyjazdy) -- stają się przyczynami
+   * `settlement_abandoned` przez `sameBatch`, bez osobnego systemu
+   * przyczynowości.
+   */
+  readonly populationLossFactIndices: readonly number[];
+}
+
+export interface AbandonSettlementResult {
+  readonly settlement: Settlement;
+  readonly facts: readonly FactInput<number>[];
+  /**
+   * `targetIndex` względny do WŁASNEJ tablicy `facts` (0); `sameBatch.index`
+   * to JUŻ indeksy tablicy wywołującego -- przesuwać wyłącznie `targetIndex`
+   * (nie `offsetCausalLinks`).
+   */
+  readonly causalLinks: readonly PendingCausalLink[];
+}
+
+/**
+ * SET-LIFECYCLE-001 (decyzja właściciela, 2026-09-29): aktywna osada,
+ * której ZNANA populacja wynosi dokładnie 0, w tym samym ticku przechodzi
+ * ACTIVE → ABANDONED. Bez okresu oczekiwania i bez progów typu „< 10”.
+ * Zwraca `undefined`, gdy przejście nie zachodzi (osada żyje albo już jest
+ * ABANDONED -- fakt emitowany jest dokładnie raz). Ujemna populacja to
+ * naruszenie niezmiennika (fail-loud), nie ciche porzucenie.
+ */
+export function evaluateSettlementAbandonment(
+  input: AbandonSettlementInput,
+): AbandonSettlementResult | undefined {
+  const { settlement, tick } = input;
+  const population = assertNonNegative(
+    input.population,
+    `evaluateSettlementAbandonment(${settlement.id}).population`,
+  );
+  if (settlement.status !== "ACTIVE" || population !== 0) return undefined;
+
+  const before = settlement.population.totalPopulation;
+  const abandoned: Settlement = { ...settlement, status: "ABANDONED", abandonedTick: tick };
+  const facts: FactInput<number>[] = [
+    {
+      type: "settlement_abandoned",
+      subject: { entityType: "settlement", entityId: settlement.id },
+      location: { regionId: settlement.regionId, settlementId: settlement.id },
+      values: { before, after: 0, delta: -before },
+    },
+  ];
+  // CE-05 (M17): osada znika, bo w tym ticku ubyło jej ostatnich mieszkańców --
+  // przyczynami są konkretne fakty utraty populacji (demografia / migracja).
+  // Gdy żadnego nie ma (np. osada z zapisu, która już miała 0 mieszkańców),
+  // jedynym uczciwym źródłem jest sam stan populacji -- bez wymyślania przyczyn.
+  const factor = { key: "population_reached_zero", contribution: -1 };
+  const causalLinks: PendingCausalLink[] = input.populationLossFactIndices.length
+    ? input.populationLossFactIndices.map((index) => ({
+        targetIndex: 0,
+        source: { kind: "sameBatch" as const, index },
+        type: "TRIGGERING" as const,
+        factor,
+        mechanism: "ostatni mieszkańcy osady zmarli lub wyjechali -- populacja = 0",
+        system: "settlements",
+      }))
+    : [
+        {
+          targetIndex: 0,
+          source: { kind: "external", key: `settlement:${settlement.id}:population` },
+          type: "TRIGGERING",
+          factor,
+          mechanism: "populacja osady = 0",
+          system: "settlements",
+        },
+      ];
+  return { settlement: abandoned, facts, causalLinks };
+}

@@ -541,6 +541,25 @@ Settlement:
 Settlement nie powinien duplikować regionalnego rynku, jeśli v0.1 używa
 rynku regionalnego.
 
+**Cykl życia (Canonical Decisions §52A SET-LIFECYCLE-001, 2026-09-29):**
+
+``` yaml
+Settlement:
+  status: ACTIVE | ABANDONED   # SettlementStatus; nowa osada = ACTIVE
+  abandonedTick:               # tick przejścia ACTIVE → ABANDONED; brak dla ACTIVE
+```
+
+Invarianty (walidowane przy budowie World State):
+
+-   `status` ∈ {`ACTIVE`, `ABANDONED`},
+-   `ABANDONED ⇒ population.totalPopulation === 0` (dodatnia populacja
+    przypisana do opuszczonej osady to błąd stanu, nie reaktywacja),
+-   `ABANDONED ⇒ abandonedTick` jest ustawiony,
+-   przejście jest jednokierunkowe; brak `ABANDONED → ACTIVE`.
+
+Zapis: pole wprowadza schemat zapisu v2 (`SCHEMA_VERSION = 2`,
+migracja v1 → v2 ustawia `status: ACTIVE`).
+
 ------------------------------------------------------------------------
 
 # 11. POPULATION COHORT

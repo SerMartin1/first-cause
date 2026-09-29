@@ -1,5 +1,6 @@
 import {
   createPopulationCohort,
+  isSettlementActive,
   type Connection,
   type PopulationCohort,
   type Region,
@@ -264,7 +265,15 @@ export function selectDestinationSettlement(input: {
   readonly settlementsById: Readonly<Record<string, Settlement>>;
   readonly settlementPopulationById: ReadonlyMap<string, number>;
 }): DestinationSettlementChoice {
-  const settlementIds = [...input.destinationRegion.settlements.settlementIds].sort();
+  // SET-LIFECYCLE-001: ABANDONED nie jest celem migracji (nie reaktywuje się
+  // przez napływ). Region, którego wszystkie osady są opuszczone, zachowuje
+  // się jak region bez osad -- migranci osiadają jako kohorta regionalna.
+  const settlementIds = [...input.destinationRegion.settlements.settlementIds]
+    .filter((id) => {
+      const settlement = input.settlementsById[id];
+      return settlement !== undefined && isSettlementActive(settlement);
+    })
+    .sort();
   if (settlementIds.length === 0) {
     return { settlementId: undefined, remainingCapacity: Number.POSITIVE_INFINITY };
   }

@@ -1,4 +1,5 @@
 import {
+  isSettlementActive,
   isDepositKnownToWorld,
   type Climate,
   type ElevationClass,
@@ -226,7 +227,9 @@ function deriveSettlement(
 ): RegionVisualSettlementStage | undefined {
   const settlements = region.settlements.settlementIds
     .map((id) => state.settlements[id])
-    .filter((settlement) => settlement !== undefined);
+    .filter((settlement) => settlement !== undefined)
+    // SET-LIFECYCLE-001: opuszczona osada nie jest aktywną osadą regionu.
+    .filter(isSettlementActive);
   const stage = settlements.reduce<SettlementStage | undefined>(
     (largest, settlement) =>
       !largest || SETTLEMENT_STAGE_RANK[settlement.stage] > SETTLEMENT_STAGE_RANK[largest]

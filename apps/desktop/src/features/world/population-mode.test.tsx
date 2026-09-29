@@ -40,6 +40,13 @@ import {
   ZERO_REGION_ID,
   zeroVsNoDataView,
 } from "./visual-population-fixture.js";
+import {
+  EXTINCT_REGION_ID,
+  EXTINCT_SETTLEMENT_ID,
+  extinctionAfterState,
+  extinctionAfterView,
+  extinctionBeforeView,
+} from "./visual-lifecycle-fixture.js";
 
 // Płótno PixiJS nie istnieje w jsdom -- Atlas przechodzi w stan „canvas unavailable”,
 // a legenda (DOM React) renderuje się normalnie i jest przedmiotem testu.
@@ -370,3 +377,50 @@ function renderAtlas(view: ReturnType<typeof zeroVsNoDataView>) {
     </I18nextProvider>,
   );
 }
+
+describe("SET-LIFECYCLE-001 -- abandoned settlement on the Atlas (production tick path)", () => {
+  it("F/G/H: after the last resident dies the region keeps existing, shows 0 and loses its active morphology", async () => {
+    const before = extinctionBeforeView();
+    const after = extinctionAfterView();
+    const region = (view: typeof before) =>
+      view.current.regions.find((r) => r.regionId === EXTINCT_REGION_ID)!;
+    const morphology = (view: typeof before) =>
+      buildAtlasGrammar(view.current, {
+        zoomLevel: 1,
+        showResources: false,
+      }).regions.find((r) => r.regionId === EXTINCT_REGION_ID)!.settlements;
+
+    // Przed: aktywna osada (1 mieszkaniec) ma morfologię i pierścień populacji.
+    expect(morphology(before).map((s) => s.settlementId)).toEqual([
+      EXTINCT_SETTLEMENT_ID,
+    ]);
+    expect(buildPopulationLayer(before.current).get(EXTINCT_REGION_ID)!.state).toBe(
+      "populated",
+    );
+    expect(before.current.summary.settlementCount).toBe(2);
+
+    // Po: region istnieje (REGION ≠ SETTLEMENT), SETTLEMENTS spada, morfologia znika.
+    expect(region(after)).toBeDefined();
+    expect(after.current.summary.settlementCount).toBe(1);
+    expect(morphology(after)).toEqual([]);
+    expect(region(after).settlements).toEqual([]);
+    expect(MODE_METRICS.population(region(after), after.current, ctx)).toBe(0);
+    expect(buildPopulationLayer(after.current).get(EXTINCT_REGION_ID)!.state).toBe(
+      "zero",
+    );
+
+    // Encja historyczna zostaje w stanie symulacji jako ABANDONED.
+    expect(extinctionAfterState().settlements[EXTINCT_SETTLEMENT_ID]!.status).toBe(
+      "ABANDONED",
+    );
+
+    // Legenda Population objaśnia stan „0 = uninhabited” dla tego świata.
+    useWorldStore.getState().set({ mapMode: "population" });
+    renderAtlas(after);
+    const legend = await screen.findByTestId("atlas-legend");
+    expect(
+      legend.querySelector('[data-population-legend-state="zero"]'),
+    ).toHaveTextContent(en["world.population.zeroLegend"]);
+    expect(en["world.population.zeroLabel"]).toBe("0 · uninhabited");
+  });
+});

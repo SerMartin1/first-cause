@@ -17,6 +17,10 @@ import {
   populationLadderView,
   zeroVsNoDataView,
 } from "../src/features/world/visual-population-fixture.js";
+import {
+  extinctionAfterView,
+  extinctionBeforeView,
+} from "../src/features/world/visual-lifecycle-fixture.js";
 import { MAP_MODES, type MapMode } from "../src/features/world/atlas-model.js";
 import { useWorldStore } from "../src/features/world/world-store.js";
 import "@fontsource/ibm-plex-sans/400.css";
@@ -35,6 +39,7 @@ import "../src/index.css";
 // R3: `?fixture=ladder|variants|civilization` wybiera fixture morfologii; domyślnie fixture R2.
 // R4: `population-ladder|zero-vs-no-data|population-civilization` oraz stan startowy UI:
 // `mode` (Map Mode), `zoom` (poziom zoomu), `select` (id zaznaczonego regionu).
+// SET-LIFECYCLE-001: `extinction-before|extinction-after` -- wymarcie osady (prawdziwy tick).
 const params = new URLSearchParams(window.location.search);
 const fixture = params.get("fixture");
 const view =
@@ -50,7 +55,11 @@ const view =
             ? zeroVsNoDataView()
             : fixture === "population-civilization"
               ? populationCivilizationView()
-              : visualWorldView();
+              : fixture === "extinction-before"
+                ? extinctionBeforeView()
+                : fixture === "extinction-after"
+                  ? extinctionAfterView()
+                  : visualWorldView();
 const initialMode = params.get("mode");
 useWorldStore.getState().set({
   ...(initialMode && (MAP_MODES as readonly string[]).includes(initialMode)

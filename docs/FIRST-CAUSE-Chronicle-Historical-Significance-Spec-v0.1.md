@@ -1605,6 +1605,14 @@ shortage_resolved 8. migration_wave 9. settlement_stage_changed 10.
 discovery_occurred 11. technology_adoption_wave 12. trade_route_emerged
 13. regional_boom 14. regional_bust 15. intervention_major_consequence
 
+Uzupełnienie (2026-09-29, SET-LIFECYCLE-001): `settlement_abandoned` ---
+osada straciła ostatnich mieszkańców i przeszła w stan ABANDONED
+(Canonical Decisions §52A). Fakt emitowany raz, przy przejściu;
+kategoria `settlement`, `durationPolicy: STRUCTURAL`,
+`alwaysAnchor: true`, szablon `settlement_abandoned_default`
+(`settlementName`, `regionName`). Wspiera Lifetime Summary zanikłej
+osady (§168).
+
 ------------------------------------------------------------------------
 
 # 152. VS Historical Threads

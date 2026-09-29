@@ -1513,6 +1513,13 @@ symbolem osady ani obrysem zaznaczenia.
 -   Poza zakresem: gęstość (do M22), heatmapa, migracja, struktura
     demograficzna.
 
+**Opuszczona osada (SET-LIFECYCLE-001, 2026-09-29):** osada ABANDONED
+nie ma aktywnej morfologii (Hamlet … Megacity) i nie trafia do listy
+osad widoku regionu; region pozostaje. Region z populacją 0 w trybie
+Population jest pokazywany zgodnie z §28.5 (pełny pusty znacznik +
+„0 · niezamieszkany”). Grafika ruin / opuszczonych miast nie jest
+częścią tego etapu.
+
 ## 28.6 Transport na połączeniach
 
 Infrastruktura transportowa (trail / road / railway / highway i ich

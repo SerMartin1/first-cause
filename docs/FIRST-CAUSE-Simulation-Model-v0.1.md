@@ -609,6 +609,26 @@ services, - permanent built environment, - regional importance.
 Miasto może awansować, stagnować, zmienić specjalizację, podupaść lub
 zostać częściowo opuszczone.
 
+### 13.4. Koniec osady (SET-LIFECYCLE-001)
+
+W kroku Settlement Growth ticka (po migracji i demografii) aktywna
+osada, której populacja wynosi dokładnie 0, przechodzi `ACTIVE →
+ABANDONED` w tym samym ticku i emituje fakt `settlement_abandoned`
+(subject = osada, location = region + osada). Przyczynami faktu są
+fakty tego ticka, które zmniejszyły populację osady
+(`population_declined`, `population_migrated_out`). Opuszczona osada:
+
+-   pozostaje w World State jako encja historyczna,
+-   nie uczestniczy we wzroście, housingu ani presji osadniczej,
+-   nie jest celem migracji (region bez aktywnej osady zachowuje się
+    jak region bez osad --- migranci osiadają jako kohorta regionalna),
+-   nie przyjmuje nowych firm; istniejące firmy zachowują swoje
+    `settlementId` jako historyczne powiązanie i działają dalej przez
+    regionalny rynek i siłę roboczą (istniejące mechanizmy ekonomii).
+
+Ponowne zasiedlenie tworzy nową osadę (nowe id); stara nie jest
+reaktywowana.
+
 ------------------------------------------------------------------------
 
 ## 14. Technology & Knowledge Model

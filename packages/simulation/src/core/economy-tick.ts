@@ -2,6 +2,7 @@ import {
   createCompany,
   createInventory,
   createWorldState,
+  isSettlementActive,
   type Company,
   type Connection,
   type Inventory,
@@ -31,7 +32,10 @@ import {
   computeMigrationAttractionBreakdown,
   runMigrationPass,
 } from "../systems/population/migration.js";
-import { evaluateSettlementGrowth } from "../systems/society/settlements.js";
+import {
+  evaluateSettlementAbandonment,
+  evaluateSettlementGrowth,
+} from "../systems/society/settlements.js";
 import {
   DEFAULT_PRODUCTION_RECIPES,
   runProduction,
@@ -1312,7 +1316,13 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           // `settlementId` firma nigdy nie zasila `Settlement.economy.
           // employment` (audytowe P1-07) mimo że M14 czyta je właśnie po
           // tym polu.
-          const newCompanySettlementId = [...region.settlements.settlementIds].sort()[0];
+          // SET-LIFECYCLE-001: tylko aktywna osada może przyjąć nową firmę.
+          const newCompanySettlementId = [...region.settlements.settlementIds]
+            .filter((id) => {
+              const settlement = settlements[id];
+              return settlement !== undefined && isSettlementActive(settlement);
+            })
+            .sort()[0];
 
           const newInventory = createInventory({
             id: newInventoryId,
@@ -1422,7 +1432,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         (sum, id) => sum + eligibleLaborForce(populationCohorts[id]!),
         0,
       );
-      const settlementIdsInRegion = region.settlements.settlementIds;
+      // SET-LIFECYCLE-001: koszt mieszkania liczą wyłącznie aktywne osady.
+      const settlementIdsInRegion = region.settlements.settlementIds.filter((id) => {
+        const settlement = worldState.settlements[id];
+        return settlement !== undefined && isSettlementActive(settlement);
+      });
       const averageHousingCost =
         settlementIdsInRegion.length > 0
           ? settlementIdsInRegion.reduce(
@@ -1662,10 +1676,65 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     );
   }
 
+  // SET-LIFECYCLE-001: fakty tego ticka, które zmniejszyły populację osady
+  // (zgony z demografii, wyjazdy z migracji) -- przyczyny ewentualnego
+  // porzucenia osady, podłączane przez `sameBatch` (indeksy tej tablicy).
+  const populationLossFactIndicesBySettlementId = new Map<string, number[]>();
+  facts.forEach((fact, index) => {
+    const settlementId = fact.location.settlementId;
+    if (
+      settlementId === undefined ||
+      (fact.type !== "population_declined" && fact.type !== "population_migrated_out")
+    )
+      return;
+    const list = populationLossFactIndicesBySettlementId.get(settlementId);
+    if (list) list.push(index);
+    else populationLossFactIndicesBySettlementId.set(settlementId, [index]);
+  });
+
   for (const regionId of regionIds) {
     const region = regions[regionId]!;
-    const settlementIds = [...region.settlements.settlementIds].sort();
-    if (settlementIds.length === 0) continue;
+    const allSettlementIds = [...region.settlements.settlementIds].sort();
+    if (allSettlementIds.length === 0) continue;
+
+    // SET-LIFECYCLE-001: aktywna osada z populacją dokładnie 0 w TYM ticku
+    // przechodzi ACTIVE → ABANDONED (raz; fakt `settlement_abandoned`).
+    // ABANDONED pozostaje encją historyczną, ale nie uczestniczy we wzroście,
+    // housingu ani presji osadniczej.
+    for (const settlementId of allSettlementIds) {
+      const settlement = settlements[settlementId];
+      if (!settlement) continue;
+      const abandonment = evaluateSettlementAbandonment({
+        settlement,
+        tick,
+        population: populationBySettlementId.get(settlementId) ?? 0,
+        populationLossFactIndices:
+          populationLossFactIndicesBySettlementId.get(settlementId) ?? [],
+      });
+      if (!abandonment) continue;
+      settlements[settlementId] = abandonment.settlement;
+      const baseIndex = facts.length;
+      facts.push(...abandonment.facts);
+      // Tylko `targetIndex` jest względny -- `sameBatch.index` to już indeksy `facts`.
+      causalLinks.push(
+        ...abandonment.causalLinks.map((link) => ({
+          ...link,
+          targetIndex: link.targetIndex + baseIndex,
+        })),
+      );
+    }
+    const settlementIds = allSettlementIds.filter((id) => {
+      const settlement = settlements[id];
+      return settlement !== undefined && isSettlementActive(settlement);
+    });
+    if (settlementIds.length === 0) {
+      // Region bez aktywnej osady: ten sam stan co region bez osad (presja 0).
+      regions[regionId] = {
+        ...region,
+        cached: { ...region.cached, settlementPressure: 0 },
+      };
+      continue;
+    }
 
     let infrastructureSum = 0;
     let utilizationSum = 0;

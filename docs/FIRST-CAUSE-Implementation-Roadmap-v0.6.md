@@ -4612,8 +4612,9 @@ Walidacja: typecheck 0, lint 0 / 1 znane ostrzeżenie, test 137 /
 `tests/e2e/world-r4-1.spec.ts`. Status R4 bez zmian: IMPLEMENTED /
 TECHNICALLY VERIFIED, PENDING HUMAN VISUAL ACCEPTANCE.
 
-**OPEN BLOCKER --- cykl życia osady przy populacji 0 (nierozstrzygnięty,
-nie jest kanonem).** Decyzja właściciela: osada, której populacja spada
+**BLOCKER (R4.1) --- cykl życia osady przy populacji 0 --- rozwiązany
+implementacyjnie w etapie `SET-LIFECYCLE-001` (niżej), czeka na
+akceptację właściciela.** Stan z audytu R4.1: Decyzja właściciela: osada, której populacja spada
 do 0, przestaje istnieć jako aktywna osada. Obecna symulacja tego nie
 realizuje: `Settlement` nie ma statusu aktywności, najniższy etap
 `CAMP` ma próg 0 (`STAGE_POPULATION_THRESHOLD`), żaden system nie
@@ -4623,6 +4624,38 @@ wyzerować kohorty osady. Skutek: osada z populacją 0 jest liczona w
 `settlementCount`, pojawia się w Read Modelu i jest rysowana
 morfologią (klasa Hamlet). Wymaga decyzji właściciela i osobnego
 etapu symulacji --- warianty w raporcie R4.1.
+
+### `SET-LIFECYCLE-001` (2026-09-29) --- etap naprawczy: koniec aktywnej osady
+
+Decyzja właściciela (wariant A, bez okresu oczekiwania): Canonical
+Decisions §52A. Status: **IMPLEMENTED / TECHNICALLY VERIFIED, PENDING
+OWNER ACCEPTANCE** (M21-VIS-R4 nadal bez closeoutu).
+
+-   Model: `Settlement.status` (`ACTIVE` | `ABANDONED`) +
+    `abandonedTick`, `isSettlementActive` jako jedyna definicja
+    aktywności; invarianty w `createWorldState` (ABANDONED ⇒ populacja
+    0 i `abandonedTick`).
+-   Tick (krok 12 Settlement Growth, po migracji i demografii): populacja
+    `=== 0` → ABANDONED w tym samym ticku, fakt `settlement_abandoned`
+    raz, przyczyny = fakty `population_declined` /
+    `population_migrated_out` tego ticka (`sameBatch`); ujemna populacja
+    = naruszenie niezmiennika.
+-   Filtry ACTIVE: cel migracji, osada nowej firmy, koszt mieszkania w
+    atrakcyjności migracji, presja osadnicza, Read Modele (SETTLEMENTS,
+    liczba osad per etap, największa osada, etap wizualny, lista osad
+    widoku / Atlas).
+-   Firmy: bez nowej reguły --- firma należy do regionu, pracę i rynek ma
+    regionalne, zamyka ją istniejący Company AI; `settlementId` zostaje
+    jako historyczne powiązanie.
+-   Chronicle: `EventTypeDefinition` + szablon `settlement_abandoned`,
+    wpis w pipeline, kotwica PERMANENT w Causal Memory.
+-   Zapis: `SCHEMA_VERSION` 2, `ENGINE_VERSION` 2, pierwszy realny
+    migrator v1 → v2 (`status: ACTIVE`).
+
+Walidacja: typecheck 0, lint 0 / 1 znane ostrzeżenie, test 139 / 1077,
+build PASS, E2E 12/12. Screenshoty:
+`docs/verification/settlement-lifecycle-2026-09-29/`; E2E
+`tests/e2e/settlement-lifecycle.spec.ts` (prawdziwy tick).
 
 **Pozostały zakres z tabeli passów R4 (osobny, nierozpoczęty):**
 własne kodowanie i legendy Economy / Resources / Trade / Technology /

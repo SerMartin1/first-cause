@@ -30,6 +30,7 @@ const PERMANENT_FACT_TYPES_TODO_TUNING: ReadonlySet<string> = new Set([
   "discovery_occurred",
   "company_founded",
   "settlement_stage_changed",
+  "settlement_abandoned",
   "resource_depleted",
 ]);
 

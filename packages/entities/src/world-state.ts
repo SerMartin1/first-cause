@@ -5,7 +5,7 @@ import type { Continent } from "./world/continent.js";
 import { recomputeRegionTotalPopulation, type Region } from "./world/regions.js";
 import type { Connection } from "./world/connections.js";
 import type { ResourceDeposit } from "./economy/resource-deposit.js";
-import type { Settlement } from "./society/settlement.js";
+import { SETTLEMENT_STATUSES, type Settlement } from "./society/settlement.js";
 import type { PopulationCohort } from "./population/cohort.js";
 import type { Company } from "./economy/company.js";
 import type { Market } from "./economy/market.js";
@@ -344,9 +344,29 @@ export function createWorldState(input: CreateWorldStateInput): WorldState {
   const resolvedSettlements: Record<string, Settlement> = {};
   for (const settlement of settlements) {
     const cohortIds = cohortsBySettlementId.get(settlement.id) ?? [];
+    const totalPopulation = totalPopulationOf(cohortIds);
+    // SET-LIFECYCLE-001: status jest częścią modelu domenowego -- nieznana
+    // wartość to uszkodzony stan, a opuszczona osada nie może mieć
+    // mieszkańców (migracja nie zasiedla ABANDONED, więc dodatnia populacja
+    // oznacza błąd, nie „reaktywację”).
+    if (!SETTLEMENT_STATUSES.includes(settlement.status)) {
+      throw new RangeError(
+        `Settlement "${settlement.id}": unknown status ${JSON.stringify(settlement.status)}`,
+      );
+    }
+    if (settlement.status === "ABANDONED") {
+      if (totalPopulation !== 0)
+        throw new RangeError(
+          `Settlement "${settlement.id}": ABANDONED settlement must have totalPopulation 0, got ${String(totalPopulation)}`,
+        );
+      if (settlement.abandonedTick === undefined)
+        throw new RangeError(
+          `Settlement "${settlement.id}": ABANDONED settlement must record abandonedTick`,
+        );
+    }
     resolvedSettlements[settlement.id] = {
       ...settlement,
-      population: { cohortIds, totalPopulation: totalPopulationOf(cohortIds) },
+      population: { cohortIds, totalPopulation },
       economy: {
         ...settlement.economy,
         companyIds: companiesBySettlementId.get(settlement.id) ?? [],

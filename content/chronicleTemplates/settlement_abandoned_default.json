@@ -1,0 +1,9 @@
+{
+  "id": "settlement_abandoned_default",
+  "factOrEventType": "settlement_abandoned",
+  "titleKey": "content.chronicleTemplate.settlement_abandoned_default.title",
+  "bodyKey": "content.chronicleTemplate.settlement_abandoned_default.body",
+  "requiredData": ["settlementName", "regionName"],
+  "variants": {},
+  "implementationPhase": "VS"
+}

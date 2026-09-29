@@ -10,6 +10,19 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-29
 
+- **SET-LIFECYCLE-001 --- porzucenie osady przy populacji 0 (etap
+  naprawczy blockera z R4.1; czeka na akceptację).** Decyzja właściciela
+  zapisana w Canonical Decisions §52A: osada z populacją 0 przechodzi
+  ACTIVE → ABANDONED w tym samym ticku, raz, z faktem
+  `settlement_abandoned` (przyczyny: zgony / wyjazdy tego ticka) i
+  zostaje encją historyczną. Nowe `Settlement.status` / `abandonedTick`
+  z invariantami, filtry ACTIVE w migracji, zakładaniu firm, presji
+  osadniczej i Read Modelach (SETTLEMENTS liczy tylko aktywne, Atlas nie
+  rysuje morfologii opuszczonej osady), content Chronicle (typ + szablon
+  + EN/PL), zapis schemat v2 z migracją v1 → v2. Testy jednostkowe,
+  integracyjne (prawdziwy tick), zapis/odczyt i E2E; aktualizacja Entity
+  Data Model, Simulation Model, Chronicle Spec, Atlas Spec i Roadmapy.
+
 - **M21-VIS-R4.1 --- refinement czytelności trybu Population (czeka na
   akceptację wizualną; R4 nadal PENDING).** Po przeglądzie właściciela:
   pierścień czytany jako ilość (lżejszy kontur, wypełnienie 10%),

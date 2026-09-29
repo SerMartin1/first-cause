@@ -1,4 +1,5 @@
 import {
+  isSettlementActive,
   isDepositKnownToWorld,
   type SettlementStage,
   type WorldState,
@@ -57,7 +58,9 @@ export function buildRegionSummaryReadModel(
 
   const settlements = region.settlements.settlementIds
     .map((id) => state.settlements[id])
-    .filter((settlement) => settlement !== undefined);
+    .filter((settlement) => settlement !== undefined)
+    // SET-LIFECYCLE-001: opuszczona osada nie jest aktywną osadą regionu.
+    .filter(isSettlementActive);
   const largestSettlement = settlements.reduce<(typeof settlements)[number] | undefined>(
     (largest, settlement) =>
       !largest ||

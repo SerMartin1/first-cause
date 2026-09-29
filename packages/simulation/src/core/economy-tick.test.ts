@@ -316,11 +316,15 @@ function buildEntrepreneurshipWorldState(
       })
     : undefined;
 
+  // SET-LIFECYCLE-001: osada bez mieszkańców zostaje porzucona w pierwszym
+  // ticku, więc „region z osadą” oznacza tu osadę, w której ta kohorta żyje.
+  const residentCohort = settlement ? { ...cohort, settlementId: settlement.id } : cohort;
+
   const worldState = createWorldState({
     world,
     continents: [continent],
     regions: [region],
-    populationCohorts: [cohort],
+    populationCohorts: [residentCohort],
     companies: [existingCompany],
     markets: [marketWithGoods],
     inventories: [regionInventory, existingCompanyInventory],

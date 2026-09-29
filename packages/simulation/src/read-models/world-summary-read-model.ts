@@ -1,4 +1,8 @@
-import type { SettlementStage, WorldState } from "@first-cause/entities";
+import {
+  isSettlementActive,
+  type SettlementStage,
+  type WorldState,
+} from "@first-cause/entities";
 
 /**
  * WorldSummaryReadModel (Implementation Roadmap M4 UI Foundation;
@@ -28,7 +32,8 @@ export interface WorldSummaryReadModel {
 
 export function buildWorldSummaryReadModel(state: WorldState): WorldSummaryReadModel {
   const regions = Object.values(state.regions);
-  const settlements = Object.values(state.settlements);
+  // SET-LIFECYCLE-001: SETTLEMENTS = liczba AKTYWNYCH osad (ABANDONED to historia).
+  const settlements = Object.values(state.settlements).filter(isSettlementActive);
   const companies = Object.values(state.companies);
 
   const settlementCountByStage: Record<SettlementStage, number> = {

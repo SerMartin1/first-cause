@@ -103,10 +103,10 @@ function runPipeline(
 }
 
 describe("Chronicle pipeline (real content fixtures)", () => {
-  it("loads the real 16 VS event types + templates cleanly (15 + technology_tier_reached)", () => {
+  it("loads the real 17 VS event types + templates cleanly (15 + technology_tier_reached + settlement_abandoned)", () => {
     const { eventTypes, templates } = loadRealChronicleContent();
-    expect(eventTypes.size).toBe(16);
-    expect(templates.size).toBe(16);
+    expect(eventTypes.size).toBe(17);
+    expect(templates.size).toBe(17);
   });
 
   it("source integrity (SS129): every entry's fact refs come from facts actually fed into the pipeline", () => {

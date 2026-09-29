@@ -1,4 +1,8 @@
-import type { SettlementStage, WorldState } from "@first-cause/entities";
+import {
+  isSettlementActive,
+  type SettlementStage,
+  type WorldState,
+} from "@first-cause/entities";
 
 /**
  * AtlasRegionReadModel (Implementation Roadmap M4 UI Foundation;
@@ -40,7 +44,9 @@ function buildOneAtlasRegion(state: WorldState, regionId: string): AtlasRegionRe
 
   const settlements = region.settlements.settlementIds
     .map((id) => state.settlements[id])
-    .filter((settlement) => settlement !== undefined);
+    .filter((settlement) => settlement !== undefined)
+    // SET-LIFECYCLE-001: opuszczona osada nie jest aktywną osadą regionu.
+    .filter(isSettlementActive);
   const largestSettlementStage = settlements.reduce<SettlementStage | undefined>(
     (largest, settlement) =>
       !largest || SETTLEMENT_STAGE_RANK[settlement.stage] > SETTLEMENT_STAGE_RANK[largest]

@@ -1,18 +1,45 @@
 import { SCHEMA_VERSION } from "./envelope.js";
 
 /**
- * Save Migration (SS39-46, SAVE-008). `MIGRATIONS` is empty today --
- * `SCHEMA_VERSION` has been `1` since M3 and has never changed, so there
- * is nothing to migrate FROM yet (roadmap's own conditional wording:
- * "migracja v1->v2, jeśli wystąpi w trakcie developmentu"). This file
- * still builds the real pipeline/framework now, proven by an identity
- * migration test, so the FIRST real schema change only needs to add one
- * entry to `MIGRATIONS`, never new plumbing.
+ * Save Migration (SS39-46, SAVE-008). The pipeline was built ahead of the
+ * first real schema change (roadmap: "migracja v1->v2, jeśli wystąpi w
+ * trakcie developmentu"); `MIGRATIONS[1]` below is that first change.
  */
 export type SchemaMigrator = (raw: Record<string, unknown>) => Record<string, unknown>;
 
+/**
+ * v1 -> v2 (SET-LIFECYCLE-001): każda osada z zapisu v1 dostaje jawny
+ * `status: "ACTIVE"` -- w v1 nie istniało porzucanie osad, więc każda
+ * zapisana osada była aktywna. Osada, która w zapisie v1 ma już 0
+ * mieszkańców, zostaje ACTIVE przy wczytaniu i przechodzi w ABANDONED w
+ * pierwszym ticku po wczytaniu (z faktem `settlement_abandoned`) -- migracja
+ * nie emituje faktów ani nie wymyśla momentu porzucenia. Czysta funkcja:
+ * nowy obiekt, wejście bez zmian, bez losowości i czasu (SAVE-008).
+ */
+export function migrateV1ToV2(raw: Record<string, unknown>): Record<string, unknown> {
+  const runnerState = raw.worldState as Record<string, unknown> | undefined;
+  const worldState = runnerState?.worldState as Record<string, unknown> | undefined;
+  const settlements = worldState?.settlements as
+    | Record<string, Record<string, unknown>>
+    | undefined;
+  const versions = (raw.versions ?? {}) as Record<string, unknown>;
+  if (!runnerState || !worldState || !settlements)
+    return { ...raw, versions: { ...versions, schemaVersion: 2 } };
+  const migratedSettlements: Record<string, Record<string, unknown>> = {};
+  for (const [id, settlement] of Object.entries(settlements))
+    migratedSettlements[id] = { ...settlement, status: settlement.status ?? "ACTIVE" };
+  return {
+    ...raw,
+    versions: { ...versions, schemaVersion: 2 },
+    worldState: {
+      ...runnerState,
+      worldState: { ...worldState, settlements: migratedSettlements },
+    },
+  };
+}
+
 /** Keyed by the version a migrator upgrades FROM (vN -> vN+1). */
-export const MIGRATIONS: Readonly<Record<number, SchemaMigrator>> = {};
+export const MIGRATIONS: Readonly<Record<number, SchemaMigrator>> = { 1: migrateV1ToV2 };
 
 /** SS39 Version Compatibility Matrix. */
 export type VersionCompatibility =

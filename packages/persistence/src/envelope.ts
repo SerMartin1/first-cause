@@ -21,11 +21,17 @@ import { SimulationClock, type WorldRunnerState } from "@first-cause/simulation"
  * and `WorldRunner.fromState` reads it from exactly there; a second copy
  * would just be a redundant source of truth.
  */
-export const SCHEMA_VERSION = 1;
+/**
+ * v2 (SET-LIFECYCLE-001, 2026-09-29): `Settlement.status` (`ACTIVE` |
+ * `ABANDONED`) + `Settlement.abandonedTick`. Zapisy v1 migruje
+ * `MIGRATIONS[1]` (`migrations.ts`).
+ */
+export const SCHEMA_VERSION = 2;
 /** Bumped when `@first-cause/content` definitions change in a save-relevant way (SS36) -- no such change has happened yet. */
 export const CONTENT_VERSION = 1;
 /** Bumped when simulation SEMANTICS change in a save-relevant way (SS37) -- distinct from `SCHEMA_VERSION` (structure) and `CONTENT_VERSION` (definitions). */
-export const ENGINE_VERSION = 1;
+/** v2: osada z populacją 0 przechodzi ACTIVE → ABANDONED w tym samym ticku (SET-LIFECYCLE-001). */
+export const ENGINE_VERSION = 2;
 
 export interface SaveGameVersions {
   readonly schemaVersion: number;

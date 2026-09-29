@@ -1,4 +1,8 @@
-import { isDepositKnownToWorld, type WorldState } from "@first-cause/entities";
+import {
+  isDepositKnownToWorld,
+  isSettlementActive,
+  type WorldState,
+} from "@first-cause/entities";
 import {
   explainWhy,
   type SimulationFact,
@@ -175,8 +179,14 @@ export function buildWorldSnapshot(
     .map((id): WorldRegionView => {
       const region = state.regions[id]!;
       const change = latestChanges.get(id);
+      // SET-LIFECYCLE-001: Atlas i widok regionu pokazują tylko aktywne osady;
+      // ABANDONED zostaje w WorldState jako historia (brak aktywnej morfologii).
       const settlements = [...region.settlements.settlementIds]
         .sort()
+        .filter((sid) => {
+          const settlement = state.settlements[sid];
+          return settlement !== undefined && isSettlementActive(settlement);
+        })
         .map((sid) => buildSettlementSummaryReadModel(state, sid)!);
       const companies = region.economy.companyIds
         .map((cid) => state.companies[cid]!)

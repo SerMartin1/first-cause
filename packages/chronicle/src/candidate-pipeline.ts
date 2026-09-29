@@ -56,6 +56,7 @@ const RAW_FACT_TYPE_TO_EVENT_TYPE_TODO_TUNING: Readonly<Record<string, string>> 
   company_closed: "company_closed",
   shortage_started: "shortage_started",
   settlement_stage_changed: "settlement_stage_changed",
+  settlement_abandoned: "settlement_abandoned",
   discovery_occurred: "discovery_occurred",
   technology_adoption_increased: "technology_adoption_wave",
   technology_tier_reached: "technology_tier_reached",
