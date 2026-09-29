@@ -118,6 +118,35 @@ export function FCSettlementSample({ population }: { readonly population: number
   );
 }
 
+/**
+ * R4: próbka legendy trybu Population -- te same prymitywy co warstwa na mapie
+ * (pierścień / „0” / „brak danych”) w stałej skali px na jednostkę diagramu,
+ * więc pierścienie kolejnych rzędów wielkości zachowują proporcje z mapy.
+ */
+export function FCPopulationSample({
+  primitives,
+  radius,
+  pxPerUnit,
+}: {
+  readonly primitives: readonly Primitive[];
+  readonly radius: number;
+  readonly pxPerUnit: number;
+}) {
+  const extent = radius + 1.5;
+  const size = Math.max(10, Math.round(extent * 2 * pxPerUnit));
+  return (
+    <svg
+      className="fc-atlas-glyph"
+      viewBox={`${-extent} ${-extent} ${extent * 2} ${extent * 2}`}
+      width={size}
+      height={size}
+      aria-hidden="true"
+    >
+      <PrimitiveShapes primitives={primitives} />
+    </svg>
+  );
+}
+
 /** Klucz i18n etykiety pozycji legendy (nieznany sektor / rodzina -> identyfikator z contentu jako fallback). */
 export function legendLabel(entry: LegendEntry): { key: string; fallback: string } {
   switch (entry.cls) {

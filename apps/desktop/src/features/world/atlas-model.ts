@@ -1,4 +1,5 @@
 import type { WorldRegionView, WorldSnapshot } from "@first-cause/simulation";
+import { regionPopulationFact } from "./population-mode.js";
 
 export const MAP_MODES = [
   // Widok bazowy (dawniej DEFAULT): osadnictwo i połączenia bez warstwy danych.
@@ -26,23 +27,6 @@ export const OVERLAYS = [
 ] as const;
 export type Overlay = (typeof OVERLAYS)[number];
 export type FlowLens = "off" | "trade" | "migration" | "technology";
-export const MARKER_SCALE = {
-  minRadius: 5,
-  maxRadius: 36,
-  referencePopulation: 100_000,
-  exponent: 0.5,
-};
-export function populationRadius(population: number, config = MARKER_SCALE): number {
-  const scaled = Math.pow(
-    Math.max(0, Number.isFinite(population) ? population : 0) /
-      config.referencePopulation,
-    config.exponent,
-  );
-  return Math.min(
-    config.maxRadius,
-    config.minRadius + (config.maxRadius - config.minRadius) * scaled,
-  );
-}
 export const CHANGE_METRICS = [
   "population",
   "production",
@@ -88,11 +72,11 @@ export const MODE_METRICS: Record<
 > = {
   terrain: () => undefined,
   political: () => undefined,
-  population: (r, _w, ctx) => {
-    const before = ctx.baseline?.regions.find(
-      (b) => b.regionId === r.regionId,
-    )?.population;
-    return before === undefined ? undefined : r.population - before;
+  // R4: skala populacji regionu (nie zmiana -- ta należy do trybu Δ Change);
+  // brak danych → undefined, znane zero → 0 (zero ≠ brak danych, §28.5).
+  population: (r) => {
+    const fact = regionPopulationFact(r);
+    return fact.kind === "known" ? fact.value : undefined;
   },
   economy: (r) => r.production,
   resources: (r, _w, ctx) => {

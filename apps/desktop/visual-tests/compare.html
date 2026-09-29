@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Atlas mode comparison</title>
+    <style>
+      /* M21-VIS-R4 harness: ten sam świat w dwóch trybach obok siebie (VISUAL DEVELOPMENT DATA). */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #f3f1e9;
+        font:
+          13px "IBM Plex Sans",
+          system-ui,
+          sans-serif;
+      }
+      main {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        height: 100%;
+        padding: 8px;
+        box-sizing: border-box;
+      }
+      figure {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        min-width: 0;
+      }
+      figcaption {
+        padding: 2px 0 6px;
+        font-weight: 600;
+      }
+      iframe {
+        flex: 1;
+        width: 100%;
+        border: 1px solid #c9c6ba;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="root"></main>
+    <script type="module">
+      // `?fixture=...&select=...&zoom=...&left=terrain&right=population`
+      const params = new URLSearchParams(window.location.search);
+      const shared = new URLSearchParams();
+      for (const key of ["fixture", "select", "zoom"])
+        if (params.get(key)) shared.set(key, params.get(key));
+      for (const side of ["left", "right"]) {
+        const mode = params.get(side) ?? (side === "left" ? "terrain" : "population");
+        const query = new URLSearchParams(shared);
+        query.set("mode", mode);
+        const figure = document.createElement("figure");
+        const caption = document.createElement("figcaption");
+        caption.textContent = mode.toUpperCase();
+        const frame = document.createElement("iframe");
+        frame.src = `world.html?${query}`;
+        frame.dataset.mode = mode;
+        figure.append(caption, frame);
+        document.getElementById("root").append(figure);
+      }
+    </script>
+  </body>
+</html>

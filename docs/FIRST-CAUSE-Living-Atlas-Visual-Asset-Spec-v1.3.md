@@ -1432,8 +1432,9 @@ odcinkowo liniowa funkcja log10 populacji (`TODO tuning`): 10 → 3.5 ·
 promień ekranowy 7 px (powiększenie ≤ ×1.6, tylko gdy ślad byłby
 mniejszy), więc nie znikają przy oddaleniu, a kolejność rozmiarów
 pozostaje monotoniczna. Legenda „Skala osadnictwa” pokazuje próbki klas
-od najmniejszej do największej obecnej w danych. Tryb Population
-(kodowanie kołem) bez zmian --- należy do `M21-VIS-R4`.
+od najmniejszej do największej obecnej w danych. Tryb Population:
+`M21-VIS-R4` (§28.5) --- morfologia pozostaje, pierścień skali dochodzi
+jako warstwa trybu.
 
 ## 28.4 Semantic Zoom --- poziom WORLD
 
@@ -1471,6 +1472,35 @@ kształt klasy zasobu + wielkość złoża; Trade --- grubość i kierunek
 krawędzi; Technology --- znaki poziomu; Development --- infrastruktura
 krawędzi; Stability --- rampa presji z jawnym kierunkiem; Δ Change ---
 skala rozbieżna; Population --- rozmiar + zmiana.
+
+**Implementacja `M21-VIS-R4` --- Population (2026-09-29, PENDING HUMAN
+VISUAL ACCEPTANCE):** Terrain odpowiada „co jest w regionie”,
+Population „gdzie żyją ludzie i ilu ich jest”, morfologia R3 „jak ta
+ludność jest osadzona”. **Pierścień populacji = skala populacji
+regionu; morfologia osad = struktura osadnictwa** --- pierścień nie jest
+symbolem osady ani obrysem zaznaczenia.
+
+-   Pierścień: neutralny kontur (`ink`, ~1.1) z lekkim wypełnieniem
+    (~7%), rysowany pod morfologią; bez gradientu, glow, rampy
+    kolorów i semantyki dobry / zły. Promień = 1.4 × ślad osady §28.3
+    dla populacji regionu (log, monotoniczny, limit 46.2 j. ≈ 1.4 ×
+    limit śladu, ≈ 80% pola regionu), zawsze z odstępem od śladu
+    największej osady (nie przecina morfologii). `TODO tuning`.
+-   Morfologia w trybie Population: ta sama klasa, wariant i prymitywy
+    co w Terrain, neutralny atrament (bez kodowania kolorem).
+-   Priorytet: pierścień + morfologia + wartość; nazwa, trasy i woda
+    do orientacji; rzeźba, roślinność, przemysł i wydobycie
+    przygaszone.
+-   `0` (znana wartość): pełny cienki pusty kontur + „0 ·
+    niezamieszkany”. Brak danych: przerywany kontur `muted` + „— ·
+    brak danych”, bez koloru ostrzegawczego. Nigdy `population || 0`.
+-   Wartość przy regionie w zapisie zwartym (`1.2K`, `12M`; locale);
+    pełna liczba w inspektorze.
+-   Legenda trybu (te same prymitywy co mapa): rzędy wielkości
+    pierścieni z zakresu danych (~100 … ~10M+), „0 = niezamieszkany”,
+    „— = brak danych o populacji”, „morfologia osad bez zmian”.
+-   Poza zakresem: gęstość (do M22), heatmapa, migracja, struktura
+    demograficzna.
 
 ## 28.6 Transport na połączeniach
 

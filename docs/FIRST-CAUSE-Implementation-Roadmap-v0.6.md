@@ -4545,4 +4545,44 @@ PASS, D3 (TECH-012) PASS. Zaakceptowane prymitywy i reguły morfologii
 dopisane do Atlas Spec §4A.1 („Morfologia osad”). Obserwacja na
 później (nie zadanie): ewentualne strojenie minimalnego ekranowego
 śladu osad na WORLD przy dużych światach. Następny etap:
-`M21-VIS-R4` --- NOT STARTED (na osobne polecenie właściciela).
+`M21-VIS-R4` --- wynik poniżej.
+
+## Wynik `M21-VIS-R4` (2026-09-29) --- IMPLEMENTED / TECHNICALLY VERIFIED, PENDING HUMAN VISUAL ACCEPTANCE
+
+Population Mode Living Atlasu wg Atlas Spec v1.3 §14 / §28.5
+(szczegóły modelu: tam, akapit „Implementacja `M21-VIS-R4`”). Zakres
+passu zawężony przez polecenie właściciela do trybu Population:
+**POPULATION RING = skala populacji regionu, SETTLEMENT MORPHOLOGY
+(R3) = struktura osadnictwa**.
+
+-   Tryb Population jest trybem danych: neutralny pierścień (kontur +
+    lekkie wypełnienie, bez gradientu / glow / koloru statusu) POD
+    niezmienioną morfologią R3; promień = 1.4 × `settlementFootprint`
+    (wspólna, logarytmiczna matematyka R3, monotoniczna, limit 46.2 j.
+    ≈ 80% pola regionu). Koło zamiast bloków (audyt M2) usunięte;
+    kolor Δ populacji usunięty z trybu (zmiana należy do Δ Change).
+-   **Zero ≠ brak danych:** `0` = znana wartość (pełny cienki kontur,
+    „0 · niezamieszkany”); brak danych = przerywany kontur `muted`,
+    „— · brak danych”; w inspektorze pełna liczba albo „—”, nigdy
+    „NaN” / „0”. Symulacja zawsze zna populację, więc „brak danych”
+    to kontrakt prezentacji dla Read Modelu bez wartości (fixture);
+    typy symulacji bez zmian.
+-   Legenda zależna od trybu (ten sam mechanizm, te same prymitywy co
+    mapa): Population = rzędy wielkości pierścieni z zakresu danych +
+    „0” + „brak danych” + notka o morfologii; Terrain bez zmian.
+-   Wartość zwarta przy regionie (`Intl` compact, locale-safe); przy
+    wyczerpanym budżecie nazw zostaje sama wartość.
+-   Semantic zoom zmienia detal, nie fakt (warstwa Population nie ma
+    wejścia zoomu).
+
+Walidacja: typecheck 0, lint 0 błędów / 1 znane ostrzeżenie, test
+137 plików / 1057 testów, build PASS, E2E 10/10 (w tym regresje
+R1--R3.1). Megacity + pierścień: 46 + 2 = 48 ≤ 60 prymitywów.
+Screenshoty: `docs/verification/world-r4-2026-09-29/`; E2E
+`tests/e2e/world-r4.spec.ts`; fixture
+`visual-population-fixture.ts`.
+
+Poza zakresem (otwarte w R4 wg tabeli passów): własne kodowanie
+Economy / Resources / Trade / Technology / Development / Stability /
+Δ Change oraz ich legendy (audyt B2 dla pozostałych trybów, M3--M5).
+Status do decyzji właściciela --- nie DONE.

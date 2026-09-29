@@ -13,7 +13,7 @@ import en from "../../../../../locales/en/common.json";
 import pl from "../../../../../locales/pl/common.json";
 import { WorldScreen } from "./WorldScreen.js";
 import { useWorldStore } from "./world-store.js";
-import { fitAtlas, MODE_METRICS, populationRadius } from "./atlas-model.js";
+import { fitAtlas, MODE_METRICS } from "./atlas-model.js";
 import { visualStressView } from "./visual-stress-fixture.js";
 import { morphologyClass } from "./settlement-morphology.js";
 
@@ -367,13 +367,6 @@ describe("World UI", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Disconnected");
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByTestId("world-screen");
-  });
-  it("distinguishes large settlements with a bounded non-linear radius", () => {
-    expect(populationRadius(100_000)).toBeGreaterThan(populationRadius(10_000) * 2);
-    expect(populationRadius(0)).toBeGreaterThan(0);
-    expect(populationRadius(1e12)).toBeLessThanOrEqual(36);
-    expect(populationRadius(-1)).toBe(populationRadius(0));
-    expect(populationRadius(Number.NaN)).toBe(populationRadius(0));
   });
   it("never treats current state as a historical delta", () => {
     const region = {

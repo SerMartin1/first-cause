@@ -8,6 +8,26 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-09-29
+
+- **M21-VIS-R4 --- tryb Population Living Atlasu (implementacja; czeka
+  na akceptację wizualną właściciela).** Population jest teraz trybem
+  danych: neutralny pierścień skali populacji regionu (log, wspólna
+  matematyka ze śladem osady R3, limit ≈ 1.4 × ślad) rysowany POD
+  niezmienioną morfologią R3 -- koło zamiast bloków (audyt M2) i kolor
+  Δ populacji usunięte z trybu. Jawne rozróżnienie **0 ≠ brak danych**
+  na całej ścieżce Read Model → selektor trybu → warstwa → etykieta /
+  legenda / inspektor (pełny kontur „0 · niezamieszkany” vs przerywany
+  „— · brak danych”; nigdy „NaN”). Legenda zależna od trybu (te same
+  prymitywy co mapa), zwarta wartość przy regionie, semantic zoom bez
+  zmiany faktów. Nowe: `population-mode.ts` (+ testy),
+  `visual-population-fixture.ts` (drabina 0 → 10M+ → brak danych, zero
+  vs brak danych, świat cywilizacji), harness `?mode=&zoom=&select=` i
+  `compare.html`, E2E `world-r4.spec.ts`, screenshoty
+  `docs/verification/world-r4-2026-09-29/`. Aktualizacja Atlas Spec
+  §28.3 / §28.5 i Roadmapy. Bez zmian symulacji, typów Read Modelu,
+  RNG, zapisu i morfologii R3.
+
 ## 2026-09-27
 
 - **Zamknięcie M21-VIS-R3 po akceptacji wizualnej (etap systemu

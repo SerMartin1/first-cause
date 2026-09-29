@@ -12,6 +12,13 @@ import {
   morphologyLadderView,
   morphologyVariantsView,
 } from "../src/features/world/visual-morphology-fixture.js";
+import {
+  populationCivilizationView,
+  populationLadderView,
+  zeroVsNoDataView,
+} from "../src/features/world/visual-population-fixture.js";
+import { MAP_MODES, type MapMode } from "../src/features/world/atlas-model.js";
+import { useWorldStore } from "../src/features/world/world-store.js";
 import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
@@ -26,7 +33,10 @@ import "../src/index.css";
  * fixture'u (brak symulacji, brak komend zmieniających stan).
  */
 // R3: `?fixture=ladder|variants|civilization` wybiera fixture morfologii; domyślnie fixture R2.
-const fixture = new URLSearchParams(window.location.search).get("fixture");
+// R4: `population-ladder|zero-vs-no-data|population-civilization` oraz stan startowy UI:
+// `mode` (Map Mode), `zoom` (poziom zoomu), `select` (id zaznaczonego regionu).
+const params = new URLSearchParams(window.location.search);
+const fixture = params.get("fixture");
 const view =
   fixture === "ladder"
     ? morphologyLadderView()
@@ -34,7 +44,21 @@ const view =
       ? morphologyVariantsView()
       : fixture === "civilization"
         ? civilizationView()
-        : visualWorldView();
+        : fixture === "population-ladder"
+          ? populationLadderView()
+          : fixture === "zero-vs-no-data"
+            ? zeroVsNoDataView()
+            : fixture === "population-civilization"
+              ? populationCivilizationView()
+              : visualWorldView();
+const initialMode = params.get("mode");
+useWorldStore.getState().set({
+  ...(initialMode && (MAP_MODES as readonly string[]).includes(initialMode)
+    ? { mapMode: initialMode as MapMode }
+    : {}),
+  ...(params.get("zoom") ? { zoomLevel: Number(params.get("zoom")) } : {}),
+  ...(params.get("select") ? { selectedEntityId: params.get("select")! } : {}),
+});
 const world: WorldApi = {
   getWorld: () => Promise.resolve(view),
   setSpeed: () => Promise.resolve(view),

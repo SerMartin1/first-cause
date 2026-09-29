@@ -29,6 +29,7 @@ import {
   type ChangeMetric,
   type FlowLens,
 } from "./atlas-model.js";
+import { regionPopulationFact } from "./population-mode.js";
 import { useWorldStore } from "./world-store.js";
 import "./world.css";
 
@@ -172,6 +173,11 @@ export function WorldScreen() {
   const analysis = selectWorldAnalysis(snapshot, scope, ui.comparisonWindow);
   const format = (value: number) =>
     new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(value);
+  // R4: pełna liczba w inspektorze; brak danych ≠ 0 (nigdy „NaN” ani „0”).
+  const formatRegionPopulation = (r: (typeof snapshot.regions)[number]) => {
+    const fact = regionPopulationFact(r);
+    return fact.kind === "known" ? format(fact.value) : t("world.population.noDataLabel");
+  };
   const resources = [
     ...new Set(
       snapshot.regions.flatMap((r) => r.deposits.map((d) => d.resourceDefinitionId)),
@@ -202,7 +208,7 @@ export function WorldScreen() {
     });
   const rankByPopulation = ui.mapMode === "population" || ui.mapMode === "terrain";
   const rankValue = (r: (typeof snapshot.regions)[number]) =>
-    rankByPopulation ? r.population : MODE_METRICS[ui.mapMode](r, snapshot, context);
+    MODE_METRICS[rankByPopulation ? "population" : ui.mapMode](r, snapshot, context);
   const ranking = snapshot.regions
     .filter((r) => rankValue(r) !== undefined)
     .sort((a, b) => (rankValue(b) ?? 0) - (rankValue(a) ?? 0));
@@ -479,7 +485,7 @@ export function WorldScreen() {
                   <option value="">{t("world.selectRegion")}</option>
                   {snapshot.regions.map((r) => (
                     <option key={r.regionId} value={r.regionId}>
-                      {r.name} · {format(r.population)}
+                      {r.name} · {formatRegionPopulation(r)}
                     </option>
                   ))}
                 </select>
@@ -493,8 +499,8 @@ export function WorldScreen() {
             caption={
               <p className="fc-world__mode-caption">
                 {t(`world.metric.${ui.mapMode}`)}
-                {(ui.mapMode === "population" || ui.mapMode === "change") &&
-                historyMissing
+                {/* R4: Population pokazuje stan bieżący; historia dotyczy tylko Δ Change. */}
+                {ui.mapMode === "change" && historyMissing
                   ? ` · ${t("world.historyMissing")}`
                   : ""}
                 {ui.flowLens !== "off" &&
@@ -532,7 +538,7 @@ export function WorldScreen() {
                 {(regionTab === "overview" || regionTab === "population") && (
                   <FCMetric
                     label={t("world.population")}
-                    value={format(region.population)}
+                    value={formatRegionPopulation(region)}
                   />
                 )}
                 {(regionTab === "overview" || regionTab === "economy") && (
