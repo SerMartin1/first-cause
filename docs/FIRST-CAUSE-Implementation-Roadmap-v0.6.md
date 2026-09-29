@@ -4258,6 +4258,8 @@ właściciela.
 | 2 | `M21-VIS-R2` RegionVisualProfile v2 + Visual Grammar | `industry[]`, `extraction[]`, infrastruktura per połączenie z danych i contentu (Atlas Spec v1.3 §28.1, §28.6); bez zmian Simulation Model | audyt B1 (kontrakt), M6 |
 | 3 | `M21-VIS-R3` Settlement Morphology + Population Scaling + Civilization Readability | §28.2--28.4; WORLD z zagregowaną strukturą cywilizacji | audyt B1 (rendering), H2 |
 | 4 | `M21-VIS-R4` Map Modes v2 + legends + zero/no-data | §28.5; legenda per tryb | audyt B2, H3, M2--M5 |
+| 4A | `M21-VIS-R4A` Population Mode (pierścień skali, zero ≠ brak danych, legenda trybu) + `SET-LIFECYCLE-001` | §14, §28.5 | **DONE / HUMAN VISUAL ACCEPTED** (2026-09-29): audyt H3, M2; B2 dla Population |
+| 4B | `M21-VIS-R4B` Remaining Map Modes: własne kodowanie i legendy Economy / Resources / Trade / Technology / Development / Stability / Political / Δ Change | §28.5 | **NOT STARTED**: audyt B2 (pozostałe tryby), M3--M5 |
 | 5 | `M21-VIS-R5` Causality / WHY? UX | UI Impl Spec v1.4 §W: WHY? kontekstowe, `PRZYCZYNA → SKUTEK`, jednoznaczne etykiety | audyt H4, H5, M12 |
 | 6 | `M21-VIS-R6` Visual Verification Gate | UI Impl Spec v1.4 §V + Atlas Spec v1.3 §28.7; potem ponowny `M21-VIS-04` i human acceptance | audyt M1, L6; bramka `M21-VIS-05` |
 
@@ -4547,7 +4549,17 @@ później (nie zadanie): ewentualne strojenie minimalnego ekranowego
 śladu osad na WORLD przy dużych światach. Następny etap:
 `M21-VIS-R4` --- wynik poniżej.
 
-## Wynik `M21-VIS-R4` (2026-09-29) --- IMPLEMENTED / TECHNICALLY VERIFIED, PENDING HUMAN VISUAL ACCEPTANCE
+## Wynik `M21-VIS-R4` (2026-09-29) --- R4A POPULATION DONE / HUMAN VISUAL ACCEPTED; R4B NOT STARTED
+
+**Status (closeout 2026-09-29):** `M21-VIS-R4` NIE jest zamknięty w
+całości. Podział:
+
+-   **R4A --- Population Mode (R4 + R4.1):** DONE / HUMAN VISUAL
+    ACCEPTED przez właściciela (commity `b5cd343`, `98cc09f`).
+-   **SET-LIFECYCLE-001 --- koniec aktywnej osady:** DONE / OWNER
+    ACCEPTED (commit `eac714d`; Canonical Decisions §52A).
+-   **R4B --- Remaining Map Modes:** NOT STARTED (niżej, „Pozostały
+    zakres”).
 
 Population Mode Living Atlasu wg Atlas Spec v1.3 §14 / §28.5
 (szczegóły modelu: tam, akapit „Implementacja `M21-VIS-R4`”). Zakres
@@ -4584,8 +4596,8 @@ Screenshoty: `docs/verification/world-r4-2026-09-29/`; E2E
 
 Poza zakresem (otwarte w R4 wg tabeli passów): własne kodowanie
 Economy / Resources / Trade / Technology / Development / Stability /
-Δ Change oraz ich legendy (audyt B2 dla pozostałych trybów, M3--M5).
-Status do decyzji właściciela --- nie DONE.
+Δ Change oraz ich legendy (audyt B2 dla pozostałych trybów, M3--M5)
+--- przeniesione do R4B (NOT STARTED).
 
 ### `M21-VIS-R4.1` (2026-09-29) --- refinement czytelności Population
 
@@ -4609,12 +4621,11 @@ prezentacyjne w trybie Population:
 Walidacja: typecheck 0, lint 0 / 1 znane ostrzeżenie, test 137 /
 1061, build PASS, E2E 11/11. Screenshoty:
 `docs/verification/world-r4-1-2026-09-29/`; E2E
-`tests/e2e/world-r4-1.spec.ts`. Status R4 bez zmian: IMPLEMENTED /
-TECHNICALLY VERIFIED, PENDING HUMAN VISUAL ACCEPTANCE.
+`tests/e2e/world-r4-1.spec.ts`. Status: R4A DONE / HUMAN VISUAL
+ACCEPTED (2026-09-29).
 
-**BLOCKER (R4.1) --- cykl życia osady przy populacji 0 --- rozwiązany
-implementacyjnie w etapie `SET-LIFECYCLE-001` (niżej), czeka na
-akceptację właściciela.** Stan z audytu R4.1: Decyzja właściciela: osada, której populacja spada
+**BLOCKER (R4.1) --- cykl życia osady przy populacji 0 --- RESOLVED
+przez `SET-LIFECYCLE-001` (niżej), OWNER ACCEPTED 2026-09-29.** Stan z audytu R4.1: Decyzja właściciela: osada, której populacja spada
 do 0, przestaje istnieć jako aktywna osada. Obecna symulacja tego nie
 realizuje: `Settlement` nie ma statusu aktywności, najniższy etap
 `CAMP` ma próg 0 (`STAGE_POPULATION_THRESHOLD`), żaden system nie
@@ -4628,8 +4639,10 @@ etapu symulacji --- warianty w raporcie R4.1.
 ### `SET-LIFECYCLE-001` (2026-09-29) --- etap naprawczy: koniec aktywnej osady
 
 Decyzja właściciela (wariant A, bez okresu oczekiwania): Canonical
-Decisions §52A. Status: **IMPLEMENTED / TECHNICALLY VERIFIED, PENDING
-OWNER ACCEPTANCE** (M21-VIS-R4 nadal bez closeoutu).
+Decisions §52A. Status: **DONE / OWNER ACCEPTED** (2026-09-29, commit
+`eac714d`). Zachowanie firm potwierdzone bez zmian: firma z
+historycznym `settlementId` działa dalej jako firma regionu; bez
+automatycznej relokacji ani zamykania.
 
 -   Model: `Settlement.status` (`ACTIVE` | `ABANDONED`) +
     `abandonedTick`, `isSettlementActive` jako jedyna definicja
@@ -4657,7 +4670,12 @@ build PASS, E2E 12/12. Screenshoty:
 `docs/verification/settlement-lifecycle-2026-09-29/`; E2E
 `tests/e2e/settlement-lifecycle.spec.ts` (prawdziwy tick).
 
-**Pozostały zakres z tabeli passów R4 (osobny, nierozpoczęty):**
-własne kodowanie i legendy Economy / Resources / Trade / Technology /
-Development / Stability / Δ Change (audyt B2 dla pozostałych trybów,
-M3--M5).
+**Pozostały zakres R4 = `M21-VIS-R4B` --- NOT STARTED:** własne
+kodowanie i legendy Economy / Resources / Trade / Technology /
+Development / Stability / Political / Δ Change (audyt B2 dla
+pozostałych trybów, M3--M5). Start tylko na polecenie właściciela.
+
+Otwarte poza R4: `M21-VIS-R5` (WHY?), `M22` (geometria świata),
+reprezentacja złóż SUSPECTED, CONTENT-IRON-01, przyszły system
+zakładania nowych osad / ponownego zasiedlenia, grafika ruin, Lifetime
+Summary zanikłej osady (Chronicle §168).

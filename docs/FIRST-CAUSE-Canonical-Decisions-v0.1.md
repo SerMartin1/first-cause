@@ -628,7 +628,8 @@ wzrostu.
 
 # 52A. SET-LIFECYCLE-001 --- populacja 0 = koniec aktywnej osady
 
-**Status:** CANONICAL (decyzja właściciela, 2026-09-29)
+**Status:** CANONICAL --- ACCEPTED (decyzja właściciela, implementacja
+zaakceptowana 2026-09-29)
 
 -   Settlement ma jawny stan cyklu życia `SettlementStatus`: `ACTIVE`
     | `ABANDONED`; status jest jedynym źródłem prawdy o aktywności osady.
@@ -644,7 +645,11 @@ wzrostu.
     przyjmuje nowych firm.
 -   Ponowne zasiedlenie **nie reaktywuje** tej samej osady: powstaje
     nowa Settlement z nowym id i statusem `ACTIVE`.
--   REGION ≠ SETTLEMENT: region może poprawnie istnieć bez aktywnej osady.
+-   REGION ≠ SETTLEMENT: region może poprawnie istnieć bez aktywnej osady;
+    w Population Mode region z populacją 0 = „0 · niezamieszkany”.
+-   Firmy: firma z historycznym `settlementId` opuszczonej osady działa
+    dalej jako firma regionu; brak automatycznej relokacji ani
+    zamykania (reagują istniejące mechanizmy ekonomii).
 
 ------------------------------------------------------------------------
 

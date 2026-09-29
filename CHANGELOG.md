@@ -10,6 +10,14 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-29
 
+- **Closeout: SET-LIFECYCLE-001 zaakceptowane, R4A Population DONE
+  (dokumentacja; bez zmian kodu).** Właściciel zaakceptował cykl życia
+  osady (Canonical Decisions §52A: ACCEPTED; zachowanie firm bez zmian)
+  oraz tryb Population (R4 + R4.1: HUMAN VISUAL ACCEPTED). W Roadmapie
+  `M21-VIS-R4` rozdzielony na R4A (Population --- DONE) i R4B (własne
+  kodowanie i legendy pozostałych Map Modes --- NOT STARTED); cały R4
+  nie jest zamknięty. Atlas Spec §28.5 oznaczony jako zaakceptowany.
+
 - **SET-LIFECYCLE-001 --- porzucenie osady przy populacji 0 (etap
   naprawczy blockera z R4.1; czeka na akceptację).** Decyzja właściciela
   zapisana w Canonical Decisions §52A: osada z populacją 0 przechodzi

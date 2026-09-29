@@ -1473,8 +1473,8 @@ krawędzi; Technology --- znaki poziomu; Development --- infrastruktura
 krawędzi; Stability --- rampa presji z jawnym kierunkiem; Δ Change ---
 skala rozbieżna; Population --- rozmiar + zmiana.
 
-**Implementacja `M21-VIS-R4` --- Population (2026-09-29, PENDING HUMAN
-VISUAL ACCEPTANCE):** Terrain odpowiada „co jest w regionie”,
+**Implementacja `M21-VIS-R4` --- Population (R4A; 2026-09-29, HUMAN
+VISUAL ACCEPTED):** Terrain odpowiada „co jest w regionie”,
 Population „gdzie żyją ludzie i ilu ich jest”, morfologia R3 „jak ta
 ludność jest osadzona”. **Pierścień populacji = skala populacji
 regionu; morfologia osad = struktura osadnictwa** --- pierścień nie jest
