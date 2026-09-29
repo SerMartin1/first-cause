@@ -10,6 +10,22 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-29
 
+- **M21-VIS-R4.1 --- refinement czytelności trybu Population (czeka na
+  akceptację wizualną; R4 nadal PENDING).** Po przeglądzie właściciela:
+  pierścień czytany jako ilość (lżejszy kontur, wypełnienie 10%),
+  drugorzędne warstwy mocniej przygaszone, morfologia lekko wtórna;
+  pierścień na ekranie = promień + stały dodatek 5 px (minimum z osad
+  R3 spłaszczało małe rzędy wielkości przy oddaleniu); znaczniki „0” /
+  „brak danych” min. 7 px; zaznaczenie w trybie Population jako
+  narożniki w kolorze akcentu (nie okrąg); etykieta poza pierścieniem;
+  finalny podpis „Populacja regionu · skala logarytmiczna” i legenda
+  bez notki deweloperskiej. TODO o poszerzeniu typu Read Modelu dla
+  braku danych. Audyt cyklu życia osady przy populacji 0 ujawnił
+  **otwarty blocker** (osada z populacją 0 pozostaje aktywna w
+  symulacji) --- odnotowany w Roadmapie, bez własnej decyzji. Nowe:
+  testy R4.1, E2E `world-r4-1.spec.ts`, screenshoty
+  `docs/verification/world-r4-1-2026-09-29/`.
+
 - **M21-VIS-R4 --- tryb Population Living Atlasu (implementacja; czeka
   na akceptację wizualną właściciela).** Population jest teraz trybem
   danych: neutralny pierścień skali populacji regionu (log, wspólna

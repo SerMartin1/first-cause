@@ -36,6 +36,13 @@ export function populationFact(value: number | null | undefined): PopulationFact
     : { kind: "unavailable" };
 }
 
+/**
+ * TODO(no-data): produkcyjny Read Model ma dziś `population: number` (symulacja
+ * zawsze zna populację). Rzeczywista obsługa „brak danych” wymaga formalnego
+ * poszerzenia typu Read Modelu, gdy pojawi się faktyczne źródło nieznanej
+ * populacji w symulacji / rozgrywce (np. fog-of-war). Do tego czasu stan
+ * `unavailable` jest kontraktem prezentacji testowanym fixture'em.
+ */
 export function regionPopulationFact(
   region: Pick<WorldRegionView, "population">,
 ): PopulationFact {
@@ -63,11 +70,28 @@ export const POPULATION_RING = {
   scale: 1.4,
   /** Odstęp pierścienia od śladu największej osady (pierścień nigdy jej nie przecina). */
   gap: 2.5,
-  strokeWidth: 1.1,
-  strokeAlpha: 0.8,
-  fillAlpha: 0.07,
+  /**
+   * R4.1: pierścień czytany jako „ilość”, nie granica / zaznaczenie -- lżejszy
+   * kontur, nieco wyraźniejsze wypełnienie (wciąż bardzo lekkie, bez gradientu).
+   */
+  strokeWidth: 0.9,
+  strokeAlpha: 0.6,
+  fillAlpha: 0.1,
   /** Znacznik stanu „0” i „brak danych” -- ten sam promień, różny kontur. */
-  markerRadius: 6,
+  markerRadius: 7,
+  /**
+   * R4.1: minimalny promień ekranowy znaczników „0” / „brak danych” (px) i
+   * grubość ich konturu na ekranie -- widoczne na WORLD, ale słabsze niż
+   * pierścienie zamieszkanych regionów (bez wypełnienia). TODO tuning.
+   */
+  stateMinPx: 7,
+  /**
+   * R4.1: stały dodatek ekranowy pierścienia (px) zamiast minimum z osad R3 --
+   * małe pierścienie są widoczne przy oddaleniu, a różnice między rzędami
+   * wielkości zostają zachowane (minimum by je spłaszczało). TODO tuning.
+   */
+  ringOffsetPx: 5,
+  stateStrokePx: 1.3,
   /** Łuki przerywanego konturu „brak danych” (liczba odcinków na obwodzie). */
   dashSegments: 10,
 } as const;
@@ -107,6 +131,7 @@ export function populationRingPrimitives(radius: number): Primitive[] {
 /** „0 / niezamieszkany”: pełny, cienki, pusty kontur -- miejsce w świecie bez mieszkańców. */
 export function zeroPopulationPrimitives(
   radius: number = POPULATION_RING.markerRadius,
+  width: number = POPULATION_RING.strokeWidth,
 ): Primitive[] {
   return [
     {
@@ -115,7 +140,7 @@ export function zeroPopulationPrimitives(
       y: 0,
       r: radius,
       stroke: "ink",
-      width: POPULATION_RING.strokeWidth,
+      width,
       alpha: POPULATION_RING.strokeAlpha,
     },
   ];
@@ -128,6 +153,7 @@ export function zeroPopulationPrimitives(
  */
 export function noPopulationDataPrimitives(
   radius: number = POPULATION_RING.markerRadius,
+  width: number = POPULATION_RING.strokeWidth,
 ): Primitive[] {
   const n = POPULATION_RING.dashSegments;
   const step = (Math.PI * 2) / n;
@@ -143,7 +169,7 @@ export function noPopulationDataPrimitives(
       kind: "poly",
       points,
       stroke: "muted",
-      width: POPULATION_RING.strokeWidth,
+      width,
     });
   }
   return out;
@@ -153,16 +179,74 @@ export function noPopulationDataPrimitives(
 export function populationMarkPrimitives(
   fact: PopulationFact,
   radius: number,
+  stateWidth: number = POPULATION_RING.strokeWidth,
 ): Primitive[] {
   switch (populationState(fact)) {
     case "populated":
       return populationRingPrimitives(radius);
     case "zero":
-      return zeroPopulationPrimitives(radius);
+      return zeroPopulationPrimitives(radius, stateWidth);
     case "unavailable":
-      return noPopulationDataPrimitives(radius);
+      return noPopulationDataPrimitives(radius, stateWidth);
   }
 }
+
+/**
+ * R4.1: promień znaku warstwy Population w jednostkach diagramu przy skali
+ * ekranu `scale` (px na jednostkę). Pierścień = promień bazowy + stały
+ * dodatek ekranowy (monotoniczny, rzędy wielkości rozróżnialne na każdym
+ * zoomie); zawsze obejmuje `inner` (ekranowy ślad największej osady R3) z
+ * odstępem. Znaczniki „0” / „brak danych” mają własne minimum ekranowe.
+ */
+export function populationMarkRadius(
+  mark: PopulationMark,
+  inner: number,
+  scale: number,
+): number {
+  const k = Math.max(scale, 0.01);
+  const clearance = inner > 0 ? inner + POPULATION_RING.gap : 0;
+  if (mark.state !== "populated")
+    return Math.max(mark.radius, clearance, POPULATION_RING.stateMinPx / k);
+  return Math.max(mark.radius + POPULATION_RING.ringOffsetPx / k, clearance);
+}
+
+/** Grubość konturu znaczników stanu w jednostkach diagramu (stała na ekranie). */
+export function populationStateStrokeWidth(scale: number): number {
+  return Math.max(
+    POPULATION_RING.strokeWidth,
+    POPULATION_RING.stateStrokePx / Math.max(scale, 0.01),
+  );
+}
+
+/**
+ * R4.1: w trybie Population zaznaczenie regionu = cztery narożniki (kolor i
+ * grubość akcentu zaznaczenia z Design Systemu) wokół znaku populacji --
+ * kształt inny niż okrąg, więc nie myli się z pierścieniem skali. Zwraca
+ * łamane (x0,y0,x1,y1,x2,y2) w jednostkach diagramu.
+ */
+export const SELECTION_BRACKET = { margin: 5, arm: 0.35 } as const;
+export function selectionBracketPolylines(radius: number): number[][] {
+  const d = radius + SELECTION_BRACKET.margin;
+  const a = Math.max(4, d * SELECTION_BRACKET.arm);
+  return [
+    [-d, -d + a, -d, -d, -d + a, -d],
+    [d - a, -d, d, -d, d, -d + a],
+    [d, d - a, d, d, d - a, d],
+    [-d + a, d, -d, d, -d, d - a],
+  ];
+}
+
+/**
+ * R4.1: hierarchia trybu Population -- przezroczystość warstw drugorzędnych
+ * (TODO tuning). Pierścień + wartość na pierwszym planie; morfologia czytelna,
+ * ale lekko wtórna; teren, trasy i znaki aktywności jako kontekst.
+ */
+export const POPULATION_EMPHASIS = {
+  geography: 0.32,
+  routes: 0.55,
+  activity: 0.24,
+  morphology: 0.85,
+} as const;
 
 /** Warstwa Population jednego regionu -- niezależna od zoomu (fakt, nie detal). */
 export interface PopulationMark {

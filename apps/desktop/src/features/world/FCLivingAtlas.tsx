@@ -48,6 +48,10 @@ import {
   populationMarkPrimitives,
   populationRingPrimitives,
   populationRingRadius,
+  populationMarkRadius,
+  populationStateStrokeWidth,
+  selectionBracketPolylines,
+  POPULATION_EMPHASIS,
   POPULATION_RING,
   zeroPopulationPrimitives,
   type PopulationMark,
@@ -297,19 +301,22 @@ export function FCLivingAtlas({
        * Minimalny rozmiar ekranowy jak dla osad (`settlementBoost`), a pierścień zawsze
        * obejmuje powiększony ślad największej osady z odstępem -- nigdy go nie przecina.
        */
-      const populationGraphics = (
+      const populationRadius = (
         mark: PopulationMark,
         rg: RegionGrammar | undefined,
         k: number,
       ) => {
         const largest = rg?.settlements[0];
         const inner = largest ? largest.radius * settlementBoost(largest.radius, k) : 0;
-        const radius = Math.max(
-          mark.radius * settlementBoost(mark.radius, k),
-          inner > 0 ? inner + POPULATION_RING.gap : 0,
-        );
+        return populationMarkRadius(mark, inner, k);
+      };
+      const populationGraphics = (mark: PopulationMark, radius: number, k: number) => {
         const g = new Graphics();
-        drawPrimitives(g, populationMarkPrimitives(mark.fact, radius), inkColor);
+        drawPrimitives(
+          g,
+          populationMarkPrimitives(mark.fact, radius, populationStateStrokeWidth(k)),
+          inkColor,
+        );
         return g;
       };
       /** Zwarta wartość przy regionie (pełna liczba zostaje w inspektorze). */
@@ -323,13 +330,21 @@ export function FCLivingAtlas({
       const dataMode = ui.mapMode !== "terrain";
       // R4 Population: pierwszy plan = pierścień + morfologia + wartość; nazwa, trasy i
       // woda do orientacji; rzeźba, roślinność, przemysł i wydobycie przygaszone.
-      const deEmphasis = populationMode ? 0.32 : dataMode ? 0.6 : 1;
+      const deEmphasis = populationMode
+        ? POPULATION_EMPHASIS.activity
+        : dataMode
+          ? 0.6
+          : 1;
       const regionGrammar = new Map(grammar.regions.map((r) => [r.regionId, r]));
       const outOfFocus = (regionId: string) =>
         ui.focusMode && !!ui.selectedEntityId && regionId !== ui.selectedEntityId;
       // GEOGRAPHY: pole regionu (ton gruntu, rzeźba, roślinność, woda) -- tło, nie konkuruje z danymi.
       const geography = new Graphics();
-      geography.alpha = populationMode ? 0.4 : dataMode ? 0.45 : 1;
+      geography.alpha = populationMode
+        ? POPULATION_EMPHASIS.geography
+        : dataMode
+          ? 0.45
+          : 1;
       scene.addChild(geography);
       for (const region of grammar.regions) {
         const p = positions.get(region.regionId);
@@ -347,7 +362,7 @@ export function FCLivingAtlas({
       }
       // CIVILIZATION / trasy: infrastruktura rysowana NA KRAWĘDZI (§28.6), styl z rodziny trasy w contencie.
       const routes = new Graphics();
-      routes.alpha = dataMode ? 0.7 : 1;
+      routes.alpha = populationMode ? POPULATION_EMPHASIS.routes : dataMode ? 0.7 : 1;
       scene.addChild(routes);
       const borderColor = color("--fc-border-strong");
       if (ui.overlays.includes("connections"))
@@ -467,8 +482,9 @@ export function FCLivingAtlas({
         const value = values.get(region.regionId);
         // Population nie normalizuje intensywności do najliczniejszego regionu (§28.5):
         // skala absolutna jest w promieniu pierścienia, a morfologia zostaje neutralna.
-        const intensity =
-          populationMode || value === undefined || value === 0
+        const intensity = populationMode
+          ? POPULATION_EMPHASIS.morphology
+          : value === undefined || value === 0
             ? 1
             : 0.3 + 0.7 * Math.sqrt(Math.abs(value) / maxValue);
         const signed = ui.mapMode === "change";
@@ -496,7 +512,9 @@ export function FCLivingAtlas({
         const extent = settlementExtent(rg);
         const mark = populationLayer.get(region.regionId);
         // R4: warstwa Population POD morfologią -- pierścień skali, „0” albo „brak danych”.
-        if (populationMode && mark) node.addChild(populationGraphics(mark, rg, scale));
+        const ringRadius = populationMode && mark ? populationRadius(mark, rg, scale) : 0;
+        if (populationMode && mark)
+          node.addChild(populationGraphics(mark, ringRadius, scale));
         const marker = new Graphics();
         // Region bez osad w widoku bazowym: pusty pierścień (miejsce w świecie, nie osada).
         if (populationMode) {
@@ -526,7 +544,8 @@ export function FCLivingAtlas({
             );
           }
           // Zaznaczenie: jeden obrys całej grupy osad regionu (nie pierścień na każdej osadzie).
-          if (selected && rg.settlements.length) {
+          // R4.1: w trybie Population zaznaczenie rysują narożniki (niżej), nie elipsa.
+          if (selected && rg.settlements.length && !populationMode) {
             const reach = Math.max(
               ...rg.settlements.map(
                 (p) => Math.abs(p.y) + p.radius * settlementBoost(p.radius, scale),
@@ -626,7 +645,17 @@ export function FCLivingAtlas({
             node.addChild(more);
           }
         }
-        if (selected && !region.settlements.length)
+        if (selected && populationMode) {
+          // Zaznaczenie ≠ pierścień populacji: narożniki w kolorze akcentu (2 px, Design System).
+          const brackets = new Graphics();
+          for (const line of selectionBracketPolylines(ringRadius))
+            brackets
+              .moveTo(line[0]!, line[1]!)
+              .lineTo(line[2]!, line[3]!)
+              .lineTo(line[4]!, line[5]!);
+          brackets.stroke({ color: accent, width: 2 / Math.max(0.5, scale) });
+          node.addChild(brackets);
+        } else if (selected && !region.settlements.length)
           marker.circle(0, 0, 12).stroke({ color: accent, width: 2 });
         if (ui.hoveredRegionId === region.regionId)
           marker.circle(0, 0, 44).stroke({ color: accent, width: 1 });
@@ -661,7 +690,11 @@ export function FCLivingAtlas({
           },
         });
         // Etykieta obok śladu osad (duże osady nie wchodzą pod napis).
-        label.position.set(point.x + Math.max(44, extent.right + 8), point.y - 12);
+        // R4.1: w trybie Population etykieta stoi też poza pierścieniem (bez interferencji).
+        label.position.set(
+          point.x + Math.max(44, extent.right + 8, ringRadius + 6),
+          point.y - 12,
+        );
         const box = { x: label.x, y: label.y, w: label.width, h: label.height };
         const collides = labelBoxes.some(
           (b) =>
@@ -751,6 +784,11 @@ export function FCLivingAtlas({
               .sort()
               .join(",")
           : "",
+      );
+      // R4.1 (testy E2E): kształt znacznika zaznaczenia -- w Population narożniki, nie okrąg.
+      host.current?.setAttribute(
+        "data-selection-marker",
+        ui.selectedEntityId ? (populationMode ? "brackets" : "outline") : "",
       );
       // Tożsamość morfologii (osada:klasa:wariant[m]) -- dowód, że tryb nie zmienia osady.
       host.current?.setAttribute(
@@ -892,7 +930,6 @@ export function FCLivingAtlas({
                 />
                 {t("world.population.noDataLegend")}
               </span>
-              <small>{t("world.population.morphologyNote")}</small>
             </div>
           </>
         ) : (

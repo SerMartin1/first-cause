@@ -4586,3 +4586,45 @@ Poza zakresem (otwarte w R4 wg tabeli passów): własne kodowanie
 Economy / Resources / Trade / Technology / Development / Stability /
 Δ Change oraz ich legendy (audyt B2 dla pozostałych trybów, M3--M5).
 Status do decyzji właściciela --- nie DONE.
+
+### `M21-VIS-R4.1` (2026-09-29) --- refinement czytelności Population
+
+Po przeglądzie wizualnym właściciela (kierunek R4 zaakceptowany:
+pierścień, skala log, morfologia R3, 0 ≠ brak danych). Zmiany wyłącznie
+prezentacyjne w trybie Population:
+
+-   hierarchia: pierścień czytany jako ilość (kontur 0.9 / krycie 0.6,
+    wypełnienie 10%), morfologia lekko wtórna (0.85), teren / trasy /
+    znaki aktywności mocniej przygaszone;
+-   pierścień na ekranie = promień bazowy + stały dodatek 5 px zamiast
+    minimum 7 px z osad R3 (minimum spłaszczało ~10 / ~100 / ~1k przy
+    oddaleniu); znaczniki „0” / „brak danych” min. 7 px, kontur 1.3 px;
+-   zaznaczenie w trybie Population = narożniki w kolorze akcentu
+    (2 px) zamiast okręgu --- nie myli się z pierścieniem; Terrain bez
+    zmian;
+-   etykieta regionu stoi poza pierścieniem;
+-   finalny tekst: „Populacja regionu · skala logarytmiczna”; z
+    legendy usunięta notka deweloperska o morfologii.
+
+Walidacja: typecheck 0, lint 0 / 1 znane ostrzeżenie, test 137 /
+1061, build PASS, E2E 11/11. Screenshoty:
+`docs/verification/world-r4-1-2026-09-29/`; E2E
+`tests/e2e/world-r4-1.spec.ts`. Status R4 bez zmian: IMPLEMENTED /
+TECHNICALLY VERIFIED, PENDING HUMAN VISUAL ACCEPTANCE.
+
+**OPEN BLOCKER --- cykl życia osady przy populacji 0 (nierozstrzygnięty,
+nie jest kanonem).** Decyzja właściciela: osada, której populacja spada
+do 0, przestaje istnieć jako aktywna osada. Obecna symulacja tego nie
+realizuje: `Settlement` nie ma statusu aktywności, najniższy etap
+`CAMP` ma próg 0 (`STAGE_POPULATION_THRESHOLD`), żaden system nie
+usuwa osady z `WorldState.settlements` ani z
+`Region.settlements.settlementIds`, a zgony i migracja mogą
+wyzerować kohorty osady. Skutek: osada z populacją 0 jest liczona w
+`settlementCount`, pojawia się w Read Modelu i jest rysowana
+morfologią (klasa Hamlet). Wymaga decyzji właściciela i osobnego
+etapu symulacji --- warianty w raporcie R4.1.
+
+**Pozostały zakres z tabeli passów R4 (osobny, nierozpoczęty):**
+własne kodowanie i legendy Economy / Resources / Trade / Technology /
+Development / Stability / Δ Change (audyt B2 dla pozostałych trybów,
+M3--M5).

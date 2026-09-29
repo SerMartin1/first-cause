@@ -16,11 +16,13 @@ import {
   populationLegendSteps,
   populationMark,
   populationMarkPrimitives,
+  populationMarkRadius,
   populationRingPrimitives,
   populationRingRadius,
   populationState,
   POPULATION_RING,
   POPULATION_RING_MAX,
+  selectionBracketPolylines,
   zeroPopulationPrimitives,
 } from "./population-mode.js";
 import {
@@ -217,6 +219,63 @@ describe("M21-VIS-R4 -- zero ≠ no data", () => {
     expect(populationLegendSteps(layer)).toEqual([
       100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000,
     ]);
+  });
+});
+
+describe("M21-VIS-R4.1 -- readability refinement", () => {
+  const mark = (population: number | undefined) =>
+    populationMark({ regionId: "r", population, settlements: [] } as never);
+
+  it("E: zero / no-data markers keep a minimum screen footprint, weaker than a populated ring", () => {
+    for (const scale of [0.5, 0.8, 1.3, 2]) {
+      for (const state of [mark(0), mark(undefined)]) {
+        const px = populationMarkRadius(state, 0, scale) * scale;
+        expect(px).toBeGreaterThanOrEqual(POPULATION_RING.stateMinPx - 1e-9);
+        // Słabszy niż pierścień regionu ~1k przy tej samej skali (i bez wypełnienia).
+        expect(px).toBeLessThanOrEqual(
+          populationMarkRadius(mark(1_200), 0, scale) * scale,
+        );
+      }
+      expect(
+        populationMarkPrimitives(populationFact(0), 7).some((p) => p.fill !== undefined),
+      ).toBe(false);
+    }
+  });
+
+  it("A/B: screen ring stays monotonic across the ladder and ×10 steps stay distinct", () => {
+    for (const scale of [0.8, 1.3]) {
+      const radii = [10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000].map(
+        (p) => populationMarkRadius(mark(p), 0, scale) * scale,
+      );
+      for (let i = 1; i < radii.length; i++)
+        expect(radii[i]! - radii[i - 1]!).toBeGreaterThan(1.5);
+    }
+  });
+
+  it("F: selection is drawn as corner brackets outside the ring, never as another circle", () => {
+    const r = 30;
+    const brackets = selectionBracketPolylines(r);
+    expect(brackets).toHaveLength(4);
+    for (const line of brackets) {
+      expect(line).toHaveLength(6);
+      // Każdy punkt narożnika leży na boku kwadratu poza pierścieniem (nie na okręgu).
+      for (let i = 0; i < line.length; i += 2)
+        expect(Math.max(Math.abs(line[i]!), Math.abs(line[i + 1]!))).toBeGreaterThan(r);
+      // Wierzchołek narożnika leży dalej od środka niż promień pierścienia × √2 (róg kwadratu).
+      expect(Math.hypot(line[2]!, line[3]!)).toBeGreaterThan(r * Math.SQRT2);
+    }
+  });
+
+  it("G/H: Population legend and caption use final player-facing copy only", async () => {
+    expect(en["world.metric.population"]).toBe("Regional population · logarithmic scale");
+    expect(pl["world.metric.population"]).toBe("Populacja regionu · skala logarytmiczna");
+    expect(Object.keys(en)).not.toContain("world.population.morphologyNote");
+    expect(Object.keys(pl)).not.toContain("world.population.morphologyNote");
+    useWorldStore.getState().set({ mapMode: "population" });
+    renderAtlas(populationCivilizationView());
+    const legend = await screen.findByTestId("atlas-legend");
+    expect(legend.textContent).not.toMatch(/morpholog/i);
+    expect(legend.textContent).not.toMatch(/R3|R4/);
   });
 });
 

@@ -1480,25 +1480,36 @@ ludność jest osadzona”. **Pierścień populacji = skala populacji
 regionu; morfologia osad = struktura osadnictwa** --- pierścień nie jest
 symbolem osady ani obrysem zaznaczenia.
 
--   Pierścień: neutralny kontur (`ink`, ~1.1) z lekkim wypełnieniem
-    (~7%), rysowany pod morfologią; bez gradientu, glow, rampy
+-   Pierścień: neutralny kontur (`ink`, 0.9, krycie 0.6; R4.1) z
+    lekkim wypełnieniem (10%) --- czytany jako ilość, nie granica ---
+    rysowany pod morfologią; bez gradientu, glow, rampy
     kolorów i semantyki dobry / zły. Promień = 1.4 × ślad osady §28.3
     dla populacji regionu (log, monotoniczny, limit 46.2 j. ≈ 1.4 ×
     limit śladu, ≈ 80% pola regionu), zawsze z odstępem od śladu
-    największej osady (nie przecina morfologii). `TODO tuning`.
+    największej osady (nie przecina morfologii). Na ekranie: promień +
+    stały dodatek 5 px (R4.1), więc małe rzędy wielkości pozostają
+    rozróżnialne przy oddaleniu. `TODO tuning`.
 -   Morfologia w trybie Population: ta sama klasa, wariant i prymitywy
     co w Terrain, neutralny atrament (bez kodowania kolorem).
--   Priorytet: pierścień + morfologia + wartość; nazwa, trasy i woda
-    do orientacji; rzeźba, roślinność, przemysł i wydobycie
-    przygaszone.
+-   Priorytet: pierścień + wartość; morfologia czytelna, lekko wtórna;
+    nazwa, trasy i woda do orientacji; rzeźba, roślinność, przemysł i
+    wydobycie przygaszone. Etykieta regionu stoi poza pierścieniem.
+-   Zaznaczenie regionu w trybie Population: cztery narożniki w
+    kolorze akcentu zaznaczenia (2 px) --- kształt inny niż okrąg, więc
+    nie myli się z pierścieniem (R4.1).
 -   `0` (znana wartość): pełny cienki pusty kontur + „0 ·
     niezamieszkany”. Brak danych: przerywany kontur `muted` + „— ·
     brak danych”, bez koloru ostrzegawczego. Nigdy `population || 0`.
+    Minimalny rozmiar ekranowy obu znaczników 7 px (R4.1).
 -   Wartość przy regionie w zapisie zwartym (`1.2K`, `12M`; locale);
     pełna liczba w inspektorze.
 -   Legenda trybu (te same prymitywy co mapa): rzędy wielkości
     pierścieni z zakresu danych (~100 … ~10M+), „0 = niezamieszkany”,
-    „— = brak danych o populacji”, „morfologia osad bez zmian”.
+    „— = brak danych o populacji”. Podpis trybu: „Populacja regionu ·
+    skala logarytmiczna”.
+-   Brak danych jest dziś kontraktem prezentacji (symulacja zawsze zna
+    populację); rzeczywista obsługa wymaga formalnego poszerzenia typu
+    Read Modelu, gdy pojawi się źródło nieznanej populacji.
 -   Poza zakresem: gęstość (do M22), heatmapa, migracja, struktura
     demograficzna.
 
