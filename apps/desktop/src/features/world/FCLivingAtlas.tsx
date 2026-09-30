@@ -9,6 +9,7 @@ import {
   type AtlasInsets,
 } from "./atlas-model.js";
 import { useWorldStore } from "./world-store.js";
+import { tradeHighlight, tradeRelationArc } from "./trade-view.js";
 import {
   aggregateGlyph,
   drawPrimitives,
@@ -89,6 +90,9 @@ const POPULATION_LEGEND_MAX = 10_000_000;
 const POPULATION_LEGEND_PX = 0.45;
 /** Skala próbek stanów „0” i „brak danych” (mały znacznik -- czytelny kontur). */
 const POPULATION_STATE_PX = 1.2;
+
+/** R4B, TODO tuning: promień pierścienia partnera handlowego (jednostki diagramu). */
+const TRADE_RING = 30;
 
 /** TODO tuning: maksymalna liczba kropek osad zagregowanych (reszta jako „+n”). */
 const MINOR_SETTLEMENT_DOTS = 5;
@@ -180,6 +184,18 @@ export function FCLivingAtlas({
   // R4: warstwa Population (fakt populacji + pierścień) -- niezależna od zoomu.
   const populationLayer = useMemo(() => buildPopulationLayer(view.current), [view]);
   const populationMode = ui.mapMode === "population";
+  // R4B: tryb Handel -- tabela w inspektorze jest źródłem; Atlas pokazuje wybrany region,
+  // partnerów rozwiniętego towaru i (po wskazaniu partnera) kierunki wymiany.
+  const tradeMode = ui.mapMode === "trade";
+  const trade = useMemo(
+    () =>
+      tradeHighlight(
+        view.current.regions.find((r) => r.regionId === ui.selectedEntityId),
+        ui.tradeGoodId,
+        ui.tradePartnerId,
+      ),
+    [view, ui.selectedEntityId, ui.tradeGoodId, ui.tradePartnerId],
+  );
   // Klucz znaków rozwinięty domyślnie tylko, gdy jest krótki -- przy wielu klasach nie może
   // zasłaniać Atlasu (dominacja Atlasu, Golden v1.3 §26.2); rozwinięcie na żądanie.
   const [symbolsChoice, setSymbolsChoice] = useState<boolean>();
@@ -444,6 +460,51 @@ export function FCLivingAtlas({
           .lineTo(x - 7 * Math.cos(angle + 0.5), y - 7 * Math.sin(angle + 0.5))
           .stroke({ color: c, width: 2 });
       }
+      // R4B: partnerzy rozwiniętego towaru (pierścień info) i -- dla wskazanej pary --
+      // przerywane łuki relacji handlowej z grotem. Łuk ≠ trasa: odgięty od linii
+      // połączenia, bez grubości wg ilości i bez liczb na mapie.
+      const tradeLayer = new Graphics();
+      scene.addChild(tradeLayer);
+      if (trade) {
+        const info = color("--fc-info");
+        // Grubości i kreski w px ekranu (scena jest skalowana).
+        const px = (n: number) => n / Math.max(0.05, scale);
+        for (const partnerId of trade.partnerRegionIds) {
+          const p = positions.get(partnerId);
+          if (!p) continue;
+          // Wskazany partner wyraźniejszy; pozostali przygaszeni, ale widoczni.
+          const pointed = trade.pair?.partnerRegionId === partnerId;
+          tradeLayer.circle(p.x, p.y, TRADE_RING).stroke({
+            color: info,
+            width: px(pointed ? 3 : 2),
+            alpha: trade.pair && !pointed ? 0.45 : 1,
+          });
+        }
+        const self = ui.selectedEntityId ? positions.get(ui.selectedEntityId) : undefined;
+        const other = trade.pair ? positions.get(trade.pair.partnerRegionId) : undefined;
+        if (trade.pair && self && other) {
+          const directions = [
+            ...(trade.pair.imports ? [[other, self] as const] : []),
+            ...(trade.pair.exports ? [[self, other] as const] : []),
+          ];
+          for (const [from, to] of directions) {
+            const arc = tradeRelationArc(from, to, {
+              dash: px(7),
+              gap: px(5),
+              head: px(10),
+              trim: TRADE_RING + px(4),
+            });
+            for (const [a, b] of arc.dashes) tradeLayer.moveTo(a.x, a.y).lineTo(b.x, b.y);
+            tradeLayer.stroke({ color: info, width: px(2.5) });
+            const [l, tip, r] = arc.arrow;
+            tradeLayer
+              .moveTo(l.x, l.y)
+              .lineTo(tip.x, tip.y)
+              .lineTo(r.x, r.y)
+              .stroke({ color: info, width: px(2.5) });
+          }
+        }
+      }
       const labelBoxes: { x: number; y: number; w: number; h: number }[] = [];
       const context = {
         ...(view.baseline ? { baseline: view.baseline } : {}),
@@ -484,12 +545,13 @@ export function FCLivingAtlas({
         // skala absolutna jest w promieniu pierścienia, a morfologia zostaje neutralna.
         const intensity = populationMode
           ? POPULATION_EMPHASIS.morphology
-          : value === undefined || value === 0
+          : tradeMode || value === undefined || value === 0
             ? 1
             : 0.3 + 0.7 * Math.sqrt(Math.abs(value) / maxValue);
         const signed = ui.mapMode === "change";
+        // R4B: Handel nie koloruje regionów sumą ilości różnych towarów.
         const fill =
-          populationMode || value === undefined || value === 0
+          populationMode || tradeMode || value === undefined || value === 0
             ? neutral
             : color(
                 signed
@@ -682,7 +744,10 @@ export function FCLivingAtlas({
             : `${signed ? "Δ " : ""}${signed && value > 0 ? "+" : ""}${value.toLocaleString(i18n.language, { maximumFractionDigits: 1 })}`;
         const label = new Text({
           resolution: Math.max(1, scale * window.devicePixelRatio),
-          text: ui.mapMode === "terrain" ? region.name : `${region.name}\n${metricLabel}`,
+          text:
+            ui.mapMode === "terrain" || tradeMode
+              ? region.name
+              : `${region.name}\n${metricLabel}`,
           style: {
             fontFamily: "IBM Plex Sans",
             fontSize: 13 / Math.max(0.5, scale),
@@ -754,6 +819,25 @@ export function FCLivingAtlas({
         String(view.current.summary.currentTick),
       );
       host.current?.setAttribute("data-rendered-mode", ui.mapMode);
+      // R4B (testy E2E): wyróżnienia handlu faktycznie narysowane.
+      host.current?.setAttribute("data-trade-good", trade?.goodId ?? "");
+      host.current?.setAttribute(
+        "data-trade-partners",
+        trade ? [...trade.partnerRegionIds].sort().join(",") : "",
+      );
+      host.current?.setAttribute(
+        "data-trade-pair",
+        trade?.pair && ui.selectedEntityId
+          ? [
+              ui.selectedEntityId,
+              trade.pair.partnerRegionId,
+              [
+                ...(trade.pair.imports ? ["import"] : []),
+                ...(trade.pair.exports ? ["export"] : []),
+              ].join("+"),
+            ].join("|")
+          : "",
+      );
       host.current?.setAttribute("data-semantic-zoom", grammar.zoom);
       // R3 (testy E2E): klasy morfologii faktycznie narysowane -- niezależne od locale.
       // R4: także w trybie Population (ta sama morfologia co w Terrain).
@@ -823,6 +907,8 @@ export function FCLivingAtlas({
     symbolsOpen,
     populationLayer,
     populationMode,
+    tradeMode,
+    trade,
   ]);
   // Legenda obejmuje tylko zakres istniejących osad (§28.3: z danych, nie ze stałych progów),
   // więc nie zajmuje więcej miejsca niż kodowane elementy (UI Impl Spec v1.4 §L.8).
@@ -933,25 +1019,81 @@ export function FCLivingAtlas({
             </div>
           </>
         ) : (
-          classRange.length > 0 && (
-            <div
-              className="fc-atlas__legend-row"
-              data-testid="settlement-scale-legend"
-              data-legend-mode="terrain"
-            >
-              <strong>{t("world.atlas.settlementScale")}</strong>
-              {classRange.map((cls) => (
-                <span key={cls} data-settlement-class={cls}>
-                  <FCSettlementSample population={MORPHOLOGY_CLASS_SAMPLE[cls]} />
-                  {t(`world.atlas.settlementClass.${cls}`, { defaultValue: cls })}{" "}
-                  <small>
-                    ~
-                    {formatPopulationCompact(MORPHOLOGY_CLASS_SAMPLE[cls], i18n.language)}
-                  </small>
+          <>
+            {tradeMode && (
+              // R4B: legenda Handlu -- te same znaki co warstwa wyróżnień na mapie.
+              <div className="fc-atlas__legend-row" data-testid="trade-legend">
+                <strong>{t("world.trade.legend.title")}</strong>
+                <span data-trade-legend="selected">
+                  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="6"
+                      fill="none"
+                      stroke="var(--fc-accent)"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                  {t("world.trade.legend.selected")}
                 </span>
-              ))}
-            </div>
-          )
+                <span data-trade-legend="partner">
+                  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="6"
+                      fill="none"
+                      stroke="var(--fc-info)"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                  {t("world.trade.legend.partner")}
+                </span>
+                <span data-trade-legend="relation">
+                  <svg width="28" height="16" viewBox="0 0 28 16" aria-hidden="true">
+                    <path
+                      d="M2 13 Q14 1 26 13"
+                      fill="none"
+                      stroke="var(--fc-info)"
+                      strokeWidth="2"
+                      strokeDasharray="4 3"
+                    />
+                    <path
+                      d="M11 4.5 L15 7 L11 9.5"
+                      fill="none"
+                      stroke="var(--fc-info)"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                  {t("world.trade.legend.relation")}
+                </span>
+                {!trade && <small>{t("world.trade.legend.hint")}</small>}
+              </div>
+            )}
+            {classRange.length > 0 && (
+              <div
+                className="fc-atlas__legend-row"
+                data-testid="settlement-scale-legend"
+                data-legend-mode="terrain"
+              >
+                <strong>{t("world.atlas.settlementScale")}</strong>
+                {classRange.map((cls) => (
+                  <span key={cls} data-settlement-class={cls}>
+                    <FCSettlementSample population={MORPHOLOGY_CLASS_SAMPLE[cls]} />
+                    {t(`world.atlas.settlementClass.${cls}`, { defaultValue: cls })}{" "}
+                    <small>
+                      ~
+                      {formatPopulationCompact(
+                        MORPHOLOGY_CLASS_SAMPLE[cls],
+                        i18n.language,
+                      )}
+                    </small>
+                  </span>
+                ))}
+              </div>
+            )}
+          </>
         )}
         {grammar.legend.length > 0 && (
           <button

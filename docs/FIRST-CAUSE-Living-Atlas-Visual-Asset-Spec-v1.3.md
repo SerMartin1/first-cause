@@ -880,6 +880,30 @@ Pokazuje wybrany zasób, eksploatację i wyczerpanie.
 
 Podkreśla połączenia i przepływy.
 
+**Implementacja `M21-VIS-R4B` --- Handel (2026-09-30; IMPLEMENTED /
+TECHNICALLY VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE; kierunek:
+Canonical Decisions §52B).** Źródłem informacji jest tabela „Handel
+regionu” w inspektorze (TOWAR | PRZYWOZI | WYSYŁA, rozwijani
+partnerzy); Atlas jest pomocniczy:
+
+-   domyślnie teren, morfologia osad i sieć połączeń bez zmian; region
+    nie jest kolorowany sumą ilości różnych towarów, etykieta = sama
+    nazwa (bez liczb przy regionach i trasach); wejście w tryb nie
+    włącza Flow Lens;
+-   rozwinięty towar: pierścień `--fc-info` na rzeczywistych partnerach
+    (z danych bieżącego okresu);
+-   wskazany partner: przerywany łuk z grotem od eksportera do
+    importera, odgięty od linii połączenia (dwa kierunki pary po
+    przeciwnych stronach); stała grubość, bez kodowania ilości --- to
+    relacja handlowa, nie trasa; pozostali partnerzy przygaszeni;
+-   wyróżnienia znikają po zwinięciu towaru, zmianie regionu, zmianie
+    trybu i opuszczeniu zakładki Handel; nie zmieniają głównego wyboru;
+-   legenda trybu: wybrany region / partner / kierunek wymiany.
+
+Ograniczenie: dane handlu istnieją tylko na poziomie regionu. Kodowanie
+„grubość i kierunek krawędzi” z §28.5 (wszystkie przepływy naraz) nie
+jest używane w tym widoku --- zastąpione przez decyzję §52B.
+
 ## Technology
 
 Pokazuje adopcję/dyfuzję.

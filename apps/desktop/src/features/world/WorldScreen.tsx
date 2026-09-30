@@ -21,6 +21,7 @@ import {
   FCRegionVignette,
 } from "../../components/fc/index.js";
 import { FCLivingAtlas } from "./FCLivingAtlas.js";
+import { FCTradeTable } from "./FCTradeTable.js";
 import {
   MAP_MODES,
   OVERLAYS,
@@ -40,7 +41,10 @@ export function WorldScreen() {
   const [why, setWhy] = useState<WorldWhyView>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const [regionTab, setRegionTab] = useState("overview");
+  // R4B: w trybie Handel inspektor otwiera się na tabeli Handlu.
+  const [regionTab, setRegionTab] = useState(() =>
+    useWorldStore.getState().mapMode === "trade" ? "trade" : "overview",
+  );
   const [details, setDetails] = useState(false);
   // Moduły wspierające startują zwinięte: pierwszy ekran należy do Atlasu (§26.3 G, §19).
   const [openModules, setOpenModules] = useState<readonly string[]>([]);
@@ -342,14 +346,17 @@ export function WorldScreen() {
             <FCTabs
               aria-label={t("world.mapMode")}
               activeId={ui.mapMode}
-              onChange={(id) =>
+              onChange={(id) => {
+                // R4B: Handel czyta się z tabeli w inspektorze; Atlas nie nakłada
+                // domyślnie strzałek przepływów (Flow Lens zostaje osobnym wyborem).
                 ui.set({
                   mapMode: id as typeof ui.mapMode,
                   resourceId,
                   discoveryId,
-                  flowLens: id === "trade" ? "trade" : "off",
-                })
-              }
+                  flowLens: "off",
+                });
+                if (id === "trade") setRegionTab("trade");
+              }}
               tabs={MAP_MODES.map((id) => ({
                 id,
                 label: t(`world.mode.${id}`),
@@ -516,7 +523,13 @@ export function WorldScreen() {
         <aside className="fc-world__region" aria-label={t("world.inspector")}>
           <FCSection title={region?.name ?? t("world.selectedRegion")}>
             {!region ? (
-              <p className="fc-world__empty">{t("world.selectPrompt")}</p>
+              <p className="fc-world__empty">
+                {t(
+                  ui.mapMode === "trade"
+                    ? "world.trade.selectPrompt"
+                    : "world.selectPrompt",
+                )}
+              </p>
             ) : (
               <>
                 <p className="fc-caption">
@@ -526,13 +539,19 @@ export function WorldScreen() {
                 <FCTabs
                   aria-label={t("world.regionTabs")}
                   activeId={regionTab}
-                  onChange={setRegionTab}
+                  onChange={(id) => {
+                    setRegionTab(id);
+                    // Wyróżnienia handlu należą do zakładki Handel -- nie zostają poza nią.
+                    if (id !== "trade")
+                      ui.set({ tradeGoodId: undefined, tradePartnerId: undefined });
+                  }}
                   tabs={[
                     "overview",
                     "economy",
                     "population",
                     "resources",
                     "connections",
+                    "trade",
                   ].map((id) => ({ id, label: t(`world.tab.${id}`) }))}
                 />
                 {(regionTab === "overview" || regionTab === "population") && (
@@ -586,6 +605,9 @@ export function WorldScreen() {
                       {snapshot.regions.find((r) => r.regionId === id)?.name}
                     </FCTextButton>
                   ))}
+                {regionTab === "trade" && (
+                  <FCTradeTable region={region} snapshot={snapshot} format={format} />
+                )}
                 <div className="fc-world__inspector-actions">
                   <FCTextButton onClick={() => setDetails(!details)}>
                     {t("world.regionDetails")}

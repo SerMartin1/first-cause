@@ -653,6 +653,34 @@ zaakceptowana 2026-09-29)
 
 ------------------------------------------------------------------------
 
+# 52B. M21-VIS-R4B --- Handel: tabela według towarów
+
+**Status:** KIERUNEK ZAAKCEPTOWANY przez właściciela (2026-09-30);
+implementacja: PENDING HUMAN VISUAL ACCEPTANCE (akceptacja kierunku ≠
+akceptacja wizualna implementacji).
+
+-   Handel: jedna tabela według towarów z kolumnami Przywozi/Wysyła
+    oraz rozwijanymi szczegółami partnerów. Atlas pełni funkcję
+    pomocniczą.
+-   Przywóz i wywóz tego samego towaru są w jednym wierszu; kliknięcie
+    towaru rozwija pod nim partnerów (jeden wiersz na partnera, także
+    przy wymianie w obu kierunkach). Bez osobnych list przywozu i
+    wywozu, bez widoku według partnerów i bez macierzy towar × partner.
+-   Atlas domyślnie nie nakłada strzałek przepływów; po rozwinięciu
+    towaru wyróżnia jego partnerów, a kierunek wymiany pokazuje dopiero
+    po wskazaniu partnera. Relacja handlowa jest rysowana odrębnie od
+    fizycznej trasy.
+-   **Zakres danych = REGION.** Symulacja rejestruje handel między
+    rynkami/magazynami regionów wzdłuż bezpośredniego Connection; osada
+    nie ma własnego handlu. Widok nazywa się „Handel regionu” i nie
+    rozdziela danych regionu między osady.
+-   Ilość = towar faktycznie dostarczony w ostatnim zakończonym miesiącu
+    (fakt `trade_flow_active`, `values.after` = ilość przeniesiona przez
+    `settleTradeFlow`), w abstrakcyjnych jednostkach towaru; różnych
+    towarów się nie sumuje. Zero ≠ brak handlu ≠ brak danych.
+
+------------------------------------------------------------------------
+
 # 53. TECH-001 --- brak klasycznego tech tree
 
 **Status:** CANONICAL

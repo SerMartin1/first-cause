@@ -2,6 +2,7 @@ import {
   createCompany,
   createConnection,
   createInventory,
+  createMarket,
   createPopulationCohort,
   createRegion,
   createRegionGeography,
@@ -370,6 +371,15 @@ export function buildVisualWorldView(input: {
   readonly seed: string;
   readonly regions: readonly RegionSpec[];
   readonly connections: readonly ConnectionSpec[];
+  /**
+   * R4B: regiony z Market i regionalnym Inventory (w modelu handlu), bieżący
+   * tick świata oraz fakty dla Read Modelu -- domyślnie jak w R2 (bez rynków,
+   * tick 0, bez faktów). Fakty dostają id connection po kolejności `connections`.
+   */
+  readonly tradeRegionIds?: readonly string[];
+  readonly currentTick?: number;
+  readonly startDate?: { readonly year: number; readonly month: number };
+  readonly facts?: Parameters<typeof buildWorldSnapshot>[1];
 }): WorldView {
   const REGIONS = input.regions;
   const CONNECTIONS = input.connections;
@@ -378,7 +388,9 @@ export function buildVisualWorldView(input: {
     seed: input.seed,
     name: "VISUAL DEVELOPMENT DATA",
     configuration: { regionCount: REGIONS.length, worldSizePreset: "dev" },
+    ...(input.startDate ? { startDate: input.startDate } : {}),
   });
+  const tradeRegionIds = input.tradeRegionIds ?? [];
   const regions = REGIONS.map((spec) =>
     createRegion({
       id: spec.id,
@@ -467,19 +479,32 @@ export function buildVisualWorldView(input: {
       : connection;
   });
   const state = createWorldState({
-    world,
+    world: { ...world, currentTick: input.currentTick ?? world.currentTick },
     continents: [
       { id: "dev_continent", worldId: world.id, name: "Dev", regionIds: [], tags: [] },
     ],
     regions,
     settlements,
     populationCohorts: cohorts,
-    inventories,
+    inventories: [
+      ...inventories,
+      ...tradeRegionIds.map((id) =>
+        createInventory({
+          id: `${id}_region_inventory`,
+          ownerType: "region",
+          ownerId: id,
+          locationRegionId: id,
+        }),
+      ),
+    ],
+    markets: tradeRegionIds.map((id) =>
+      createMarket({ id: `${id}_market`, regionId: id }),
+    ),
     companies,
     resourceDeposits: deposits,
     connections,
   });
-  const current = buildWorldSnapshot(state, [], VISUAL_WORLD_CONTENT, []);
+  const current = buildWorldSnapshot(state, input.facts ?? [], VISUAL_WORLD_CONTENT, []);
   return {
     type: "WORLD_VIEW",
     current,

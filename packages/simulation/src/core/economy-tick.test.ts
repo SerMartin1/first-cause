@@ -1441,6 +1441,41 @@ describe("runEconomyTick -- trade emits trade_flow_active (M19 Chronicle trade_r
     expect((shipped.values as { after: number }).after).toBe(0);
   });
 
+  it("M21-VIS-R4B: a real tick's delivered flow reaches the region trade Read Model on both sides, for the last completed month", () => {
+    const { worldState } = buildTradeWorldState();
+    const runner = createWorldRunner({
+      worldState,
+      worldSeed: worldState.world.seed,
+      startYear: worldState.world.currentDate.year,
+      startMonth: worldState.world.currentDate.month,
+      productionRecipesByMethodId: { manual_farming: GRAIN_FARM_RECIPE },
+    });
+    runner.step();
+    const fact = runner.facts.find((f) => f.type === "trade_flow_active")!;
+    const delivered = (fact.values as { after: number }).after;
+    const snapshot = buildWorldSnapshot(runner.worldState, runner.facts);
+    const dest = snapshot.regions.find((r) => r.regionId === "region_dest")!.trade;
+    const source = snapshot.regions.find((r) => r.regionId === "region_source")!.trade;
+    if (dest.status !== "RECORDED" || source.status !== "RECORDED") throw new Error("expected RECORDED");
+    expect(dest.period.tick).toBe(fact.tick);
+    expect(dest.goods).toEqual([
+      {
+        goodId: "flour",
+        imported: { known: delivered, records: 1, unknownRecords: 0 },
+        exported: { known: 0, records: 0, unknownRecords: 0 },
+        partners: [
+          {
+            partnerRegionId: "region_source",
+            imported: { known: delivered, records: 1, unknownRecords: 0 },
+            exported: { known: 0, records: 0, unknownRecords: 0 },
+          },
+        ],
+      },
+    ]);
+    expect(source.goods[0]!.exported.known).toBe(delivered);
+    expect(source.goods[0]!.partners[0]!.partnerRegionId).toBe("region_dest");
+  });
+
   it("emits no trade_flow_active when neither direction has both surplus and demand", () => {
     const world = createWorld({
       id: "world_no_trade_test",

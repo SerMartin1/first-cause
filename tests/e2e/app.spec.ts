@@ -118,7 +118,7 @@ test("World atlas: events, WHY, history, map modes and locale share the real wor
       path: testInfo.outputPath("world-resources.png"),
       fullPage: true,
     });
-    await window.getByRole("tab", { name: "Trade", exact: true }).click();
+    await window.getByRole("tab", { name: "Trade", exact: true }).first().click();
     await window.screenshot({
       path: testInfo.outputPath("world-trade.png"),
       fullPage: true,

@@ -10,6 +10,23 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-30
 
+- **M21-VIS-R4B --- Handel według towarów (IMPLEMENTED / TECHNICALLY
+  VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE; R4B nie jest zamknięty).**
+  Kierunek właściciela zapisany w Canonical Decisions §52B: jedna tabela
+  TOWAR | PRZYWOZI | WYSYŁA z rozwijanymi partnerami, Atlas pomocniczy.
+  Nowy Read Model `region-trade-read-model.ts` (`WorldRegionView.trade`,
+  zakres = region, bo tak handluje symulacja; okres = ostatni
+  zakończony miesiąc; zero ≠ brak handlu ≠ brak danych, dane częściowe
+  jako „≥ n” / „—”). Zakładka „Handel” w inspektorze (klawiatura,
+  `aria-expanded` / `aria-pressed`, nagłówek `sticky`), wyróżnienia
+  partnerów i przerywane łuki relacji na Atlasie, legenda trybu, EN/PL.
+  Tryb Handel nie włącza już Flow Lens i nie koloruje regionów sumą
+  różnych towarów. Warstwa `flows` pomija wartości nieskończone (NaN
+  trafiał do Top Regions). Fixture `visual-trade-fixture.ts`, testy
+  jednostkowe i komponentowe, E2E `world-r4b-trade.spec.ts`,
+  screenshoty `docs/verification/world-r4b-trade-2026-09-30/`. Roadmapa
+  i Atlas Spec §14 zaktualizowane.
+
 - **Fakt `trade_flow_active` niesie ilość faktycznie dostarczoną
   (Simulation Core; bez nowej mechaniki).** Fakt podawał ilość ocenioną
   przez `evaluateTradeFlow`, choć `settleTradeFlow` mógł przenieść mniej

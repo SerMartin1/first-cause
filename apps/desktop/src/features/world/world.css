@@ -571,3 +571,105 @@
     display: none;
   }
 }
+
+/* M21-VIS-R4B -- Handel według towarów (inspektor regionu). Nagłówek tabeli
+   przykleja się do kontenera przewijania inspektora -- bez zagnieżdżonego
+   obszaru przewijania (audyt M10). */
+.fc-trade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fc-space-2);
+  margin-top: var(--fc-space-2);
+}
+.fc-trade__header h3 {
+  margin: 0;
+  font-size: var(--fc-text-subsection);
+  font-weight: 600;
+}
+.fc-trade__state {
+  padding: var(--fc-space-2) 0;
+  border-top: var(--fc-border-width) solid var(--fc-border);
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-trade__partial {
+  color: var(--fc-warning);
+}
+.fc-trade__table,
+.fc-trade__partners {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fc-text-data);
+}
+.fc-trade__table > thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--fc-bg);
+}
+.fc-trade__table th,
+.fc-trade__table td {
+  padding: var(--fc-space-1) var(--fc-space-1);
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+  text-align: left;
+  vertical-align: baseline;
+}
+.fc-trade__table thead th {
+  font-size: var(--fc-text-label);
+  font-weight: 500;
+  color: var(--fc-text-secondary);
+  border-bottom-color: var(--fc-border-strong);
+}
+.fc-trade__table .fc-trade__num {
+  text-align: right;
+  white-space: nowrap;
+}
+.fc-trade__table tbody th {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.fc-trade__good {
+  cursor: pointer;
+}
+.fc-trade__good:hover,
+.fc-trade__good[data-expanded="true"] {
+  background: var(--fc-selection);
+}
+.fc-world .fc-trade button {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.fc-trade__chevron {
+  display: inline-block;
+  width: 1.1em;
+  color: var(--fc-text-secondary);
+}
+.fc-trade__details > td {
+  padding: 0 0 var(--fc-space-2) var(--fc-space-4);
+  background: var(--fc-bg-elevated);
+}
+.fc-trade__partners th,
+.fc-trade__partners td {
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-trade__partners thead th {
+  white-space: normal;
+}
+.fc-world .fc-trade__partners button {
+  text-decoration: underline;
+  text-decoration-color: var(--fc-border-strong);
+  text-underline-offset: 2px;
+}
+.fc-world .fc-trade__partners button[aria-pressed="true"] {
+  color: var(--fc-info);
+  font-weight: 600;
+  text-decoration-color: var(--fc-info);
+}
+.fc-trade__unknown {
+  color: var(--fc-text-secondary);
+  font-style: italic;
+}

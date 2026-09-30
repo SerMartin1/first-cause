@@ -136,6 +136,8 @@ export function visualStressView(index: number): WorldView {
     companies: index * 3,
     housingPressure: 0.1,
     infrastructure: index,
+    // R4B: ręcznie wpisany Read Model nie ma zakończonego okresu handlu.
+    trade: { status: "NO_DATA", reason: "NO_COMPLETED_PERIOD" },
   };
   const current = {
     summary: {

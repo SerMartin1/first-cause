@@ -21,6 +21,10 @@ import {
   extinctionAfterView,
   extinctionBeforeView,
 } from "../src/features/world/visual-lifecycle-fixture.js";
+import {
+  TRADE_DEV_NAMES,
+  tradeView,
+} from "../src/features/world/visual-trade-fixture.js";
 import { MAP_MODES, type MapMode } from "../src/features/world/atlas-model.js";
 import { useWorldStore } from "../src/features/world/world-store.js";
 import "@fontsource/ibm-plex-sans/400.css";
@@ -40,6 +44,8 @@ import "../src/index.css";
 // R4: `population-ladder|zero-vs-no-data|population-civilization` oraz stan startowy UI:
 // `mode` (Map Mode), `zoom` (poziom zoomu), `select` (id zaznaczonego regionu).
 // SET-LIFECYCLE-001: `extinction-before|extinction-after` -- wymarcie osady (prawdziwy tick).
+// R4B: `trade` -- Handel według towarów; `good` (rozwinięty towar), `partner` (wskazany
+// partner), `lang` (`en` | `pl`).
 const params = new URLSearchParams(window.location.search);
 const fixture = params.get("fixture");
 const view =
@@ -59,7 +65,9 @@ const view =
                 ? extinctionBeforeView()
                 : fixture === "extinction-after"
                   ? extinctionAfterView()
-                  : visualWorldView();
+                  : fixture === "trade"
+                    ? tradeView()
+                    : visualWorldView();
 const initialMode = params.get("mode");
 useWorldStore.getState().set({
   ...(initialMode && (MAP_MODES as readonly string[]).includes(initialMode)
@@ -67,6 +75,11 @@ useWorldStore.getState().set({
     : {}),
   ...(params.get("zoom") ? { zoomLevel: Number(params.get("zoom")) } : {}),
   ...(params.get("select") ? { selectedEntityId: params.get("select")! } : {}),
+});
+// Rozwinięcie i wskazanie partnera po wyborze regionu (zmiana wyboru je czyści).
+useWorldStore.getState().set({
+  ...(params.get("good") ? { tradeGoodId: params.get("good")! } : {}),
+  ...(params.get("partner") ? { tradePartnerId: params.get("partner")! } : {}),
 });
 const world: WorldApi = {
   getWorld: () => Promise.resolve(view),
@@ -104,9 +117,10 @@ createRoot(document.getElementById("root")!).render(
   <I18nextProvider
     i18n={createI18n({
       resources: {
-        en: { common: { ...en, ...devNames } },
-        pl: { common: { ...pl, ...devNames } },
+        en: { common: { ...en, ...devNames, ...TRADE_DEV_NAMES.en } },
+        pl: { common: { ...pl, ...devNames, ...TRADE_DEV_NAMES.pl } },
       },
+      ...(params.get("lang") === "pl" ? { initialLocale: "pl" as const } : {}),
     })}
   >
     <App />

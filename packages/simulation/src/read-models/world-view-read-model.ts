@@ -35,6 +35,10 @@ import {
   type ResourceDepositReadModel,
 } from "./resource-deposit-read-model.js";
 import {
+  buildRegionTradeReadModels,
+  type RegionTradeView,
+} from "./region-trade-read-model.js";
+import {
   buildTechnologySummaryReadModel,
   type TechnologySummaryReadModel,
 } from "./technology-summary-read-model.js";
@@ -50,6 +54,8 @@ export interface WorldRegionView extends RegionSummaryReadModel {
   readonly companies: number;
   readonly housingPressure: number;
   readonly infrastructure: number;
+  /** M21-VIS-R4B: handel REGIONU w ostatnim zakończonym miesiącu (tabela według towarów). */
+  readonly trade: RegionTradeView;
 }
 export interface WorldConnectionView {
   readonly id: string;
@@ -174,6 +180,7 @@ export function buildWorldSnapshot(
   for (const fact of facts)
     if (fact.tick < state.world.currentTick && explainedIds.has(fact.id))
       latestChanges.set(fact.location.regionId, fact);
+  const tradeByRegion = buildRegionTradeReadModels(state, facts);
   const regions = Object.keys(state.regions)
     .sort()
     .map((id): WorldRegionView => {
@@ -210,6 +217,7 @@ export function buildWorldSnapshot(
           (sum, cid) => sum + state.connections[cid]!.infrastructure.level,
           0,
         ),
+        trade: tradeByRegion.get(id)!,
       };
     });
   const connections = Object.keys(state.connections)
@@ -236,7 +244,13 @@ export function buildWorldSnapshot(
     if (fact.tick !== state.world.currentTick - 1 || fact.type !== "trade_flow_active")
       continue;
     const c = connections.find((link) => fact.subject.entityId.startsWith(`${link.id}:`));
-    if (!c || typeof fact.values.after !== "number") continue;
+    // R4B: tylko skończona ilość (NaN nie jest wielkością przepływu -- zero ≠ brak danych).
+    if (
+      !c ||
+      typeof fact.values.after !== "number" ||
+      !Number.isFinite(fact.values.after)
+    )
+      continue;
     const to = fact.location.regionId;
     if (to !== c.from && to !== c.to) continue;
     flows.push({

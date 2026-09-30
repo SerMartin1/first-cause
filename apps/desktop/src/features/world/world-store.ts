@@ -18,6 +18,9 @@ interface WorldUiState {
   causalLink: { readonly from: string; readonly to: string } | undefined;
   resourceId: string;
   discoveryId: string;
+  /** R4B Handel: rozwinięty towar w tabeli Handlu i wskazany partner (tylko prezentacja). */
+  tradeGoodId: string | undefined;
+  tradePartnerId: string | undefined;
   set: (patch: Partial<Omit<WorldUiState, "set">>) => void;
 }
 export const useWorldStore = create<WorldUiState>((set) => ({
@@ -37,6 +40,8 @@ export const useWorldStore = create<WorldUiState>((set) => ({
   causalLink: undefined,
   resourceId: "",
   discoveryId: "",
+  tradeGoodId: undefined,
+  tradePartnerId: undefined,
   set: (patch) =>
     set((state) => ({
       ...("selectedEntityId" in patch && patch.selectedEntityId !== state.selectedEntityId
@@ -47,6 +52,13 @@ export const useWorldStore = create<WorldUiState>((set) => ({
         patch.focusMode === false) &&
       !("causalLink" in patch)
         ? { causalLink: undefined }
+        : {}),
+      // R4B: zmiana wybranego regionu albo trybu mapy usuwa rozwinięcie i wskazanie
+      // partnera -- szczegóły poprzedniego regionu nie zostają na mapie ani w tabeli.
+      ...(("selectedEntityId" in patch &&
+        patch.selectedEntityId !== state.selectedEntityId) ||
+      ("mapMode" in patch && patch.mapMode !== state.mapMode)
+        ? { tradeGoodId: undefined, tradePartnerId: undefined }
         : {}),
       ...patch,
     })),
