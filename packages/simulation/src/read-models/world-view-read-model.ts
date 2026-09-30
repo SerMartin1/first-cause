@@ -39,6 +39,10 @@ import {
   type RegionTradeView,
 } from "./region-trade-read-model.js";
 import {
+  buildRegionEconomyReadModels,
+  type RegionEconomyView,
+} from "./region-economy-read-model.js";
+import {
   buildTechnologySummaryReadModel,
   type TechnologySummaryReadModel,
 } from "./technology-summary-read-model.js";
@@ -50,12 +54,17 @@ export interface WorldRegionView extends RegionSummaryReadModel {
   readonly settlements: readonly SettlementSummaryReadModel[];
   readonly deposits: readonly ResourceDepositReadModel[];
   readonly technology: TechnologySummaryReadModel | undefined;
-  readonly production: number;
   readonly companies: number;
   readonly housingPressure: number;
   readonly infrastructure: number;
   /** M21-VIS-R4B: handel REGIONU w ostatnim zakończonym miesiącu (tabela według towarów). */
   readonly trade: RegionTradeView;
+  /**
+   * M21-VIS-R4B Economy (Canonical §52C): zatrudnienie w firmach (miara trybu),
+   * sprzedaż firm i produkcja według towarów. Zastępuje dawne `production`
+   * (suma `outputLastTick` różnych towarów bez wspólnej jednostki).
+   */
+  readonly economy: RegionEconomyView;
 }
 export interface WorldConnectionView {
   readonly id: string;
@@ -172,7 +181,12 @@ export function buildWorldSnapshot(
   state: WorldState,
   facts: readonly SimulationFact[],
   /** Mapy z contentu dla profilu wizualnego (sektory, rodziny wydobycia, rodziny tras). */
-  visualContent: BuildRegionVisualProfileOptions = {},
+  visualContent: BuildRegionVisualProfileOptions & {
+    /** R4B Economy: `methodId -> goodOutputsPerBatch` (content) -- podział produkcji na towary. */
+    readonly goodOutputsPerBatchByMethodId?: Readonly<
+      Record<string, Readonly<Record<string, number>>>
+    >;
+  } = {},
   edges: readonly CausalEdge[] = [],
 ): WorldSnapshot {
   const explainedIds = new Set(edges.map((e) => e.targetFactId));
@@ -181,6 +195,10 @@ export function buildWorldSnapshot(
     if (fact.tick < state.world.currentTick && explainedIds.has(fact.id))
       latestChanges.set(fact.location.regionId, fact);
   const tradeByRegion = buildRegionTradeReadModels(state, facts);
+  const economyByRegion = buildRegionEconomyReadModels(
+    state,
+    visualContent.goodOutputsPerBatchByMethodId,
+  );
   const regions = Object.keys(state.regions)
     .sort()
     .map((id): WorldRegionView => {
@@ -207,7 +225,6 @@ export function buildWorldSnapshot(
         settlements,
         deposits: buildResourceDepositReadModels(state, id),
         technology: buildTechnologySummaryReadModel(state, id),
-        production: companies.reduce((sum, c) => sum + c.production.outputLastTick, 0),
         companies: companies.length,
         housingPressure: settlements.reduce(
           (max, s) => Math.max(max, s.housing.pressure),
@@ -218,6 +235,7 @@ export function buildWorldSnapshot(
           0,
         ),
         trade: tradeByRegion.get(id)!,
+        economy: economyByRegion.get(id)!,
       };
     });
   const connections = Object.keys(state.connections)

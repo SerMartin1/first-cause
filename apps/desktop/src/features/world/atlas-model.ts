@@ -1,5 +1,6 @@
 import type { WorldRegionView, WorldSnapshot } from "@first-cause/simulation";
 import { regionPopulationFact } from "./population-mode.js";
+import { regionEmploymentFact } from "./economy-mode.js";
 
 export const MAP_MODES = [
   // Widok bazowy (dawniej DEFAULT): osadnictwo i połączenia bez warstwy danych.
@@ -43,7 +44,9 @@ export function effectiveFlowLens(lens: FlowLens): FlowLens {
 }
 export const CHANGE_METRICS = [
   "population",
-  "production",
+  // R4B Economy (§52C, D3): zmiana zatrudnienia w firmach -- zastępuje dawną
+  // „produkcję”, która sumowała ilości różnych towarów.
+  "employment",
   "resources",
   "trade",
   "infrastructure",
@@ -74,8 +77,10 @@ function changeValue(
   switch (ctx.changeMetric ?? "population") {
     case "population":
       return r.population;
-    case "production":
-      return r.production;
+    case "employment": {
+      const fact = regionEmploymentFact(r);
+      return fact.kind === "known" ? fact.value : undefined;
+    }
     case "resources":
       return MODE_METRICS.resources(r, world, ctx);
     case "trade":
@@ -101,7 +106,12 @@ export const MODE_METRICS: Record<
     const fact = regionPopulationFact(r);
     return fact.kind === "known" ? fact.value : undefined;
   },
-  economy: (r) => r.production,
+  // R4B (§52C): zatrudnieni w przedsiębiorstwach -- jedna miara o wspólnej jednostce
+  // (osoby), nie suma ilości różnych towarów; brak danych → undefined, znane zero → 0.
+  economy: (r) => {
+    const fact = regionEmploymentFact(r);
+    return fact.kind === "known" ? fact.value : undefined;
+  },
   resources: (r, _w, ctx) => {
     const deposits = r.deposits.filter(
       (d) => d.resourceDefinitionId === ctx.resourceId && d.quantity !== undefined,

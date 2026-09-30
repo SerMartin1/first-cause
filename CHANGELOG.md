@@ -10,6 +10,38 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-30
 
+- **M21-VIS-R4B Economy --- zatrudnienie w przedsiębiorstwach
+  (IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE).** Decyzje właściciela
+  D1--D5 zapisane w Canonical Decisions §52C. Read Model
+  `region-economy-read-model.ts` (`WorldRegionView.economy`: zatrudnienie,
+  sprzedaż firm z „brak danych” poza modelem rynku, produkcja per towar z
+  proporcji receptur, cena lokalna); usunięte pole `production`, które
+  sumowało ilości różnych towarów. Tryb Economy: kwadrat „Economic Output”
+  (Visual Alphabet §8) ze stałymi klasami 10 / 100 / 1000 / 10 000, 0 ≠
+  brak danych, legenda z jednostką, zaznaczenie narożnikami; zakładka
+  „Gospodarka regionu” (zatrudnienie, sprzedaż jako informacja dodatkowa,
+  tabela Towar · Wytworzono · Cena lokalna z „jedn.”, brak ceny „—”, bez
+  sumy); World Pulse „Zatrudnieni w firmach”; Δ Change „Zatrudnienia w
+  firmach” zamiast produkcji; Top Regions z klasą i jednostką. Testy
+  jednostkowe (Read Model, tryb, panel, Δ, PL/EN), E2E
+  `world-r4b-economy.spec.ts` (w tym prawdziwa gra Black Mountain),
+  `app.spec.ts` na nową opcję Δ; Atlas Spec §14 i Roadmapa zaktualizowane;
+  materiały `docs/verification/world-r4b-economy-2026-09-30/`.
+
+- **M21-VIS-R4B Economy --- audyt danych i propozycja wizualna (PROPOZYCJA
+  do decyzji właściciela; bez zmian kodu produkcyjnego).** Diagnoza: obecna
+  metryka Economy (`WorldRegionView.production` = suma `outputLastTick`
+  aktywnych firm) sumuje ilości różnych towarów (mąka + chleb, łącznie z
+  półproduktami) bez wspólnej jednostki; ta sama suma zasila World Pulse
+  „Produkcja / miesiąc” i Δ Change „Produkcja”; intensywność normalizowana do
+  najlepszego regionu, 0 i brak danych rysowane tak samo. Dwa warianty
+  (A: zatrudnieni w przedsiębiorstwach --- rekomendowany; B: sprzedaż firm /
+  miesiąc po cenach lokalnych) z kodowaniem Visual Alphabet §8 (kwadrat,
+  klasy absolutne). Materiał: `docs/verification/world-r4b-economy-proposal-2026-09-30/`
+  (zrzuty 1920×1080 i 1280×800, PL/EN, z zaznaczeniem i bez; łatka
+  `economy-prototype.patch` na bazie `57e5533`, stosowana tylko w osobnym
+  worktree).
+
 - **Closeout: M21-VIS-R4B Handel zaakceptowany (dokumentacja; bez zmian
   kodu).** Właściciel zaakceptował tryb Handel: kierunek i implementację
   (Canonical §52B → ACCEPTED, łącznie z ustaleniami implementacyjnymi:

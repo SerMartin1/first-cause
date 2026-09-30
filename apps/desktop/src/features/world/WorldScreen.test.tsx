@@ -372,21 +372,34 @@ describe("World UI", () => {
     const region = {
       regionId: "r",
       population: 100,
-      production: 50,
-    } as WorldView["current"]["regions"][number];
+      economy: { employment: 50 },
+    } as unknown as WorldView["current"]["regions"][number];
     const ctx = { resourceId: "", discoveryId: "" };
     expect(MODE_METRICS.change(region, snapshot, ctx)).toBeUndefined();
     const baseline = {
       ...snapshot,
-      regions: [{ ...region, population: 120, production: 30 }],
+      regions: [
+        { ...region, population: 120, economy: { employment: 30 } } as unknown as typeof region,
+      ],
     };
     expect(MODE_METRICS.change(region, snapshot, { ...ctx, baseline })).toBe(-20);
     expect(
       MODE_METRICS.change(region, snapshot, {
         ...ctx,
         baseline,
-        changeMetric: "production",
+        changeMetric: "employment",
       }),
     ).toBe(20);
+    // R4B Economy (§52C, D3): brak zatrudnienia w bazie = brak zmiany, nie 0.
+    expect(
+      MODE_METRICS.change(region, snapshot, {
+        ...ctx,
+        baseline: {
+          ...snapshot,
+          regions: [{ ...region, economy: undefined } as unknown as typeof region],
+        },
+        changeMetric: "employment",
+      }),
+    ).toBeUndefined();
   });
 });

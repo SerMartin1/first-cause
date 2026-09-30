@@ -58,6 +58,15 @@ import {
   zeroPopulationPrimitives,
   type PopulationMark,
 } from "./population-mode.js";
+import {
+  economyClass,
+  economyClassLabels,
+  formatEmploymentCompact,
+  regionEmploymentFact,
+  ECONOMY_SQUARE,
+  type EconomyFact,
+} from "./economy-mode.js";
+import { FCEconomyChip } from "./FCEconomyPanel.js";
 
 /** Skala znaków aktywności względem układu 12×12 i odstępy w rzędzie (jednostki diagramu). */
 const GLYPH_K = 1.45;
@@ -188,6 +197,13 @@ export function FCLivingAtlas({
   // R4B: tryb Handel -- tabela w inspektorze jest źródłem; Atlas pokazuje wybrany region,
   // partnerów rozwiniętego towaru i (po wskazaniu partnera) kierunki wymiany.
   const tradeMode = ui.mapMode === "trade";
+  // R4B Economy (§52C): kwadrat klasy zatrudnienia (Visual Alphabet §8) obok
+  // niezmienionej morfologii osad.
+  const economyMode = ui.mapMode === "economy";
+  const economyFacts = useMemo(
+    () => new Map(view.current.regions.map((r) => [r.regionId, regionEmploymentFact(r)])),
+    [view],
+  );
   const trade = useMemo(
     () =>
       tradeHighlight(
@@ -202,7 +218,8 @@ export function FCLivingAtlas({
   const [symbolsChoice, setSymbolsChoice] = useState<boolean>();
   // W trybie Population znaki aktywności są drugorzędne -- ich klucz domyślnie zwinięty.
   const symbolsOpen =
-    symbolsChoice ?? (!populationMode && grammar.legend.length <= SYMBOL_KEY_OPEN_MAX);
+    symbolsChoice ??
+    (!populationMode && !economyMode && grammar.legend.length <= SYMBOL_KEY_OPEN_MAX);
   useEffect(() => {
     let disposed = false;
     let instance: Application | undefined;
@@ -343,11 +360,18 @@ export function FCLivingAtlas({
           : mark.fact.value === 0
             ? t("world.population.zeroLabel")
             : formatPopulationCompact(mark.fact.value, i18n.language);
+      const economyValueLabel = (fact: EconomyFact) =>
+        fact.kind === "unavailable"
+          ? t("world.economy.noDataLabel")
+          : fact.value === 0
+            ? t("world.economy.zeroLabel")
+            : formatEmploymentCompact(fact.value, i18n.language);
       // Hierarchia warstw §27.2: przy aktywnym Map Mode dane nad cywilizacją nad geografią.
       const dataMode = ui.mapMode !== "terrain";
       // R4 Population: pierwszy plan = pierścień + morfologia + wartość; nazwa, trasy i
       // woda do orientacji; rzeźba, roślinność, przemysł i wydobycie przygaszone.
-      const deEmphasis = populationMode
+      const deEmphasis =
+        populationMode || economyMode
         ? POPULATION_EMPHASIS.activity
         : dataMode
           ? 0.6
@@ -357,7 +381,8 @@ export function FCLivingAtlas({
         ui.focusMode && !!ui.selectedEntityId && regionId !== ui.selectedEntityId;
       // GEOGRAPHY: pole regionu (ton gruntu, rzeźba, roślinność, woda) -- tło, nie konkuruje z danymi.
       const geography = new Graphics();
-      geography.alpha = populationMode
+      geography.alpha =
+        populationMode || economyMode
         ? POPULATION_EMPHASIS.geography
         : dataMode
           ? 0.45
@@ -379,7 +404,8 @@ export function FCLivingAtlas({
       }
       // CIVILIZATION / trasy: infrastruktura rysowana NA KRAWĘDZI (§28.6), styl z rodziny trasy w contencie.
       const routes = new Graphics();
-      routes.alpha = populationMode ? POPULATION_EMPHASIS.routes : dataMode ? 0.7 : 1;
+      routes.alpha =
+        populationMode || economyMode ? POPULATION_EMPHASIS.routes : dataMode ? 0.7 : 1;
       scene.addChild(routes);
       const borderColor = color("--fc-border-strong");
       if (ui.overlays.includes("connections"))
@@ -521,7 +547,8 @@ export function FCLivingAtlas({
         const value = values.get(region.regionId);
         // Population nie normalizuje intensywności do najliczniejszego regionu (§28.5):
         // skala absolutna jest w promieniu pierścienia, a morfologia zostaje neutralna.
-        const intensity = populationMode
+        const intensity =
+          populationMode || economyMode
           ? POPULATION_EMPHASIS.morphology
           : tradeMode || value === undefined || value === 0
             ? 1
@@ -529,7 +556,7 @@ export function FCLivingAtlas({
         const signed = ui.mapMode === "change";
         // R4B: Handel nie koloruje regionów sumą ilości różnych towarów.
         const fill =
-          populationMode || tradeMode || value === undefined || value === 0
+          populationMode || tradeMode || economyMode || value === undefined || value === 0
             ? neutral
             : color(
                 signed
@@ -557,8 +584,8 @@ export function FCLivingAtlas({
           node.addChild(populationGraphics(mark, ringRadius, scale));
         const marker = new Graphics();
         // Region bez osad w widoku bazowym: pusty pierścień (miejsce w świecie, nie osada).
-        if (populationMode) {
-          // Stan regionu bez osad niesie już znak warstwy Population.
+        if (populationMode || economyMode) {
+          // Stan regionu bez osad niesie już znak warstwy Population / Economy.
         } else if (!hasSettlements && ui.mapMode === "terrain")
           marker.circle(0, 0, 3.5).stroke({ color: neutral, width: 1, alpha: 0.7 });
         else if (!hasSettlements)
@@ -585,7 +612,7 @@ export function FCLivingAtlas({
           }
           // Zaznaczenie: jeden obrys całej grupy osad regionu (nie pierścień na każdej osadzie).
           // R4.1: w trybie Population zaznaczenie rysują narożniki (niżej), nie elipsa.
-          if (selected && rg.settlements.length && !populationMode) {
+          if (selected && rg.settlements.length && !populationMode && !economyMode) {
             const reach = Math.max(
               ...rg.settlements.map(
                 (p) => Math.abs(p.y) + p.radius * settlementBoost(p.radius, scale),
@@ -685,6 +712,76 @@ export function FCLivingAtlas({
             node.addChild(more);
           }
         }
+        // R4B Economy: kwadrat klasy obok śladu osad (stały rozmiar ekranowy).
+        const econ = economyMode ? economyFacts.get(region.regionId) : undefined;
+        let economyReach = 0;
+        if (econ) {
+          const k = 1 / Math.max(0.5, scale);
+          const cls = econ.kind === "known" ? economyClass(econ.value) : 0;
+          const side = ECONOMY_SQUARE.side[cls] * k;
+          const x0 = Math.max(18, extent.right + 8);
+          const cy = -12 + 8 * k;
+          const sq = new Graphics();
+          if (econ.kind === "unavailable") {
+            // Brak danych: przerywany kontur `muted` (jak Population).
+            const h = side / 2,
+              d = 2.2 * k;
+            const sides: [number, number, number, number][] = [
+              [x0, cy - h, x0 + side, cy - h],
+              [x0 + side, cy - h, x0 + side, cy + h],
+              [x0 + side, cy + h, x0, cy + h],
+              [x0, cy + h, x0, cy - h],
+            ];
+            for (const [ax, ay, bx, by] of sides) {
+              const len = Math.hypot(bx - ax, by - ay);
+              for (let t0 = 0; t0 < len; t0 += d * 2) {
+                const t1 = Math.min(len, t0 + d);
+                sq.moveTo(ax + ((bx - ax) * t0) / len, ay + ((by - ay) * t0) / len).lineTo(
+                  ax + ((bx - ax) * t1) / len,
+                  ay + ((by - ay) * t1) / len,
+                );
+              }
+            }
+            sq.stroke({ color: color("--fc-text-muted"), width: ECONOMY_SQUARE.stroke * k });
+          } else if (cls === 0) {
+            // Znane zero: pełny cienki kontur, bez wypełnienia.
+            sq.rect(x0, cy - side / 2, side, side).stroke({
+              color: neutral,
+              width: ECONOMY_SQUARE.stroke * k,
+              alpha: 0.8,
+            });
+          } else {
+            sq.rect(x0, cy - side / 2, side, side)
+              .fill({ color: color("--fc-info"), alpha: ECONOMY_SQUARE.alpha[cls] })
+              .stroke({ color: color("--fc-info"), width: 1 * k });
+          }
+          node.addChild(sq);
+          economyReach = x0 + ECONOMY_SQUARE.side[5] * k + (selected ? 12 : 6) * k;
+          if (selected) {
+            // Zaznaczenie ≠ klasa: narożniki akcentu wokół kwadratu i śladu osad.
+            const brackets = new Graphics();
+            const left = Math.min(-12, extent.left - 4),
+              right = x0 + side + 4 * k,
+              topY = Math.min(cy - side / 2 - 4 * k, -14),
+              bottomY = Math.max(cy + side / 2 + 4 * k, 14, extent.bottom + 4);
+            const arm = 6 * k;
+            brackets
+              .moveTo(left, topY + arm)
+              .lineTo(left, topY)
+              .lineTo(left + arm, topY)
+              .moveTo(right - arm, topY)
+              .lineTo(right, topY)
+              .lineTo(right, topY + arm)
+              .moveTo(right, bottomY - arm)
+              .lineTo(right, bottomY)
+              .lineTo(right - arm, bottomY)
+              .moveTo(left + arm, bottomY)
+              .lineTo(left, bottomY)
+              .lineTo(left, bottomY - arm)
+              .stroke({ color: accent, width: 2 * k });
+            node.addChild(brackets);
+          }
+        }
         if (selected && populationMode) {
           // Zaznaczenie ≠ pierścień populacji: narożniki w kolorze akcentu (2 px, Design System).
           const brackets = new Graphics();
@@ -695,7 +792,7 @@ export function FCLivingAtlas({
               .lineTo(line[4]!, line[5]!);
           brackets.stroke({ color: accent, width: 2 / Math.max(0.5, scale) });
           node.addChild(brackets);
-        } else if (selected && !region.settlements.length)
+        } else if (selected && !region.settlements.length && !economyMode)
           marker.circle(0, 0, 12).stroke({ color: accent, width: 2 });
         if (ui.hoveredRegionId === region.regionId)
           marker.circle(0, 0, 44).stroke({ color: accent, width: 1 });
@@ -717,7 +814,9 @@ export function FCLivingAtlas({
         );
         const metricLabel = populationMode
           ? populationValueLabel(mark)
-          : value === undefined
+          : econ
+            ? economyValueLabel(econ)
+            : value === undefined
             ? "—"
             : `${signed ? "Δ " : ""}${signed && value > 0 ? "+" : ""}${value.toLocaleString(i18n.language, { maximumFractionDigits: 1 })}`;
         const label = new Text({
@@ -735,7 +834,7 @@ export function FCLivingAtlas({
         // Etykieta obok śladu osad (duże osady nie wchodzą pod napis).
         // R4.1: w trybie Population etykieta stoi też poza pierścieniem (bez interferencji).
         label.position.set(
-          point.x + Math.max(44, extent.right + 8, ringRadius + 6),
+          point.x + Math.max(44, extent.right + 8, ringRadius + 6, economyReach),
           point.y - 12,
         );
         const box = { x: label.x, y: label.y, w: label.width, h: label.height };
@@ -759,7 +858,11 @@ export function FCLivingAtlas({
           label.destroy();
           // Population: wartość jest informacją pierwszego planu -- gdy budżet nazw się
           // wyczerpie, zostaje sama zwarta wartość (bez nazwy), o ile nie koliduje.
-          if (populationMode && ui.overlays.includes("names") && !ui.focusMode) {
+          if (
+            (populationMode || economyMode) &&
+            ui.overlays.includes("names") &&
+            !ui.focusMode
+          ) {
             const valueOnly = new Text({
               resolution: Math.max(1, scale * window.devicePixelRatio),
               text: metricLabel,
@@ -857,6 +960,16 @@ export function FCLivingAtlas({
           : "",
       );
       host.current?.setAttribute("data-semantic-zoom", grammar.zoom);
+      // R4B Economy (testy E2E): klasa albo „none” (brak danych) per region.
+      host.current?.setAttribute(
+        "data-economy-classes",
+        economyMode
+          ? [...economyFacts.entries()]
+              .map(([id, f]) => `${id}=${f.kind === "known" ? economyClass(f.value) : "none"}`)
+              .sort()
+              .join(",")
+          : "",
+      );
       // R3 (testy E2E): klasy morfologii faktycznie narysowane -- niezależne od locale.
       // R4: także w trybie Population (ta sama morfologia co w Terrain).
       host.current?.setAttribute(
@@ -890,7 +1003,7 @@ export function FCLivingAtlas({
       // R4.1 (testy E2E): kształt znacznika zaznaczenia -- w Population narożniki, nie okrąg.
       host.current?.setAttribute(
         "data-selection-marker",
-        ui.selectedEntityId ? (populationMode ? "brackets" : "outline") : "",
+        ui.selectedEntityId ? (populationMode || economyMode ? "brackets" : "outline") : "",
       );
       // Tożsamość morfologii (osada:klasa:wariant[m]) -- dowód, że tryb nie zmienia osady.
       host.current?.setAttribute(
@@ -927,6 +1040,8 @@ export function FCLivingAtlas({
     populationMode,
     tradeMode,
     trade,
+    economyMode,
+    economyFacts,
   ]);
   // Legenda obejmuje tylko zakres istniejących osad (§28.3: z danych, nie ze stałych progów),
   // więc nie zajmuje więcej miejsca niż kodowane elementy (UI Impl Spec v1.4 §L.8).
@@ -1034,6 +1149,30 @@ export function FCLivingAtlas({
                 />
                 {t("world.population.noDataLegend")}
               </span>
+            </div>
+          </>
+        ) : economyMode ? (
+          // R4B Economy: legenda -- te same kwadraty co na mapie, klasy stałe.
+          <>
+            <div className="fc-atlas__legend-row" data-testid="economy-legend">
+              <strong>{t("world.economy.legendTitle")}</strong>
+              {economyClassLabels(i18n.language).map((label, i) => (
+                <span key={label} data-economy-class={i + 1}>
+                  <FCEconomyChip cls={(i + 1) as 1 | 2 | 3 | 4 | 5} />
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div className="fc-atlas__legend-row">
+              <span data-economy-legend-state="zero">
+                <FCEconomyChip cls={0} />
+                {t("world.economy.zeroLegend")}
+              </span>
+              <span data-economy-legend-state="unavailable">
+                <FCEconomyChip cls="none" />
+                {t("world.economy.noDataLegend")}
+              </span>
+              <small>{t("world.economy.scaleNote")}</small>
             </div>
           </>
         ) : (
@@ -1167,3 +1306,4 @@ export function FCLivingAtlas({
     </div>
   );
 }
+

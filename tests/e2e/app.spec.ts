@@ -103,7 +103,7 @@ test("World atlas: events, WHY, history, map modes and locale share the real wor
       fullPage: true,
     });
     await window.getByRole("tab", { name: "Δ Change" }).click();
-    await window.getByLabel("Change in", { exact: true }).selectOption("production");
+    await window.getByLabel("Change in", { exact: true }).selectOption("employment");
     await window.screenshot({
       path: testInfo.outputPath("world-event-why.png"),
       fullPage: true,

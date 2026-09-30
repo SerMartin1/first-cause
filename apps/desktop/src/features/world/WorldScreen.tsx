@@ -22,6 +22,13 @@ import {
 } from "../../components/fc/index.js";
 import { FCLivingAtlas } from "./FCLivingAtlas.js";
 import { FCTradeTable } from "./FCTradeTable.js";
+import { FCEconomyChip, FCEconomyPanel } from "./FCEconomyPanel.js";
+import {
+  economyClass,
+  formatEmploymentFull,
+  regionEmploymentFact,
+  worldEmployment,
+} from "./economy-mode.js";
 import {
   MAP_MODES,
   OVERLAYS,
@@ -46,7 +53,11 @@ export function WorldScreen() {
   const [busy, setBusy] = useState(false);
   // R4B: w trybie Handel inspektor otwiera się na tabeli Handlu.
   const [regionTab, setRegionTab] = useState(() =>
-    useWorldStore.getState().mapMode === "trade" ? "trade" : "overview",
+    useWorldStore.getState().mapMode === "trade"
+      ? "trade"
+      : useWorldStore.getState().mapMode === "economy"
+        ? "economy"
+        : "overview",
   );
   const [details, setDetails] = useState(false);
   // Moduły wspierające startują zwinięte: pierwszy ekran należy do Atlasu (§26.3 G, §19).
@@ -256,11 +267,9 @@ export function WorldScreen() {
   const pulse = (
     [
       ["population", t("world.population"), (w) => w.summary.totalPopulation],
-      [
-        "production",
-        t("world.production"),
-        (w) => w.regions.reduce((sum, r) => sum + r.production, 0),
-      ],
+      // R4B Economy (§52C, D2): suma zatrudnienia w firmach (stan, bez „/ miesiąc”)
+      // zamiast dawnej „produkcji”, która sumowała ilości różnych towarów.
+      ["employment", t("world.economy.pulse"), (w) => worldEmployment(w.regions)],
       ["companies", t("world.activeCompanies"), (w) => w.summary.activeCompanyCount],
       ["settlements", t("world.settlements"), (w) => w.summary.settlementCount],
     ] as const satisfies readonly (readonly [
@@ -306,7 +315,11 @@ export function WorldScreen() {
               <div key={metric.id}>
                 <dt>{metric.label}</dt>
                 <dd>
-                  <span className="fc-data">{format(metric.current)}</span>{" "}
+                  <span className="fc-data">
+                    {metric.id === "employment"
+                      ? formatEmploymentFull(metric.current, i18n.language)
+                      : format(metric.current)}
+                  </span>{" "}
                   <span
                     className={`fc-data fc-world__delta${
                       metric.delta === undefined || metric.delta === 0
@@ -360,6 +373,7 @@ export function WorldScreen() {
                   flowLens: "off",
                 });
                 if (id === "trade") setRegionTab("trade");
+                if (id === "economy") setRegionTab("economy");
               }}
               tabs={MAP_MODES.map((id) => ({
                 id,
@@ -576,11 +590,19 @@ export function WorldScreen() {
                     value={formatRegionPopulation(region)}
                   />
                 )}
-                {(regionTab === "overview" || regionTab === "economy") && (
+                {regionTab === "economy" && (
+                  <FCEconomyPanel region={region} snapshot={snapshot} format={format} />
+                )}
+                {regionTab === "overview" && (
                   <>
                     <FCMetric
-                      label={t("world.production")}
-                      value={format(region.production)}
+                      label={t("world.economy.employment")}
+                      value={(() => {
+                        const fact = regionEmploymentFact(region);
+                        return fact.kind === "known"
+                          ? `${formatEmploymentFull(fact.value, i18n.language)} ${t("world.economy.employmentUnit")}`
+                          : t("world.economy.noDataLabel");
+                      })()}
                     />
                     <FCMetric
                       label={t("world.activeCompanies")}
@@ -970,7 +992,11 @@ export function WorldScreen() {
         <FCSupportModule
           className="fc-world__ranking"
           title={t("world.topRegions")}
-          meta={t(`world.mode.${rankByPopulation ? "population" : ui.mapMode}`)}
+          meta={
+            ui.mapMode === "economy"
+              ? t("world.economy.employment")
+              : t(`world.mode.${rankByPopulation ? "population" : ui.mapMode}`)
+          }
           {...moduleProps("ranking")}
         >
           <ol>
@@ -983,10 +1009,25 @@ export function WorldScreen() {
                 >
                   {r.name}
                 </FCTextButton>
-                <span className="fc-data">{format(rankValue(r)!)}</span>
+                {ui.mapMode === "economy" ? (
+                  <span className="fc-data fc-economy__rank" data-economy-rank={r.regionId}>
+                    <FCEconomyChip cls={economyClass(rankValue(r)!)} />
+                    {formatEmploymentFull(rankValue(r)!, i18n.language)}{" "}
+                    <span className="fc-caption">{t("world.economy.employmentUnit")}</span>
+                  </span>
+                ) : (
+                  <span className="fc-data">{format(rankValue(r)!)}</span>
+                )}
               </li>
             ))}
           </ol>
+          {ui.mapMode === "economy" && snapshot.regions.length > ranking.length && (
+            <p className="fc-caption" data-testid="economy-ranking-note">
+              {t("world.economy.rankingNote", {
+                count: snapshot.regions.length - ranking.length,
+              })}
+            </p>
+          )}
           {ranking.length === 0 && (
             <p data-testid="ranking-empty">
               {NON_COMPARABLE_METRICS.has(ui.mapMode) ||

@@ -872,6 +872,34 @@ Marker size = population.
 
 Kolor/intensywność = gospodarka/produkcja zgodnie z Read Model.
 
+**Implementacja `M21-VIS-R4B` --- Economy (2026-09-30; IMPLEMENTED /
+PENDING HUMAN VISUAL ACCEPTANCE; kierunek: Canonical Decisions §52C).**
+Miara = zatrudnieni w przedsiębiorstwach regionu (osoby, koniec
+miesiąca); dawna suma ilości różnych towarów usunięta z Read Modelu.
+
+-   Znak: kwadrat „Economic Output” (Visual Alphabet v1.1 §8) na prawo od
+    śladu osad, stały rozmiar ekranowy (klasa to fakt, nie detal);
+    wypełnienie `--fc-info`, rozmiar i krycie rosną z klasą. Klasy stałe
+    i absolutne: <10 / 10--99 / 100--999 / 1 tys.--10 tys. / 10 tys.+
+    (TODO tuning) --- bez normalizacji do najlepszego regionu (§16).
+-   Znane 0: pełny cienki kontur, etykieta „0”; brak danych: przerywany
+    kontur `muted`, „—” (symulacja zawsze zna zatrudnienie --- brak
+    danych to kontrakt prezentacji dla Read Modelu bez wartości, jak w
+    Population).
+-   Morfologia osad bez zmian (neutralny atrament, 0.85); teren, trasy i
+    znaki aktywności przygaszone jak w Population; klucz znaków
+    domyślnie zwinięty.
+-   Etykieta: nazwa + zwarta liczba; przy wyczerpanym budżecie nazw
+    zostaje sama wartość. Zoom nie zmienia klasy.
+-   Zaznaczenie: narożniki akcentu wokół kwadratu i śladu osad.
+-   Legenda: tytuł z jednostką, pięć klas, „0” i „brak danych”, notka
+    „klasy stałe --- nie względem najlepszego regionu”.
+-   Inspektor „Gospodarka regionu”: zatrudnienie (z klasą), sprzedaż firm
+    jako informacja dodatkowa, aktywne firmy, produkcja według towarów
+    (bez sumy, jednostki towaru, brak ceny „—”). Top Regions: kwadrat
+    klasy + wartość z jednostką; regiony bez danych zliczone, nie
+    rankowane.
+
 ## Resources
 
 Pokazuje wybrany zasób, eksploatację i wyczerpanie.

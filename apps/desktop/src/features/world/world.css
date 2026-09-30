@@ -725,3 +725,55 @@
   color: var(--fc-text-secondary);
   font-style: italic;
 }
+
+/* M21-VIS-R4B Economy -- zakładka „Gospodarka” inspektora regionu (§52C). */
+.fc-economy__price-col {
+  width: 7.5em;
+}
+.fc-economy__fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--fc-space-2);
+  padding: var(--fc-space-1) 0;
+  border-bottom: var(--fc-border-width) solid var(--fc-border);
+}
+.fc-economy__fact--primary .fc-data {
+  font-size: var(--fc-text-subsection);
+  font-weight: 600;
+}
+.fc-economy__value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fc-space-1);
+  text-align: right;
+}
+.fc-economy__subtitle {
+  margin: var(--fc-space-2) 0 0;
+  font-size: var(--fc-text-label);
+  font-weight: 600;
+  color: var(--fc-text-secondary);
+}
+.fc-economy__chip {
+  flex: none;
+  vertical-align: middle;
+}
+.fc-economy__rank {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fc-space-1);
+}
+.fc-world .fc-economy__chip {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+}
+.fc-economy__fact--primary {
+  align-items: center;
+}
+.fc-economy__fact {
+  flex-wrap: wrap;
+}
+.fc-economy__reason {
+  flex-basis: 100%;
+}

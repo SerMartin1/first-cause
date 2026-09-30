@@ -43,6 +43,12 @@ export class WorldSession {
           sectorByCompanyArchetypeId: this.content.sectorByCompanyArchetypeId,
           extractionFamilyByResourceId: this.content.extractionFamilyByResourceId,
           routeFamilyByTransportModeId: this.content.routeFamilyByTransportModeId,
+          // R4B Economy: proporcje wyjść receptur (produkcja według towarów).
+          goodOutputsPerBatchByMethodId: Object.fromEntries(
+            Object.entries(this.content.productionRecipesByMethodId ?? {}).map(
+              ([id, recipe]) => [id, recipe.goodOutputsPerBatch],
+            ),
+          ),
         },
         this.runner.causalEdges,
       ),

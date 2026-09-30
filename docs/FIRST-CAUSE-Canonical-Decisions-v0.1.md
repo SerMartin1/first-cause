@@ -701,6 +701,44 @@ akceptacją wizualną, 2026-09-30):**
 
 ------------------------------------------------------------------------
 
+# 52C. M21-VIS-R4B --- Economy: zatrudnienie w przedsiębiorstwach
+
+**Status:** CANONICAL --- kierunek zdecydowany przez właściciela
+(2026-09-30, decyzje D1--D5 po audycie danych); implementacja PENDING
+HUMAN VISUAL ACCEPTANCE. Dotyczy wyłącznie trybu Economy.
+
+Diagnoza, która doprowadziła do decyzji: dawna metryka Economy
+(`WorldRegionView.production` = suma `outputLastTick` aktywnych firm)
+sumowała ilości różnych towarów (w tym półprodukty) bez wspólnej
+jednostki; ta sama suma zasilała World Pulse i Δ Change.
+
+-   **D1 --- miara trybu:** zatrudnieni w przedsiębiorstwach regionu
+    (suma `Company.workforce.employees` aktywnych firm; osoby; stan na
+    koniec ostatniego ticka). Region bez firm = znane 0. Sprzedaż firm
+    (suma `finance.revenue`, jednostka pieniężna modelu / miesiąc, ceny
+    lokalne, tylko region z Market i regionalnym Inventory --- poza
+    modelem rynku „brak danych”) jest informacją dodatkową inspektora,
+    nie kodowaniem mapy. Nie nazywa się jej PKB, bogactwem ani
+    dobrobytem (brak rachunku wartości dodanej).
+-   **D2 --- World Pulse:** suma zatrudnienia w firmach zamiast
+    „Produkcji / miesiąc”; to stan, więc bez „/ miesiąc”.
+-   **D3 --- Δ Change:** zmiana zatrudnienia względem snapshotu bazowego
+    (`WorldViewHistory` przechowuje pełne przeszłe snapshoty, więc dane
+    historyczne są poprawne); brak bazy albo brak wartości = brak
+    zmiany, nie 0. Opcja „produkcja” usunięta.
+-   **D4 --- skala:** stałe, absolutne klasy 10 / 100 / 1000 / 10 000
+    (TODO tuning); zero i brak danych oznaczone osobno. Region pierwszy w
+    rankingu nie dostaje najwyższej klasy tylko dlatego, że jest pierwszy.
+-   **D5 --- produkcja w inspektorze:** tabela Towar · Wytworzono · Cena
+    lokalna, bez sumy różnych towarów; ilość i cena z jednostką danego
+    towaru (abstrakcyjna „jedn.” --- content nie definiuje jednostek,
+    Entity Data Model §66 p. 2 OPEN); brak ceny = „—”.
+-   Kodowanie Atlasu: kwadrat „Economic Output” (Visual Alphabet v1.1
+    §8) obok niezmienionej morfologii osad; szczegóły: Atlas Spec §14
+    „Economy”.
+
+------------------------------------------------------------------------
+
 # 53. TECH-001 --- brak klasycznego tech tree
 
 **Status:** CANONICAL

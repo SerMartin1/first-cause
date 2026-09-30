@@ -89,6 +89,9 @@ export interface RegionSpec {
     readonly employees: number;
     readonly output: number;
     readonly status?: "active" | "distressed" | "closed";
+    /** R4B Economy: metoda produkcji i przychód ostatniego ticka. */
+    readonly methodId?: string;
+    readonly revenue?: number;
   }[];
   readonly deposits?: readonly {
     readonly resourceId: string;
@@ -291,7 +294,9 @@ function withCompanyState(
       ...company.production,
       capacity: spec.employees,
       outputLastTick: spec.output,
+      ...(spec.methodId ? { productionMethodId: spec.methodId } : {}),
     },
+    finance: { ...company.finance, revenue: spec.revenue ?? 0 },
     status: {
       active: spec.status !== "closed",
       distressed: spec.status === "distressed",
@@ -380,6 +385,11 @@ export function buildVisualWorldView(input: {
   readonly currentTick?: number;
   readonly startDate?: { readonly year: number; readonly month: number };
   readonly facts?: Parameters<typeof buildWorldSnapshot>[1];
+  /** R4B Economy: lokalne ceny rynku (region → towar → cena) i wyjścia receptur. */
+  readonly marketPrices?: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  readonly goodOutputsPerBatchByMethodId?: Readonly<
+    Record<string, Readonly<Record<string, number>>>
+  >;
 }): WorldView {
   const REGIONS = input.regions;
   const CONNECTIONS = input.connections;
@@ -497,14 +507,43 @@ export function buildVisualWorldView(input: {
         }),
       ),
     ],
-    markets: tradeRegionIds.map((id) =>
-      createMarket({ id: `${id}_market`, regionId: id }),
-    ),
+    markets: tradeRegionIds.map((id) => {
+      const market = createMarket({ id: `${id}_market`, regionId: id });
+      const prices = input.marketPrices?.[id] ?? {};
+      return {
+        ...market,
+        goods: Object.fromEntries(
+          Object.entries(prices).map(([goodId, localPrice]) => [
+            goodId,
+            {
+              supply: 0,
+              demand: 0,
+              inventory: 0,
+              localPrice,
+              importDemand: 0,
+              exportSupply: 0,
+              shortageSeverity: 0,
+              pricePressure: 0,
+            },
+          ]),
+        ),
+      };
+    }),
     companies,
     resourceDeposits: deposits,
     connections,
   });
-  const current = buildWorldSnapshot(state, input.facts ?? [], VISUAL_WORLD_CONTENT, []);
+  const current = buildWorldSnapshot(
+    state,
+    input.facts ?? [],
+    {
+      ...VISUAL_WORLD_CONTENT,
+      ...(input.goodOutputsPerBatchByMethodId
+        ? { goodOutputsPerBatchByMethodId: input.goodOutputsPerBatchByMethodId }
+        : {}),
+    },
+    [],
+  );
   return {
     type: "WORLD_VIEW",
     current,

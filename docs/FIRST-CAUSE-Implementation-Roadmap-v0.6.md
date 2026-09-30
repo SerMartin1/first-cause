@@ -4259,7 +4259,7 @@ właściciela.
 | 3 | `M21-VIS-R3` Settlement Morphology + Population Scaling + Civilization Readability | §28.2--28.4; WORLD z zagregowaną strukturą cywilizacji | audyt B1 (rendering), H2 |
 | 4 | `M21-VIS-R4` Map Modes v2 + legends + zero/no-data | §28.5; legenda per tryb | audyt B2, H3, M2--M5 |
 | 4A | `M21-VIS-R4A` Population Mode (pierścień skali, zero ≠ brak danych, legenda trybu) + `SET-LIFECYCLE-001` | §14, §28.5 | **DONE / HUMAN VISUAL ACCEPTED** (2026-09-29): audyt H3, M2; B2 dla Population |
-| 4B | `M21-VIS-R4B` Remaining Map Modes: własne kodowanie i legendy Economy / Resources / Trade / Technology / Development / Stability / Political / Δ Change | §28.5 | **IN PROGRESS**: Handel (tabela według towarów) **DONE / HUMAN VISUAL ACCEPTED** (2026-09-30); pozostałe tryby NOT STARTED: audyt B2 (pozostałe tryby), M3--M5 |
+| 4B | `M21-VIS-R4B` Remaining Map Modes: własne kodowanie i legendy Economy / Resources / Trade / Technology / Development / Stability / Political / Δ Change | §28.5 | **IN PROGRESS**: Handel (tabela według towarów) **DONE / HUMAN VISUAL ACCEPTED** (2026-09-30); Economy (zatrudnienie w firmach, §52C) **IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE** (2026-09-30); pozostałe tryby NOT STARTED: audyt B2 (pozostałe tryby), M3--M5 |
 | 5 | `M21-VIS-R5` Causality / WHY? UX | UI Impl Spec v1.4 §W: WHY? kontekstowe, `PRZYCZYNA → SKUTEK`, jednoznaczne etykiety | audyt H4, H5, M12 |
 | 6 | `M21-VIS-R6` Visual Verification Gate | UI Impl Spec v1.4 §V + Atlas Spec v1.3 §28.7; potem ponowny `M21-VIS-04` i human acceptance | audyt M1, L6; bramka `M21-VIS-05` |
 
@@ -4814,6 +4814,39 @@ Black Mountain (content: rynki i magazyny regionów --- decyzja właściciela).
 -   Materiały: `docs/verification/world-r4b-trade-flowlens-2026-09-30/`;
     E2E `tests/e2e/world-r4b-trade-flowlens.spec.ts`; testy
     `trade-route-semantics.test.ts`, `trade-route-legacy-save.test.ts`.
+
+### `M21-VIS-R4B` --- Economy (2026-09-30) --- IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE
+
+Druga część R4B (Handel DONE; Resources / Technology / Development /
+Stability / Political / Δ Change jako tryb --- NOT STARTED). Kierunek:
+Canonical Decisions §52C (decyzje właściciela D1--D5 po audycie danych;
+propozycja: `docs/verification/world-r4b-economy-proposal-2026-09-30/`).
+
+-   **Diagnoza:** `WorldRegionView.production` (suma `outputLastTick`
+    aktywnych firm) sumował ilości różnych towarów, w tym półprodukty; tą
+    samą sumą żyły World Pulse i Δ Change „Produkcja”; intensywność
+    Atlasu była normalizowana do najlepszego regionu, 0 = brak danych.
+-   **Read Model:** `region-economy-read-model.ts` →
+    `WorldRegionView.economy`: `employment` (osoby, aktywne firmy),
+    `activeCompanies`, `sales` (`RECORDED` | `NO_DATA`:
+    `NO_COMPLETED_PERIOD` / `OUTSIDE_MARKET_MODEL`), `goods` (produkcja
+    per towar z proporcji `goodOutputsPerBatch` contentu, cena lokalna),
+    `unattributedCompanies`. Pole `production` usunięte. Bez zmian
+    symulacji, zapisu gry i checksumy.
+-   **UI:** tryb Economy (kwadrat klasy, legenda, etykiety --- Atlas Spec
+    §14 „Economy”); zakładka „Gospodarka regionu”; World Pulse
+    „Zatrudnieni w firmach”; Δ Change „Zatrudnienia w firmach”; Top
+    Regions z klasą i jednostką.
+-   Otwarte: jednostki ilości towarów (Entity Data Model §66 p. 2) ---
+    UI używa abstrakcyjnej „jedn.”; progi klas TODO tuning; realny świat
+    Black Mountain ma prawie zerowe zatrudnienie w firmach (content,
+    decyzja właściciela).
+
+Materiały: `docs/verification/world-r4b-economy-2026-09-30/`; E2E
+`tests/e2e/world-r4b-economy.spec.ts`; testy
+`region-economy-read-model.test.ts`, `economy-mode.test.tsx`; fixture
+`visual-economy-fixture.ts` (VISUAL DEVELOPMENT DATA;
+`fixture=economy|economy-low`).
 
 Otwarte poza R4: `M21-VIS-R5` (WHY?), `M22` (geometria świata),
 reprezentacja złóż SUSPECTED, CONTENT-IRON-01, przyszły system

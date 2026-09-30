@@ -27,6 +27,11 @@ import {
   tradeSimulationView,
   tradeView,
 } from "../src/features/world/visual-trade-fixture.js";
+import {
+  ECONOMY_DEV_NAMES,
+  economyLowView,
+  economyView,
+} from "../src/features/world/visual-economy-fixture.js";
 import { MAP_MODES, type MapMode } from "../src/features/world/atlas-model.js";
 import { useWorldStore } from "../src/features/world/world-store.js";
 import "@fontsource/ibm-plex-sans/400.css";
@@ -49,6 +54,8 @@ import "../src/index.css";
 // R4B: `trade` -- Handel według towarów; `good` (rozwinięty towar), `partner` (wskazany
 // partner), `lang` (`en` | `pl`). Follow-up: `trade-sim` (handel z produkcyjnego
 // ticka scenariusza `TRADE_SCENARIO`), `trade-legacy` (stan po migracji zapisu silnika < 3).
+// R4B Economy: `economy` (klasy 0..5, brak danych, rynek i bez rynku), `economy-low`
+// (rząd wielkości realnego świata Black Mountain).
 const params = new URLSearchParams(window.location.search);
 const fixture = params.get("fixture");
 const view =
@@ -68,7 +75,11 @@ const view =
                 ? extinctionBeforeView()
                 : fixture === "extinction-after"
                   ? extinctionAfterView()
-                  : fixture === "trade"
+                  : fixture === "economy"
+                    ? economyView()
+                    : fixture === "economy-low"
+                      ? economyLowView()
+                      : fixture === "trade"
                     ? tradeView()
                     : fixture === "trade-sim"
                       ? tradeSimulationView()
@@ -129,8 +140,8 @@ createRoot(document.getElementById("root")!).render(
   <I18nextProvider
     i18n={createI18n({
       resources: {
-        en: { common: { ...en, ...devNames, ...TRADE_DEV_NAMES.en } },
-        pl: { common: { ...pl, ...devNames, ...TRADE_DEV_NAMES.pl } },
+        en: { common: { ...en, ...devNames, ...TRADE_DEV_NAMES.en, ...ECONOMY_DEV_NAMES.en } },
+        pl: { common: { ...pl, ...devNames, ...TRADE_DEV_NAMES.pl, ...ECONOMY_DEV_NAMES.pl } },
       },
       ...(params.get("lang") === "pl" ? { initialLocale: "pl" as const } : {}),
     })}

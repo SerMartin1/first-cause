@@ -132,12 +132,18 @@ export function visualStressView(index: number): WorldView {
         },
       },
     },
-    production: index * 1000,
     companies: index * 3,
     housingPressure: 0.1,
     infrastructure: index,
     // R4B: ręcznie wpisany Read Model nie ma zakończonego okresu handlu.
     trade: { status: "NO_DATA", reason: "NO_COMPLETED_PERIOD" },
+    economy: {
+      employment: 0,
+      activeCompanies: 0,
+      sales: { status: "NO_DATA", reason: "NO_COMPLETED_PERIOD" },
+      goods: [],
+      unattributedCompanies: 0,
+    },
   };
   const current = {
     summary: {

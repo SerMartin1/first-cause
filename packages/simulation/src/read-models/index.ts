@@ -10,3 +10,4 @@ export * from "./technology-summary-read-model.js";
 export * from "./region-visual-profile-read-model.js";
 export * from "./world-view-read-model.js";
 export * from "./region-trade-read-model.js";
+export * from "./region-economy-read-model.js";
