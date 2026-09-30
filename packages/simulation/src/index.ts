@@ -8,3 +8,4 @@ export * from "./systems/economy/index.js";
 export * from "./systems/society/index.js";
 export * from "./systems/technology/index.js";
 export * from "./systems/architect/index.js";
+export * from "./verification/trade-scenario.js";

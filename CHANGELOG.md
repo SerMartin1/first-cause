@@ -10,6 +10,11 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-30
 
+- **Deterministyczny scenariusz weryfikacyjny handlu (`TRADE_SCENARIO`).**
+  Stan początkowy dwóch regionów z realną wymianą w obecnym modelu;
+  handel liczy produkcyjny tick. Test: fakt = ilość przeniesiona, ocena
+  większa, Read Model importera i eksportera zgodny; determinizm.
+
 - **M21-VIS-R4B --- Handel według towarów (IMPLEMENTED / TECHNICALLY
   VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE; R4B nie jest zamknięty).**
   Kierunek właściciela zapisany w Canonical Decisions §52B: jedna tabela
