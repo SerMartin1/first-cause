@@ -71,6 +71,36 @@ export function migrateV2ToV3(raw: Record<string, unknown>): Record<string, unkn
             : fact,
         ),
       },
+      ...markLegacyTradeRouteProcesses(runnerState.chronicle),
+    },
+  };
+}
+
+/**
+ * Chronicle (M21-VIS-R4B): otwarty proces `trade_route` z zapisu silnika < 3
+ * sumował ilości OCENIONE. Dostaje `magnitudeBasis: "evaluated"` -- detektor
+ * zamknie go na granicy (pierwszy fakt z ilością dostarczoną) i oceni na jego
+ * własnej sumie, zamiast dodać do niej ilości dostarczone. Suma, stan, ticki,
+ * `rootFactId` i `entryId` bez zmian; procesy zamknięte i innych typów bez zmian.
+ */
+function markLegacyTradeRouteProcesses(chronicle: unknown): Record<string, unknown> {
+  const state = chronicle as Record<string, unknown> | undefined;
+  const activeProcess = state?.activeProcess as Record<string, unknown> | undefined;
+  const processes = activeProcess?.processes;
+  if (!state || !activeProcess || !Array.isArray(processes)) return {};
+  return {
+    chronicle: {
+      ...state,
+      activeProcess: {
+        ...activeProcess,
+        processes: (processes as Record<string, unknown>[]).map((process) =>
+          process.processType === "trade_route" &&
+          process.state !== "RESOLVED" &&
+          process.state !== "HISTORICAL"
+            ? { ...process, magnitudeBasis: "evaluated" }
+            : process,
+        ),
+      },
     },
   };
 }

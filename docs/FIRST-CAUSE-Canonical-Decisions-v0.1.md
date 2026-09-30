@@ -690,6 +690,14 @@ razem z akceptacją wizualną):**
     ich faktom handlu typ `trade_flow_evaluated` (ta sama tożsamość i
     wartości); Read Model pokazuje je jako „brak danych” o dostawie z
     ostrzeżeniem, nigdy jako dostawę.
+-   Flow Lens „Handel” jest nieaktywny (brak wspólnej miary: grubość
+    i Top N porównywałyby ilości różnych towarów); kierunek wymiany
+    pokazuje wskazanie partnera z tabeli.
+-   Chronicle `trade_route`: otwarty proces ze starszego silnika
+    (migracja: `magnitudeBasis: "evaluated"`) jest zamykany i oceniany
+    istniejącą regułą na własnej sumie przy pierwszym fakcie z ilością
+    dostarczoną; nowy epizod liczy tylko ilości dostarczone. Próg nigdy
+    nie jest liczony z sumy mieszanej.
 
 ------------------------------------------------------------------------
 

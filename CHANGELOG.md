@@ -10,6 +10,18 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-30
 
+- **M21-VIS-R4B Handel --- Flow Lens i Chronicle (PENDING HUMAN VISUAL
+  ACCEPTANCE).** Flow Lens „Handel” porównywał grubością i Top N ilości
+  różnych towarów --- opcja nieaktywna z wyjaśnieniem EN/PL, zapamiętany
+  stan działa jak „wyłączone”; pozostałe soczewki i wskazanie partnera bez
+  zmian. Chronicle `trade_route`: otwarty proces z zapisu silnika < 3
+  (ilości ocenione) nie jest już sumowany z ilościami dostarczonymi ---
+  migracja v2 → v3 oznacza go `magnitudeBasis: "evaluated"`, detektor na
+  granicy ocenia stary epizod na jego własnej sumie i otwiera nowy. Testy
+  jednostkowe, save → load → tick → save → load, determinizm; E2E
+  `world-r4b-trade-flowlens.spec.ts`; materiały
+  `docs/verification/world-r4b-trade-flowlens-2026-09-30/`.
+
 - **M21-VIS-R4B Handel --- follow-up po przeglądzie (PENDING HUMAN VISUAL
   ACCEPTANCE).** Starsze zapisy: loader przyjmował zapis silnika < 3 bez
   rozróżnienia semantyki; teraz `SCHEMA_VERSION` 3 i migracja v2 → v3

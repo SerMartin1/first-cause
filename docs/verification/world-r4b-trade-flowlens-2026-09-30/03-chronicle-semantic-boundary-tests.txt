@@ -1,0 +1,12 @@
+M21-VIS-R4B — Chronicle trade_route: granica semantyki (ilość oceniona → dostarczona)
+Polecenie: npx vitest run packages/chronicle/src/trade-route-semantics.test.ts packages/persistence/src/trade-route-legacy-save.test.ts --reporter=verbose
+Data: 2026-09-30
+
+ ✓ packages/chronicle/src/trade-route-semantics.test.ts > trade_route at the evaluated → delivered semantic boundary > only new facts: one homogeneous delivered sum, no legacy marker
+ ✓ packages/chronicle/src/trade-route-semantics.test.ts > trade_route at the evaluated → delivered semantic boundary > only old facts: the legacy episode resolves on its own evaluated sum, exactly like the old engine
+ ✓ packages/chronicle/src/trade-route-semantics.test.ts > trade_route at the evaluated → delivered semantic boundary > mixed: the first delivered fact closes the legacy episode (evaluated sum only) and starts a fresh delivered one
+ ✓ packages/chronicle/src/trade-route-semantics.test.ts > trade_route at the evaluated → delivered semantic boundary > is deterministic and survives getState/fromState (save/load) with the marker intact
+ ✓ packages/persistence/src/trade-route-legacy-save.test.ts > trade_route across a legacy save (engine < 3) > save → load → tick → save → load: legacy sum stays evaluated-only, new sum delivered-only
+ ✓ packages/persistence/src/trade-route-legacy-save.test.ts > trade_route across a legacy save (engine < 3) > is deterministic for the same state and seed
+ Test Files  2 passed (2)
+      Tests  6 passed (6)

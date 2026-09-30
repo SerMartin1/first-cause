@@ -177,7 +177,6 @@
   "world.overlay.rivers": "Rzeki (niedostępne)",
   "world.overlay.railways": "Kolej (niedostępna)",
   "world.flow.off": "Wyłączone",
-  "world.flow.trade": "Handel",
   "world.flow.migration": "Migracja (brak par źródło–cel)",
   "world.flow.technology": "Technologia",
   "world.tab.overview": "Przegląd",
@@ -450,5 +449,7 @@
   "world.trade.help.tick": "Diagnostyka: tick danych {{tick}}.",
   "world.trade.noCommonMeasure": "Różnych towarów nie da się zsumować w jedną liczbę — handel regionu jest w tabeli w panelu regionu.",
   "world.change.tradeUnavailable": "Handel (brak wspólnej miary)",
-  "world.fact.trade_flow_evaluated": "Handel (ilość oceniona, starszy silnik)"
+  "world.fact.trade_flow_evaluated": "Handel (ilość oceniona, starszy silnik)",
+  "world.flow.tradeUnavailable": "Handel (brak wspólnej miary)",
+  "world.flow.tradeUnavailableHint": "Przepływy nie porównują ilości handlu: różne towary nie mają wspólnej miary. Kierunek wymiany pokazuje wskazanie partnera w tabeli Handlu."
 }

@@ -177,7 +177,6 @@
   "world.overlay.rivers": "Rivers (unavailable)",
   "world.overlay.railways": "Railways (unavailable)",
   "world.flow.off": "Off",
-  "world.flow.trade": "Trade",
   "world.flow.migration": "Migration (source/destination unavailable)",
   "world.flow.technology": "Technology",
   "world.tab.overview": "Overview",
@@ -450,5 +449,7 @@
   "world.trade.help.tick": "Diagnostics: data tick {{tick}}.",
   "world.trade.noCommonMeasure": "Different goods cannot be summed into one number — regional trade is in the table in the region panel.",
   "world.change.tradeUnavailable": "Trade (no common measure)",
-  "world.fact.trade_flow_evaluated": "Trade (evaluated quantity, older engine)"
+  "world.fact.trade_flow_evaluated": "Trade (evaluated quantity, older engine)",
+  "world.flow.tradeUnavailable": "Trade (no common measure)",
+  "world.flow.tradeUnavailableHint": "Flow Lens does not compare trade quantities: different goods have no common measure. Point a partner in the Trade table to see the direction of exchange."
 }

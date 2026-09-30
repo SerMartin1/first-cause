@@ -27,6 +27,20 @@ export const OVERLAYS = [
 ] as const;
 export type Overlay = (typeof OVERLAYS)[number];
 export type FlowLens = "off" | "trade" | "migration" | "technology";
+/**
+ * R4B: soczewki, które porównywałyby grubością linii i Top N ilości różnych
+ * towarów (zboże vs węgiel) -- bez wspólnej miary, więc niedostępne. Handel
+ * czyta się z tabeli; kierunek wymiany pokazuje wskazanie partnera. Migracja
+ * była nieaktywna już wcześniej (brak par źródło–cel w Read Modelu).
+ */
+export const UNAVAILABLE_FLOW_LENSES: ReadonlySet<FlowLens> = new Set([
+  "trade",
+  "migration",
+] as const);
+/** Soczewka faktycznie użyta: niedostępna (np. zapamiętany stan „trade”) = wyłączona. */
+export function effectiveFlowLens(lens: FlowLens): FlowLens {
+  return UNAVAILABLE_FLOW_LENSES.has(lens) ? "off" : lens;
+}
 export const CHANGE_METRICS = [
   "population",
   "production",

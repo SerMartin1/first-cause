@@ -4786,6 +4786,27 @@ Materiały: `docs/verification/world-r4b-trade-followup-2026-09-30/`
 `fixture=trade-sim`; stan po migracji: `fixture=trade-legacy`); E2E
 `tests/e2e/world-r4b-trade-followup.spec.ts`.
 
+### `M21-VIS-R4B` --- Handel: Flow Lens i Chronicle (2026-09-30) --- IMPLEMENTED / TECHNICALLY VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE
+
+-   **Flow Lens:** soczewka „trade” sortowała przepływy wszystkich
+    towarów razem po `magnitude`, brała Top N i skalowała grubość do
+    największego --- porównanie ilości bez wspólnej miary (w każdym
+    trybie; filtra pojedynczego towaru nie ma). Opcja jest teraz
+    nieaktywna z opisem „Handel (brak wspólnej miary)” i wyjaśnieniem
+    EN/PL; zapamiętany stan „trade” działa jak „wyłączone” (bez Top N i
+    podpisu). Technologia bez zmian; wskazanie partnera z tabeli działa.
+-   **Chronicle `trade_route`:** `accumulatedMagnitude` procesu
+    otwartego w zapisie silnika < 3 (ilości ocenione) sumowałby się po
+    wczytaniu z ilościami dostarczonymi. Migracja v2 → v3 oznacza takie
+    otwarte procesy `magnitudeBasis: "evaluated"`; detektor przy pierwszym
+    fakcie z ilością dostarczoną zamyka stary epizod i ocenia go
+    istniejącą `buildTradeRouteCandidate` na jego własnej sumie, po czym
+    otwiera nowy (tylko dostawy). Epizod wyłącznie stary rozwiązuje się
+    jak dotąd. Fakty, id, `rootFactId` i odniesienia bez zmian.
+-   Materiały: `docs/verification/world-r4b-trade-flowlens-2026-09-30/`;
+    E2E `tests/e2e/world-r4b-trade-flowlens.spec.ts`; testy
+    `trade-route-semantics.test.ts`, `trade-route-legacy-save.test.ts`.
+
 Otwarte poza R4: `M21-VIS-R5` (WHY?), `M22` (geometria świata),
 reprezentacja złóż SUSPECTED, CONTENT-IRON-01, przyszły system
 zakładania nowych osad / ponownego zasiedlenia, grafika ruin, Lifetime

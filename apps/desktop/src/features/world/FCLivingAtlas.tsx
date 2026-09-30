@@ -6,6 +6,7 @@ import {
   atlasPositions,
   fitAtlas,
   MODE_METRICS,
+  effectiveFlowLens,
   type AtlasInsets,
 } from "./atlas-model.js";
 import { useWorldStore } from "./world-store.js";
@@ -433,7 +434,8 @@ export function FCLivingAtlas({
       const relevantFlows = view.current.flows
         .filter(
           (f) =>
-            f.family === ui.flowLens &&
+            // R4B: soczewka niedostępna (Handel) nie rysuje nic -- bez porównania towarów.
+            f.family === effectiveFlowLens(ui.flowLens) &&
             (!ui.selectedEntityId ||
               f.from === ui.selectedEntityId ||
               f.to === ui.selectedEntityId) &&
@@ -832,6 +834,9 @@ export function FCLivingAtlas({
         String(view.current.summary.currentTick),
       );
       host.current?.setAttribute("data-rendered-mode", ui.mapMode);
+      // R4B (testy E2E): soczewka faktycznie użyta i liczba narysowanych przepływów.
+      host.current?.setAttribute("data-flow-lens", effectiveFlowLens(ui.flowLens));
+      host.current?.setAttribute("data-flow-count", String(relevantFlows.length));
       // R4B (testy E2E): wyróżnienia handlu faktycznie narysowane.
       host.current?.setAttribute("data-trade-good", trade?.goodId ?? "");
       host.current?.setAttribute(
@@ -1082,6 +1087,9 @@ export function FCLivingAtlas({
                   {t("world.trade.legend.relation")}
                 </span>
                 {!trade && <small>{t("world.trade.legend.hint")}</small>}
+                <small data-testid="trade-flow-lens-note">
+                  {t("world.flow.tradeUnavailableHint")}
+                </small>
               </div>
             )}
             {classRange.length > 0 && (

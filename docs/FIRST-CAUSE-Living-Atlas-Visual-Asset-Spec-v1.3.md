@@ -910,7 +910,9 @@ regionu pomijane, grot przesuwany wzdłuż łuku, w ostateczności większe
 wygięcie); priorytet: nazwa regionu > morfologia > kierunek wymiany.
 Geometria regionów bez zmian. Tryb Handel nie ma wartości przy
 regionach ani w Top Regions / Δ Change (brak wspólnej miary dla
-różnych towarów).
+różnych towarów). Flow Lens „Handel” jest nieaktywny z tego samego
+powodu (grubość linii i Top N porównywałyby różne towary); pozostałe
+soczewki bez zmian.
 
 ## Technology
 

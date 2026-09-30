@@ -26,6 +26,14 @@ export interface ActiveProcess {
    * simply leaves this at `0` -- it is never read for those processes.
    */
   readonly accumulatedMagnitude: number;
+  /**
+   * M21-VIS-R4B: jednostka `accumulatedMagnitude`, gdy NIE jest bieżąca.
+   * `"evaluated"` = proces otwarty przez silnik < 3 (ilości ocenione
+   * `trade_flow_active`), oznaczony przez migrację zapisu v2 -> v3.
+   * Brak pola = bieżąca semantyka detektora. Detektor nigdy nie dodaje do
+   * takiej sumy wartości w innej jednostce (`candidate-pipeline.ts`).
+   */
+  readonly magnitudeBasis?: "evaluated";
 }
 
 export class ActiveProcessRegistry {

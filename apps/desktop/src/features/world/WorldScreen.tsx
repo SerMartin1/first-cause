@@ -28,6 +28,8 @@ import {
   MODE_METRICS,
   CHANGE_METRICS,
   NON_COMPARABLE_METRICS,
+  UNAVAILABLE_FLOW_LENSES,
+  effectiveFlowLens,
   type ChangeMetric,
   type FlowLens,
 } from "./atlas-model.js";
@@ -176,6 +178,7 @@ export function WorldScreen() {
       ? { kind: "WORLD" as const }
       : ui.analysisScope;
   const analysis = selectWorldAnalysis(snapshot, scope, ui.comparisonWindow);
+  const flowLens = effectiveFlowLens(ui.flowLens);
   const format = (value: number) =>
     new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(value);
   // R4: pełna liczba w inspektorze; brak danych ≠ 0 (nigdy „NaN” ani „0”).
@@ -437,20 +440,25 @@ export function WorldScreen() {
                   </select>
                 </label>
               )}
-              <label>
+              <label title={t("world.flow.tradeUnavailableHint")}>
                 {t("world.flowLens")}{" "}
                 <select
-                  value={ui.flowLens}
+                  value={flowLens}
                   onChange={(e) => ui.set({ flowLens: e.target.value as FlowLens })}
                 >
-                  {["off", "trade", "migration", "technology"].map((id) => (
-                    <option key={id} value={id} disabled={id === "migration"}>
-                      {t(`world.flow.${id}`)}
+                  {(["off", "trade", "migration", "technology"] as const).map((id) => (
+                    // R4B: Handel bez wspólnej miary -- opcja widoczna, ale nieaktywna.
+                    <option
+                      key={id}
+                      value={id}
+                      disabled={UNAVAILABLE_FLOW_LENSES.has(id)}
+                    >
+                      {t(`world.flow.${id === "trade" ? "tradeUnavailable" : id}`)}
                     </option>
                   ))}
                 </select>
               </label>
-              {ui.flowLens !== "off" && (
+              {flowLens !== "off" && (
                 <select
                   aria-label={t("world.flowLimit")}
                   value={ui.flowLimit}
@@ -518,9 +526,9 @@ export function WorldScreen() {
                 {ui.mapMode === "change" && historyMissing
                   ? ` · ${t("world.historyMissing")}`
                   : ""}
-                {ui.flowLens !== "off" &&
+                {flowLens !== "off" &&
                   ` · ${
-                    ui.flowLens === "technology"
+                    flowLens === "technology"
                       ? t("world.diffusionSource")
                       : t("world.flowMagnitude")
                   }`}

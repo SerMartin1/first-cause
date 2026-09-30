@@ -88,6 +88,11 @@ useWorldStore.getState().set({
   ...(params.get("good") ? { tradeGoodId: params.get("good")! } : {}),
   ...(params.get("partner") ? { tradePartnerId: params.get("partner")! } : {}),
 });
+// R4B: `lens` -- zapamiętany wybór Flow Lens (np. `trade` sprzed poprawki).
+if (params.get("lens"))
+  useWorldStore
+    .getState()
+    .set({ flowLens: params.get("lens") as "off" | "trade" | "technology" });
 const world: WorldApi = {
   getWorld: () => Promise.resolve(view),
   setSpeed: () => Promise.resolve(view),

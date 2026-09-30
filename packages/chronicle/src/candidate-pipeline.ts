@@ -639,6 +639,23 @@ export function buildChronicleCandidates(
     if (fact.type === "trade_flow_active") {
       const values = fact.values as { after?: unknown };
       const flowVolume = typeof values.after === "number" ? Math.abs(values.after) : 0;
+      // M21-VIS-R4B: granica zmiany znaczenia faktu. Otwarty proces ze starszego
+      // silnika sumował ilości OCENIONE; nowy fakt niesie ilość DOSTARCZONĄ. Stary
+      // epizod kończy się tu i jest oceniany tą samą regułą na własnej, jednorodnej
+      // sumie; nowy epizod startuje od zera -- żadna suma nie miesza obu miar.
+      const legacy = input.activeProcessRegistry.get(tradeRouteProcessKey(fact));
+      if (
+        legacy?.magnitudeBasis === "evaluated" &&
+        legacy.state !== "RESOLVED" &&
+        legacy.state !== "HISTORICAL"
+      ) {
+        input.activeProcessRegistry.advance(legacy.processKey, "RESOLVED", input.currentTick);
+        const tradeRouteType = input.eventTypes.get("trade_route_emerged");
+        const candidate = tradeRouteType
+          ? buildTradeRouteCandidate(legacy, tradeRouteType, input.currentTick, nextId)
+          : undefined;
+        if (candidate) candidates.push(candidate);
+      }
       input.activeProcessRegistry.openOrRenew(
         tradeRouteProcessKey(fact),
         "trade_route",

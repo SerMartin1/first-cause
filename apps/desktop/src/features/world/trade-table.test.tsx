@@ -14,7 +14,11 @@ import en from "../../../../../locales/en/common.json";
 import pl from "../../../../../locales/pl/common.json";
 import { WorldScreen } from "./WorldScreen.js";
 import { useWorldStore } from "./world-store.js";
-import { MODE_METRICS, NON_COMPARABLE_METRICS } from "./atlas-model.js";
+import {
+  effectiveFlowLens,
+  MODE_METRICS,
+  NON_COMPARABLE_METRICS,
+} from "./atlas-model.js";
 import {
   LONG_LIST_GOODS,
   TRADE_DEV_NAMES,
@@ -462,5 +466,50 @@ describe("trade-view helpers", () => {
     expect(arc.dashes.some(([p, r]) => inBox(p) || inBox(r))).toBe(false);
     expect(arc.arrowClear).toBe(true);
     expect(arc.arrow.some(inBox)).toBe(false);
+  });
+});
+
+describe("Flow Lens in Trade (no quantity comparison of different goods)", () => {
+  it("Trade lens is visible but disabled with an explanation; a stored 'trade' lens is inert", async () => {
+    useWorldStore.getState().set({ flowLens: "trade" });
+    await openTrade(R.delta);
+    const lens = screen.getByLabelText(/Flow Lens/) as HTMLSelectElement;
+    const trade = lens.querySelector('option[value="trade"]') as HTMLOptionElement;
+    expect(trade.disabled).toBe(true);
+    expect(trade.textContent).toBe("Trade (no common measure)");
+    expect(lens.closest("label")).toHaveAttribute(
+      "title",
+      expect.stringContaining("different goods have no common measure"),
+    );
+    // Zapamiętany stan „trade” działa jak „wyłączone”: brak Top N, brak podpisu wielkości.
+    expect(lens.value).toBe("off");
+    expect(screen.queryByLabelText("Flow limit")).toBeNull();
+    expect(screen.getByTestId("atlas-mock")).not.toHaveTextContent(
+      "width: monthly volume",
+    );
+    expect(effectiveFlowLens("trade")).toBe("off");
+    // Wskazanie partnera z tabeli nadal działa (relacja, nie porównanie ilości).
+    fireEvent.click(within(goodRow("flour")).getByRole("button"));
+    fireEvent.click(
+      within(screen.getByTestId("trade-partners")).getByRole("button", {
+        name: "Coal Hollow",
+      }),
+    );
+    expect(useWorldStore.getState()).toMatchObject({
+      tradeGoodId: "flour",
+      tradePartnerId: R.mines,
+    });
+  });
+
+  it("other lenses keep working after switching the Atlas mode", async () => {
+    await openTrade(R.delta);
+    act(() => useWorldStore.getState().set({ mapMode: "technology" }));
+    const lens = screen.getByLabelText(/Flow Lens/) as HTMLSelectElement;
+    fireEvent.change(lens, { target: { value: "technology" } });
+    expect(useWorldStore.getState().flowLens).toBe("technology");
+    expect(effectiveFlowLens("technology")).toBe("technology");
+    expect(lens.value).toBe("technology");
+    expect(screen.getByLabelText("Flow limit")).toBeInTheDocument();
+    expect(screen.getByTestId("atlas-mock")).toHaveTextContent("Source → recipient");
   });
 });
