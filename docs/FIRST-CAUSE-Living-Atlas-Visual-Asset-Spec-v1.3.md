@@ -880,8 +880,8 @@ Pokazuje wybrany zasób, eksploatację i wyczerpanie.
 
 Podkreśla połączenia i przepływy.
 
-**Implementacja `M21-VIS-R4B` --- Handel (2026-09-30; IMPLEMENTED /
-TECHNICALLY VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE; kierunek:
+**Implementacja `M21-VIS-R4B` --- Handel (2026-09-30; DONE / HUMAN
+VISUAL ACCEPTED; kierunek:
 Canonical Decisions §52B).** Źródłem informacji jest tabela „Handel
 regionu” w inspektorze (TOWAR | PRZYWOZI | WYSYŁA, rozwijani
 partnerzy); Atlas jest pomocniczy:
@@ -904,7 +904,7 @@ Ograniczenie: dane handlu istnieją tylko na poziomie regionu. Kodowanie
 „grubość i kierunek krawędzi” z §28.5 (wszystkie przepływy naraz) nie
 jest używane w tym widoku --- zastąpione przez decyzję §52B.
 
-**Follow-up (2026-09-30, PENDING HUMAN VISUAL ACCEPTANCE):** łuki relacji
+**Follow-up (2026-09-30, HUMAN VISUAL ACCEPTED):** łuki relacji
 rysowane są po etykietach i omijają ich prostokąty (kreski pod nazwą
 regionu pomijane, grot przesuwany wzdłuż łuku, w ostateczności większe
 wygięcie); priorytet: nazwa regionu > morfologia > kierunek wymiany.

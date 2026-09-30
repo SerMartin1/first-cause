@@ -655,9 +655,9 @@ zaakceptowana 2026-09-29)
 
 # 52B. M21-VIS-R4B --- Handel: tabela według towarów
 
-**Status:** KIERUNEK ZAAKCEPTOWANY przez właściciela (2026-09-30);
-implementacja: PENDING HUMAN VISUAL ACCEPTANCE (akceptacja kierunku ≠
-akceptacja wizualna implementacji).
+**Status:** CANONICAL --- ACCEPTED (kierunek i implementacja Handlu
+zaakceptowane przez właściciela, HUMAN VISUAL ACCEPTED 2026-09-30).
+Dotyczy wyłącznie trybu Handel; pozostałe tryby R4B otwarte.
 
 -   Handel: jedna tabela według towarów z kolumnami Przywozi/Wysyła
     oraz rozwijanymi szczegółami partnerów. Atlas pełni funkcję
@@ -678,8 +678,8 @@ akceptacja wizualna implementacji).
     tam Handel jest oznaczony jako „brak wspólnej miary”). Zero ≠ brak
     handlu ≠ brak danych.
 
-**Ustalenia implementacyjne (nie są decyzją właściciela; do przeglądu
-razem z akceptacją wizualną):**
+**Ustalenia implementacyjne (zaakceptowane przez właściciela razem z
+akceptacją wizualną, 2026-09-30):**
 
 -   Ilość = towar faktycznie dostarczony w ostatnim zakończonym miesiącu:
     fakt `trade_flow_active`, `values.after` = ilość przeniesiona przez

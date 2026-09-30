@@ -4259,7 +4259,7 @@ właściciela.
 | 3 | `M21-VIS-R3` Settlement Morphology + Population Scaling + Civilization Readability | §28.2--28.4; WORLD z zagregowaną strukturą cywilizacji | audyt B1 (rendering), H2 |
 | 4 | `M21-VIS-R4` Map Modes v2 + legends + zero/no-data | §28.5; legenda per tryb | audyt B2, H3, M2--M5 |
 | 4A | `M21-VIS-R4A` Population Mode (pierścień skali, zero ≠ brak danych, legenda trybu) + `SET-LIFECYCLE-001` | §14, §28.5 | **DONE / HUMAN VISUAL ACCEPTED** (2026-09-29): audyt H3, M2; B2 dla Population |
-| 4B | `M21-VIS-R4B` Remaining Map Modes: własne kodowanie i legendy Economy / Resources / Trade / Technology / Development / Stability / Political / Δ Change | §28.5 | **IN PROGRESS**: Handel (tabela według towarów) IMPLEMENTED / TECHNICALLY VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE (2026-09-30); pozostałe tryby NOT STARTED: audyt B2 (pozostałe tryby), M3--M5 |
+| 4B | `M21-VIS-R4B` Remaining Map Modes: własne kodowanie i legendy Economy / Resources / Trade / Technology / Development / Stability / Political / Δ Change | §28.5 | **IN PROGRESS**: Handel (tabela według towarów) **DONE / HUMAN VISUAL ACCEPTED** (2026-09-30); pozostałe tryby NOT STARTED: audyt B2 (pozostałe tryby), M3--M5 |
 | 5 | `M21-VIS-R5` Causality / WHY? UX | UI Impl Spec v1.4 §W: WHY? kontekstowe, `PRZYCZYNA → SKUTEK`, jednoznaczne etykiety | audyt H4, H5, M12 |
 | 6 | `M21-VIS-R6` Visual Verification Gate | UI Impl Spec v1.4 §V + Atlas Spec v1.3 §28.7; potem ponowny `M21-VIS-04` i human acceptance | audyt M1, L6; bramka `M21-VIS-05` |
 
@@ -4677,7 +4677,7 @@ pozostałych trybów, M3--M5). Start tylko na polecenie właściciela.
 *(Stan 2026-09-30: R4B IN PROGRESS --- Handel IMPLEMENTED / PENDING
 HUMAN VISUAL ACCEPTANCE, niżej; pozostałe tryby NOT STARTED.)*
 
-### `M21-VIS-R4B` --- Handel (2026-09-30) --- IMPLEMENTED / TECHNICALLY VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE
+### `M21-VIS-R4B` --- Handel (2026-09-30) --- DONE / HUMAN VISUAL ACCEPTED (2026-09-30, razem z follow-upami niżej)
 
 Pierwsza część R4B (tylko tryb Handel; pozostałe tryby R4B NOT
 STARTED; R4B jako całość NIE jest zamknięty). Kierunek zaakceptowany
@@ -4736,7 +4736,7 @@ okresie”; przyczyna leży w ekonomii/tuningu, nie w widoku. Top Regions
 i Δ Change dla metryki Handel nadal sumują ilości różnych towarów
 (`MODE_METRICS.trade`) --- *usunięte w follow-upie (niżej).*
 
-### `M21-VIS-R4B` --- Handel: follow-up po przeglądzie (2026-09-30) --- IMPLEMENTED / TECHNICALLY VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE
+### `M21-VIS-R4B` --- Handel: follow-up po przeglądzie (2026-09-30) --- DONE / HUMAN VISUAL ACCEPTED
 
 Kontynuacja powyższego wdrożenia (bez zmiany kierunku §52B, bez zmian
 algorytmu handlu, lifecycle i balansu świata).
@@ -4786,7 +4786,15 @@ Materiały: `docs/verification/world-r4b-trade-followup-2026-09-30/`
 `fixture=trade-sim`; stan po migracji: `fixture=trade-legacy`); E2E
 `tests/e2e/world-r4b-trade-followup.spec.ts`.
 
-### `M21-VIS-R4B` --- Handel: Flow Lens i Chronicle (2026-09-30) --- IMPLEMENTED / TECHNICALLY VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE
+### `M21-VIS-R4B` --- Handel: Flow Lens i Chronicle (2026-09-30) --- DONE / HUMAN VISUAL ACCEPTED
+
+**Closeout Handlu (2026-09-30):** właściciel zaakceptował tryb Handel
+(kierunek, implementację, ustalenia implementacyjne Canonical §52B oraz
+materiały weryfikacyjne). `M21-VIS-R4B` jako całość NIE jest zamknięty:
+Economy / Resources / Technology / Development / Stability / Political /
+Δ Change --- NOT STARTED. Otwarte poza zakresem: brak handlu w świecie
+Black Mountain (content: rynki i magazyny regionów --- decyzja właściciela).
+
 
 -   **Flow Lens:** soczewka „trade” sortowała przepływy wszystkich
     towarów razem po `magnitude`, brała Top N i skalowała grubość do

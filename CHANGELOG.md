@@ -10,6 +10,14 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-30
 
+- **Closeout: M21-VIS-R4B Handel zaakceptowany (dokumentacja; bez zmian
+  kodu).** Właściciel zaakceptował tryb Handel: kierunek i implementację
+  (Canonical §52B → ACCEPTED, łącznie z ustaleniami implementacyjnymi:
+  ilość dostarczona, migracja zapisu v3, wyłączony Flow Lens „Handel”,
+  rozdział `trade_route` na granicy semantyki). Statusy w Roadmapie i
+  Atlas Spec §14 → DONE / HUMAN VISUAL ACCEPTED. `M21-VIS-R4B` jako całość
+  pozostaje otwarty (pozostałe tryby NOT STARTED).
+
 - **M21-VIS-R4B Handel --- Flow Lens i Chronicle (PENDING HUMAN VISUAL
   ACCEPTANCE).** Flow Lens „Handel” porównywał grubością i Top N ilości
   różnych towarów --- opcja nieaktywna z wyjaśnieniem EN/PL, zapamiętany
