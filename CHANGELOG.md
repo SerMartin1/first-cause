@@ -8,6 +8,16 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-09-30
+
+- **Fakt `trade_flow_active` niesie ilość faktycznie dostarczoną
+  (Simulation Core; bez nowej mechaniki).** Fakt podawał ilość ocenioną
+  przez `evaluateTradeFlow`, choć `settleTradeFlow` mógł przenieść mniej
+  (ograniczenie do realnego stocku) --- tabela Handlu pokazywałaby
+  zamówienie jako dostawę. Teraz `values.after` = `quantityMoved`, fakt
+  powstaje tylko przy fizycznym ruchu, kolejność faktów bez zmian.
+  `ENGINE_VERSION` 2 → 3. Test regresji w `economy-tick.test.ts`.
+
 ## 2026-09-29
 
 - **Closeout: SET-LIFECYCLE-001 zaakceptowane, R4A Population DONE

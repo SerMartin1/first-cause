@@ -1891,11 +1891,30 @@ function tradeOneDirection(args: TradeOneDirectionArgs): Connection {
     args.causalLinks.push(...offsetCausalLinks(tradeResult.causalLinks, baseIndex));
   }
 
-  if (tradeResult.importedQuantity > 0) {
+  // M21-VIS-R4B (Handel): rozliczenie fizyczne liczone PRZED faktem, żeby
+  // `trade_flow_active` niósł ilość faktycznie przeniesioną między
+  // inventory (`settleTradeFlow` ogranicza ją do realnego stocku), a nie
+  // ilość ocenioną przez `evaluateTradeFlow` -- to drugie byłoby
+  // zamówieniem, nie dostawą. Kolejność faktów bez zmian (handel, potem
+  // inventory). Brak regionalnego inventory = brak fizycznego ruchu.
+  const settleResult =
+    tradeResult.importedQuantity > 0 &&
+    args.exportingRegionInventoryId &&
+    args.importingRegionInventoryId
+      ? settleTradeFlow({
+          exportingInventory: args.inventories[args.exportingRegionInventoryId]!,
+          importingInventory: args.inventories[args.importingRegionInventoryId]!,
+          goodId: args.goodId,
+          desiredQuantity: tradeResult.importedQuantity,
+        })
+      : undefined;
+
+  if (settleResult && settleResult.quantityMoved > 0) {
     // M19 (Chronicle `trade_route_emerged`, CH-03): a raw per-tick
     // signal that this connection+good actually moved physical volume --
-    // `evaluateTradeFlow` already computes `importedQuantity`, it just
-    // never turned it into a fact before. Deliberately fires every tick
+    // `values.after` = `settleTradeFlow(...).quantityMoved` (M21-VIS-R4B:
+    // wcześniej `importedQuantity`, które mogło przekraczać realny stock
+    // eksportera). Deliberately fires every tick
     // trade flows, not only on change: unlike `extraction.ts`'s
     // `deposit.extraction.currentExtraction`, nothing here persists a
     // "previous tick's flow" to compare against, and inventing that
@@ -1912,23 +1931,13 @@ function tradeOneDirection(args: TradeOneDirectionArgs): Connection {
       // its own Chronicle-eligible flow.
       subject: { entityType: "connectionGood", entityId: `${args.connection.id}:${args.goodId}` },
       location: { regionId: args.markets[args.importingMarketId]!.regionId },
-      values: { before: 0, after: tradeResult.importedQuantity },
+      values: { before: 0, after: settleResult.quantityMoved },
     });
   }
 
-  if (
-    tradeResult.importedQuantity > 0 &&
-    args.exportingRegionInventoryId &&
-    args.importingRegionInventoryId
-  ) {
-    const settleResult = settleTradeFlow({
-      exportingInventory: args.inventories[args.exportingRegionInventoryId]!,
-      importingInventory: args.inventories[args.importingRegionInventoryId]!,
-      goodId: args.goodId,
-      desiredQuantity: tradeResult.importedQuantity,
-    });
-    args.inventories[args.exportingRegionInventoryId] = settleResult.exportingInventory;
-    args.inventories[args.importingRegionInventoryId] = settleResult.importingInventory;
+  if (settleResult) {
+    args.inventories[args.exportingRegionInventoryId!] = settleResult.exportingInventory;
+    args.inventories[args.importingRegionInventoryId!] = settleResult.importingInventory;
     args.facts.push(...settleResult.facts);
   }
 

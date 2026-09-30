@@ -31,7 +31,12 @@ export const SCHEMA_VERSION = 2;
 export const CONTENT_VERSION = 1;
 /** Bumped when simulation SEMANTICS change in a save-relevant way (SS37) -- distinct from `SCHEMA_VERSION` (structure) and `CONTENT_VERSION` (definitions). */
 /** v2: osada z populacją 0 przechodzi ACTIVE → ABANDONED w tym samym ticku (SET-LIFECYCLE-001). */
-export const ENGINE_VERSION = 2;
+/**
+ * v3 (M21-VIS-R4B): fakt `trade_flow_active` niesie ilość faktycznie
+ * przeniesioną między inventory (`settleTradeFlow`), nie ilość ocenioną;
+ * bez fizycznego ruchu faktu nie ma. Fakty z zapisów v2 niosą ilość ocenioną.
+ */
+export const ENGINE_VERSION = 3;
 
 export interface SaveGameVersions {
   readonly schemaVersion: number;

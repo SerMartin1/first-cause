@@ -21,6 +21,8 @@ import {
 import { createWorldRng } from "./rng.js";
 import { runEconomyTick, type EntrepreneurshipCandidate } from "./economy-tick.js";
 import { roundMoney } from "./rounding.js";
+import { createWorldRunner } from "./world-runner.js";
+import { buildWorldSnapshot } from "../read-models/world-view-read-model.js";
 import { discoverDeposit } from "../systems/resources/deposit-lifecycle.js";
 import { initializeMarketGood } from "../systems/economy/markets/price-adjustment.js";
 import { eligibleLaborForce } from "../systems/economy/labor/employment.js";
@@ -1402,6 +1404,41 @@ describe("runEconomyTick -- trade emits trade_flow_active (M19 Chronicle trade_r
       location: { regionId: "region_dest" }, // the importing side -- dest has the unmet demand
     });
     expect((tradeFacts[0]!.values as { after: number }).after).toBeGreaterThan(0);
+  });
+
+  it("M21-VIS-R4B: trade_flow_active carries the quantity physically moved between inventories, not the evaluated import", () => {
+    const { worldState } = buildTradeWorldState();
+    const rng = createWorldRng(worldState.world.seed);
+
+    const result = runEconomyTick({
+      worldState,
+      tick: 0,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+      productionRecipesByMethodId: { manual_farming: GRAIN_FARM_RECIPE },
+    });
+
+    const tradeFacts = result.facts.filter((f) => f.type === "trade_flow_active");
+    expect(tradeFacts).toHaveLength(1);
+    const delivered = (tradeFacts[0]!.values as { after: number }).after;
+    // Kolejność faktów bez zmian: handel, potem ruch inventory tego przepływu.
+    const tradeIndex = result.facts.indexOf(tradeFacts[0]!);
+    const shipped = result.facts[tradeIndex + 1]!;
+    const received = result.facts[tradeIndex + 2]!;
+    expect(shipped).toMatchObject({
+      type: "inventory_decreased",
+      subject: { entityId: "inventory_region_source:flour" },
+    });
+    expect(received).toMatchObject({
+      type: "inventory_increased",
+      subject: { entityId: "inventory_region_dest:flour" },
+    });
+    // W tym scenariuszu ocena (`evaluateTradeFlow`) przekracza realny stock
+    // eksportera -- fakt musi pokazać to, co faktycznie dotarło.
+    expect(delivered).toBeGreaterThan(0);
+    expect((received.values as { delta: number }).delta).toBe(delivered);
+    expect((shipped.values as { delta: number }).delta).toBe(-delivered);
+    expect((shipped.values as { after: number }).after).toBe(0);
   });
 
   it("emits no trade_flow_active when neither direction has both surplus and demand", () => {
