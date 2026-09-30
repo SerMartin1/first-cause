@@ -37,6 +37,15 @@ export const CHANGE_METRICS = [
   "settlements",
 ] as const;
 export type ChangeMetric = (typeof CHANGE_METRICS)[number];
+/**
+ * R4B: miary bez wspólnej jednostki -- ilości różnych towarów (zboże, węgiel,
+ * narzędzia) nie sumują się w jedną liczbę. Dla nich ranking i Δ Change są
+ * niedostępne (nie 0, nie indeks, nie wartość pieniężna); handel czyta się
+ * z tabeli towarów w inspektorze.
+ */
+export const NON_COMPARABLE_METRICS: ReadonlySet<MapMode | ChangeMetric> = new Set([
+  "trade",
+] as const);
 export interface ModeContext {
   readonly baseline?: WorldSnapshot;
   readonly resourceId: string;
@@ -56,7 +65,7 @@ function changeValue(
     case "resources":
       return MODE_METRICS.resources(r, world, ctx);
     case "trade":
-      return MODE_METRICS.trade(r, world, ctx);
+      return undefined; // brak wspólnej miary dla różnych towarów (R4B)
     case "infrastructure":
       return r.infrastructure;
     case "technology":
@@ -87,12 +96,8 @@ export const MODE_METRICS: Record<
       ? deposits.reduce((sum, d) => sum + d.quantity!, 0)
       : undefined;
   },
-  trade: (r, world) =>
-    world.flows
-      .filter(
-        (f) => f.family === "trade" && (f.from === r.regionId || f.to === r.regionId),
-      )
-      .reduce((sum, f) => sum + f.magnitude, 0),
+  // R4B: brak wspólnej miary -- suma ilości różnych towarów nie jest pokazywana.
+  trade: () => undefined,
   technology: (r, _w, ctx) =>
     r.technology?.discoveries[ctx.discoveryId]?.industryAdoption,
   development: (r) => r.infrastructure,

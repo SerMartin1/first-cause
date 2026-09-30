@@ -24,15 +24,25 @@ export function tradeCell(q: TradeQuantity): TradeCell {
     : { kind: "value", value: q.known };
 }
 
-/** Tekst komórki: „0” dla znanego zera, „≥ n” dla części znanej, „—” dla braku danych. */
-export function formatTradeCell(cell: TradeCell, format: (n: number) => string): string {
+/** Zlokalizowane etykiety komórek (`world.trade.atLeast`, `world.trade.cellNoData`). */
+export interface TradeCellLabels {
+  readonly atLeast: (formatted: string) => string;
+  readonly noData: string;
+}
+
+/** Tekst komórki: „0” = znane zero, „co najmniej n” = część znana, „brak danych” = brak danych. */
+export function formatTradeCell(
+  cell: TradeCell,
+  format: (n: number) => string,
+  labels: TradeCellLabels,
+): string {
   switch (cell.kind) {
     case "value":
       return format(cell.value);
     case "partial":
-      return `≥ ${format(cell.value)}`;
+      return labels.atLeast(format(cell.value));
     case "unavailable":
-      return "—";
+      return labels.noData;
   }
 }
 
@@ -107,33 +117,74 @@ export interface Point {
   readonly y: number;
 }
 
+/** Prostokąt w jednostkach diagramu (np. etykieta regionu). */
+export interface Box {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+const inside = (p: Point, b: Box, pad: number) =>
+  p.x >= b.x - pad &&
+  p.x <= b.x + b.w + pad &&
+  p.y >= b.y - pad &&
+  p.y <= b.y + b.h + pad;
+
+type ArcOptions = {
+  readonly bend?: number;
+  readonly dash?: number;
+  readonly gap?: number;
+  readonly trim?: number;
+  readonly head?: number;
+  readonly avoid?: readonly Box[];
+  readonly avoidPad?: number;
+};
+type Arc = {
+  readonly dashes: readonly (readonly [Point, Point])[];
+  readonly arrow: readonly [Point, Point, Point];
+  /** Kreski pominięte, bo leżałyby na etykiecie. */
+  readonly hiddenDashes: number;
+  /** `false`, gdy każde miejsce grota koliduje z etykietą (grot mimo to rysowany w środku). */
+  readonly arrowClear: boolean;
+};
+
 /**
  * Relacja handlowa na Atlasie (nie trasa): przerywany łuk od eksportera do
  * importera, odgięty w prawo względem kierunku -- dwa kierunki tej samej
  * pary leżą więc po przeciwnych stronach i nie nakładają się na linię
  * połączenia. Łuk zaczyna się i kończy na krawędzi pierścieni (`trim`);
  * kreski i grot podawane w jednostkach diagramu (wywołujący przelicza px
- * ekranu przez skalę). Zwraca odcinki kresek oraz grot w połowie łuku.
+ * ekranu przez skalę).
+ *
+ * Follow-up R4B: `avoid` (prostokąty etykiet regionów) -- kreski wchodzące
+ * pod etykietę są pomijane (nazwa regionu ma pierwszeństwo), a grot
+ * przesuwany wzdłuż łuku do pierwszego wolnego miejsca; gdy wolnego miejsca
+ * nie ma (krótki łuk przy oddaleniu), łuk dostaje większe wygięcie
+ * (`ARC_FALLBACK_BENDS`). Geometria regionów bez zmian.
  */
-export function tradeRelationArc(
-  from: Point,
-  to: Point,
-  options: {
-    readonly bend?: number;
-    readonly dash?: number;
-    readonly gap?: number;
-    readonly trim?: number;
-    readonly head?: number;
-  } = {},
-): {
-  readonly dashes: readonly (readonly [Point, Point])[];
-  readonly arrow: readonly [Point, Point, Point];
-} {
+export function tradeRelationArc(from: Point, to: Point, options: ArcOptions = {}): Arc {
+  const bends = [options.bend ?? 0.12, ...ARC_FALLBACK_BENDS]; // TODO tuning
+  let arc = relationArcWithBend(from, to, { ...options, bend: bends[0]! });
+  for (const bend of bends.slice(1)) {
+    if (arc.arrowClear) break;
+    arc = relationArcWithBend(from, to, { ...options, bend });
+  }
+  return arc;
+}
+
+/** TODO tuning: kolejne wygięcia łuku, gdy grot nie mieści się poza etykietami. */
+const ARC_FALLBACK_BENDS = [0.2, 0.3, 0.45, 0.6] as const;
+
+function relationArcWithBend(from: Point, to: Point, options: ArcOptions = {}): Arc {
   const bend = options.bend ?? 0.12; // TODO tuning
   const dash = options.dash ?? 6; // TODO tuning
   const gap = options.gap ?? 4; // TODO tuning
   const trim = options.trim ?? 0;
   const head = options.head ?? 9; // TODO tuning
+  const avoid = options.avoid ?? [];
+  const pad = options.avoidPad ?? 0;
+  const blocked = (p: Point) => avoid.some((b) => inside(p, b, pad));
   const dx = to.x - from.x,
     dy = to.y - from.y;
   const control = {
@@ -157,19 +208,22 @@ export function tradeRelationArc(
       Math.hypot(p.x - to.x, p.y - to.y) >= trim,
   );
   const dashes: [Point, Point][] = [];
+  let hiddenDashes = 0;
   let travelled = 0;
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1]!,
       b = points[i]!;
-    if (travelled % (dash + gap) < dash) dashes.push([a, b]);
+    if (travelled % (dash + gap) < dash) {
+      if (blocked(a) || blocked(b)) hiddenDashes += 1;
+      else dashes.push([a, b]);
+    }
     travelled += Math.hypot(b.x - a.x, b.y - a.y);
   }
-  const tip = at(0.54),
-    back = at(0.5);
-  const angle = Math.atan2(tip.y - back.y, tip.x - back.x);
-  return {
-    dashes,
-    arrow: [
+  const arrowAt = (t: number): [Point, Point, Point] => {
+    const tip = at(t),
+      back = at(t - 0.04);
+    const angle = Math.atan2(tip.y - back.y, tip.x - back.x);
+    return [
       {
         x: tip.x - head * Math.cos(angle - 0.45),
         y: tip.y - head * Math.sin(angle - 0.45),
@@ -179,6 +233,15 @@ export function tradeRelationArc(
         x: tip.x - head * Math.cos(angle + 0.45),
         y: tip.y - head * Math.sin(angle + 0.45),
       },
-    ],
+    ];
+  };
+  // Grot w połowie łuku, a gdy tam stoi etykieta -- najbliższe wolne miejsce.
+  const candidates = [0.54, 0.46, 0.62, 0.38, 0.7, 0.3, 0.78, 0.22];
+  const clear = candidates.map(arrowAt).find((arrow) => !arrow.some(blocked));
+  return {
+    dashes,
+    arrow: clear ?? arrowAt(0.54),
+    hiddenDashes,
+    arrowClear: clear !== undefined,
   };
 }

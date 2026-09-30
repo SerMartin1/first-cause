@@ -27,6 +27,7 @@ import {
   OVERLAYS,
   MODE_METRICS,
   CHANGE_METRICS,
+  NON_COMPARABLE_METRICS,
   type ChangeMetric,
   type FlowLens,
 } from "./atlas-model.js";
@@ -388,8 +389,15 @@ export function WorldScreen() {
                     }
                   >
                     {CHANGE_METRICS.map((id) => (
-                      <option key={id} value={id}>
-                        {t(`world.change.${id}`)}
+                      // R4B: Handel nie ma wspólnej miary -- opcja widoczna, ale niedostępna.
+                      <option
+                        key={id}
+                        value={id}
+                        disabled={NON_COMPARABLE_METRICS.has(id)}
+                      >
+                        {NON_COMPARABLE_METRICS.has(id)
+                          ? t("world.change.tradeUnavailable")
+                          : t(`world.change.${id}`)}
                       </option>
                     ))}
                   </select>
@@ -971,7 +979,14 @@ export function WorldScreen() {
               </li>
             ))}
           </ol>
-          {ranking.length === 0 && <p>{t("world.noData")}</p>}
+          {ranking.length === 0 && (
+            <p data-testid="ranking-empty">
+              {NON_COMPARABLE_METRICS.has(ui.mapMode) ||
+              (ui.mapMode === "change" && NON_COMPARABLE_METRICS.has(ui.changeMetric))
+                ? t("world.trade.noCommonMeasure")
+                : t("world.noData")}
+            </p>
+          )}
         </FCSupportModule>
       </div>
     </div>

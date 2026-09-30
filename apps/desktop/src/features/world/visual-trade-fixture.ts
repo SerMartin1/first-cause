@@ -1,7 +1,14 @@
-import type { WorldView } from "@first-cause/simulation";
+import {
+  buildWorldSnapshot,
+  LEGACY_TRADE_FLOW_FACT_TYPE,
+  runTradeScenario,
+  tradeScenarioEvaluatedQuantity,
+  type WorldView,
+} from "@first-cause/simulation";
 import {
   buildVisualWorldView,
   geo,
+  VISUAL_WORLD_CONTENT,
   type ConnectionSpec,
   type RegionSpec,
 } from "./visual-world-fixture.js";
@@ -94,6 +101,8 @@ const CONNECTIONS: readonly ConnectionSpec[] = [
   { a: R.mines, b: R.frontier, level: 1, modes: ["pack_animal"] },
   { a: R.emporium, b: R.marsh, level: 2, modes: ["river"] },
   { a: R.emporium, b: R.mines, level: 2, modes: ["cart"] },
+  // Drugie połączenie Delta–Coal Hollow (rzeka): przypadek graniczny „oba kierunki” niżej.
+  { a: R.delta, b: R.mines, level: 1, modes: ["river"] },
 ];
 
 /** `dev_connection_<i>` -- id nadawane przez `buildVisualWorldView` po kolejności listy. */
@@ -108,33 +117,45 @@ function connectionId(a: string, b: string): string {
 type Fact = NonNullable<Parameters<typeof buildVisualWorldView>[0]["facts"]>[number];
 const facts: Fact[] = [];
 /** `importer` przywozi `goodId` od `exporter` (jeden fakt = jedna wymiana na jednym połączeniu). */
-function flow(importer: string, exporter: string, goodId: string, after: unknown): void {
+function flow(
+  importer: string,
+  exporter: string,
+  goodId: string,
+  after: unknown,
+  connection = connectionId(importer, exporter),
+): void {
   facts.push({
     id: `trade_fixture_fact_${facts.length}`,
     tick: TRADE_PERIOD_TICK,
     type: "trade_flow_active",
     subject: {
       entityType: "connectionGood",
-      entityId: `${connectionId(importer, exporter)}:${goodId}`,
+      entityId: `${connection}:${goodId}`,
     },
     location: { regionId: importer },
     values: { before: 0, after },
   });
 }
 
-// Great Delta: przywóz i wywóz tego samego towaru (narzędzia), towar od
-// kilku partnerów (zboże), tylko przywóz (węgiel), tylko wywóz (tkaniny),
-// jeden partner w obu kierunkach (Coal Hollow: ruda ↔ chleb).
+// Great Delta -- wyłącznie towary istniejące w contencie gry (poprawne nazwy EN/PL):
+// kilku partnerów (zboże), przywóz i wywóz tego samego towaru (mąka), tylko
+// wywóz (chleb), tylko przywóz (drewno, ruda żelaza).
 flow(R.delta, R.hills, "grain", 70);
 flow(R.delta, R.harbour, "grain", 50);
-flow(R.delta, R.mines, "dev_coal", 45);
-flow(R.delta, R.hills, "dev_tools", 12);
-flow(R.harbour, R.delta, "dev_tools", 20);
-flow(R.harbour, R.delta, "dev_cloth", 60);
+flow(R.delta, R.hills, "flour", 12);
+flow(R.harbour, R.delta, "flour", 20);
+flow(R.harbour, R.delta, "bread", 60);
+flow(R.delta, R.mines, "timber", 45);
 flow(R.delta, R.mines, "iron_ore", 30);
-flow(R.mines, R.delta, "bread", 15);
+// PRZYPADEK GRANICZNY (tylko weryfikacja renderowania łuków): ten sam towar w obu
+// kierunkach z tym samym partnerem, po dwóch połączeniach. W obecnym modelu nie
+// zdarza się w jednym ticku (nadwyżka i niedobór tego samego towaru naraz), ale
+// Read Model i Atlas muszą go poprawnie pokazać.
+flow(R.delta, R.mines, "flour", 8, "dev_connection_8");
+flow(R.mines, R.delta, "flour", 5, "dev_connection_2");
 
-// Emporium: długa lista (30 towarów) z trzema partnerami.
+// Emporium: długa lista (30 towarów TESTOWYCH `dev_*` -- nie ma ich w contencie gry)
+// z trzema partnerami.
 export const LONG_LIST_GOODS = [
   "dev_amber",
   "dev_barley",
@@ -175,14 +196,15 @@ LONG_LIST_GOODS.forEach((good, i) => {
   if (i % 3 !== 0) flow(partner, R.emporium, good, 3 + ((i * 53) % 70));
 });
 
-// Reed Marsh: dane częściowe -- zapis bez ilości (NaN) i zapis bez ustalonego partnera.
-flow(R.marsh, R.emporium, "dev_fish", 14);
-flow(R.marsh, R.emporium, "dev_fish", Number.NaN);
+// Reed Marsh: dane częściowe -- dwa RÓŻNE braki: zapis bez ilości (NaN → ilość
+// „co najmniej”) oraz zapis ze znaną ilością, ale bez ustalonego partnera.
+flow(R.marsh, R.emporium, "grain", 14);
+flow(R.marsh, R.emporium, "grain", Number.NaN);
 facts.push({
   id: `trade_fixture_fact_${facts.length}`,
   tick: TRADE_PERIOD_TICK,
   type: "trade_flow_active",
-  subject: { entityType: "connectionGood", entityId: "dev_connection_missing:dev_reeds" },
+  subject: { entityType: "connectionGood", entityId: "dev_connection_missing:timber" },
   location: { regionId: R.marsh },
   values: { before: 0, after: 9 },
 });
@@ -220,15 +242,62 @@ export function tradeView(): WorldView {
 /** Nazwy towarów istniejących wyłącznie w tym fixture (harness i testy). */
 export const TRADE_DEV_NAMES: Readonly<Record<"en" | "pl", Record<string, string>>> = {
   en: Object.fromEntries(
-    [...LONG_LIST_GOODS, "dev_tools", "dev_cloth", "dev_fish", "dev_reeds"].map((id) => [
+    LONG_LIST_GOODS.map((id) => [
       `content.good.${id}.name`,
-      `${id.slice(4, 5).toUpperCase()}${id.slice(5)} (dev data)`,
+      `${id.slice(4, 5).toUpperCase()}${id.slice(5)} (test data)`,
     ]),
   ),
   pl: Object.fromEntries(
-    [...LONG_LIST_GOODS, "dev_tools", "dev_cloth", "dev_fish", "dev_reeds"].map((id) => [
+    LONG_LIST_GOODS.map((id) => [
       `content.good.${id}.name`,
-      `${id.slice(4, 5).toUpperCase()}${id.slice(5)} (dane dev)`,
+      `${id.slice(4, 5).toUpperCase()}${id.slice(5)} (dane testowe)`,
     ]),
   ),
 };
+
+/**
+ * SCENARIUSZ SYMULACYJNY (nie fixture wyglądu): stan początkowy
+ * `buildTradeScenarioWorldState` + produkcyjny `WorldRunner.step()`; fakty
+ * handlu i wartości tabeli liczy symulacja, nic nie jest wpisane ręcznie.
+ */
+export function tradeSimulationView(ticks = 1): WorldView {
+  const runner = runTradeScenario(ticks);
+  return snapshotView(runner.worldState, runner.facts);
+}
+
+/**
+ * Stan po wczytaniu zapisu starszego silnika (< 3), odwzorowany w pamięci:
+ * ten sam scenariusz, a fakt handlu z ilością OCENIONĄ ma typ nadawany przez
+ * migrację schematu v2 → v3 (`trade_flow_evaluated`). Właściwy dowód
+ * ścieżki zapisu: `packages/persistence/src/trade-legacy-save.test.ts`.
+ */
+export function tradeLegacySaveView(): WorldView {
+  const runner = runTradeScenario(1);
+  const evaluated = tradeScenarioEvaluatedQuantity(runner.worldState);
+  const facts = runner.facts.map((f) =>
+    f.type === "trade_flow_active"
+      ? {
+          ...f,
+          type: LEGACY_TRADE_FLOW_FACT_TYPE,
+          values: { ...f.values, after: evaluated },
+        }
+      : f,
+  );
+  return snapshotView(runner.worldState, facts);
+}
+
+function snapshotView(
+  state: Parameters<typeof buildWorldSnapshot>[0],
+  facts: Parameters<typeof buildWorldSnapshot>[1],
+): WorldView {
+  const current = buildWorldSnapshot(state, facts, VISUAL_WORLD_CONTENT, []);
+  return {
+    type: "WORLD_VIEW",
+    current,
+    baseline: undefined,
+    liveTick: current.summary.currentTick,
+    availableTicks: [current.summary.currentTick],
+    events: [],
+    speed: 0,
+  };
+}

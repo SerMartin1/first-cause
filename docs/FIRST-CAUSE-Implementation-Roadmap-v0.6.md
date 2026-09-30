@@ -4734,7 +4734,57 @@ generuje dziś żadnego przepływu handlowego (360 ticków, 0 faktów
 `trade_flow_active`) --- w grze tabela pokazuje „Brak handlu w tym
 okresie”; przyczyna leży w ekonomii/tuningu, nie w widoku. Top Regions
 i Δ Change dla metryki Handel nadal sumują ilości różnych towarów
-(`MODE_METRICS.trade`) --- do rozstrzygnięcia w dalszej części R4B.
+(`MODE_METRICS.trade`) --- *usunięte w follow-upie (niżej).*
+
+### `M21-VIS-R4B` --- Handel: follow-up po przeglądzie (2026-09-30) --- IMPLEMENTED / TECHNICALLY VERIFIED / PENDING HUMAN VISUAL ACCEPTANCE
+
+Kontynuacja powyższego wdrożenia (bez zmiany kierunku §52B, bez zmian
+algorytmu handlu, lifecycle i balansu świata).
+
+-   **Starsze zapisy:** loader klasyfikował zgodność tylko po
+    `schemaVersion` i przyjmował zapis silnika < 3 bez rozróżnienia
+    semantyki --- ilość oceniona mogła trafić do tabeli jako dostawa.
+    Zgodnie z istniejącą polityką (sekwencyjne migracje, Save Spec
+    §39--40): `SCHEMA_VERSION` 3, `migrateV2ToV3` nadaje faktom handlu
+    z zapisów silnika < 3 typ `trade_flow_evaluated` (id, tick, subject,
+    wartości bez zmian). Read Model liczy je jako „brak danych” o
+    dostawie (partner i kierunek zostają) z ostrzeżeniem w UI; warstwa
+    flows ich nie używa. Test: wczytanie → widok → nowy tick → zapis →
+    odczyt (`trade-legacy-save.test.ts`).
+-   **Odbiorcy `trade_flow_active`:** tabela Handlu i warstwa flows
+    (ilość dostarczona); Chronicle `trade_route` (wolumen tylko do progu
+    istotności, bez ilości w treści --- proces otwarty w chwili zmiany
+    silnika łączy wolumen oceniony sprzed i dostarczony po; ograniczenie
+    zapisane, reguły Chronicle bez zmian); Causality / WHY? (krawędzie
+    po id faktu, bez wartości); checksumy (factStore w checksumie
+    świata --- nowe zapisy deterministyczne).
+-   **Brak sumy różnych towarów:** `MODE_METRICS.trade` i Δ Change
+    „Handel” nie zwracają już sumy; Top Regions w trybie Handel pokazuje
+    „brak wspólnej miary”, opcja Δ Change „Handel” jest nieaktywna.
+    Tabela opisuje „ostatni zakończony miesiąc”; pomoc wyjaśnia, że okno
+    porównania (1Y…) jej nie zmienia.
+-   **Pełny przepływ:** deterministyczny scenariusz weryfikacyjny
+    `TRADE_SCENARIO` (`packages/simulation/src/verification/`, seed
+    `trade-verification-scenario`, 2 regiony z Market + Inventory,
+    połączenie 1000, farma zbożowa i 200 konsumentów; tylko stan
+    początkowy). Po 1 produkcyjnym ticku: `trade_flow_active` = ilość
+    przeniesiona (stock eksportera wyczerpany do 0), ocena
+    `evaluateTradeFlow` większa; Read Model i UI importera oraz
+    eksportera pokazują ilość przeniesioną; inne zmiany magazynu w ticku
+    nie są przypisywane handlowi.
+-   **Czytelność:** hierarchia region → Handel regionu → ostatni
+    zakończony miesiąc (data świata; tick w diagnostyce pomocy) →
+    jednostki → tabela; objaśnienia w `<details>` „Jak czytać tę
+    tabelę?”; przyklejony nagłówek z kontekstem „region · rok, miesiąc”;
+    komórki słowami („co najmniej n”, „brak danych”); osobne ostrzeżenia:
+    brak ilości / brak partnera / starszy silnik; stały układ tabel,
+    nazwy łamane tylko między wyrazami, bez zmniejszania czcionki.
+-   **Atlas:** łuki omijają etykiety (Atlas Spec §14 „Trade”).
+
+Materiały: `docs/verification/world-r4b-trade-followup-2026-09-30/`
+(fixture wyglądu: `visual-trade-fixture.ts`; scenariusz symulacyjny:
+`fixture=trade-sim`; stan po migracji: `fixture=trade-legacy`); E2E
+`tests/e2e/world-r4b-trade-followup.spec.ts`.
 
 Otwarte poza R4: `M21-VIS-R5` (WHY?), `M22` (geometria świata),
 reprezentacja złóż SUSPECTED, CONTENT-IRON-01, przyszły system

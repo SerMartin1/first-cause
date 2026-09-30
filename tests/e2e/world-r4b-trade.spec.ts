@@ -122,7 +122,7 @@ test("M21-VIS-R4B: trade by goods table with partner details -- acceptance mater
       await atlasReady(page, "trade");
       const panel = page.getByTestId("trade-panel");
       await expect(panel).toHaveAttribute("data-trade-status", "RECORDED");
-      await expect(panel.locator("tbody tr[data-trade-good]")).toHaveCount(6);
+      await expect(panel.locator("tbody tr[data-trade-good]")).toHaveCount(5);
       // Domyślnie Atlas bez wyróżnień handlu i bez strzałek przepływów.
       expect(await atlasAttr(page, "data-trade-good")).toBe("");
       expect(await atlasAttr(page, "data-trade-pair")).toBe("");
@@ -152,7 +152,7 @@ test("M21-VIS-R4B: trade by goods table with partner details -- acceptance mater
     await expect(goodButton(page, "grain")).toHaveAttribute("aria-expanded", "true");
     const partners = page.getByTestId("trade-partners");
     await expect(partners.locator(":scope > tbody > tr")).toHaveCount(2);
-    await expect(page.locator("tbody tr[data-trade-good]")).toHaveCount(6);
+    await expect(page.locator("tbody tr[data-trade-good]")).toHaveCount(5);
     await expect(page.getByTestId("living-atlas")).toHaveAttribute(
       "data-trade-partners",
       "trade_a_hills,trade_c_harbour",
@@ -164,7 +164,7 @@ test("M21-VIS-R4B: trade by goods table with partner details -- acceptance mater
     await expect(page.getByTestId("living-atlas")).toHaveAttribute("data-trade-good", "");
 
     // 3. Wskazany partner: kierunek wymiany na Atlasie, główny wybór bez zmian.
-    await goodButton(page, "dev_tools").click();
+    await goodButton(page, "flour").click();
     await partners.getByRole("button", { name: "Salt Harbour" }).click();
     await expect(page.getByTestId("living-atlas")).toHaveAttribute(
       "data-trade-pair",
@@ -194,7 +194,7 @@ test("M21-VIS-R4B: trade by goods table with partner details -- acceptance mater
     // 5. Zmiana wybranego regionu usuwa szczegóły poprzedniego.
     await mapModeTab(page, "Trade").click();
     await atlasReady(page, "trade");
-    await goodButton(page, "dev_tools").click();
+    await goodButton(page, "flour").click();
     await page
       .getByTestId("trade-partners")
       .getByRole("button", { name: "Salt Harbour" })

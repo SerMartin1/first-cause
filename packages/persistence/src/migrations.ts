@@ -1,3 +1,7 @@
+import {
+  LEGACY_TRADE_FLOW_FACT_TYPE,
+  TRADE_FLOW_FACT_TYPE,
+} from "@first-cause/simulation";
 import { SCHEMA_VERSION } from "./envelope.js";
 
 /**
@@ -20,8 +24,7 @@ export function migrateV1ToV2(raw: Record<string, unknown>): Record<string, unkn
   const runnerState = raw.worldState as Record<string, unknown> | undefined;
   const worldState = runnerState?.worldState as Record<string, unknown> | undefined;
   const settlements = worldState?.settlements as
-    | Record<string, Record<string, unknown>>
-    | undefined;
+    Record<string, Record<string, unknown>> | undefined;
   const versions = (raw.versions ?? {}) as Record<string, unknown>;
   if (!runnerState || !worldState || !settlements)
     return { ...raw, versions: { ...versions, schemaVersion: 2 } };
@@ -38,16 +41,49 @@ export function migrateV1ToV2(raw: Record<string, unknown>): Record<string, unkn
   };
 }
 
+/**
+ * v2 -> v3 (M21-VIS-R4B): od ENGINE_VERSION 3 `trade_flow_active` niesie
+ * ilość faktycznie przeniesioną. Zapis wykonany starszym silnikiem
+ * (`versions.engineVersion < 3` albo brak) ma pod tym typem ilości
+ * ocenione -- migracja nadaje im `LEGACY_TRADE_FLOW_FACT_TYPE`
+ * (`trade_flow_evaluated`; ta sama tożsamość: id, tick, subject, wartości; bez zerowania,
+ * usuwania i przeliczania). Zapis v2 wykonany już silnikiem 3 zostaje bez
+ * zmian faktów. Czysta funkcja (SAVE-008).
+ */
+export function migrateV2ToV3(raw: Record<string, unknown>): Record<string, unknown> {
+  const versions = (raw.versions ?? {}) as Record<string, unknown>;
+  const engineVersion = versions.engineVersion;
+  const legacyEngine = typeof engineVersion !== "number" || engineVersion < 3;
+  const runnerState = raw.worldState as Record<string, unknown> | undefined;
+  const factStore = runnerState?.factStore as Record<string, unknown> | undefined;
+  const facts = factStore?.facts as readonly Record<string, unknown>[] | undefined;
+  const bumped = { ...raw, versions: { ...versions, schemaVersion: 3 } };
+  if (!legacyEngine || !runnerState || !factStore || !Array.isArray(facts)) return bumped;
+  return {
+    ...bumped,
+    worldState: {
+      ...runnerState,
+      factStore: {
+        ...factStore,
+        facts: facts.map((fact) =>
+          fact.type === TRADE_FLOW_FACT_TYPE
+            ? { ...fact, type: LEGACY_TRADE_FLOW_FACT_TYPE }
+            : fact,
+        ),
+      },
+    },
+  };
+}
+
 /** Keyed by the version a migrator upgrades FROM (vN -> vN+1). */
-export const MIGRATIONS: Readonly<Record<number, SchemaMigrator>> = { 1: migrateV1ToV2 };
+export const MIGRATIONS: Readonly<Record<number, SchemaMigrator>> = {
+  1: migrateV1ToV2,
+  2: migrateV2ToV3,
+};
 
 /** SS39 Version Compatibility Matrix. */
 export type VersionCompatibility =
-  | "compatible"
-  | "migratable"
-  | "unsupported-newer"
-  | "unsupported-legacy"
-  | "corrupted";
+  "compatible" | "migratable" | "unsupported-newer" | "unsupported-legacy" | "corrupted";
 
 function hasMigrationPath(fromVersion: number, toVersion: number): boolean {
   for (let version = fromVersion; version < toVersion; version++) {
@@ -69,7 +105,9 @@ export function classifyVersionCompatibility(
   }
   if (rawSchemaVersion === targetSchemaVersion) return "compatible";
   if (rawSchemaVersion > targetSchemaVersion) return "unsupported-newer";
-  return hasMigrationPath(rawSchemaVersion, targetSchemaVersion) ? "migratable" : "unsupported-legacy";
+  return hasMigrationPath(rawSchemaVersion, targetSchemaVersion)
+    ? "migratable"
+    : "unsupported-legacy";
 }
 
 /** SS43 Migration Log entry, one per `vN -> vN+1` step actually applied. */
@@ -129,5 +167,10 @@ export function migrateSchema(
     version += 1;
   }
 
-  return { raw: current, sourceVersion: sourceVersion as number, targetVersion: targetSchemaVersion, steps };
+  return {
+    raw: current,
+    sourceVersion: sourceVersion as number,
+    targetVersion: targetSchemaVersion,
+    steps,
+  };
 }

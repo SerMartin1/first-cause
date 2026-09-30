@@ -420,6 +420,15 @@ Dotyczy kontenera/kompresji, nie modelu świata.
 Loader powinien określać: - compatible, - migratable, -
 unsupported-newer, - unsupported-legacy, - corrupted.
 
+**Stan implementacji (2026-09-30):** klasyfikacja działa na
+`schemaVersion` (`classifyVersionCompatibility`); `engineVersion` sam
+nie blokuje wczytania. Zmiana semantyki silnika, która zmienia
+znaczenie zapisanych danych, dostaje własny krok migracji schematu
+(precedensy: v1 → v2 SET-LIFECYCLE-001; v2 → v3 M21-VIS-R4B --- fakty
+`trade_flow_active` zapisane silnikiem < 3 niosą ilość ocenioną i
+otrzymują typ `trade_flow_evaluated`, bez zerowania, usuwania ani
+przeliczania). Sam numer wersji nie jest migracją.
+
 ------------------------------------------------------------------------
 
 # 40. Save Migration

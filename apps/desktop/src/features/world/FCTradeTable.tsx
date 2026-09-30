@@ -2,7 +2,12 @@ import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorldRegionView, WorldSnapshot } from "@first-cause/simulation";
 import { useWorldStore } from "./world-store.js";
-import { formatTradeCell, sortTradeGoods, tradeCell } from "./trade-view.js";
+import {
+  formatTradeCell,
+  sortTradeGoods,
+  tradeCell,
+  type TradeCellLabels,
+} from "./trade-view.js";
 
 /**
  * M21-VIS-R4B -- Handel według towarów: jedna tabela TOWAR | PRZYWOZI |
@@ -32,6 +37,27 @@ export function FCTradeTable({
     id === undefined
       ? t("world.trade.unknownPartner")
       : (snapshot.regions.find((r) => r.regionId === id)?.name ?? id);
+  // Komórka niesie własne znaczenie („co najmniej”, „brak danych”) -- czytelne
+  // także po przewinięciu, gdy komunikaty nad tabelą nie są już widoczne.
+  const labels: TradeCellLabels = {
+    atLeast: (value) => t("world.trade.atLeast", { value }),
+    noData: t("world.trade.cellNoData"),
+  };
+  const cell = (q: Parameters<typeof tradeCell>[0]) => {
+    const c = tradeCell(q);
+    return (
+      <span className={`fc-trade__qty fc-trade__qty--${c.kind}`} data-trade-qty={c.kind}>
+        {formatTradeCell(c, format, labels)}
+      </span>
+    );
+  };
+  const period =
+    trade.status === "RECORDED"
+      ? t("world.trade.lastMonthValue", {
+          year: trade.period.year,
+          month: trade.period.month,
+        })
+      : undefined;
 
   return (
     <section
@@ -41,18 +67,20 @@ export function FCTradeTable({
       data-trade-status={trade.status}
       data-trade-region={region.regionId}
     >
+      {/* Hierarchia: (nazwa regionu = tytuł sekcji) → Handel regionu → okres → jednostki → tabela. */}
       <header className="fc-trade__header">
         <h3 id="fc-trade-title">{t("world.trade.title")}</h3>
-        {trade.status === "RECORDED" && (
-          <p className="fc-data" data-testid="trade-period">
-            {t("world.trade.period", {
-              month: trade.period.month,
-              year: trade.period.year,
-              tick: trade.period.tick,
-            })}
+        {period && (
+          <p data-testid="trade-period">
+            <span className="fc-label">{t("world.trade.lastMonth")}</span>{" "}
+            <span className="fc-trade__period">{period}</span>
           </p>
         )}
-        <p className="fc-caption">{t("world.trade.scopeNote")}</p>
+        {trade.status === "RECORDED" && trade.goods.length > 0 && (
+          <p className="fc-caption" data-testid="trade-units">
+            {t("world.trade.units")}
+          </p>
+        )}
       </header>
       {trade.status === "NO_DATA" ? (
         <div className="fc-trade__state" data-testid="trade-no-data" role="status">
@@ -65,14 +93,34 @@ export function FCTradeTable({
         </p>
       ) : (
         <>
-          <p className="fc-caption">{t("world.trade.unitNote")}</p>
-          {trade.incomplete && (
-            <p className="fc-caption fc-trade__partial" data-testid="trade-partial">
-              {t("world.trade.partial")}
-            </p>
+          {(trade.legacyRecords > 0 ||
+            trade.missingQuantityRecords > 0 ||
+            trade.missingPartnerRecords > 0) && (
+            <ul className="fc-trade__warnings" data-testid="trade-partial">
+              {trade.legacyRecords > 0 && (
+                <li data-trade-warning="legacy">{t("world.trade.warning.legacy")}</li>
+              )}
+              {trade.missingQuantityRecords > 0 && (
+                <li data-trade-warning="quantity">{t("world.trade.warning.quantity")}</li>
+              )}
+              {trade.missingPartnerRecords > 0 && (
+                <li data-trade-warning="partner">{t("world.trade.warning.partner")}</li>
+              )}
+            </ul>
           )}
           <table className="fc-trade__table" data-testid="trade-table">
+            <colgroup>
+              <col />
+              <col className="fc-trade__num-col" />
+              <col className="fc-trade__num-col" />
+            </colgroup>
             <thead>
+              {/* Skrócony kontekst: po przewinięciu nadal widać, czyje i z którego miesiąca są dane. */}
+              <tr className="fc-trade__context" data-testid="trade-context">
+                <th colSpan={3} scope="colgroup">
+                  {region.name} · {period}
+                </th>
+              </tr>
               <tr>
                 <th scope="col">{t("world.trade.good")}</th>
                 <th scope="col" className="fc-trade__num">
@@ -118,10 +166,10 @@ export function FCTradeTable({
                         </button>
                       </th>
                       <td className="fc-data fc-trade__num" data-trade-cell="imports">
-                        {formatTradeCell(tradeCell(good.imported), format)}
+                        {cell(good.imported)}
                       </td>
                       <td className="fc-data fc-trade__num" data-trade-cell="exports">
-                        {formatTradeCell(tradeCell(good.exported), format)}
+                        {cell(good.exported)}
                       </td>
                     </tr>
                     {expanded && (
@@ -132,6 +180,11 @@ export function FCTradeTable({
                             data-testid="trade-partners"
                             aria-label={`${goodName(good.goodId)} · ${t("world.trade.partner")}`}
                           >
+                            <colgroup>
+                              <col />
+                              <col className="fc-trade__num-col" />
+                              <col className="fc-trade__num-col" />
+                            </colgroup>
                             <thead>
                               <tr>
                                 <th scope="col">{t("world.trade.partner")}</th>
@@ -188,16 +241,10 @@ export function FCTradeTable({
                                         )}
                                       </th>
                                       <td className="fc-data fc-trade__num">
-                                        {formatTradeCell(
-                                          tradeCell(partner.imported),
-                                          format,
-                                        )}
+                                        {cell(partner.imported)}
                                       </td>
                                       <td className="fc-data fc-trade__num">
-                                        {formatTradeCell(
-                                          tradeCell(partner.exported),
-                                          format,
-                                        )}
+                                        {cell(partner.exported)}
                                       </td>
                                     </tr>
                                   );
@@ -212,9 +259,23 @@ export function FCTradeTable({
               })}
             </tbody>
           </table>
-          <p className="fc-caption">{t("world.trade.hint")}</p>
         </>
       )}
+      {/* Pomoc: długie objaśnienia poza pierwszym planem; <details> działa z klawiatury. */}
+      <details className="fc-trade__help" data-testid="trade-help">
+        <summary>{t("world.trade.help.summary")}</summary>
+        <ul>
+          <li>{t("world.trade.scopeNote")}</li>
+          <li>{t("world.trade.help.goods")}</li>
+          <li>{t("world.trade.help.period")}</li>
+          <li>{t("world.trade.hint")}</li>
+          {trade.status === "RECORDED" && (
+            <li className="fc-caption" data-testid="trade-diagnostic-tick">
+              {t("world.trade.help.tick", { tick: trade.period.tick })}
+            </li>
+          )}
+        </ul>
+      </details>
     </section>
   );
 }

@@ -20,8 +20,16 @@ import type { SimulationFact } from "@first-cause/causality";
  *   jednym odcinku, więc nic nie jest liczone wielokrotnie;
  * - zero ≠ brak danych: zapis bez prawidłowej ilości (null / NaN /
  *   ujemna) albo bez ustalonego partnera jest liczony jako brakująca
- *   część, nigdy jako 0.
+ *   część, nigdy jako 0;
+ * - fakt `trade_flow_evaluated` (zapis starszego silnika po migracji
+ *   schematu v2 -> v3) niesie ilość OCENIONĄ -- liczony jako zapis bez
+ *   znanej ilości dostarczonej (partner i kierunek zostają), nigdy jako dostawa.
  */
+
+/** Fakt handlu z ilością faktycznie przeniesioną (ENGINE_VERSION >= 3). */
+export const TRADE_FLOW_FACT_TYPE = "trade_flow_active" as const;
+/** Fakt handlu starszego silnika: ilość oceniona, nie dostarczona (migracja v2 -> v3). */
+export const LEGACY_TRADE_FLOW_FACT_TYPE = "trade_flow_evaluated" as const;
 
 /** Ilość w jednym kierunku: suma znanych wartości + liczba zapisów bez ilości. */
 export interface TradeQuantity {
@@ -70,8 +78,12 @@ export type RegionTradeView =
       readonly period: TradePeriod;
       /** Pusta lista = potwierdzony brak handlu w tym okresie. */
       readonly goods: readonly RegionTradeGoodRow[];
-      /** Któryś zapis nie ma ilości albo partnera (dane częściowe). */
-      readonly incomplete: boolean;
+      /** Zapisy bez prawidłowej ilości (null / NaN / ujemna) -- bez zapisów starszego silnika. */
+      readonly missingQuantityRecords: number;
+      /** Zapisy bez ustalonego partnera (ilość może być znana). */
+      readonly missingPartnerRecords: number;
+      /** Zapisy starszego silnika: znana tylko ilość oceniona, nie dostarczona. */
+      readonly legacyRecords: number;
     };
 
 const EMPTY: TradeQuantity = { known: 0, records: 0, unknownRecords: 0 };
@@ -112,7 +124,9 @@ interface GoodAccumulator {
 
 interface RegionAccumulator {
   readonly goods: Map<string, GoodAccumulator>;
-  incomplete: boolean;
+  missingQuantityRecords: number;
+  missingPartnerRecords: number;
+  legacyRecords: number;
 }
 
 function record(
@@ -122,10 +136,16 @@ function record(
   partnerRegionId: string | undefined,
   direction: "imported" | "exported",
   value: number | undefined,
+  legacy: boolean,
 ): void {
   let region = ledger.get(regionId);
   if (!region) {
-    region = { goods: new Map(), incomplete: false };
+    region = {
+      goods: new Map(),
+      missingQuantityRecords: 0,
+      missingPartnerRecords: 0,
+      legacyRecords: 0,
+    };
     ledger.set(regionId, region);
   }
   let good = region.goods.get(goodId);
@@ -140,7 +160,9 @@ function record(
   partner[direction] = add(partner[direction], value);
   good.partners.set(partnerRegionId, partner);
   good[direction] = add(good[direction], value);
-  if (value === undefined || partnerRegionId === undefined) region.incomplete = true;
+  if (legacy) region.legacyRecords += 1;
+  else if (value === undefined) region.missingQuantityRecords += 1;
+  if (partnerRegionId === undefined) region.missingPartnerRecords += 1;
 }
 
 /**
@@ -161,13 +183,18 @@ export function buildRegionTradeReadModels(
   const period = previousMonth(state);
   const ledger = new Map<string, RegionAccumulator>();
   for (const fact of facts) {
-    if (fact.tick !== period.tick || fact.type !== "trade_flow_active") continue;
+    const legacy = fact.type === LEGACY_TRADE_FLOW_FACT_TYPE;
+    if (fact.tick !== period.tick || (fact.type !== TRADE_FLOW_FACT_TYPE && !legacy))
+      continue;
     const separator = fact.subject.entityId.lastIndexOf(":");
     if (separator <= 0) continue;
     const connection = state.connections[fact.subject.entityId.slice(0, separator)];
     const goodId = fact.subject.entityId.slice(separator + 1);
     const importer = fact.location.regionId;
-    const value = knownQuantity((fact.values as { after?: unknown }).after);
+    // Ilość oceniona starszego silnika nie jest dostawą -- dostawa nieznana.
+    const value = legacy
+      ? undefined
+      : knownQuantity((fact.values as { after?: unknown }).after);
     const exporter =
       connection &&
       (connection.regionAId === importer || connection.regionBId === importer)
@@ -175,10 +202,10 @@ export function buildRegionTradeReadModels(
           ? connection.regionBId
           : connection.regionAId
         : undefined;
-    record(ledger, importer, goodId, exporter, "imported", value);
+    record(ledger, importer, goodId, exporter, "imported", value, legacy);
     // Bez ustalonego Connection strona eksportująca jest nieznana -- nie zgadujemy jej.
     if (exporter !== undefined)
-      record(ledger, exporter, goodId, importer, "exported", value);
+      record(ledger, exporter, goodId, importer, "exported", value, legacy);
   }
   for (const id of regionIds) {
     const region = state.regions[id]!;
@@ -208,7 +235,9 @@ export function buildRegionTradeReadModels(
       scope: "REGION",
       period,
       goods,
-      incomplete: acc?.incomplete ?? false,
+      missingQuantityRecords: acc?.missingQuantityRecords ?? 0,
+      missingPartnerRecords: acc?.missingPartnerRecords ?? 0,
+      legacyRecords: acc?.legacyRecords ?? 0,
     });
   }
   return result;

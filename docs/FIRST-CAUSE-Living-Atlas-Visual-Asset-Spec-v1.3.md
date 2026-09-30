@@ -904,6 +904,14 @@ Ograniczenie: dane handlu istnieją tylko na poziomie regionu. Kodowanie
 „grubość i kierunek krawędzi” z §28.5 (wszystkie przepływy naraz) nie
 jest używane w tym widoku --- zastąpione przez decyzję §52B.
 
+**Follow-up (2026-09-30, PENDING HUMAN VISUAL ACCEPTANCE):** łuki relacji
+rysowane są po etykietach i omijają ich prostokąty (kreski pod nazwą
+regionu pomijane, grot przesuwany wzdłuż łuku, w ostateczności większe
+wygięcie); priorytet: nazwa regionu > morfologia > kierunek wymiany.
+Geometria regionów bez zmian. Tryb Handel nie ma wartości przy
+regionach ani w Top Regions / Δ Change (brak wspólnej miary dla
+różnych towarów).
+
 ## Technology
 
 Pokazuje adopcję/dyfuzję.

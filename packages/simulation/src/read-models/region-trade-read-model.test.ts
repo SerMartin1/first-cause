@@ -13,6 +13,7 @@ import {
 import type { SimulationFact } from "@first-cause/causality";
 import {
   buildRegionTradeReadModels,
+  LEGACY_TRADE_FLOW_FACT_TYPE,
   type RegionTradeView,
 } from "./region-trade-read-model.js";
 import { buildWorldSnapshot } from "./world-view-read-model.js";
@@ -142,7 +143,11 @@ describe("buildRegionTradeReadModels (M21-VIS-R4B)", () => {
         ],
       },
     ]);
-    expect(delta.incomplete).toBe(false);
+    expect(delta).toMatchObject({
+      missingQuantityRecords: 0,
+      missingPartnerRecords: 0,
+      legacyRecords: 0,
+    });
   });
 
   it("shows import-only and export-only goods with a known zero on the other side", () => {
@@ -209,14 +214,21 @@ describe("buildRegionTradeReadModels (M21-VIS-R4B)", () => {
     ];
     const delta = recorded(buildRegionTradeReadModels(tradeState(), facts).get("delta"));
     expect(delta.goods[0]!.imported).toEqual(q(10, 5, 4));
-    expect(delta.incomplete).toBe(true);
+    expect(delta).toMatchObject({
+      missingQuantityRecords: 4,
+      missingPartnerRecords: 0,
+      legacyRecords: 0,
+    });
     expect(Number.isNaN(delta.goods[0]!.imported.known)).toBe(false);
   });
 
   it("distinguishes confirmed no trade, no completed period and outside the trade model", () => {
     const models = buildRegionTradeReadModels(tradeState(), []);
     expect(recorded(models.get("delta")).goods).toEqual([]);
-    expect(recorded(models.get("delta")).incomplete).toBe(false);
+    expect(recorded(models.get("delta"))).toMatchObject({
+      missingQuantityRecords: 0,
+      missingPartnerRecords: 0,
+    });
     expect(models.get("wild")).toEqual({
       status: "NO_DATA",
       reason: "OUTSIDE_TRADE_MODEL",
@@ -255,7 +267,9 @@ describe("buildRegionTradeReadModels (M21-VIS-R4B)", () => {
     expect(delta.goods[0]!.partners).toEqual([
       { partnerRegionId: undefined, imported: q(10, 2), exported: q(0, 0) },
     ]);
-    expect(delta.incomplete).toBe(true);
+    // Ilość znana (8 + 2), nieznany tylko partner: to NIE jest dolne ograniczenie ilości.
+    expect(delta.goods[0]!.imported.unknownRecords).toBe(0);
+    expect(delta).toMatchObject({ missingQuantityRecords: 0, missingPartnerRecords: 2 });
     expect(recorded(models.get("hills")).goods).toEqual([]);
     expect(recorded(models.get("harbour")).goods).toEqual([]);
   });
@@ -295,5 +309,24 @@ describe("buildRegionTradeReadModels (M21-VIS-R4B)", () => {
       flow("conn_delta_hills", "grain", "delta", 4),
     ]);
     expect(snapshot.flows.map((f) => f.magnitude)).toEqual([4]);
+  });
+  it("legacy engine facts (trade_flow_evaluated after migration v2 -> v3) are never shown as deliveries", () => {
+    const legacy = {
+      ...flow("conn_delta_hills", "grain", "delta", 80),
+      type: LEGACY_TRADE_FLOW_FACT_TYPE,
+    };
+    const models = buildRegionTradeReadModels(tradeState(), [
+      legacy,
+      flow("conn_delta_hills", "grain", "delta", 5),
+    ]);
+    const delta = recorded(models.get("delta"));
+    // 80 (oceniona) nie trafia do sumy; znana jest tylko dostawa 5, reszta = brak danych.
+    expect(delta.goods[0]!.imported).toEqual(q(5, 2, 1));
+    expect(delta.goods[0]!.partners[0]!.partnerRegionId).toBe("hills");
+    expect(delta).toMatchObject({ legacyRecords: 1, missingQuantityRecords: 0 });
+    expect(recorded(models.get("hills")).goods[0]!.exported).toEqual(q(5, 2, 1));
+    // Warstwa przepływów Atlasu również nie używa ilości ocenionej.
+    const snapshot = buildWorldSnapshot(tradeState(), [legacy]);
+    expect(snapshot.flows.filter((f) => f.family === "trade")).toEqual([]);
   });
 });

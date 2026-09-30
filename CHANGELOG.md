@@ -10,6 +10,24 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-09-30
 
+- **M21-VIS-R4B Handel --- follow-up po przeglądzie (PENDING HUMAN VISUAL
+  ACCEPTANCE).** Starsze zapisy: loader przyjmował zapis silnika < 3 bez
+  rozróżnienia semantyki; teraz `SCHEMA_VERSION` 3 i migracja v2 → v3
+  (istniejąca polityka sekwencyjnych migracji) nadaje ich faktom handlu
+  typ `trade_flow_evaluated` --- Read Model pokazuje je jako „brak danych”
+  z ostrzeżeniem, nigdy jako dostawę (test wczytanie → tick → zapis →
+  odczyt). Usunięta suma różnych towarów z `MODE_METRICS.trade`, Top
+  Regions i Δ Change („brak wspólnej miary”). Panel Handlu: hierarchia
+  region → okres (data świata) → jednostki → tabela, pomoc w `<details>`,
+  przyklejony kontekst regionu i miesiąca, „co najmniej n” / „brak
+  danych” w komórkach, osobne ostrzeżenia (ilość / partner / starszy
+  silnik), stały układ tabel bez łamania wyrazów. Łuki Atlasu omijają
+  etykiety regionów. Fixture wyglądu na towarach z contentu; nowe widoki
+  harnessu `trade-sim` i `trade-legacy`; E2E
+  `world-r4b-trade-followup.spec.ts`; lokator „Trade” w `app.spec.ts`
+  zawężony do tablisty trybów; materiały
+  `docs/verification/world-r4b-trade-followup-2026-09-30/`.
+
 - **Deterministyczny scenariusz weryfikacyjny handlu (`TRADE_SCENARIO`).**
   Stan początkowy dwóch regionów z realną wymianą w obecnym modelu;
   handel liczy produkcyjny tick. Test: fakt = ilość przeniesiona, ocena

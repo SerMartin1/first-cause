@@ -23,6 +23,8 @@ import {
 } from "../src/features/world/visual-lifecycle-fixture.js";
 import {
   TRADE_DEV_NAMES,
+  tradeLegacySaveView,
+  tradeSimulationView,
   tradeView,
 } from "../src/features/world/visual-trade-fixture.js";
 import { MAP_MODES, type MapMode } from "../src/features/world/atlas-model.js";
@@ -45,7 +47,8 @@ import "../src/index.css";
 // `mode` (Map Mode), `zoom` (poziom zoomu), `select` (id zaznaczonego regionu).
 // SET-LIFECYCLE-001: `extinction-before|extinction-after` -- wymarcie osady (prawdziwy tick).
 // R4B: `trade` -- Handel według towarów; `good` (rozwinięty towar), `partner` (wskazany
-// partner), `lang` (`en` | `pl`).
+// partner), `lang` (`en` | `pl`). Follow-up: `trade-sim` (handel z produkcyjnego
+// ticka scenariusza `TRADE_SCENARIO`), `trade-legacy` (stan po migracji zapisu silnika < 3).
 const params = new URLSearchParams(window.location.search);
 const fixture = params.get("fixture");
 const view =
@@ -67,7 +70,11 @@ const view =
                   ? extinctionAfterView()
                   : fixture === "trade"
                     ? tradeView()
-                    : visualWorldView();
+                    : fixture === "trade-sim"
+                      ? tradeSimulationView()
+                      : fixture === "trade-legacy"
+                        ? tradeLegacySaveView()
+                        : visualWorldView();
 const initialMode = params.get("mode");
 useWorldStore.getState().set({
   ...(initialMode && (MAP_MODES as readonly string[]).includes(initialMode)

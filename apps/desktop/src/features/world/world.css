@@ -591,27 +591,74 @@
   border-top: var(--fc-border-width) solid var(--fc-border);
   border-bottom: var(--fc-border-width) solid var(--fc-border);
 }
-.fc-trade__partial {
-  color: var(--fc-warning);
+.fc-trade__period {
+  font-weight: 600;
+  white-space: nowrap;
 }
+.fc-trade__warnings {
+  margin: 0;
+  padding-left: var(--fc-space-4);
+  color: var(--fc-warning);
+  font-size: var(--fc-text-label);
+}
+/* Część znana / brak danych: słowa, nie symbole -- mogą się zawinąć zamiast zmniejszać tekst. */
+.fc-trade__table .fc-trade__qty--partial,
+.fc-trade__table .fc-trade__qty--unavailable {
+  display: inline-block;
+  white-space: normal;
+  text-align: right;
+}
+.fc-trade__table .fc-trade__qty--unavailable {
+  color: var(--fc-text-secondary);
+  font-style: italic;
+}
+.fc-trade__help summary {
+  cursor: pointer;
+  color: var(--fc-text-secondary);
+  font-size: var(--fc-text-label);
+}
+.fc-trade__help ul {
+  margin: var(--fc-space-1) 0 0;
+  padding-left: var(--fc-space-4);
+  font-size: var(--fc-text-label);
+  color: var(--fc-text-secondary);
+}
+/* Układ stały: kolumny liczb mają zadaną szerokość, nazwa bierze resztę i zawija
+   się między wyrazami -- tabela nigdy nie wychodzi poza inspektor. */
 .fc-trade__table,
 .fc-trade__partners {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--fc-text-data);
 }
-.fc-trade__table > thead th {
+/* Cały nagłówek (kontekst regionu i okresu + nazwy kolumn) przykleja się razem. */
+.fc-trade__table > thead {
   position: sticky;
   top: 0;
   z-index: 1;
   background: var(--fc-bg);
+}
+.fc-trade__table > thead .fc-trade__context th {
+  font-weight: 600;
+  color: var(--fc-text-primary);
+  border-bottom-color: var(--fc-border);
+  white-space: normal;
+}
+.fc-trade__num-col {
+  width: 6.5em;
+}
+/* Partnerzy: węższe kolumny liczb (nagłówki zawijają się czytelnie), więcej miejsca na nazwę. */
+.fc-trade__partners .fc-trade__num-col {
+  width: 6em;
 }
 .fc-trade__table th,
 .fc-trade__table td {
   padding: var(--fc-space-1) var(--fc-space-1);
   border-bottom: var(--fc-border-width) solid var(--fc-border);
   text-align: left;
-  vertical-align: baseline;
+  /* Górne wyrównanie: zawinięte „co najmniej / n” zaczyna się na wysokości nazwy towaru. */
+  vertical-align: top;
 }
 .fc-trade__table thead th {
   font-size: var(--fc-text-label);
@@ -623,9 +670,12 @@
   text-align: right;
   white-space: nowrap;
 }
+/* Nazwy łamane tylko między wyrazami (nie „Coal Hollo|w”); wyjątkowo długi wyraz
+   może się złamać dopiero, gdy nie mieści się w całej kolumnie. */
 .fc-trade__table tbody th {
   font-weight: 400;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .fc-trade__good {
   cursor: pointer;
@@ -649,14 +699,16 @@
   color: var(--fc-text-secondary);
 }
 .fc-trade__details > td {
-  padding: 0 0 var(--fc-space-2) var(--fc-space-4);
+  padding: 0 0 var(--fc-space-2) var(--fc-space-2);
   background: var(--fc-bg-elevated);
 }
 .fc-trade__partners th,
 .fc-trade__partners td {
   border-bottom: var(--fc-border-width) solid var(--fc-border);
 }
-.fc-trade__partners thead th {
+/* Długie nagłówki partnerów zawijają się (bez skrótów i bez zmniejszania tekstu). */
+.fc-trade__table .fc-trade__partners thead th,
+.fc-trade__table .fc-trade__partners thead th.fc-trade__num {
   white-space: normal;
 }
 .fc-world .fc-trade__partners button {

@@ -26,7 +26,12 @@ import { SimulationClock, type WorldRunnerState } from "@first-cause/simulation"
  * `ABANDONED`) + `Settlement.abandonedTick`. Zapisy v1 migruje
  * `MIGRATIONS[1]` (`migrations.ts`).
  */
-export const SCHEMA_VERSION = 2;
+/**
+ * v3 (M21-VIS-R4B): fakty `trade_flow_active` z zapisów silnika < 3
+ * (ilość oceniona) przechodzą na typ `trade_flow_evaluated`
+ * (`MIGRATIONS[2]`); znaczenie historycznych faktów jest jawne w danych.
+ */
+export const SCHEMA_VERSION = 3;
 /** Bumped when `@first-cause/content` definitions change in a save-relevant way (SS36) -- no such change has happened yet. */
 export const CONTENT_VERSION = 1;
 /** Bumped when simulation SEMANTICS change in a save-relevant way (SS37) -- distinct from `SCHEMA_VERSION` (structure) and `CONTENT_VERSION` (definitions). */
@@ -34,7 +39,8 @@ export const CONTENT_VERSION = 1;
 /**
  * v3 (M21-VIS-R4B): fakt `trade_flow_active` niesie ilość faktycznie
  * przeniesioną między inventory (`settleTradeFlow`), nie ilość ocenioną;
- * bez fizycznego ruchu faktu nie ma. Fakty z zapisów v2 niosą ilość ocenioną.
+ * bez fizycznego ruchu faktu nie ma. Fakty zapisane silnikiem < 3 niosą
+ * ilość ocenioną -- migracja schematu v2 -> v3 nadaje im typ `trade_flow_evaluated`.
  */
 export const ENGINE_VERSION = 3;
 

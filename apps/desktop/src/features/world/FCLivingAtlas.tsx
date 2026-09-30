@@ -465,10 +465,10 @@ export function FCLivingAtlas({
       // połączenia, bez grubości wg ilości i bez liczb na mapie.
       const tradeLayer = new Graphics();
       scene.addChild(tradeLayer);
+      const info = color("--fc-info");
+      // Grubości i kreski w px ekranu (scena jest skalowana).
+      const px = (n: number) => n / Math.max(0.05, scale);
       if (trade) {
-        const info = color("--fc-info");
-        // Grubości i kreski w px ekranu (scena jest skalowana).
-        const px = (n: number) => n / Math.max(0.05, scale);
         for (const partnerId of trade.partnerRegionIds) {
           const p = positions.get(partnerId);
           if (!p) continue;
@@ -479,30 +479,6 @@ export function FCLivingAtlas({
             width: px(pointed ? 3 : 2),
             alpha: trade.pair && !pointed ? 0.45 : 1,
           });
-        }
-        const self = ui.selectedEntityId ? positions.get(ui.selectedEntityId) : undefined;
-        const other = trade.pair ? positions.get(trade.pair.partnerRegionId) : undefined;
-        if (trade.pair && self && other) {
-          const directions = [
-            ...(trade.pair.imports ? [[other, self] as const] : []),
-            ...(trade.pair.exports ? [[self, other] as const] : []),
-          ];
-          for (const [from, to] of directions) {
-            const arc = tradeRelationArc(from, to, {
-              dash: px(7),
-              gap: px(5),
-              head: px(10),
-              trim: TRADE_RING + px(4),
-            });
-            for (const [a, b] of arc.dashes) tradeLayer.moveTo(a.x, a.y).lineTo(b.x, b.y);
-            tradeLayer.stroke({ color: info, width: px(2.5) });
-            const [l, tip, r] = arc.arrow;
-            tradeLayer
-              .moveTo(l.x, l.y)
-              .lineTo(tip.x, tip.y)
-              .lineTo(r.x, r.y)
-              .stroke({ color: info, width: px(2.5) });
-          }
         }
       }
       const labelBoxes: { x: number; y: number; w: number; h: number }[] = [];
@@ -813,6 +789,43 @@ export function FCLivingAtlas({
           }
         }
       }
+      // R4B follow-up: łuki relacji PO etykietach -- omijają faktycznie narysowane
+      // nazwy regionów (nazwa > morfologia > kierunek wymiany).
+      let hiddenDashes = 0;
+      let arrowsBlocked = 0;
+      const self = ui.selectedEntityId ? positions.get(ui.selectedEntityId) : undefined;
+      const other = trade?.pair ? positions.get(trade.pair.partnerRegionId) : undefined;
+      if (trade?.pair && self && other) {
+        const arcs = new Graphics();
+        scene.addChild(arcs);
+        const directions = [
+          ...(trade.pair.imports ? [[other, self] as const] : []),
+          ...(trade.pair.exports ? [[self, other] as const] : []),
+        ];
+        for (const [from, to] of directions) {
+          const arc = tradeRelationArc(from, to, {
+            dash: px(7),
+            gap: px(5),
+            head: px(10),
+            trim: TRADE_RING + px(4),
+            avoid: labelBoxes,
+            avoidPad: px(3),
+          });
+          hiddenDashes += arc.hiddenDashes;
+          if (!arc.arrowClear) arrowsBlocked += 1;
+          for (const [a, b] of arc.dashes) arcs.moveTo(a.x, a.y).lineTo(b.x, b.y);
+          arcs.stroke({ color: info, width: px(2.5) });
+          const [l, tip, r] = arc.arrow;
+          arcs
+            .moveTo(l.x, l.y)
+            .lineTo(tip.x, tip.y)
+            .lineTo(r.x, r.y)
+            .stroke({ color: info, width: px(2.5) });
+        }
+      }
+      // Testy E2E: grot nigdy nie stoi na etykiecie; liczba kresek ustępujących nazwom.
+      host.current?.setAttribute("data-trade-arrows-blocked", String(arrowsBlocked));
+      host.current?.setAttribute("data-trade-hidden-dashes", String(hiddenDashes));
       renderer.render();
       host.current?.setAttribute(
         "data-rendered-tick",

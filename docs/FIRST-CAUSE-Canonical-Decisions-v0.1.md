@@ -674,10 +674,22 @@ akceptacja wizualna implementacji).
     rynkami/magazynami regionów wzdłuż bezpośredniego Connection; osada
     nie ma własnego handlu. Widok nazywa się „Handel regionu” i nie
     rozdziela danych regionu między osady.
--   Ilość = towar faktycznie dostarczony w ostatnim zakończonym miesiącu
-    (fakt `trade_flow_active`, `values.after` = ilość przeniesiona przez
-    `settleTradeFlow`), w abstrakcyjnych jednostkach towaru; różnych
-    towarów się nie sumuje. Zero ≠ brak handlu ≠ brak danych.
+-   Różnych towarów się nie sumuje (także w Top Regions i Δ Change ---
+    tam Handel jest oznaczony jako „brak wspólnej miary”). Zero ≠ brak
+    handlu ≠ brak danych.
+
+**Ustalenia implementacyjne (nie są decyzją właściciela; do przeglądu
+razem z akceptacją wizualną):**
+
+-   Ilość = towar faktycznie dostarczony w ostatnim zakończonym miesiącu:
+    fakt `trade_flow_active`, `values.after` = ilość przeniesiona przez
+    `settleTradeFlow`, fakt tylko przy fizycznym ruchu (ENGINE_VERSION
+    3). Jednostki: abstrakcyjne jednostki danego towaru.
+-   Starsze zapisy (silnik < 3): istniejąca polityka sekwencyjnych
+    migracji schematu (Save Spec §39--40) --- migracja v2 → v3 nadaje
+    ich faktom handlu typ `trade_flow_evaluated` (ta sama tożsamość i
+    wartości); Read Model pokazuje je jako „brak danych” o dostawie z
+    ostrzeżeniem, nigdy jako dostawę.
 
 ------------------------------------------------------------------------
 
