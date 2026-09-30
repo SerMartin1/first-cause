@@ -1,0 +1,1824 @@
+diff --git a/apps/desktop/electron/main/world-session.ts b/apps/desktop/electron/main/world-session.ts
+index 86c4ca6..2d065ae 100644
+--- a/apps/desktop/electron/main/world-session.ts
++++ b/apps/desktop/electron/main/world-session.ts
+@@ -43,6 +43,12 @@ export class WorldSession {
+           sectorByCompanyArchetypeId: this.content.sectorByCompanyArchetypeId,
+           extractionFamilyByResourceId: this.content.extractionFamilyByResourceId,
+           routeFamilyByTransportModeId: this.content.routeFamilyByTransportModeId,
++          // PROTOTYP R4B Economy: proporcje wyjść receptur (produkcja według towarów).
++          goodOutputsPerBatchByMethodId: Object.fromEntries(
++            Object.entries(this.content.productionRecipesByMethodId ?? {}).map(
++              ([id, recipe]) => [id, recipe.goodOutputsPerBatch],
++            ),
++          ),
+         },
+         this.runner.causalEdges,
+       ),
+diff --git a/apps/desktop/src/features/world/FCEconomyPanel.tsx b/apps/desktop/src/features/world/FCEconomyPanel.tsx
+new file mode 100644
+index 0000000..c2584ce
+--- /dev/null
++++ b/apps/desktop/src/features/world/FCEconomyPanel.tsx
+@@ -0,0 +1,186 @@
++import { useTranslation } from "react-i18next";
++import type { WorldRegionView, WorldSnapshot } from "@first-cause/simulation";
++import { useWorldStore } from "./world-store.js";
++import {
++  economyClass,
++  economyFact,
++  formatEconomyFull,
++  ECONOMY_SQUARE,
++  type EconomyMetric,
++} from "./economy-mode.js";
++
++/**
++ * PROTOTYP M21-VIS-R4B Economy -- zakładka „Gospodarka” inspektora regionu.
++ * Hierarchia: Gospodarka regionu → okres → miara trybu (z klasą) → pozostałe
++ * fakty z jednostkami → produkcja według towarów (bez sumy różnych towarów).
++ * Style tabeli i pomocy: istniejące klasy panelu Handlu (`fc-trade__*`).
++ */
++export function FCEconomyPanel({
++  region,
++  snapshot,
++  format,
++}: {
++  readonly region: WorldRegionView;
++  readonly snapshot: WorldSnapshot;
++  readonly format: (value: number) => string;
++}) {
++  const { t, i18n } = useTranslation();
++  const metric = useWorldStore((s) => s.economyMetric);
++  const economy = region.economy;
++  // Ten sam okres co Handel: ostatni zakończony miesiąc (1 tick = 1 miesiąc).
++  const now = snapshot.summary.currentDate;
++  const date =
++    now.month === 1 ? { year: now.year - 1, month: 12 } : { year: now.year, month: now.month - 1 };
++  const goodName = (id: string) =>
++    t(`content.good.${id}.name`, {
++      defaultValue: t(`content.resource.${id}.name`, { defaultValue: id }),
++    });
++  const other: EconomyMetric = metric === "employment" ? "sales" : "employment";
++  const factRow = (m: EconomyMetric, primary: boolean) => {
++    const fact = economyFact(region, m);
++    return (
++      <div
++        className={`fc-economy__fact${primary ? " fc-economy__fact--primary" : ""}`}
++        data-economy-fact={m}
++        data-economy-state={fact.kind === "known" ? "known" : fact.reason}
++      >
++        <span className="fc-label">{t(`world.economy.${m}.name`)}</span>
++        <span className="fc-economy__value">
++          {primary && (
++            <FCEconomyChip cls={fact.kind === "known" ? economyClass(fact.value) : "none"} />
++          )}
++          <span className="fc-data">
++            {fact.kind === "known"
++              ? formatEconomyFull(fact.value, m, i18n.language)
++              : t("world.economy.noDataLabel")}
++          </span>
++          {fact.kind === "known" && (
++            <span className="fc-caption">{t(`world.economy.${m}.unit`)}</span>
++          )}
++        </span>
++        {fact.kind === "unavailable" && (
++          <span className="fc-caption fc-economy__reason">
++            {t(`world.economy.reason.${fact.reason}`)}
++          </span>
++        )}
++      </div>
++    );
++  };
++  return (
++    <section
++      className="fc-trade fc-economy"
++      aria-labelledby="fc-economy-title"
++      data-testid="economy-panel"
++      data-economy-region={region.regionId}
++    >
++      <header className="fc-trade__header">
++        <h3 id="fc-economy-title">{t("world.economy.title")}</h3>
++        <p data-testid="economy-period">
++          <span className="fc-label">{t("world.economy.period")}</span>{" "}
++          <span className="fc-trade__period">
++            {t("world.trade.lastMonthValue", { year: date.year, month: date.month })}
++          </span>
++        </p>
++      </header>
++      {factRow(metric, true)}
++      {factRow(other, false)}
++      <div className="fc-economy__fact" data-economy-fact="companies">
++        <span className="fc-label">{t("world.activeCompanies")}</span>
++        <span className="fc-data">{format(economy.activeCompanies)}</span>
++      </div>
++      <h4 className="fc-economy__subtitle">{t("world.economy.goodsTitle")}</h4>
++      {economy.goods.length === 0 ? (
++        <p className="fc-trade__state" data-testid="economy-no-production" role="status">
++          {t(
++            economy.activeCompanies === 0
++              ? "world.economy.noCompanies"
++              : "world.economy.noProduction",
++          )}
++        </p>
++      ) : (
++        <table className="fc-trade__table" data-testid="economy-goods">
++          <colgroup>
++            <col />
++            <col className="fc-trade__num-col" />
++            <col className="fc-trade__num-col" />
++          </colgroup>
++          <thead>
++            <tr>
++              <th scope="col">{t("world.trade.good")}</th>
++              <th scope="col" className="fc-trade__num">
++                {t("world.economy.produced")}
++              </th>
++              <th scope="col" className="fc-trade__num">
++                {t("world.economy.localPrice")}
++              </th>
++            </tr>
++          </thead>
++          <tbody>
++            {[...economy.goods]
++              .sort((a, b) => goodName(a.goodId).localeCompare(goodName(b.goodId), i18n.language))
++              .map((g) => (
++                <tr key={g.goodId} data-economy-good={g.goodId}>
++                  <th scope="row">{goodName(g.goodId)}</th>
++                  <td className="fc-data fc-trade__num">{format(g.produced)}</td>
++                  <td className="fc-data fc-trade__num">
++                    {g.localPrice === undefined ? (
++                      <span className="fc-trade__qty--unavailable">
++                        {t("world.economy.noPrice")}
++                      </span>
++                    ) : (
++                      formatEconomyFull(g.localPrice, "sales", i18n.language)
++                    )}
++                  </td>
++                </tr>
++              ))}
++          </tbody>
++        </table>
++      )}
++      <details className="fc-trade__help">
++        <summary>{t("world.economy.help.title")}</summary>
++        <ul>
++          <li>{t("world.economy.help.employment")}</li>
++          <li>{t("world.economy.help.sales")}</li>
++          <li>{t("world.economy.help.goods")}</li>
++          <li>{t("world.economy.help.notGdp")}</li>
++        </ul>
++      </details>
++    </section>
++  );
++}
++
++/** Kwadrat klasy -- ten sam znak co na Atlasie i w legendzie. */
++export function FCEconomyChip({ cls }: { readonly cls: 0 | 1 | 2 | 3 | 4 | 5 | "none" }) {
++  const side = ECONOMY_SQUARE.side[cls === "none" ? 0 : cls];
++  const box = ECONOMY_SQUARE.side[5] + 2;
++  const o = (box - side) / 2;
++  const empty = cls === "none" || cls === 0;
++  return (
++    <svg
++      className="fc-economy__chip"
++      width={box}
++      height={box}
++      viewBox={`0 0 ${box} ${box}`}
++      aria-hidden="true"
++      data-economy-chip={cls}
++    >
++      <rect
++        x={o}
++        y={o}
++        width={side}
++        height={side}
++        fill={empty ? "none" : "var(--fc-info)"}
++        fillOpacity={empty ? 0 : ECONOMY_SQUARE.alpha[cls]}
++        stroke={
++          cls === "none"
++            ? "var(--fc-text-muted)"
++            : cls === 0
++              ? "var(--fc-text-secondary)"
++              : "var(--fc-info)"
++        }
++        strokeWidth={ECONOMY_SQUARE.stroke}
++        strokeDasharray={cls === "none" ? "2.2 2.2" : undefined}
++      />
++    </svg>
++  );
++}
+diff --git a/apps/desktop/src/features/world/FCLivingAtlas.tsx b/apps/desktop/src/features/world/FCLivingAtlas.tsx
+index e1e84ea..230131c 100644
+--- a/apps/desktop/src/features/world/FCLivingAtlas.tsx
++++ b/apps/desktop/src/features/world/FCLivingAtlas.tsx
+@@ -58,6 +58,14 @@ import {
+   zeroPopulationPrimitives,
+   type PopulationMark,
+ } from "./population-mode.js";
++import {
++  economyClass,
++  economyClassLabels,
++  economyFact,
++  formatEconomyCompact,
++  ECONOMY_SQUARE,
++  type EconomyFact,
++} from "./economy-mode.js";
+ 
+ /** Skala znaków aktywności względem układu 12×12 i odstępy w rzędzie (jednostki diagramu). */
+ const GLYPH_K = 1.45;
+@@ -188,6 +196,15 @@ export function FCLivingAtlas({
+   // R4B: tryb Handel -- tabela w inspektorze jest źródłem; Atlas pokazuje wybrany region,
+   // partnerów rozwiniętego towaru i (po wskazaniu partnera) kierunki wymiany.
+   const tradeMode = ui.mapMode === "trade";
++  // PROTOTYP R4B Economy: kwadrat klasy (Visual Alphabet §8) obok niezmienionej morfologii.
++  const economyMode = ui.mapMode === "economy";
++  const economyFacts = useMemo(
++    () =>
++      new Map(
++        view.current.regions.map((r) => [r.regionId, economyFact(r, ui.economyMetric)]),
++      ),
++    [view, ui.economyMetric],
++  );
+   const trade = useMemo(
+     () =>
+       tradeHighlight(
+@@ -202,7 +219,8 @@ export function FCLivingAtlas({
+   const [symbolsChoice, setSymbolsChoice] = useState<boolean>();
+   // W trybie Population znaki aktywności są drugorzędne -- ich klucz domyślnie zwinięty.
+   const symbolsOpen =
+-    symbolsChoice ?? (!populationMode && grammar.legend.length <= SYMBOL_KEY_OPEN_MAX);
++    symbolsChoice ??
++    (!populationMode && !economyMode && grammar.legend.length <= SYMBOL_KEY_OPEN_MAX);
+   useEffect(() => {
+     let disposed = false;
+     let instance: Application | undefined;
+@@ -343,11 +361,18 @@ export function FCLivingAtlas({
+           : mark.fact.value === 0
+             ? t("world.population.zeroLabel")
+             : formatPopulationCompact(mark.fact.value, i18n.language);
++      const economyValueLabel = (fact: EconomyFact) =>
++        fact.kind === "unavailable"
++          ? t("world.economy.noDataLabel")
++          : fact.value === 0
++            ? t("world.economy.zeroLabel")
++            : formatEconomyCompact(fact.value, ui.economyMetric, i18n.language);
+       // Hierarchia warstw §27.2: przy aktywnym Map Mode dane nad cywilizacją nad geografią.
+       const dataMode = ui.mapMode !== "terrain";
+       // R4 Population: pierwszy plan = pierścień + morfologia + wartość; nazwa, trasy i
+       // woda do orientacji; rzeźba, roślinność, przemysł i wydobycie przygaszone.
+-      const deEmphasis = populationMode
++      const deEmphasis =
++        populationMode || economyMode
+         ? POPULATION_EMPHASIS.activity
+         : dataMode
+           ? 0.6
+@@ -357,7 +382,8 @@ export function FCLivingAtlas({
+         ui.focusMode && !!ui.selectedEntityId && regionId !== ui.selectedEntityId;
+       // GEOGRAPHY: pole regionu (ton gruntu, rzeźba, roślinność, woda) -- tło, nie konkuruje z danymi.
+       const geography = new Graphics();
+-      geography.alpha = populationMode
++      geography.alpha =
++        populationMode || economyMode
+         ? POPULATION_EMPHASIS.geography
+         : dataMode
+           ? 0.45
+@@ -379,7 +405,8 @@ export function FCLivingAtlas({
+       }
+       // CIVILIZATION / trasy: infrastruktura rysowana NA KRAWĘDZI (§28.6), styl z rodziny trasy w contencie.
+       const routes = new Graphics();
+-      routes.alpha = populationMode ? POPULATION_EMPHASIS.routes : dataMode ? 0.7 : 1;
++      routes.alpha =
++        populationMode || economyMode ? POPULATION_EMPHASIS.routes : dataMode ? 0.7 : 1;
+       scene.addChild(routes);
+       const borderColor = color("--fc-border-strong");
+       if (ui.overlays.includes("connections"))
+@@ -489,6 +516,7 @@ export function FCLivingAtlas({
+         resourceId,
+         discoveryId,
+         changeMetric: ui.changeMetric,
++        economyMetric: ui.economyMetric,
+       };
+       const values = new Map(
+         view.current.regions.map((r) => [
+@@ -521,7 +549,8 @@ export function FCLivingAtlas({
+         const value = values.get(region.regionId);
+         // Population nie normalizuje intensywności do najliczniejszego regionu (§28.5):
+         // skala absolutna jest w promieniu pierścienia, a morfologia zostaje neutralna.
+-        const intensity = populationMode
++        const intensity =
++          populationMode || economyMode
+           ? POPULATION_EMPHASIS.morphology
+           : tradeMode || value === undefined || value === 0
+             ? 1
+@@ -529,7 +558,7 @@ export function FCLivingAtlas({
+         const signed = ui.mapMode === "change";
+         // R4B: Handel nie koloruje regionów sumą ilości różnych towarów.
+         const fill =
+-          populationMode || tradeMode || value === undefined || value === 0
++          populationMode || tradeMode || economyMode || value === undefined || value === 0
+             ? neutral
+             : color(
+                 signed
+@@ -557,8 +586,8 @@ export function FCLivingAtlas({
+           node.addChild(populationGraphics(mark, ringRadius, scale));
+         const marker = new Graphics();
+         // Region bez osad w widoku bazowym: pusty pierścień (miejsce w świecie, nie osada).
+-        if (populationMode) {
+-          // Stan regionu bez osad niesie już znak warstwy Population.
++        if (populationMode || economyMode) {
++          // Stan regionu bez osad niesie już znak warstwy Population / Economy.
+         } else if (!hasSettlements && ui.mapMode === "terrain")
+           marker.circle(0, 0, 3.5).stroke({ color: neutral, width: 1, alpha: 0.7 });
+         else if (!hasSettlements)
+@@ -585,7 +614,7 @@ export function FCLivingAtlas({
+           }
+           // Zaznaczenie: jeden obrys całej grupy osad regionu (nie pierścień na każdej osadzie).
+           // R4.1: w trybie Population zaznaczenie rysują narożniki (niżej), nie elipsa.
+-          if (selected && rg.settlements.length && !populationMode) {
++          if (selected && rg.settlements.length && !populationMode && !economyMode) {
+             const reach = Math.max(
+               ...rg.settlements.map(
+                 (p) => Math.abs(p.y) + p.radius * settlementBoost(p.radius, scale),
+@@ -685,6 +714,76 @@ export function FCLivingAtlas({
+             node.addChild(more);
+           }
+         }
++        // PROTOTYP R4B Economy: kwadrat klasy obok śladu osad (stały rozmiar ekranowy).
++        const econ = economyMode ? economyFacts.get(region.regionId) : undefined;
++        let economyReach = 0;
++        if (econ) {
++          const k = 1 / Math.max(0.5, scale);
++          const cls = econ.kind === "known" ? economyClass(econ.value) : 0;
++          const side = ECONOMY_SQUARE.side[cls] * k;
++          const x0 = Math.max(18, extent.right + 8);
++          const cy = -12 + 8 * k;
++          const sq = new Graphics();
++          if (econ.kind === "unavailable") {
++            // Brak danych: przerywany kontur `muted` (jak Population).
++            const h = side / 2,
++              d = 2.2 * k;
++            const sides: [number, number, number, number][] = [
++              [x0, cy - h, x0 + side, cy - h],
++              [x0 + side, cy - h, x0 + side, cy + h],
++              [x0 + side, cy + h, x0, cy + h],
++              [x0, cy + h, x0, cy - h],
++            ];
++            for (const [ax, ay, bx, by] of sides) {
++              const len = Math.hypot(bx - ax, by - ay);
++              for (let t0 = 0; t0 < len; t0 += d * 2) {
++                const t1 = Math.min(len, t0 + d);
++                sq.moveTo(ax + ((bx - ax) * t0) / len, ay + ((by - ay) * t0) / len).lineTo(
++                  ax + ((bx - ax) * t1) / len,
++                  ay + ((by - ay) * t1) / len,
++                );
++              }
++            }
++            sq.stroke({ color: color("--fc-text-muted"), width: ECONOMY_SQUARE.stroke * k });
++          } else if (cls === 0) {
++            // Znane zero: pełny cienki kontur, bez wypełnienia.
++            sq.rect(x0, cy - side / 2, side, side).stroke({
++              color: neutral,
++              width: ECONOMY_SQUARE.stroke * k,
++              alpha: 0.8,
++            });
++          } else {
++            sq.rect(x0, cy - side / 2, side, side)
++              .fill({ color: color("--fc-info"), alpha: ECONOMY_SQUARE.alpha[cls] })
++              .stroke({ color: color("--fc-info"), width: 1 * k });
++          }
++          node.addChild(sq);
++          economyReach = x0 + ECONOMY_SQUARE.side[5] * k + (selected ? 12 : 6) * k;
++          if (selected) {
++            // Zaznaczenie ≠ klasa: narożniki akcentu wokół kwadratu i śladu osad.
++            const brackets = new Graphics();
++            const left = Math.min(-12, extent.left - 4),
++              right = x0 + side + 4 * k,
++              topY = Math.min(cy - side / 2 - 4 * k, -14),
++              bottomY = Math.max(cy + side / 2 + 4 * k, 14, extent.bottom + 4);
++            const arm = 6 * k;
++            brackets
++              .moveTo(left, topY + arm)
++              .lineTo(left, topY)
++              .lineTo(left + arm, topY)
++              .moveTo(right - arm, topY)
++              .lineTo(right, topY)
++              .lineTo(right, topY + arm)
++              .moveTo(right, bottomY - arm)
++              .lineTo(right, bottomY)
++              .lineTo(right - arm, bottomY)
++              .moveTo(left + arm, bottomY)
++              .lineTo(left, bottomY)
++              .lineTo(left, bottomY - arm)
++              .stroke({ color: accent, width: 2 * k });
++            node.addChild(brackets);
++          }
++        }
+         if (selected && populationMode) {
+           // Zaznaczenie ≠ pierścień populacji: narożniki w kolorze akcentu (2 px, Design System).
+           const brackets = new Graphics();
+@@ -695,7 +794,7 @@ export function FCLivingAtlas({
+               .lineTo(line[4]!, line[5]!);
+           brackets.stroke({ color: accent, width: 2 / Math.max(0.5, scale) });
+           node.addChild(brackets);
+-        } else if (selected && !region.settlements.length)
++        } else if (selected && !region.settlements.length && !economyMode)
+           marker.circle(0, 0, 12).stroke({ color: accent, width: 2 });
+         if (ui.hoveredRegionId === region.regionId)
+           marker.circle(0, 0, 44).stroke({ color: accent, width: 1 });
+@@ -717,7 +816,9 @@ export function FCLivingAtlas({
+         );
+         const metricLabel = populationMode
+           ? populationValueLabel(mark)
+-          : value === undefined
++          : econ
++            ? economyValueLabel(econ)
++            : value === undefined
+             ? "—"
+             : `${signed ? "Δ " : ""}${signed && value > 0 ? "+" : ""}${value.toLocaleString(i18n.language, { maximumFractionDigits: 1 })}`;
+         const label = new Text({
+@@ -735,7 +836,7 @@ export function FCLivingAtlas({
+         // Etykieta obok śladu osad (duże osady nie wchodzą pod napis).
+         // R4.1: w trybie Population etykieta stoi też poza pierścieniem (bez interferencji).
+         label.position.set(
+-          point.x + Math.max(44, extent.right + 8, ringRadius + 6),
++          point.x + Math.max(44, extent.right + 8, ringRadius + 6, economyReach),
+           point.y - 12,
+         );
+         const box = { x: label.x, y: label.y, w: label.width, h: label.height };
+@@ -759,7 +860,11 @@ export function FCLivingAtlas({
+           label.destroy();
+           // Population: wartość jest informacją pierwszego planu -- gdy budżet nazw się
+           // wyczerpie, zostaje sama zwarta wartość (bez nazwy), o ile nie koliduje.
+-          if (populationMode && ui.overlays.includes("names") && !ui.focusMode) {
++          if (
++            (populationMode || economyMode) &&
++            ui.overlays.includes("names") &&
++            !ui.focusMode
++          ) {
+             const valueOnly = new Text({
+               resolution: Math.max(1, scale * window.devicePixelRatio),
+               text: metricLabel,
+@@ -857,6 +962,16 @@ export function FCLivingAtlas({
+           : "",
+       );
+       host.current?.setAttribute("data-semantic-zoom", grammar.zoom);
++      // PROTOTYP R4B Economy (testy/zrzuty): klasa albo „none” (brak danych) per region.
++      host.current?.setAttribute(
++        "data-economy-classes",
++        economyMode
++          ? [...economyFacts.entries()]
++              .map(([id, f]) => `${id}=${f.kind === "known" ? economyClass(f.value) : "none"}`)
++              .sort()
++              .join(",")
++          : "",
++      );
+       // R3 (testy E2E): klasy morfologii faktycznie narysowane -- niezależne od locale.
+       // R4: także w trybie Population (ta sama morfologia co w Terrain).
+       host.current?.setAttribute(
+@@ -927,6 +1042,8 @@ export function FCLivingAtlas({
+     populationMode,
+     tradeMode,
+     trade,
++    economyMode,
++    economyFacts,
+   ]);
+   // Legenda obejmuje tylko zakres istniejących osad (§28.3: z danych, nie ze stałych progów),
+   // więc nie zajmuje więcej miejsca niż kodowane elementy (UI Impl Spec v1.4 §L.8).
+@@ -1036,6 +1153,30 @@ export function FCLivingAtlas({
+               </span>
+             </div>
+           </>
++        ) : economyMode ? (
++          // PROTOTYP R4B Economy: legenda -- te same kwadraty co na mapie, klasy stałe.
++          <>
++            <div className="fc-atlas__legend-row" data-testid="economy-legend">
++              <strong>{t(`world.economy.${ui.economyMetric}.legendTitle`)}</strong>
++              {economyClassLabels(i18n.language).map((label, i) => (
++                <span key={label} data-economy-class={i + 1}>
++                  <FCEconomySample cls={(i + 1) as 1 | 2 | 3 | 4 | 5} />
++                  {label}
++                </span>
++              ))}
++            </div>
++            <div className="fc-atlas__legend-row">
++              <span data-economy-legend-state="zero">
++                <FCEconomySample cls={0} />
++                {t(`world.economy.${ui.economyMetric}.zeroLegend`)}
++              </span>
++              <span data-economy-legend-state="unavailable">
++                <FCEconomySample cls="none" />
++                {t(`world.economy.${ui.economyMetric}.noDataLegend`)}
++              </span>
++              <small>{t("world.economy.scaleNote")}</small>
++            </div>
++          </>
+         ) : (
+           <>
+             {tradeMode && (
+@@ -1167,3 +1308,38 @@ export function FCLivingAtlas({
+     </div>
+   );
+ }
++
++/** PROTOTYP R4B Economy: próbka legendy -- ten sam kwadrat co na mapie (SVG, tokeny). */
++function FCEconomySample({ cls }: { readonly cls: 0 | 1 | 2 | 3 | 4 | 5 | "none" }) {
++  const side = ECONOMY_SQUARE.side[cls === "none" ? 0 : cls];
++  const box = ECONOMY_SQUARE.side[5] + 2;
++  const o = (box - side) / 2;
++  const empty = cls === "none" || cls === 0;
++  return (
++    <svg
++      className="fc-atlas-glyph"
++      width={box}
++      height={box}
++      viewBox={`0 0 ${box} ${box}`}
++      aria-hidden="true"
++    >
++      <rect
++        x={o}
++        y={o}
++        width={side}
++        height={side}
++        fill={empty ? "none" : "var(--fc-info)"}
++        fillOpacity={empty ? 0 : ECONOMY_SQUARE.alpha[cls]}
++        stroke={
++          cls === "none"
++            ? "var(--fc-text-muted)"
++            : cls === 0
++              ? "var(--fc-text-secondary)"
++              : "var(--fc-info)"
++        }
++        strokeWidth={ECONOMY_SQUARE.stroke}
++        strokeDasharray={cls === "none" ? "2.2 2.2" : undefined}
++      />
++    </svg>
++  );
++}
+diff --git a/apps/desktop/src/features/world/WorldScreen.tsx b/apps/desktop/src/features/world/WorldScreen.tsx
+index 40b307e..6817778 100644
+--- a/apps/desktop/src/features/world/WorldScreen.tsx
++++ b/apps/desktop/src/features/world/WorldScreen.tsx
+@@ -22,6 +22,8 @@ import {
+ } from "../../components/fc/index.js";
+ import { FCLivingAtlas } from "./FCLivingAtlas.js";
+ import { FCTradeTable } from "./FCTradeTable.js";
++import { FCEconomyChip, FCEconomyPanel } from "./FCEconomyPanel.js";
++import { economyClass, economyFact, formatEconomyFull } from "./economy-mode.js";
+ import {
+   MAP_MODES,
+   OVERLAYS,
+@@ -46,7 +48,11 @@ export function WorldScreen() {
+   const [busy, setBusy] = useState(false);
+   // R4B: w trybie Handel inspektor otwiera się na tabeli Handlu.
+   const [regionTab, setRegionTab] = useState(() =>
+-    useWorldStore.getState().mapMode === "trade" ? "trade" : "overview",
++    useWorldStore.getState().mapMode === "trade"
++      ? "trade"
++      : useWorldStore.getState().mapMode === "economy"
++        ? "economy"
++        : "overview",
+   );
+   const [details, setDetails] = useState(false);
+   // Moduły wspierające startują zwinięte: pierwszy ekran należy do Atlasu (§26.3 G, §19).
+@@ -203,6 +209,7 @@ export function WorldScreen() {
+     resourceId,
+     discoveryId,
+     changeMetric: ui.changeMetric,
++    economyMetric: ui.economyMetric,
+   };
+   const historyMissing = !view.baseline;
+   const selectedEvent = view.events.find((e) => e.id === ui.selectedEventId);
+@@ -256,10 +263,16 @@ export function WorldScreen() {
+   const pulse = (
+     [
+       ["population", t("world.population"), (w) => w.summary.totalPopulation],
++      // PROTOTYP R4B Economy: zamiast sumy ilości różnych towarów -- miara wariantu
++      // (suma regionów bez danych pominięta; wariant B: tylko regiony w modelu rynku).
+       [
+-        "production",
+-        t("world.production"),
+-        (w) => w.regions.reduce((sum, r) => sum + r.production, 0),
++        "economy",
++        t(`world.economy.${ui.economyMetric}.pulse`),
++        (w) =>
++          w.regions.reduce((sum, r) => {
++            const fact = economyFact(r, ui.economyMetric);
++            return sum + (fact.kind === "known" ? fact.value : 0);
++          }, 0),
+       ],
+       ["companies", t("world.activeCompanies"), (w) => w.summary.activeCompanyCount],
+       ["settlements", t("world.settlements"), (w) => w.summary.settlementCount],
+@@ -360,6 +373,7 @@ export function WorldScreen() {
+                   flowLens: "off",
+                 });
+                 if (id === "trade") setRegionTab("trade");
++                if (id === "economy") setRegionTab("economy");
+               }}
+               tabs={MAP_MODES.map((id) => ({
+                 id,
+@@ -521,7 +535,11 @@ export function WorldScreen() {
+             discoveryId={discoveryId}
+             caption={
+               <p className="fc-world__mode-caption">
+-                {t(`world.metric.${ui.mapMode}`)}
++                {t(
++                  ui.mapMode === "economy"
++                    ? `world.economy.${ui.economyMetric}.caption`
++                    : `world.metric.${ui.mapMode}`,
++                )}
+                 {/* R4: Population pokazuje stan bieżący; historia dotyczy tylko Δ Change. */}
+                 {ui.mapMode === "change" && historyMissing
+                   ? ` · ${t("world.historyMissing")}`
+@@ -576,11 +594,19 @@ export function WorldScreen() {
+                     value={formatRegionPopulation(region)}
+                   />
+                 )}
+-                {(regionTab === "overview" || regionTab === "economy") && (
++                {regionTab === "economy" && (
++                  <FCEconomyPanel region={region} snapshot={snapshot} format={format} />
++                )}
++                {regionTab === "overview" && (
+                   <>
+                     <FCMetric
+-                      label={t("world.production")}
+-                      value={format(region.production)}
++                      label={t(`world.economy.${ui.economyMetric}.name`)}
++                      value={(() => {
++                        const fact = economyFact(region, ui.economyMetric);
++                        return fact.kind === "known"
++                          ? `${formatEconomyFull(fact.value, ui.economyMetric, i18n.language)} ${t(`world.economy.${ui.economyMetric}.unit`)}`
++                          : t("world.economy.noDataLabel");
++                      })()}
+                     />
+                     <FCMetric
+                       label={t("world.activeCompanies")}
+@@ -970,7 +996,11 @@ export function WorldScreen() {
+         <FCSupportModule
+           className="fc-world__ranking"
+           title={t("world.topRegions")}
+-          meta={t(`world.mode.${rankByPopulation ? "population" : ui.mapMode}`)}
++          meta={
++            ui.mapMode === "economy"
++              ? t(`world.economy.${ui.economyMetric}.name`)
++              : t(`world.mode.${rankByPopulation ? "population" : ui.mapMode}`)
++          }
+           {...moduleProps("ranking")}
+         >
+           <ol>
+@@ -983,10 +1013,27 @@ export function WorldScreen() {
+                 >
+                   {r.name}
+                 </FCTextButton>
+-                <span className="fc-data">{format(rankValue(r)!)}</span>
++                {ui.mapMode === "economy" ? (
++                  <span className="fc-data fc-economy__rank" data-economy-rank={r.regionId}>
++                    <FCEconomyChip cls={economyClass(rankValue(r)!)} />
++                    {formatEconomyFull(rankValue(r)!, ui.economyMetric, i18n.language)}{" "}
++                    <span className="fc-caption">
++                      {t(`world.economy.${ui.economyMetric}.unitShort`)}
++                    </span>
++                  </span>
++                ) : (
++                  <span className="fc-data">{format(rankValue(r)!)}</span>
++                )}
+               </li>
+             ))}
+           </ol>
++          {ui.mapMode === "economy" && snapshot.regions.length > ranking.length && (
++            <p className="fc-caption" data-testid="economy-ranking-note">
++              {t("world.economy.rankingNote", {
++                count: snapshot.regions.length - ranking.length,
++              })}
++            </p>
++          )}
+           {ranking.length === 0 && (
+             <p data-testid="ranking-empty">
+               {NON_COMPARABLE_METRICS.has(ui.mapMode) ||
+diff --git a/apps/desktop/src/features/world/atlas-model.ts b/apps/desktop/src/features/world/atlas-model.ts
+index 5e0d5ab..e42b2d9 100644
+--- a/apps/desktop/src/features/world/atlas-model.ts
++++ b/apps/desktop/src/features/world/atlas-model.ts
+@@ -1,5 +1,6 @@
+ import type { WorldRegionView, WorldSnapshot } from "@first-cause/simulation";
+ import { regionPopulationFact } from "./population-mode.js";
++import { economyFact, type EconomyMetric } from "./economy-mode.js";
+ 
+ export const MAP_MODES = [
+   // Widok bazowy (dawniej DEFAULT): osadnictwo i połączenia bez warstwy danych.
+@@ -65,6 +66,8 @@ export interface ModeContext {
+   readonly resourceId: string;
+   readonly discoveryId: string;
+   readonly changeMetric?: ChangeMetric;
++  /** PROTOTYP R4B Economy: wariant miary trybu Economy. */
++  readonly economyMetric?: EconomyMetric;
+ }
+ function changeValue(
+   r: WorldRegionView,
+@@ -101,7 +104,12 @@ export const MODE_METRICS: Record<
+     const fact = regionPopulationFact(r);
+     return fact.kind === "known" ? fact.value : undefined;
+   },
+-  economy: (r) => r.production,
++  // PROTOTYP R4B: jedna miara o wspólnej jednostce (nie suma ilości różnych towarów);
++  // brak danych → undefined, znane zero → 0.
++  economy: (r, _w, ctx) => {
++    const fact = economyFact(r, ctx.economyMetric ?? "employment");
++    return fact.kind === "known" ? fact.value : undefined;
++  },
+   resources: (r, _w, ctx) => {
+     const deposits = r.deposits.filter(
+       (d) => d.resourceDefinitionId === ctx.resourceId && d.quantity !== undefined,
+diff --git a/apps/desktop/src/features/world/economy-mode.ts b/apps/desktop/src/features/world/economy-mode.ts
+new file mode 100644
+index 0000000..8ea1957
+--- /dev/null
++++ b/apps/desktop/src/features/world/economy-mode.ts
+@@ -0,0 +1,94 @@
++import type { WorldRegionView } from "@first-cause/simulation";
++
++/**
++ * PROTOTYP M21-VIS-R4B Economy (propozycja do oceny, nie wdrożenie).
++ *
++ * Tryb Economy pokazuje JEDNĄ miarę o wspólnej jednostce (wariant A:
++ * zatrudnieni w przedsiębiorstwach, osoby; wariant B: wartość sprzedaży
++ * firm, jednostka pieniężna / miesiąc). Kodowanie = Visual Alphabet v1.1 §8
++ * „Economic Output”: kwadrat rosnący i nasycający się klasami. Klasy są
++ * STAŁE i absolutne (rzędy wielkości) -- region pierwszy w rankingu nie
++ * dostaje „pełnego” koloru tylko dlatego, że jest pierwszy.
++ */
++export type EconomyMetric = "employment" | "sales";
++export type EconomyFact =
++  | { readonly kind: "known"; readonly value: number }
++  | {
++      readonly kind: "unavailable";
++      readonly reason: "NO_COMPLETED_PERIOD" | "OUTSIDE_MARKET_MODEL" | "MISSING";
++    };
++
++export function economyFact(r: WorldRegionView, metric: EconomyMetric): EconomyFact {
++  const economy = r.economy as WorldRegionView["economy"] | undefined;
++  if (!economy) return { kind: "unavailable", reason: "MISSING" };
++  if (metric === "employment")
++    return Number.isFinite(economy.employment) && economy.employment >= 0
++      ? { kind: "known", value: economy.employment }
++      : { kind: "unavailable", reason: "MISSING" };
++  return economy.sales.status === "RECORDED"
++    ? { kind: "known", value: economy.sales.value }
++    : { kind: "unavailable", reason: economy.sales.reason };
++}
++
++/** TODO tuning: dolne granice klas 2..5 (klasa 1 = (0, 10)); te same dla obu wariantów. */
++export const ECONOMY_CLASS_BOUNDS = [10, 100, 1_000, 10_000] as const;
++export type EconomyClass = 0 | 1 | 2 | 3 | 4 | 5;
++export function economyClass(value: number): EconomyClass {
++  if (value <= 0) return 0;
++  let cls = 1;
++  for (const bound of ECONOMY_CLASS_BOUNDS) if (value >= bound) cls++;
++  return cls as EconomyClass;
++}
++/**
++ * TODO tuning: bok kwadratu (px ekranu, stały przy zoomie -- klasa to fakt,
++ * nie detal) i krycie wypełnienia `--fc-info` per klasa. Indeks 0 = znacznik
++ * „0” / „brak danych” (sam kontur).
++ */
++export const ECONOMY_SQUARE = {
++  side: [9, 8, 10, 12, 14, 16],
++  alpha: [0, 0.3, 0.45, 0.62, 0.8, 1],
++  stroke: 1.3,
++} as const;
++
++/** Etykiety klas legendy (od najniższej): „1–9”, „10–99”, … „10 tys.+”. */
++export function economyClassLabels(locale: string): string[] {
++  const f = (n: number) =>
++    new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 0 }).format(
++      n,
++    );
++  const b = ECONOMY_CLASS_BOUNDS;
++  return [
++    `<${f(b[0])}`,
++    `${f(b[0])}–${f(b[1] - 1)}`,
++    `${f(b[1])}–${f(b[2] - 1)}`,
++    `${f(b[2])}–${f(b[3])}`,
++    `${f(b[3])}+`,
++  ];
++}
++
++/** Zwarta wartość przy regionie; ułamek osoby / grosza > 0 nigdy nie staje się „0”. */
++export function formatEconomyCompact(
++  value: number,
++  metric: EconomyMetric,
++  locale: string,
++): string {
++  if (value > 0 && value < 1) return `<${(1).toLocaleString(locale)}`;
++  return new Intl.NumberFormat(locale, {
++    notation: "compact",
++    maximumFractionDigits: metric === "sales" && value < 1_000 ? 0 : 1,
++  }).format(Math.round(value));
++}
++
++/** Pełna wartość w inspektorze (pieniądz: 2 miejsca -- MONEY_SCALE 100, ADR-001 §4). */
++export function formatEconomyFull(
++  value: number,
++  metric: EconomyMetric,
++  locale: string,
++): string {
++  if (metric === "employment" && value > 0 && value < 1)
++    return `<${(1).toLocaleString(locale)}`;
++  return new Intl.NumberFormat(locale, {
++    minimumFractionDigits: metric === "sales" ? 2 : 0,
++    maximumFractionDigits: metric === "sales" ? 2 : 0,
++  }).format(value);
++}
+diff --git a/apps/desktop/src/features/world/visual-economy-fixture.ts b/apps/desktop/src/features/world/visual-economy-fixture.ts
+new file mode 100644
+index 0000000..8f9877d
+--- /dev/null
++++ b/apps/desktop/src/features/world/visual-economy-fixture.ts
+@@ -0,0 +1,221 @@
++import type { WorldView } from "@first-cause/simulation";
++import {
++  buildVisualWorldView,
++  geo,
++  type ConnectionSpec,
++  type RegionSpec,
++} from "./visual-world-fixture.js";
++
++/**
++ * VISUAL DEVELOPMENT DATA ONLY (PROTOTYP M21-VIS-R4B Economy). Nie trafia do
++ * aplikacji -- używa go wyłącznie harness
++ * `visual-tests/world.html?fixture=economy|economy-low`.
++ *
++ * Świat budują fabryki `@first-cause/entities`, widok liczy PRODUKCYJNY
++ * `buildWorldSnapshot`; wpisane są wyłącznie pola, które symulacja już
++ * zapisuje: `Company.workforce.employees`, `production.outputLastTick`,
++ * `production.productionMethodId`, `finance.revenue`, `Market.goods.
++ * localPrice`. Metody `manual_farming` / `manual_food_processing` /
++ * `watermill_milling` i towary `flour` / `bread` pochodzą z contentu gry;
++ * `dev_*` istnieją tylko tu.
++ */
++export const ECONOMY_REGION = {
++  hills: "econ_a_hills",
++  delta: "econ_b_delta",
++  harbour: "econ_c_harbour",
++  emporium: "econ_d_emporium",
++  quiet: "econ_e_quiet",
++  mines: "econ_f_mines",
++  frontier: "econ_g_frontier",
++  marsh: "econ_h_marsh",
++} as const;
++const R = ECONOMY_REGION;
++
++/** Proporcje wyjść receptur (`goodOutputsPerBatch`) -- content gry + metody `dev_*`. */
++const OUTPUTS: Readonly<Record<string, Readonly<Record<string, number>>>> = {
++  manual_farming: { flour: 8 },
++  watermill_milling: { flour: 12 },
++  manual_food_processing: { bread: 4 },
++  dev_forging: { dev_tools: 2 },
++  dev_sawing: { dev_planks: 6 },
++};
++
++type Company = NonNullable<RegionSpec["companies"]>[number];
++const farm = (employees: number, output: number, revenue: number): Company => ({
++  archetypeId: "grain_farm",
++  methodId: "manual_farming",
++  employees,
++  output,
++  revenue,
++});
++const bakery = (employees: number, output: number, revenue: number): Company => ({
++  archetypeId: "bakery",
++  methodId: "manual_food_processing",
++  employees,
++  output,
++  revenue,
++});
++const works = (employees: number, output: number, revenue: number): Company => ({
++  archetypeId: "dev_workshop",
++  methodId: "dev_forging",
++  employees,
++  output,
++  revenue,
++});
++const sawmill = (employees: number, output: number, revenue: number): Company => ({
++  archetypeId: "dev_sawmill",
++  methodId: "dev_sawing",
++  employees,
++  output,
++  revenue,
++});
++
++/**
++ * Zróżnicowanie: klasy 1..5 obu wariantów, znane 0 (region bez firm oraz
++ * firma bez zatrudnienia i sprzedaży) i brak danych (B: region poza modelem
++ * rynku). Wartości A i B celowo NIE mają tej samej kolejności regionów.
++ */
++const REGIONS: readonly RegionSpec[] = [
++  {
++    id: R.hills,
++    name: "Green Hills",
++    geography: geo("hills", "temperate", 0.6),
++    settlement: { stage: "VILLAGE", population: 3_200 },
++    // A: 6 os. (klasa 1); B: 7.50 (klasa 1).
++    companies: [farm(6, 16, 7.5)],
++  },
++  {
++    id: R.delta,
++    name: "Great Delta",
++    geography: geo("plains", "temperate", 0.8, "river"),
++    settlement: { stage: "CITY", population: 180_000 },
++    // A: 2 320 os. (klasa 4); B: 6 912.40 (klasa 4).
++    companies: [
++      farm(900, 2_400, 3_120),
++      { ...farm(420, 1_800, 2_340), methodId: "watermill_milling" },
++      bakery(1_000, 1_100, 1_452.4),
++    ],
++  },
++  {
++    id: R.harbour,
++    name: "Salt Harbour",
++    geography: geo("plains", "temperate", 0.4, "coast"),
++    settlement: { stage: "TOWN", population: 24_000 },
++    // A: 480 os. (klasa 3); B: 12 480 (klasa 5) -- mało ludzi, drogie wyroby.
++    companies: [works(300, 900, 10_800), bakery(180, 400, 1_680)],
++  },
++  {
++    id: R.emporium,
++    name: "Emporium",
++    geography: geo("plains", "temperate", 0.5, "river"),
++    settlement: { stage: "METROPOLIS", population: 1_400_000 },
++    // A: 12 400 os. (klasa 5); B: 48 200 (klasa 5).
++    companies: [
++      works(6_000, 14_000, 33_600),
++      bakery(4_400, 6_000, 9_600),
++      sawmill(2_000, 5_000, 5_000),
++    ],
++  },
++  {
++    id: R.quiet,
++    name: "Quiet Vale",
++    geography: geo("plains", "cold", 0.4),
++    settlement: { stage: "HAMLET", population: 180 },
++    // Znane 0: aktywna firma bez pracowników, bez produkcji i sprzedaży.
++    companies: [farm(0, 0, 0)],
++  },
++  {
++    id: R.mines,
++    name: "Coal Hollow",
++    geography: geo("mountains", "continental", 0.15),
++    settlement: { stage: "TOWN", population: 9_000 },
++    // A: 64 os. (klasa 2); B: 45 (klasa 2).
++    companies: [sawmill(64, 30, 45)],
++  },
++  {
++    id: R.frontier,
++    name: "Wild Frontier",
++    geography: geo("forest", "continental", 0.3),
++    settlement: { stage: "HAMLET", population: 60 },
++    // A: 0 (brak firm); B: brak danych (brak rynku).
++  },
++  {
++    id: R.marsh,
++    name: "Reed Marsh",
++    geography: geo("wetland", "temperate", 0.5, "river"),
++    settlement: { stage: "VILLAGE", population: 1_100 },
++    // A: 38 os. (klasa 2); B: brak danych -- firma sprzedaje, ale region nie ma rynku.
++    companies: [farm(38, 90, 0)],
++  },
++];
++
++const CONNECTIONS: readonly ConnectionSpec[] = [
++  { a: R.delta, b: R.harbour, level: 3, modes: ["cart", "river"] },
++  { a: R.delta, b: R.hills, level: 2, modes: ["cart"] },
++  { a: R.delta, b: R.mines, level: 2, modes: ["cart"] },
++  { a: R.harbour, b: R.emporium, level: 3, modes: ["cart"] },
++  { a: R.hills, b: R.quiet, level: 1, modes: ["foot_porter"] },
++  { a: R.mines, b: R.frontier, level: 1, modes: ["pack_animal"] },
++  { a: R.emporium, b: R.marsh, level: 2, modes: ["river"] },
++  { a: R.emporium, b: R.mines, level: 2, modes: ["cart"] },
++];
++
++const MARKET_REGIONS = [R.hills, R.delta, R.harbour, R.emporium, R.quiet, R.mines];
++const PRICES: Readonly<Record<string, Readonly<Record<string, number>>>> = {
++  [R.hills]: { flour: 1.25 },
++  [R.delta]: { flour: 1.3, bread: 1.32 },
++  [R.harbour]: { bread: 4.2, dev_tools: 12 },
++  [R.emporium]: { bread: 1.6, dev_tools: 2.4, dev_planks: 1 },
++  [R.quiet]: { flour: 1.9 },
++  [R.mines]: { dev_planks: 1.5 },
++};
++
++export function economyView(): WorldView {
++  return buildVisualWorldView({
++    id: "dev_economy_world",
++    seed: "visual-r4b-economy",
++    regions: REGIONS,
++    connections: CONNECTIONS,
++    tradeRegionIds: MARKET_REGIONS,
++    marketPrices: PRICES,
++    goodOutputsPerBatchByMethodId: OUTPUTS,
++    currentTick: 26,
++    startDate: { year: 3, month: 3 },
++  });
++}
++
++/**
++ * „Słaba gospodarka”: rząd wielkości zmierzony w realnym świecie Black
++ * Mountain (360 ticków, maks. ~7 zatrudnionych, przychód ≤ ~93 / mies., tylko
++ * jeden region z firmami). Dowód, że region pierwszy w rankingu NIE dostaje
++ * pełnej intensywności -- klasy są absolutne. Nadal VISUAL DEVELOPMENT DATA.
++ */
++export function economyLowView(): WorldView {
++  const low: RegionSpec[] = REGIONS.map((spec) =>
++    spec.id === R.delta
++      ? { ...spec, companies: [farm(2, 8, 10), farm(1, 0, 0)] }
++      : { ...spec, companies: spec.id === R.quiet ? [farm(0, 0, 0)] : [] },
++  );
++  return buildVisualWorldView({
++    id: "dev_economy_low_world",
++    seed: "visual-r4b-economy-low",
++    regions: low,
++    connections: CONNECTIONS,
++    tradeRegionIds: MARKET_REGIONS,
++    marketPrices: { [R.delta]: { flour: 1.25 } },
++    goodOutputsPerBatchByMethodId: OUTPUTS,
++    currentTick: 121,
++    startDate: { year: 11, month: 2 },
++  });
++}
++
++export const ECONOMY_DEV_NAMES: Readonly<Record<"en" | "pl", Record<string, string>>> = {
++  en: {
++    "content.good.dev_tools.name": "Tools (test data)",
++    "content.good.dev_planks.name": "Planks (test data)",
++  },
++  pl: {
++    "content.good.dev_tools.name": "Narzędzia (dane testowe)",
++    "content.good.dev_planks.name": "Deski (dane testowe)",
++  },
++};
+diff --git a/apps/desktop/src/features/world/visual-stress-fixture.ts b/apps/desktop/src/features/world/visual-stress-fixture.ts
+index d3b8d64..10aad36 100644
+--- a/apps/desktop/src/features/world/visual-stress-fixture.ts
++++ b/apps/desktop/src/features/world/visual-stress-fixture.ts
+@@ -138,6 +138,13 @@ export function visualStressView(index: number): WorldView {
+     infrastructure: index,
+     // R4B: ręcznie wpisany Read Model nie ma zakończonego okresu handlu.
+     trade: { status: "NO_DATA", reason: "NO_COMPLETED_PERIOD" },
++    economy: {
++      employment: 0,
++      activeCompanies: 0,
++      sales: { status: "NO_DATA", reason: "NO_COMPLETED_PERIOD" },
++      goods: [],
++      unattributedCompanies: 0,
++    },
+   };
+   const current = {
+     summary: {
+diff --git a/apps/desktop/src/features/world/visual-world-fixture.ts b/apps/desktop/src/features/world/visual-world-fixture.ts
+index f751408..aa58901 100644
+--- a/apps/desktop/src/features/world/visual-world-fixture.ts
++++ b/apps/desktop/src/features/world/visual-world-fixture.ts
+@@ -89,6 +89,9 @@ export interface RegionSpec {
+     readonly employees: number;
+     readonly output: number;
+     readonly status?: "active" | "distressed" | "closed";
++    /** PROTOTYP R4B Economy: metoda produkcji i przychód ostatniego ticka. */
++    readonly methodId?: string;
++    readonly revenue?: number;
+   }[];
+   readonly deposits?: readonly {
+     readonly resourceId: string;
+@@ -291,7 +294,9 @@ function withCompanyState(
+       ...company.production,
+       capacity: spec.employees,
+       outputLastTick: spec.output,
++      ...(spec.methodId ? { productionMethodId: spec.methodId } : {}),
+     },
++    finance: { ...company.finance, revenue: spec.revenue ?? 0 },
+     status: {
+       active: spec.status !== "closed",
+       distressed: spec.status === "distressed",
+@@ -380,6 +385,11 @@ export function buildVisualWorldView(input: {
+   readonly currentTick?: number;
+   readonly startDate?: { readonly year: number; readonly month: number };
+   readonly facts?: Parameters<typeof buildWorldSnapshot>[1];
++  /** PROTOTYP R4B Economy: lokalne ceny rynku (region → towar → cena) i wyjścia receptur. */
++  readonly marketPrices?: Readonly<Record<string, Readonly<Record<string, number>>>>;
++  readonly goodOutputsPerBatchByMethodId?: Readonly<
++    Record<string, Readonly<Record<string, number>>>
++  >;
+ }): WorldView {
+   const REGIONS = input.regions;
+   const CONNECTIONS = input.connections;
+@@ -497,14 +507,43 @@ export function buildVisualWorldView(input: {
+         }),
+       ),
+     ],
+-    markets: tradeRegionIds.map((id) =>
+-      createMarket({ id: `${id}_market`, regionId: id }),
+-    ),
++    markets: tradeRegionIds.map((id) => {
++      const market = createMarket({ id: `${id}_market`, regionId: id });
++      const prices = input.marketPrices?.[id] ?? {};
++      return {
++        ...market,
++        goods: Object.fromEntries(
++          Object.entries(prices).map(([goodId, localPrice]) => [
++            goodId,
++            {
++              supply: 0,
++              demand: 0,
++              inventory: 0,
++              localPrice,
++              importDemand: 0,
++              exportSupply: 0,
++              shortageSeverity: 0,
++              pricePressure: 0,
++            },
++          ]),
++        ),
++      };
++    }),
+     companies,
+     resourceDeposits: deposits,
+     connections,
+   });
+-  const current = buildWorldSnapshot(state, input.facts ?? [], VISUAL_WORLD_CONTENT, []);
++  const current = buildWorldSnapshot(
++    state,
++    input.facts ?? [],
++    {
++      ...VISUAL_WORLD_CONTENT,
++      ...(input.goodOutputsPerBatchByMethodId
++        ? { goodOutputsPerBatchByMethodId: input.goodOutputsPerBatchByMethodId }
++        : {}),
++    },
++    [],
++  );
+   return {
+     type: "WORLD_VIEW",
+     current,
+diff --git a/apps/desktop/src/features/world/world-store.ts b/apps/desktop/src/features/world/world-store.ts
+index 02aaa50..d50331b 100644
+--- a/apps/desktop/src/features/world/world-store.ts
++++ b/apps/desktop/src/features/world/world-store.ts
+@@ -1,6 +1,7 @@
+ import { create } from "zustand";
+ import type { WorldAnalysisScope } from "@first-cause/simulation";
+ import type { MapMode, Overlay, FlowLens, ChangeMetric } from "./atlas-model.js";
++import type { EconomyMetric } from "./economy-mode.js";
+ interface WorldUiState {
+   analysisScope: WorldAnalysisScope;
+   mapMode: MapMode;
+@@ -21,6 +22,8 @@ interface WorldUiState {
+   /** R4B Handel: rozwinięty towar w tabeli Handlu i wskazany partner (tylko prezentacja). */
+   tradeGoodId: string | undefined;
+   tradePartnerId: string | undefined;
++  /** PROTOTYP R4B Economy: wariant miary (A = employment, B = sales) -- wybór właściciela. */
++  economyMetric: EconomyMetric;
+   set: (patch: Partial<Omit<WorldUiState, "set">>) => void;
+ }
+ export const useWorldStore = create<WorldUiState>((set) => ({
+@@ -42,6 +45,7 @@ export const useWorldStore = create<WorldUiState>((set) => ({
+   discoveryId: "",
+   tradeGoodId: undefined,
+   tradePartnerId: undefined,
++  economyMetric: "employment",
+   set: (patch) =>
+     set((state) => ({
+       ...("selectedEntityId" in patch && patch.selectedEntityId !== state.selectedEntityId
+diff --git a/apps/desktop/src/features/world/world.css b/apps/desktop/src/features/world/world.css
+index 03a4844..ecb0803 100644
+--- a/apps/desktop/src/features/world/world.css
++++ b/apps/desktop/src/features/world/world.css
+@@ -725,3 +725,52 @@
+   color: var(--fc-text-secondary);
+   font-style: italic;
+ }
++
++/* PROTOTYP M21-VIS-R4B Economy -- zakładka „Gospodarka” (propozycja do oceny). */
++.fc-economy__fact {
++  display: flex;
++  justify-content: space-between;
++  align-items: baseline;
++  gap: var(--fc-space-2);
++  padding: var(--fc-space-1) 0;
++  border-bottom: var(--fc-border-width) solid var(--fc-border);
++}
++.fc-economy__fact--primary .fc-data {
++  font-size: var(--fc-text-subsection);
++  font-weight: 600;
++}
++.fc-economy__value {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--fc-space-1);
++  text-align: right;
++}
++.fc-economy__subtitle {
++  margin: var(--fc-space-2) 0 0;
++  font-size: var(--fc-text-label);
++  font-weight: 600;
++  color: var(--fc-text-secondary);
++}
++.fc-economy__chip {
++  flex: none;
++  vertical-align: middle;
++}
++.fc-economy__rank {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--fc-space-1);
++}
++.fc-world .fc-economy__chip {
++  width: 18px;
++  height: 18px;
++  min-width: 18px;
++}
++.fc-economy__fact--primary {
++  align-items: center;
++}
++.fc-economy__fact {
++  flex-wrap: wrap;
++}
++.fc-economy__reason {
++  flex-basis: 100%;
++}
+diff --git a/apps/desktop/visual-tests/world.tsx b/apps/desktop/visual-tests/world.tsx
+index 0afb61c..096422a 100644
+--- a/apps/desktop/visual-tests/world.tsx
++++ b/apps/desktop/visual-tests/world.tsx
+@@ -27,6 +27,11 @@ import {
+   tradeSimulationView,
+   tradeView,
+ } from "../src/features/world/visual-trade-fixture.js";
++import {
++  ECONOMY_DEV_NAMES,
++  economyLowView,
++  economyView,
++} from "../src/features/world/visual-economy-fixture.js";
+ import { MAP_MODES, type MapMode } from "../src/features/world/atlas-model.js";
+ import { useWorldStore } from "../src/features/world/world-store.js";
+ import "@fontsource/ibm-plex-sans/400.css";
+@@ -68,7 +73,11 @@ const view =
+                 ? extinctionBeforeView()
+                 : fixture === "extinction-after"
+                   ? extinctionAfterView()
+-                  : fixture === "trade"
++                  : fixture === "economy"
++                    ? economyView()
++                    : fixture === "economy-low"
++                      ? economyLowView()
++                      : fixture === "trade"
+                     ? tradeView()
+                     : fixture === "trade-sim"
+                       ? tradeSimulationView()
+@@ -88,6 +97,11 @@ useWorldStore.getState().set({
+   ...(params.get("good") ? { tradeGoodId: params.get("good")! } : {}),
+   ...(params.get("partner") ? { tradePartnerId: params.get("partner")! } : {}),
+ });
++// PROTOTYP R4B Economy: `econ=employment|sales` -- wariant miary (A / B).
++if (params.get("econ") === "sales" || params.get("econ") === "employment")
++  useWorldStore
++    .getState()
++    .set({ economyMetric: params.get("econ") as "employment" | "sales" });
+ // R4B: `lens` -- zapamiętany wybór Flow Lens (np. `trade` sprzed poprawki).
+ if (params.get("lens"))
+   useWorldStore
+@@ -129,8 +143,8 @@ createRoot(document.getElementById("root")!).render(
+   <I18nextProvider
+     i18n={createI18n({
+       resources: {
+-        en: { common: { ...en, ...devNames, ...TRADE_DEV_NAMES.en } },
+-        pl: { common: { ...pl, ...devNames, ...TRADE_DEV_NAMES.pl } },
++        en: { common: { ...en, ...devNames, ...TRADE_DEV_NAMES.en, ...ECONOMY_DEV_NAMES.en } },
++        pl: { common: { ...pl, ...devNames, ...TRADE_DEV_NAMES.pl, ...ECONOMY_DEV_NAMES.pl } },
+       },
+       ...(params.get("lang") === "pl" ? { initialLocale: "pl" as const } : {}),
+     })}
+diff --git a/locales/en/common.json b/locales/en/common.json
+index 110a53d..520d228 100644
+--- a/locales/en/common.json
++++ b/locales/en/common.json
+@@ -451,5 +451,42 @@
+   "world.change.tradeUnavailable": "Trade (no common measure)",
+   "world.fact.trade_flow_evaluated": "Trade (evaluated quantity, older engine)",
+   "world.flow.tradeUnavailable": "Trade (no common measure)",
+-  "world.flow.tradeUnavailableHint": "Flow Lens does not compare trade quantities: different goods have no common measure. Point a partner in the Trade table to see the direction of exchange."
++  "world.flow.tradeUnavailableHint": "Flow Lens does not compare trade quantities: different goods have no common measure. Point a partner in the Trade table to see the direction of exchange.",
++  "world.economy.title": "Regional economy",
++  "world.economy.period": "Last completed month",
++  "world.economy.employment.name": "Employed in companies",
++  "world.economy.employment.unit": "people",
++  "world.economy.employment.unitShort": "ppl",
++  "world.economy.employment.pulse": "Employed in companies",
++  "world.economy.employment.legendTitle": "Employed in companies · people · end of month",
++  "world.economy.employment.noDataLegend": "— = no data",
++  "world.economy.sales.name": "Company sales / month",
++  "world.economy.sales.unit": "money units · local prices",
++  "world.economy.sales.unitShort": "units",
++  "world.economy.sales.pulse": "Company sales / month",
++  "world.economy.sales.legendTitle": "Company sales · money units / month · local prices",
++  "world.economy.sales.noDataLegend": "— = no data (region outside the market model)",
++  "world.economy.zeroLabel": "0",
++  "world.economy.noDataLabel": "—",
++  "world.economy.employment.zeroLegend": "0 = nobody employed",
++  "world.economy.sales.zeroLegend": "0 = no sales",
++  "world.economy.scaleNote": "Fixed classes (orders of magnitude) — not relative to the top region.",
++  "world.economy.reason.NO_COMPLETED_PERIOD": "no completed month yet",
++  "world.economy.reason.OUTSIDE_MARKET_MODEL": "no data — region outside the market model (no market or regional stock)",
++  "world.economy.reason.MISSING": "no data",
++  "world.economy.goodsTitle": "Production by good · last month · units of each good",
++  "world.economy.produced": "Produced",
++  "world.economy.localPrice": "Local price",
++  "world.economy.noPrice": "no price",
++  "world.economy.noCompanies": "No active companies in this region.",
++  "world.economy.noProduction": "Companies are active but produced nothing this month.",
++  "world.economy.rankingNote_one": "Regions without data are not ranked ({{count}} region).",
++  "world.economy.rankingNote_other": "Regions without data are not ranked ({{count}} regions).",
++  "world.economy.help.title": "How to read this?",
++  "world.economy.help.employment": "Employed in companies: people working in the region's active companies at the end of the month.",
++  "world.economy.help.sales": "Company sales: what companies earned selling their output to the regional market in the month, at local prices. Regions without a market have no data (not 0). Sales of intermediate goods (e.g. flour for bread) are included too.",
++  "world.economy.help.goods": "Production is shown per good — quantities of different goods are never added up.",
++  "world.economy.help.notGdp": "These are not GDP or wealth: the model has no value-added accounting.",
++  "world.economy.employment.caption": "Employed in companies · people · fixed classes",
++  "world.economy.sales.caption": "Company sales · money units / month · local prices"
+ }
+diff --git a/locales/pl/common.json b/locales/pl/common.json
+index 7a6bf51..1eba484 100644
+--- a/locales/pl/common.json
++++ b/locales/pl/common.json
+@@ -451,5 +451,44 @@
+   "world.change.tradeUnavailable": "Handel (brak wspólnej miary)",
+   "world.fact.trade_flow_evaluated": "Handel (ilość oceniona, starszy silnik)",
+   "world.flow.tradeUnavailable": "Handel (brak wspólnej miary)",
+-  "world.flow.tradeUnavailableHint": "Przepływy nie porównują ilości handlu: różne towary nie mają wspólnej miary. Kierunek wymiany pokazuje wskazanie partnera w tabeli Handlu."
++  "world.flow.tradeUnavailableHint": "Przepływy nie porównują ilości handlu: różne towary nie mają wspólnej miary. Kierunek wymiany pokazuje wskazanie partnera w tabeli Handlu.",
++  "world.economy.title": "Gospodarka regionu",
++  "world.economy.period": "Ostatni zakończony miesiąc",
++  "world.economy.employment.name": "Zatrudnieni w przedsiębiorstwach",
++  "world.economy.employment.unit": "os.",
++  "world.economy.employment.unitShort": "os.",
++  "world.economy.employment.pulse": "Zatrudnieni w firmach",
++  "world.economy.employment.legendTitle": "Zatrudnieni w przedsiębiorstwach · osoby · koniec miesiąca",
++  "world.economy.employment.noDataLegend": "— = brak danych",
++  "world.economy.sales.name": "Sprzedaż firm / miesiąc",
++  "world.economy.sales.unit": "jedn. pieniężne · ceny lokalne",
++  "world.economy.sales.unitShort": "jedn.",
++  "world.economy.sales.pulse": "Sprzedaż firm / mies.",
++  "world.economy.sales.legendTitle": "Sprzedaż firm · jedn. pieniężne / miesiąc · ceny lokalne",
++  "world.economy.sales.noDataLegend": "— = brak danych (region poza modelem rynku)",
++  "world.economy.zeroLabel": "0",
++  "world.economy.noDataLabel": "—",
++  "world.economy.employment.zeroLegend": "0 = nikt nie pracuje w firmach",
++  "world.economy.sales.zeroLegend": "0 = brak sprzedaży",
++  "world.economy.scaleNote": "Klasy stałe (rzędy wielkości) — nie względem najlepszego regionu.",
++  "world.economy.reason.NO_COMPLETED_PERIOD": "brak zakończonego miesiąca",
++  "world.economy.reason.OUTSIDE_MARKET_MODEL": "brak danych — region poza modelem rynku (bez rynku lub magazynu regionu)",
++  "world.economy.reason.MISSING": "brak danych",
++  "world.economy.goodsTitle": "Produkcja według towarów · ostatni miesiąc · jednostki danego towaru",
++  "world.economy.produced": "Wytworzono",
++  "world.economy.localPrice": "Cena lokalna",
++  "world.economy.noPrice": "brak ceny",
++  "world.economy.noCompanies": "Brak aktywnych przedsiębiorstw w regionie.",
++  "world.economy.noProduction": "Przedsiębiorstwa działają, ale w tym miesiącu nic nie wytworzyły.",
++  "world.economy.rankingNote_one": "Regiony bez danych nie są porównywane ({{count}} region).",
++  "world.economy.rankingNote_few": "Regiony bez danych nie są porównywane ({{count}} regiony).",
++  "world.economy.rankingNote_many": "Regiony bez danych nie są porównywane ({{count}} regionów).",
++  "world.economy.rankingNote_other": "Regiony bez danych nie są porównywane ({{count}} regionu).",
++  "world.economy.help.title": "Jak czytać te dane?",
++  "world.economy.help.employment": "Zatrudnieni w przedsiębiorstwach: osoby pracujące w aktywnych firmach regionu na koniec miesiąca.",
++  "world.economy.help.sales": "Sprzedaż firm: przychód firm ze sprzedaży wyrobów na rynek regionu w miesiącu, po cenach lokalnych. Region bez rynku ma „brak danych” (nie 0). Wlicza się też sprzedaż półproduktów (np. mąki na chleb).",
++  "world.economy.help.goods": "Produkcja jest pokazana według towarów — ilości różnych towarów nigdy nie są sumowane.",
++  "world.economy.help.notGdp": "To nie jest PKB ani zamożność: model nie liczy wartości dodanej.",
++  "world.economy.employment.caption": "Zatrudnieni w przedsiębiorstwach · osoby · klasy stałe",
++  "world.economy.sales.caption": "Sprzedaż firm · jedn. pieniężne / miesiąc · ceny lokalne"
+ }
+diff --git a/packages/simulation/src/read-models/index.ts b/packages/simulation/src/read-models/index.ts
+index a4a2820..1154a40 100644
+--- a/packages/simulation/src/read-models/index.ts
++++ b/packages/simulation/src/read-models/index.ts
+@@ -10,3 +10,4 @@ export * from "./technology-summary-read-model.js";
+ export * from "./region-visual-profile-read-model.js";
+ export * from "./world-view-read-model.js";
+ export * from "./region-trade-read-model.js";
++export * from "./region-economy-read-model.js";
+diff --git a/packages/simulation/src/read-models/region-economy-read-model.ts b/packages/simulation/src/read-models/region-economy-read-model.ts
+new file mode 100644
+index 0000000..5d44462
+--- /dev/null
++++ b/packages/simulation/src/read-models/region-economy-read-model.ts
+@@ -0,0 +1,103 @@
++import type { WorldState } from "@first-cause/entities";
++
++/**
++ * PROTOTYP M21-VIS-R4B Economy (propozycja do oceny, nie wdrożenie).
++ *
++ * Gospodarka REGIONU z istniejącego stanu firm -- bez nowej mechaniki i bez
++ * indeksu. Trzy osobne fakty, każdy z własną jednostką:
++ *
++ * - `employment` -- suma `Company.workforce.employees` aktywnych firm
++ *   regionu (osoby; STAN na koniec ostatniego ticka). Zawsze znana: region
++ *   bez aktywnych firm = znane 0.
++ * - `sales` -- suma `Company.finance.revenue` aktywnych firm (jednostka
++ *   pieniężna modelu; PRZEPŁYW za ostatni zakończony miesiąc, po lokalnej
++ *   cenie rynku regionu). Przychód powstaje wyłącznie w regionie z Market
++ *   i regionalnym Inventory (`economy-tick.ts`, krok 6), więc region poza
++ *   modelem rynku ma „brak danych”, nie 0.
++ * - `goods` -- wytworzona ilość per towar (jednostka towaru; bez sumy
++ *   różnych towarów). `outputLastTick` jest sumą wyjść receptury, więc
++ *   rozkład na towary wymaga proporcji `goodOutputsPerBatch` z contentu.
++ */
++export interface RegionEconomyGood {
++  readonly goodId: string;
++  /** Wytworzone w ostatnim ticku (jednostka towaru). */
++  readonly produced: number;
++  readonly companies: number;
++  /** Lokalna cena rynku regionu; undefined = brak ceny (region bez rynku / towar nienotowany). */
++  readonly localPrice: number | undefined;
++}
++export type RegionSalesFact =
++  | { readonly status: "RECORDED"; readonly value: number; readonly tick: number }
++  | {
++      readonly status: "NO_DATA";
++      readonly reason: "NO_COMPLETED_PERIOD" | "OUTSIDE_MARKET_MODEL";
++    };
++export interface RegionEconomyView {
++  readonly employment: number;
++  readonly activeCompanies: number;
++  readonly sales: RegionSalesFact;
++  readonly goods: readonly RegionEconomyGood[];
++  /** Firmy z produkcją, której nie da się przypisać do towaru (nieznana receptura). */
++  readonly unattributedCompanies: number;
++}
++
++export function buildRegionEconomyReadModels(
++  state: WorldState,
++  goodOutputsPerBatchByMethodId: Readonly<
++    Record<string, Readonly<Record<string, number>>>
++  > = {},
++): ReadonlyMap<string, RegionEconomyView> {
++  const result = new Map<string, RegionEconomyView>();
++  const lastTick = state.world.currentTick - 1;
++  for (const id of Object.keys(state.regions).sort()) {
++    const region = state.regions[id]!;
++    const companies = region.economy.companyIds
++      .map((cid) => state.companies[cid]!)
++      .filter((c) => c.status.active);
++    const market = region.economy.marketId
++      ? state.markets[region.economy.marketId]
++      : undefined;
++    const inMarketModel = !!market && !!region.economy.regionalInventoryId;
++    const goods = new Map<string, { produced: number; companies: number }>();
++    let unattributed = 0;
++    for (const company of companies) {
++      const methodId = company.production.productionMethodId;
++      const outputs = methodId ? goodOutputsPerBatchByMethodId[methodId] : undefined;
++      const total = outputs ? Object.values(outputs).reduce((a, b) => a + b, 0) : 0;
++      if (!outputs || total <= 0) {
++        if (company.production.outputLastTick > 0) unattributed++;
++        continue;
++      }
++      for (const [goodId, perBatch] of Object.entries(outputs)) {
++        const entry = goods.get(goodId) ?? { produced: 0, companies: 0 };
++        entry.produced += (company.production.outputLastTick * perBatch) / total;
++        entry.companies += 1;
++        goods.set(goodId, entry);
++      }
++    }
++    result.set(id, {
++      employment: companies.reduce((sum, c) => sum + c.workforce.employees, 0),
++      activeCompanies: companies.length,
++      sales:
++        lastTick < 0
++          ? { status: "NO_DATA", reason: "NO_COMPLETED_PERIOD" }
++          : !inMarketModel
++            ? { status: "NO_DATA", reason: "OUTSIDE_MARKET_MODEL" }
++            : {
++                status: "RECORDED",
++                value: companies.reduce((sum, c) => sum + c.finance.revenue, 0),
++                tick: lastTick,
++              },
++      goods: [...goods.entries()]
++        .sort(([a], [b]) => a.localeCompare(b))
++        .map(([goodId, g]) => ({
++          goodId,
++          produced: g.produced,
++          companies: g.companies,
++          localPrice: market?.goods[goodId]?.localPrice,
++        })),
++      unattributedCompanies: unattributed,
++    });
++  }
++  return result;
++}
+diff --git a/packages/simulation/src/read-models/world-view-read-model.ts b/packages/simulation/src/read-models/world-view-read-model.ts
+index dddf449..d494e3e 100644
+--- a/packages/simulation/src/read-models/world-view-read-model.ts
++++ b/packages/simulation/src/read-models/world-view-read-model.ts
+@@ -38,6 +38,10 @@ import {
+   buildRegionTradeReadModels,
+   type RegionTradeView,
+ } from "./region-trade-read-model.js";
++import {
++  buildRegionEconomyReadModels,
++  type RegionEconomyView,
++} from "./region-economy-read-model.js";
+ import {
+   buildTechnologySummaryReadModel,
+   type TechnologySummaryReadModel,
+@@ -56,6 +60,8 @@ export interface WorldRegionView extends RegionSummaryReadModel {
+   readonly infrastructure: number;
+   /** M21-VIS-R4B: handel REGIONU w ostatnim zakończonym miesiącu (tabela według towarów). */
+   readonly trade: RegionTradeView;
++  /** PROTOTYP R4B Economy: zatrudnienie, sprzedaż i produkcja według towarów. */
++  readonly economy: RegionEconomyView;
+ }
+ export interface WorldConnectionView {
+   readonly id: string;
+@@ -172,7 +178,12 @@ export function buildWorldSnapshot(
+   state: WorldState,
+   facts: readonly SimulationFact[],
+   /** Mapy z contentu dla profilu wizualnego (sektory, rodziny wydobycia, rodziny tras). */
+-  visualContent: BuildRegionVisualProfileOptions = {},
++  visualContent: BuildRegionVisualProfileOptions & {
++    /** PROTOTYP R4B Economy: `methodId -> goodOutputsPerBatch` (content). */
++    readonly goodOutputsPerBatchByMethodId?: Readonly<
++      Record<string, Readonly<Record<string, number>>>
++    >;
++  } = {},
+   edges: readonly CausalEdge[] = [],
+ ): WorldSnapshot {
+   const explainedIds = new Set(edges.map((e) => e.targetFactId));
+@@ -181,6 +192,10 @@ export function buildWorldSnapshot(
+     if (fact.tick < state.world.currentTick && explainedIds.has(fact.id))
+       latestChanges.set(fact.location.regionId, fact);
+   const tradeByRegion = buildRegionTradeReadModels(state, facts);
++  const economyByRegion = buildRegionEconomyReadModels(
++    state,
++    visualContent.goodOutputsPerBatchByMethodId,
++  );
+   const regions = Object.keys(state.regions)
+     .sort()
+     .map((id): WorldRegionView => {
+@@ -218,6 +233,7 @@ export function buildWorldSnapshot(
+           0,
+         ),
+         trade: tradeByRegion.get(id)!,
++        economy: economyByRegion.get(id)!,
+       };
+     });
+   const connections = Object.keys(state.connections)
+diff --git a/tests/e2e/proto-before.spec.ts b/tests/e2e/proto-before.spec.ts
+new file mode 100644
+index 0000000..d4aa4ba
+--- /dev/null
++++ b/tests/e2e/proto-before.spec.ts
+@@ -0,0 +1,88 @@
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++import {
++  _electron as electron,
++  expect,
++  test,
++  type ElectronApplication,
++  type Page,
++} from "@playwright/test";
++import { createServer, type ViteDevServer } from "vite";
++import react from "@vitejs/plugin-react";
++
++/**
++ * PROTOTYP M21-VIS-R4B Economy -- materiał do oceny (nie test akceptacyjny).
++ * Zrzuty trafiają do katalogu z `FC_PROTO_OUT`.
++ */
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const mainEntry = path.resolve(__dirname, "../../apps/desktop/out/main/index.js");
++const OUT = process.env.FC_PROTO_OUT ?? path.resolve(__dirname, "../../proto-shots");
++
++async function openPage(
++  app: ElectronApplication,
++  server: ViteDevServer,
++  query: string,
++  width: number,
++  height: number,
++) {
++  const url = `${server.resolvedUrls!.local[0]}visual-tests/${query}`;
++  const [page] = await Promise.all([
++    app.waitForEvent("window"),
++    app.evaluate(
++      ({ BrowserWindow }, target) => {
++        const window = new BrowserWindow({
++          width: target.width,
++          height: target.height,
++          show: true,
++        });
++        void window.loadURL(target.url);
++      },
++      { url, width, height },
++    ),
++  ]);
++  await page.setViewportSize({ width, height });
++  return page;
++}
++
++async function atlasReady(page: Page, mode: string) {
++  await expect(page.getByTestId("world-screen")).toBeVisible();
++  await expect(page.getByTestId("living-atlas")).toHaveAttribute(
++    "data-rendered-mode",
++    mode,
++  );
++  await page.evaluate(() => document.fonts.ready);
++  await page.waitForTimeout(400);
++  await page.evaluate(
++    () =>
++      new Promise<void>((resolve) =>
++        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
++      ),
++  );
++}
++
++test("PRZED -- obecny tryb Economy (główne repo, HEAD bez zmian)", async () => {
++  test.setTimeout(300_000);
++  const server = await createServer({
++    configFile: false,
++    root: process.env.FC_MAIN_DESKTOP!,
++    plugins: [react()],
++    server: { host: "127.0.0.1", port: 0, fs: { strict: false } },
++  });
++  await server.listen();
++  const app = await electron.launch({ args: [mainEntry] });
++  try {
++    await app.firstWindow();
++    for (const [name, q, w, h] of [
++      ["before-economy-1280x800-pl.png", "world.html?mode=economy&lang=pl&select=dev_green_plain", 1280, 800],
++      ["before-economy-trade-fixture-1280x800-pl.png", "world.html?fixture=trade&mode=economy&lang=pl", 1280, 800],
++    ] as const) {
++      const page = await openPage(app, server, q, w, h);
++      await atlasReady(page, "economy");
++      await page.screenshot({ path: path.join(OUT, name) });
++      await page.close();
++    }
++  } finally {
++    await app.close();
++    await server.close();
++  }
++});
+diff --git a/tests/e2e/proto-economy.spec.ts b/tests/e2e/proto-economy.spec.ts
+new file mode 100644
+index 0000000..52a18da
+--- /dev/null
++++ b/tests/e2e/proto-economy.spec.ts
+@@ -0,0 +1,154 @@
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++import {
++  _electron as electron,
++  expect,
++  test,
++  type ElectronApplication,
++  type Page,
++} from "@playwright/test";
++import { createServer, type ViteDevServer } from "vite";
++import react from "@vitejs/plugin-react";
++
++/**
++ * PROTOTYP M21-VIS-R4B Economy -- materiał do oceny (nie test akceptacyjny).
++ * Zrzuty trafiają do katalogu z `FC_PROTO_OUT`.
++ */
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const mainEntry = path.resolve(__dirname, "../../apps/desktop/out/main/index.js");
++const OUT = process.env.FC_PROTO_OUT ?? path.resolve(__dirname, "../../proto-shots");
++
++async function openPage(
++  app: ElectronApplication,
++  server: ViteDevServer,
++  query: string,
++  width: number,
++  height: number,
++) {
++  const url = `${server.resolvedUrls!.local[0]}visual-tests/${query}`;
++  const [page] = await Promise.all([
++    app.waitForEvent("window"),
++    app.evaluate(
++      ({ BrowserWindow }, target) => {
++        const window = new BrowserWindow({
++          width: target.width,
++          height: target.height,
++          show: true,
++        });
++        void window.loadURL(target.url);
++      },
++      { url, width, height },
++    ),
++  ]);
++  await page.setViewportSize({ width, height });
++  return page;
++}
++
++async function atlasReady(page: Page, mode: string) {
++  await expect(page.getByTestId("world-screen")).toBeVisible();
++  await expect(page.getByTestId("living-atlas")).toHaveAttribute(
++    "data-rendered-mode",
++    mode,
++  );
++  await page.evaluate(() => document.fonts.ready);
++  await page.waitForTimeout(400);
++  await page.evaluate(
++    () =>
++      new Promise<void>((resolve) =>
++        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
++      ),
++  );
++}
++
++test("PROTOTYP R4B Economy -- zrzuty do oceny", async () => {
++  test.setTimeout(600_000);
++  const server = await createServer({
++    configFile: false,
++    root: path.resolve("apps/desktop"),
++    plugins: [react()],
++    server: { host: "127.0.0.1", port: 0 },
++  });
++  await server.listen();
++  const app = await electron.launch({ args: [mainEntry] });
++  const log: string[] = [];
++  try {
++    await app.firstWindow();
++    const shots: [string, string, number, number][] = [];
++    for (const econ of ["employment", "sales"] as const)
++      for (const [w, h] of [
++        [1920, 1080],
++        [1280, 800],
++      ] as const)
++        for (const lang of ["pl", "en"] as const)
++          for (const sel of [false, true]) {
++            // Wariant B tylko w PL (materiał porównawczy), pełny zestaw dla A.
++            if (econ === "sales" && lang === "en") continue;
++            const name = `econ-${econ === "employment" ? "A" : "B"}-${sel ? "selected" : "none"}-${w}x${h}-${lang}.png`;
++            const q = `world.html?fixture=economy&mode=economy&econ=${econ}&lang=${lang}${sel ? "&select=econ_b_delta" : ""}`;
++            shots.push([name, q, w, h]);
++          }
++    // Zaznaczony region z zerem / brakiem danych, zoom, słaba gospodarka (klasy absolutne).
++    shots.push([
++      "econ-A-selected-zero-1280x800-pl.png",
++      "world.html?fixture=economy&mode=economy&econ=employment&lang=pl&select=econ_g_frontier",
++      1280,
++      800,
++    ]);
++    shots.push([
++      "econ-B-selected-nodata-1280x800-pl.png",
++      "world.html?fixture=economy&mode=economy&econ=sales&lang=pl&select=econ_h_marsh",
++      1280,
++      800,
++    ]);
++    shots.push([
++      "econ-A-zoom-out-1280x800-pl.png",
++      "world.html?fixture=economy&mode=economy&econ=employment&lang=pl&zoom=0.6",
++      1280,
++      800,
++    ]);
++    shots.push([
++      "econ-A-zoom-in-selected-1920x1080-pl.png",
++      "world.html?fixture=economy&mode=economy&econ=employment&lang=pl&zoom=2&select=econ_d_emporium",
++      1920,
++      1080,
++    ]);
++    shots.push([
++      "econ-A-low-economy-1280x800-pl.png",
++      "world.html?fixture=economy-low&mode=economy&econ=employment&lang=pl&select=econ_b_delta",
++      1280,
++      800,
++    ]);
++    shots.push([
++      "econ-B-low-economy-1280x800-pl.png",
++      "world.html?fixture=economy-low&mode=economy&econ=sales&lang=pl&select=econ_b_delta",
++      1280,
++      800,
++    ]);
++    // Punkt odniesienia: obecny tryb (bez prototypu) nie jest dostępny w tym drzewie --
++    // zrzut „przed” robi się w głównym repozytorium.
++    for (const [name, q, w, h] of shots) {
++      const page = await openPage(app, server, q, w, h);
++      await atlasReady(page, "economy");
++      const classes = await page
++        .getByTestId("living-atlas")
++        .getAttribute("data-economy-classes");
++      const overflow = await page.evaluate(
++        () => document.documentElement.scrollWidth > window.innerWidth,
++      );
++      log.push(`${name}: classes=${classes} hScroll=${overflow}`);
++      await page.screenshot({ path: path.join(OUT, name) });
++      if (name.includes("-selected-") && !name.includes("zoom")) {
++        // Porównanie regionów (moduł zwijany pod Atlasem): rozwinięty i przewinięty do widoku.
++        await page.locator(".fc-world__ranking summary").click();
++        await page.locator(".fc-world__ranking").scrollIntoViewIfNeeded();
++        await page.waitForTimeout(200);
++        await page.screenshot({ path: path.join(OUT, name.replace(".png", "-ranking.png")) });
++      }
++      await page.close();
++    }
++  } finally {
++    console.log(log.join("\n"));
++    await app.close();
++    await server.close();
++  }
++});
