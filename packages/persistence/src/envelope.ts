@@ -31,7 +31,28 @@ import { SimulationClock, type WorldRunnerState } from "@first-cause/simulation"
  * (ilość oceniona) przechodzą na typ `trade_flow_evaluated`
  * (`MIGRATIONS[2]`); znaczenie historycznych faktów jest jawne w danych.
  */
-export const SCHEMA_VERSION = 3;
+/**
+ * v4 (2026-10-01): pracownicy w całych osobach -- ułamkowe zatrudnienie z
+ * zapisów silnika < 4 normalizowane przez `MIGRATIONS[3]`.
+ */
+/**
+ * v5 (2026-10-01, etap 2 naprawy gospodarki): `PopulationCohort.savings`
+ * (płynne oszczędności) i `Inventory.consignment` (komis) -- `MIGRATIONS[4]`.
+ */
+/**
+ * v6 (2026-10-01, dochód właścicielski): `Company.finance.retainedEarnings`
+ * i `operatingCostHistory` -- `MIGRATIONS[5]` (saldo 0, gotówka bez zmian).
+ */
+/**
+ * v7 (2026-10-01, P14): `MarketGoodState.offered` / `ticksWithoutOffers` /
+ * `priceSuspension` -- `MIGRATIONS[6]` (licznik 0 tylko przy śladzie oferty w
+ * zapisanym ticku, bez odtwarzania historii).
+ */
+/**
+ * v8 (2026-10-01, etap 4B): `Company.finance.investmentReserve` --
+ * `MIGRATIONS[7]` (rezerwa 0); opcjonalne `Inventory.consignmentPrice`.
+ */
+export const SCHEMA_VERSION = 8;
 /** Bumped when `@first-cause/content` definitions change in a save-relevant way (SS36) -- no such change has happened yet. */
 export const CONTENT_VERSION = 1;
 /** Bumped when simulation SEMANTICS change in a save-relevant way (SS37) -- distinct from `SCHEMA_VERSION` (structure) and `CONTENT_VERSION` (definitions). */
@@ -42,7 +63,44 @@ export const CONTENT_VERSION = 1;
  * bez fizycznego ruchu faktu nie ma. Fakty zapisane silnikiem < 3 niosą
  * ilość ocenioną -- migracja schematu v2 -> v3 nadaje im typ `trade_flow_evaluated`.
  */
-export const ENGINE_VERSION = 3;
+/**
+ * v4 (2026-10-01): siła robocza i zatrudnienie w całych osobach (limit
+ * kohorty `ceil`, pula regionu `floor` z `ludność × 0,65`); wcześniej
+ * ułamki ludzi (np. 6,5 pracownika). Ta sama wersja: zamknięta firma
+ * zwalnia pracowników (N1; firma zamknięta w zapisie silnika < 4 zwalnia
+ * ich w pierwszym ticku po wczytaniu) i cena przy zerowej podaży
+ * uwzględnia zapas regionu (N2) -- diagnoza Black Mountain 2026-10-01; plan
+ * produkcji, zatrudnienia i płac firm (etap 1: N3 + N4, Canonical §52F).
+ */
+/**
+ * v5 (2026-10-01, etap 2: N7 + minimalne rozliczenie N6): pieniądz krąży --
+ * płace trafiają do gospodarstw, gospodarstwa kupują z oszczędności (także bez
+ * pracy), firmy dostają zapłatę dopiero od kupujących (komis).
+ */
+/**
+ * v6 (2026-10-01, dochód właścicielski, Canonical §52H): po rozliczeniu ticka
+ * firma wypłaca właścicielowi min(wynik zatrzymany, gotówka − bufor 2 mies.).
+ */
+/**
+ * v7 (2026-10-01, etap 4A, P12): cena jednostkowa `localPrice` z precyzją 6
+ * miejsc (`roundPrice`), nie do grosza; pieniądze bez zmian (grosze). Bez
+ * zmiany struktury -- SCHEMA_VERSION zostaje 6, migracja niepotrzebna: cena
+ * zapisana do grosza jest poprawną ceną 6-miejscową, a kolejne ticki liczą ją
+ * już precyzyjnie.
+ */
+/**
+ * v8 (2026-10-01, P12b + P14): stawka płacy z precyzją 6 miejsc (wypłata w
+ * groszach przy rozliczeniu); trwały brak ofert zatrzymuje presję cenową
+ * (cena orientacyjna); zamówienia importu wg niezaspokojonych potrzeb i
+ * środków kupujących po koszcie dostawy, bez podwójnego liczenia.
+ */
+/**
+ * v9 (2026-10-01, etap 4B): płatny przewóz (przewoźnik, opłata właściciela
+ * towaru, cena wyładunku lotu), rozbudowa wykonywana i opłacana u firmy
+ * budowlanej, rezerwa inwestycyjna P13, zwrot kapitału przy likwidacji, handel
+ * przed rozliczeniem finansów.
+ */
+export const ENGINE_VERSION = 9;
 
 export interface SaveGameVersions {
   readonly schemaVersion: number;

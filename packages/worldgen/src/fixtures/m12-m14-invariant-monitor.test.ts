@@ -6,6 +6,7 @@ import type { WorldState } from "@first-cause/entities";
 import {
   createWorldRng,
   eligibleLaborForce,
+  regionLaborForce,
   runEconomyTick,
   SETTLEMENT_STAGE_ORDER,
 } from "@first-cause/simulation";
@@ -41,6 +42,10 @@ const EPSILON = 1e-6; // stochastic rounding / floating point slack, not a real 
  * - P0-05a: `cohort.employment <= eligibleLaborForce(cohort)`.
  * - P0-05b: suma `Company.workforce.employees` (aktywnych firm) regionu
  *   nie przekracza sumy `eligibleLaborForce` regionu.
+ * - Całe osoby (decyzja właściciela 2026-10-01, ENGINE_VERSION 4):
+ *   `cohort.employment`, `Company.workforce.employees` i `vacancies` są
+ *   liczbami całkowitymi, a pracownicy firm regionu nie przekraczają
+ *   `regionLaborForce` (`floor` z ludności × 0,65).
  * - P1-04: `World.currentTick` idzie dokładnie o 1 do przodu co wywołanie.
  * - `Settlement.housing.capacity` nigdy nie maleje (housing.ts's własny,
  *   udokumentowany niezmiennik -- "nikt nie rozbiera domów").
@@ -115,6 +120,10 @@ describe("Black Mountain fixture -- M12-M14 multi-seed 120-tick invariant monito
             Number.isInteger(cohort.population),
             `tick ${tick}: cohort "${cohort.id}".population must be an integer, got ${cohort.population}`,
           ).toBe(true);
+          expect(
+            Number.isInteger(cohort.employment),
+            `tick ${tick}: cohort "${cohort.id}".employment must be whole people, got ${cohort.employment}`,
+          ).toBe(true);
           const eligible = eligibleLaborForce(cohort);
           expect(
             cohort.employment,
@@ -129,6 +138,14 @@ describe("Black Mountain fixture -- M12-M14 multi-seed 120-tick invariant monito
         // P0-05b
         const employeesByRegionId = new Map<string, number>();
         for (const company of Object.values(worldState.companies)) {
+          for (const [field, value] of [
+            ["employees", company.workforce.employees],
+            ["vacancies", company.workforce.vacancies],
+          ] as const)
+            expect(
+              Number.isInteger(value),
+              `tick ${tick}: company "${company.id}".${field} must be whole people, got ${value}`,
+            ).toBe(true);
           if (!company.status.active) continue;
           employeesByRegionId.set(
             company.regionId,
@@ -141,6 +158,13 @@ describe("Black Mountain fixture -- M12-M14 multi-seed 120-tick invariant monito
             employees,
             `tick ${tick}: region "${regionId}"'s active company headcount must not exceed its eligibleLaborForce`,
           ).toBeLessThanOrEqual((eligibleByRegionId.get(regionId) ?? 0) + EPSILON);
+          const regionCohorts = Object.values(worldState.populationCohorts).filter(
+            (c) => c.regionId === regionId,
+          );
+          expect(
+            employees,
+            `tick ${tick}: region "${regionId}" employs more whole people than its regionLaborForce`,
+          ).toBeLessThanOrEqual(regionLaborForce(regionCohorts));
         }
 
         // housing.capacity monotonicity + stage single-rung-per-tick

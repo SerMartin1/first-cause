@@ -124,6 +124,74 @@ function buildWorldState(companyOverrides: Partial<Company["workforce"]> = {}): 
   return { worldState, companyId: company.id };
 }
 
+describe("runEconomyTick -- N1 (Black Mountain diagnosis P6): a closed company releases its workers", () => {
+  function closingState(): WorldState {
+    const { worldState } = buildWorldState({ employees: 20, wageOffer: 10 });
+    const company = worldState.companies.company_test!;
+    // Runway < 1 miesiąc od 6 ticków (`lifecycle-decision.ts` CLOSE): gotówka
+    // ujemna i strata -- zamknięcie w tym ticku.
+    return {
+      ...worldState,
+      companies: {
+        company_test: {
+          ...company,
+          finance: { ...company.finance, cash: -50, revenue: 10, costs: 200, profit: -190 },
+          ai: { ...company.ai, opportunityStreak: { ...company.ai.opportunityStreak, closure: 6 } },
+        },
+      },
+    };
+  }
+  const tickOnce = (worldState: WorldState, tick = 0) => {
+    const rng = createWorldRng(worldState.world.seed);
+    return runEconomyTick({
+      worldState,
+      tick,
+      demographyRng: (scopeId) => rng.stream("demography", scopeId),
+      migrationRng: (scopeId) => rng.stream("migration", scopeId),
+    });
+  };
+
+  it("CLOSE in this tick returns every worker to the cohorts (employment, employees and vacancies 0)", () => {
+    const result = tickOnce(closingState());
+    const company = result.worldState.companies.company_test!;
+    expect(company.status.active).toBe(false);
+    expect(result.facts.some((f) => f.type === "company_closed")).toBe(true);
+    expect(company.workforce.employees).toBe(0);
+    expect(company.workforce.vacancies).toBe(0);
+    expect(result.worldState.populationCohorts.cohort_test_workers!.employment).toBe(0);
+    expect(
+      result.facts.some(
+        (f) => f.type === "employment_changed" && f.subject.entityId === "cohort_test_workers",
+      ),
+    ).toBe(true);
+  });
+
+  it("a company closed earlier that still holds workers (engine < N1 state) releases them on the next tick", () => {
+    const { worldState } = buildWorldState({ employees: 20, wageOffer: 10 });
+    const company = worldState.companies.company_test!;
+    const legacy: WorldState = {
+      ...worldState,
+      companies: {
+        company_test: {
+          ...company,
+          status: { active: false, distressed: false, bankrupt: true },
+          closedTick: 0,
+        },
+      },
+    };
+    const result = tickOnce(legacy, 1);
+    expect(result.worldState.companies.company_test!.workforce.employees).toBe(0);
+    expect(result.worldState.populationCohorts.cohort_test_workers!.employment).toBe(0);
+    // Ponowny tick: nic do zwolnienia, brak nowych faktów zatrudnienia.
+    const again = tickOnce(result.worldState, 2);
+    expect(
+      again.facts.some(
+        (f) => f.type === "employment_changed" && f.subject.entityId === "cohort_test_workers",
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("runEconomyTick -- labor cost settlement (audit regression P1, layoff nie rozlicza poprawnie pozostałej płacy)", () => {
   it("pays wages for the headcount that existed before this tick's layoff, not the reduced post-layoff count", () => {
     // capacity/utilization stay at 0 (createCompany's defaults, no
@@ -284,7 +352,10 @@ function buildEntrepreneurshipWorldState(
       skillLevel: "UNSKILLED",
     }),
     employment: 1,
-    averageIncome: 5000, // large enough that the household consumption budget (employment * averageIncome) covers the full survival-good cost every tick
+    averageIncome: 5000,
+    // Etap 2 (N7): siła nabywcza to realne oszczędności (12 mies. koszyka po 5,00),
+    // nie „dochód” bez pracodawcy -- popyt pokrywa pełny koszyk przez cały test.
+    savings: 200 * 3 * 5 * 12,
   };
   const baseExistingCompany = createCompany({
     id: "company_existing_farm",
@@ -1339,6 +1410,7 @@ describe("runEconomyTick -- trade emits trade_flow_active (M19 Chronicle trade_r
       }),
       employment: 1,
       averageIncome: 1, // minimal purchasing power -- almost none of the farm's own flour output gets consumed locally
+      savings: 1, // etap 2 (N7): prawie brak oszczędności -- lokalny popyt znikomy
     };
     const consumingCohort: ReturnType<typeof createPopulationCohort> = {
       ...createPopulationCohort({
@@ -1351,6 +1423,7 @@ describe("runEconomyTick -- trade emits trade_flow_active (M19 Chronicle trade_r
       }),
       employment: 200,
       averageIncome: 5000, // real, sustained purchasing power with zero local flour supply
+      savings: 200 * 3 * 5 * 12, // etap 2 (N7): realne oszczędności -- popyt bez lokalnej podaży
     };
 
     const baseFarm = createCompany({

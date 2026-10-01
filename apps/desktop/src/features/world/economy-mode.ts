@@ -3,7 +3,7 @@ import type { WorldRegionView } from "@first-cause/simulation";
 /**
  * M21-VIS-R4B Economy (Canonical Decisions §52C): tryb pokazuje JEDNĄ miarę
  * o wspólnej jednostce -- zatrudnionych w przedsiębiorstwach regionu (osoby,
- * stan na koniec ostatniego ticka). Sprzedaż firm jest informacją dodatkową
+ * stan na koniec ostatniego ticka). Przychód firm ze sprzedaży jest informacją dodatkową
  * inspektora, nie kodowaniem mapy. Kodowanie = Visual Alphabet v1.1 §8
  * „Economic Output”: kwadrat rosnący i nasycający się klasami. Klasy są
  * STAŁE i absolutne -- region pierwszy w rankingu nie dostaje „pełnego”
@@ -28,7 +28,7 @@ export function regionEmploymentFact(r: WorldRegionView): EconomyFact {
     : { kind: "unavailable", reason: "MISSING" };
 }
 
-/** Sprzedaż firm w ostatnim zakończonym miesiącu (informacja dodatkowa inspektora). */
+/** Przychód firm ze sprzedaży w ostatnim zakończonym miesiącu (informacja dodatkowa inspektora). */
 export function regionSalesFact(r: WorldRegionView): EconomyFact {
   const sales = (r.economy as WorldRegionView["economy"] | undefined)?.sales;
   if (!sales) return { kind: "unavailable", reason: "MISSING" };
@@ -114,12 +114,31 @@ export function formatEmploymentFull(value: number, locale: string): string {
   );
 }
 
+/**
+ * Przychód firm ze sprzedaży w panelu: całe jednostki pieniężne (decyzja
+ * właściciela 2026-10-01, wariant C) -- model nadal liczy z dokładnością
+ * 0,01 (ADR-001 §4); ceny za jednostkę towaru zostają z 2 miejscami.
+ */
+export function formatMoneyWhole(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+}
+
 /** Pieniądz: 2 miejsca (MONEY_SCALE 100, ADR-001 §4). */
 export function formatMoney(value: number, locale: string): string {
   return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+/**
+ * Cena jednostkowa w UI (etap 4A, P12): model trzyma 6 miejsc, ekran pokazuje
+ * 2 jak dotąd -- formatowanie nie wpływa na obliczenia. Dodatnia cena poniżej
+ * pół grosza nie jest pokazywana jako „0,00”, tylko jako „<0,01”.
+ */
+export function formatUnitPrice(value: number, locale: string): string {
+  if (value > 0 && value < 0.005) return `<${formatMoney(0.01, locale)}`;
+  return formatMoney(value, locale);
 }
 
 /**

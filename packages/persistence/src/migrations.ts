@@ -1,5 +1,9 @@
+import type { WorldState } from "@first-cause/entities";
 import {
+  initialHouseholdSavings,
   LEGACY_TRADE_FLOW_FACT_TYPE,
+  normalizeWholeWorkforce,
+  SURVIVAL_GOOD_ID,
   TRADE_FLOW_FACT_TYPE,
 } from "@first-cause/simulation";
 import { SCHEMA_VERSION } from "./envelope.js";
@@ -105,10 +109,182 @@ function markLegacyTradeRouteProcesses(chronicle: unknown): Record<string, unkno
   };
 }
 
+/**
+ * v3 -> v4 (decyzja właściciela 2026-10-01, ENGINE_VERSION 4): pracownicy
+ * to całe osoby. Silnik < 4 mógł zapisać ułamkowe `employees` /
+ * `vacancies` firm i `employment` kohort (np. 6,5); migracja doprowadza je
+ * do całych osób (`normalizeWholeWorkforce`: w dół dla firm, kohorty
+ * rozdzielone metodą największych reszt tak, by suma kohort regionu =
+ * suma pracowników firm). Ludność, fakty i historia bez zmian. Czysta
+ * funkcja (SAVE-008); stan już całkowity zostaje bez zmian.
+ */
+export function migrateV3ToV4(raw: Record<string, unknown>): Record<string, unknown> {
+  const versions = (raw.versions ?? {}) as Record<string, unknown>;
+  const runnerState = raw.worldState as Record<string, unknown> | undefined;
+  const worldState = runnerState?.worldState as WorldState | undefined;
+  const bumped = { ...raw, versions: { ...versions, schemaVersion: 4 } };
+  if (!runnerState || !worldState?.companies || !worldState.populationCohorts) return bumped;
+  return {
+    ...bumped,
+    worldState: { ...runnerState, worldState: normalizeWholeWorkforce(worldState) },
+  };
+}
+
+/**
+ * v4 -> v5 (etap 2 naprawy gospodarki, N7, decyzja właściciela 2026-10-01):
+ * kohorty dostają płynne oszczędności `savings`. Zapis sprzed v5 nie miał
+ * salda pieniędzy -- dostaje tę samą regułę co nowy świat: 3 miesiące koszyka
+ * przetrwania po lokalnej cenie z zapisu (region bez ceny: 0). `averageWealth`
+ * NIE jest zamieniane na gotówkę. Zapas w magazynach regionów nie dostaje
+ * właściciela w komisie (w starym modelu był już opłacony). Czysta funkcja
+ * (SAVE-008); kohorta z już ustawionym `savings` zostaje bez zmian.
+ */
+export function migrateV4ToV5(raw: Record<string, unknown>): Record<string, unknown> {
+  const versions = (raw.versions ?? {}) as Record<string, unknown>;
+  const runnerState = raw.worldState as Record<string, unknown> | undefined;
+  const worldState = runnerState?.worldState as WorldState | undefined;
+  const bumped = { ...raw, versions: { ...versions, schemaVersion: 5 } };
+  if (!runnerState || !worldState?.populationCohorts || !worldState.regions) return bumped;
+  const priceOf = (regionId: string): number => {
+    const marketId = worldState.regions[regionId]?.economy.marketId;
+    return (marketId && worldState.markets?.[marketId]?.goods[SURVIVAL_GOOD_ID]?.localPrice) || 0;
+  };
+  const populationCohorts = Object.fromEntries(
+    Object.entries(worldState.populationCohorts).map(([id, cohort]) => [
+      id,
+      typeof (cohort as { savings?: unknown }).savings === "number"
+        ? cohort
+        : { ...cohort, savings: initialHouseholdSavings(cohort.population, priceOf(cohort.regionId)) },
+    ]),
+  );
+  return {
+    ...bumped,
+    worldState: { ...runnerState, worldState: { ...worldState, populationCohorts } },
+  };
+}
+
+/**
+ * v5 -> v6 (dochód właścicielski, decyzja właściciela 2026-10-01, Canonical
+ * §52H): firmy dostają `finance.retainedEarnings` i
+ * `finance.operatingCostHistory`. Zapis sprzed v6 nie pozwala wiarygodnie
+ * odtworzyć niewypłaconego wyniku (gotówka miesza kapitał początkowy, zyski,
+ * straty i rozbudowy), więc saldo startuje od 0 -- istniejąca gotówka
+ * zostaje bez zmian i NIE jest wypłacana jako dochód; wypłaty zaczną się
+ * dopiero od zysków rozliczonych po wczytaniu (ograniczenie migracji:
+ * zyski sprzed zapisu zostają w firmie). Historia kosztów = jedna
+ * obserwacja: `finance.costs` ostatniego ticka z zapisu. Czysta funkcja
+ * (SAVE-008), bez wypłat i bez dodatkowych oszczędności; firma z już
+ * ustawionymi polami zostaje bez zmian.
+ */
+export function migrateV5ToV6(raw: Record<string, unknown>): Record<string, unknown> {
+  const versions = (raw.versions ?? {}) as Record<string, unknown>;
+  const runnerState = raw.worldState as Record<string, unknown> | undefined;
+  const worldState = runnerState?.worldState as WorldState | undefined;
+  const bumped = { ...raw, versions: { ...versions, schemaVersion: 6 } };
+  if (!runnerState || !worldState?.companies) return bumped;
+  const companies = Object.fromEntries(
+    Object.entries(worldState.companies).map(([id, company]) => {
+      const finance = company.finance as Partial<typeof company.finance> & typeof company.finance;
+      return [
+        id,
+        {
+          ...company,
+          finance: {
+            ...finance,
+            retainedEarnings:
+              typeof finance.retainedEarnings === "number" ? finance.retainedEarnings : 0,
+            operatingCostHistory: Array.isArray(finance.operatingCostHistory)
+              ? finance.operatingCostHistory
+              : [typeof finance.costs === "number" ? finance.costs : 0],
+          },
+        },
+      ];
+    }),
+  );
+  return {
+    ...bumped,
+    worldState: { ...runnerState, worldState: { ...worldState, companies } },
+  };
+}
+
+/**
+ * v6 -> v7 (P14, decyzja właściciela 2026-10-01, Canonical §52K): dobra
+ * rynku dostają licznik `ticksWithoutOffers` (rynek z ofertami vs bez ofert).
+ * Zapis v6 nie przechowywał ofert, więc NIE odtwarzamy ich historii: licznik
+ * = 0 tylko przy śladzie oferty w zapisanym ostatnim ticku (zapas w
+ * magazynie regionu `inventory > 0` albo zakupy gospodarstw
+ * `householdPurchased > 0`); bez śladu pole zostaje puste -- rynek jest
+ * traktowany jak rynek bez ofert, a jego cena jako orientacyjna, do pierwszej
+ * prawdziwej oferty. Ceny, płace, salda i fakty bez zmian. Czysta funkcja
+ * (SAVE-008); dobro z już ustawionym licznikiem zostaje bez zmian.
+ */
+export function migrateV6ToV7(raw: Record<string, unknown>): Record<string, unknown> {
+  const versions = (raw.versions ?? {}) as Record<string, unknown>;
+  const runnerState = raw.worldState as Record<string, unknown> | undefined;
+  const worldState = runnerState?.worldState as WorldState | undefined;
+  const bumped = { ...raw, versions: { ...versions, schemaVersion: 7 } };
+  if (!runnerState || !worldState?.markets) return bumped;
+  const markets = Object.fromEntries(
+    Object.entries(worldState.markets).map(([id, market]) => [
+      id,
+      {
+        ...market,
+        goods: Object.fromEntries(
+          Object.entries(market.goods).map(([goodId, good]) => [
+            goodId,
+            typeof good.ticksWithoutOffers === "number" ||
+            !(good.inventory > 0 || (good.householdPurchased ?? 0) > 0)
+              ? good
+              : { ...good, ticksWithoutOffers: 0 },
+          ]),
+        ),
+      },
+    ]),
+  );
+  return {
+    ...bumped,
+    worldState: { ...runnerState, worldState: { ...worldState, markets } },
+  };
+}
+
+/**
+ * v7 -> v8 (etap 4B, decyzja właściciela 2026-10-01, Canonical §52L): firmy
+ * dostają `finance.investmentReserve` (rezerwa inwestycyjna) = 0 -- zapis v7
+ * nie miał planów rozbudowy z rezerwą, więc nic nie jest wydzielane z gotówki.
+ * Ceny lotów w komisie (`Inventory.consignmentPrice`) są opcjonalne: brak
+ * wpisu = cena lokalna (towar przywieziony przed 4B sprzedaje się po cenie
+ * lokalnej importera, jak dotąd). Gotówka, salda i fakty bez zmian. Czysta
+ * funkcja (SAVE-008); firma z ustawioną rezerwą zostaje bez zmian.
+ */
+export function migrateV7ToV8(raw: Record<string, unknown>): Record<string, unknown> {
+  const versions = (raw.versions ?? {}) as Record<string, unknown>;
+  const runnerState = raw.worldState as Record<string, unknown> | undefined;
+  const worldState = runnerState?.worldState as WorldState | undefined;
+  const bumped = { ...raw, versions: { ...versions, schemaVersion: 8 } };
+  if (!runnerState || !worldState?.companies) return bumped;
+  const companies = Object.fromEntries(
+    Object.entries(worldState.companies).map(([id, company]) => [
+      id,
+      typeof (company.finance as { investmentReserve?: unknown }).investmentReserve === "number"
+        ? company
+        : { ...company, finance: { ...company.finance, investmentReserve: 0 } },
+    ]),
+  );
+  return {
+    ...bumped,
+    worldState: { ...runnerState, worldState: { ...worldState, companies } },
+  };
+}
+
 /** Keyed by the version a migrator upgrades FROM (vN -> vN+1). */
 export const MIGRATIONS: Readonly<Record<number, SchemaMigrator>> = {
   1: migrateV1ToV2,
   2: migrateV2ToV3,
+  3: migrateV3ToV4,
+  4: migrateV4ToV5,
+  5: migrateV5ToV6,
+  6: migrateV6ToV7,
+  7: migrateV7ToV8,
 };
 
 /** SS39 Version Compatibility Matrix. */

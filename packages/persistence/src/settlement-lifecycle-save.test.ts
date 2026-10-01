@@ -99,10 +99,15 @@ describe("SET-LIFECYCLE-001 -- save / load", () => {
     expect(migrateV1ToV2(v1)).toEqual(migrated);
     // Pełny pipeline v1 → aktualny schemat korzysta z tego migratora.
     const result = migrateSchema(v1);
-    // v3 (R4B): kolejny krok sekwencyjny; migrator lifecycle pozostaje pierwszym.
+    // v3 (R4B), v4 (całe osoby), v5 (oszczędności gospodarstw), v6 (dochód właścicielski): kolejne kroki sekwencyjne; migrator lifecycle pozostaje pierwszym.
     expect(result.steps).toEqual([
       { fromVersion: 1, toVersion: 2 },
       { fromVersion: 2, toVersion: 3 },
+      { fromVersion: 3, toVersion: 4 },
+      { fromVersion: 4, toVersion: 5 },
+      { fromVersion: 5, toVersion: 6 },
+      { fromVersion: 6, toVersion: 7 },
+      { fromVersion: 7, toVersion: 8 },
     ]);
     expect(result.targetVersion).toBe(SCHEMA_VERSION);
   });

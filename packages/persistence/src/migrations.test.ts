@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyVersionCompatibility, migrateSchema } from "./migrations.js";
+import { classifyVersionCompatibility, migrateSchema, migrateV6ToV7, migrateV7ToV8 } from "./migrations.js";
 
 describe("classifyVersionCompatibility", () => {
   it("classifies a matching schemaVersion as compatible", () => {
@@ -47,5 +47,74 @@ describe("migrateSchema", () => {
   it("throws for a corrupted/missing schemaVersion", () => {
     const envelope = { versions: {}, worldState: {} };
     expect(() => migrateSchema(envelope, 1)).toThrow(/schemaVersion/);
+  });
+});
+
+describe("P14: migrateV6ToV7", () => {
+  it("sets ticksWithoutOffers = 0 only with a trace of an offer in the saved tick; purely, no history reconstruction", () => {
+    const good = (extra: Record<string, unknown>) => ({
+      supply: 0,
+      demand: 5,
+      inventory: 0,
+      localPrice: 4,
+      importDemand: 0,
+      exportSupply: 0,
+      shortageSeverity: 1,
+      pricePressure: 0,
+      ...extra,
+    });
+    const raw = {
+      versions: { schemaVersion: 6, contentVersion: 1, engineVersion: 7 },
+      worldState: {
+        worldState: {
+          markets: {
+            m: {
+              id: "m",
+              regionId: "r",
+              goods: {
+                stocked: good({ inventory: 3 }),
+                bought: good({ householdPurchased: 2 }),
+                none: good({}),
+              },
+            },
+          },
+        },
+      },
+    };
+    const frozen = JSON.stringify(raw);
+    const migrated = migrateV6ToV7(raw) as typeof raw;
+    expect(JSON.stringify(raw)).toBe(frozen);
+    expect(migrated.versions.schemaVersion).toBe(7);
+    const goods = migrated.worldState.worldState.markets.m.goods as Record<string, Record<string, unknown>>;
+    expect(goods.stocked!.ticksWithoutOffers).toBe(0);
+    expect(goods.bought!.ticksWithoutOffers).toBe(0);
+    expect("ticksWithoutOffers" in goods.none!).toBe(false);
+    expect(goods.none!.localPrice).toBe(4);
+  });
+});
+
+describe("etap 4B: migrateV7ToV8", () => {
+  it("adds investmentReserve = 0, keeps cash and an existing reserve, purely", () => {
+    const raw = {
+      versions: { schemaVersion: 7, contentVersion: 1, engineVersion: 8 },
+      worldState: {
+        worldState: {
+          companies: {
+            a: { id: "a", finance: { cash: 120, retainedEarnings: 5 } },
+            b: { id: "b", finance: { cash: 40, retainedEarnings: 0, investmentReserve: 30 } },
+          },
+        },
+      },
+    };
+    const frozen = JSON.stringify(raw);
+    const migrated = migrateV7ToV8(raw) as typeof raw;
+    expect(JSON.stringify(raw)).toBe(frozen);
+    expect(migrated.versions.schemaVersion).toBe(8);
+    const companies = migrated.worldState.worldState.companies as Record<
+      string,
+      { finance: Record<string, number> }
+    >;
+    expect(companies.a!.finance).toEqual({ cash: 120, retainedEarnings: 5, investmentReserve: 0 });
+    expect(companies.b!.finance.investmentReserve).toBe(30);
   });
 });

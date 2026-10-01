@@ -29,6 +29,28 @@ import {
  * Simulation Core builds *on* a loaded WorldState, not the other way
  * around), so this loader cannot reach into Simulation Core for it.
  */
+/**
+ * Etap 2 naprawy gospodarki (N7, decyzja właściciela 2026-10-01): oszczędności
+ * startowe gospodarstw nowego świata = `months` miesięcy koszyka przetrwania
+ * (`unitsPerCapita` jednostek `survivalGoodId` na osobę) po cenie z rynku
+ * regionu; region bez ceny tego dobra -- 0. Jawna konfiguracja wczytywania
+ * świata (opcja `householdSavings`), nieodnawiana co miesiąc; kohorta z
+ * polem `savings` w fixture'ze dostaje dokładnie tę wartość. Wartości
+ * domyślne są kopią stałych koszyka z Simulation Core
+ * (`systems/population/household-budget.ts`) -- ten ładowacz nie importuje
+ * Simulation Core (patrz `seedMarketGood`); zgodność pilnuje test.
+ */
+export const DEFAULT_HOUSEHOLD_SAVINGS = {
+  months: 3, // TODO tuning
+  survivalGoodId: "flour",
+  unitsPerCapita: 3,
+} as const;
+export interface HouseholdSavingsConfig {
+  readonly months: number;
+  readonly survivalGoodId: string;
+  readonly unitsPerCapita: number;
+}
+
 function seedMarketGood(basePrice: number): MarketGoodState {
   return {
     supply: 0,
@@ -64,6 +86,8 @@ export interface LoadWorldFixtureOptions {
    * i niespójny fixture jest odrzucany. Loader sam nie czyta contentu.
    */
   readonly productionRecipesByMethodId?: Readonly<Record<string, RecipeResourceInputs>>;
+  /** Etap 2 (N7): reguła oszczędności startowych; domyślnie `DEFAULT_HOUSEHOLD_SAVINGS`. */
+  readonly householdSavings?: HouseholdSavingsConfig;
 }
 
 export function loadWorldFixture(
@@ -154,8 +178,14 @@ export function loadWorldFixture(
       }),
     );
 
-    const populationCohorts = doc.populationCohorts.map((c) =>
-      createPopulationCohort({
+    const savingsConfig = options.householdSavings ?? DEFAULT_HOUSEHOLD_SAVINGS;
+    const survivalPriceByRegion = new Map<string, number>();
+    for (const m of doc.markets) {
+      const price = m.goods?.[savingsConfig.survivalGoodId];
+      if (price !== undefined) survivalPriceByRegion.set(m.regionId, price);
+    }
+    const populationCohorts = doc.populationCohorts.map((c) => {
+      const cohort = createPopulationCohort({
         id: c.id,
         regionId: c.regionId,
         ageGroup: c.ageGroup,
@@ -163,8 +193,15 @@ export function loadWorldFixture(
         economicClass: c.economicClass,
         skillLevel: c.skillLevel,
         ...(c.settlementId !== undefined ? { settlementId: c.settlementId } : {}),
-      }),
-    );
+      });
+      const price = survivalPriceByRegion.get(c.regionId) ?? 0;
+      const savings =
+        c.savings ??
+        Math.round(
+          c.population * savingsConfig.unitsPerCapita * price * savingsConfig.months * 100,
+        ) / 100;
+      return { ...cohort, savings };
+    });
 
     const inventories = doc.inventories.map((i) =>
       createInventory({

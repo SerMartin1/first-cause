@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
-import type { WorldRegionView, WorldSnapshot } from "@first-cause/simulation";
+import type { WorldRegionView } from "@first-cause/simulation";
 import {
   economyClass,
   formatEmploymentFull,
-  formatMoney,
+  formatMoneyWhole,
+  formatUnitPrice,
   regionEmploymentFact,
   regionSalesFact,
   ECONOMY_SQUARE,
@@ -12,27 +13,21 @@ import {
 
 /**
  * M21-VIS-R4B Economy (Canonical Decisions §52C) -- zakładka „Gospodarka”
- * inspektora regionu. Hierarchia: Gospodarka regionu → okres → zatrudnieni w
- * przedsiębiorstwach (miara trybu, z klasą) → sprzedaż firm (informacja
+ * inspektora regionu. Hierarchia: Gospodarka regionu → zatrudnieni w
+ * przedsiębiorstwach (miara trybu, z klasą) → przychód firm ze sprzedaży (informacja
  * dodatkowa) → aktywne firmy → produkcja według towarów (bez sumy różnych
  * towarów; ilość i cena z jednostką towaru). Style tabeli i pomocy:
  * istniejące klasy panelu Handlu (`fc-trade__*`).
  */
 export function FCEconomyPanel({
   region,
-  snapshot,
   format,
 }: {
   readonly region: WorldRegionView;
-  readonly snapshot: WorldSnapshot;
   readonly format: (value: number) => string;
 }) {
   const { t, i18n } = useTranslation();
   const economy = region.economy;
-  // Ten sam okres co Handel: ostatni zakończony miesiąc (1 tick = 1 miesiąc).
-  const now = snapshot.summary.currentDate;
-  const period =
-    now.month === 1 ? { year: now.year - 1, month: 12 } : { year: now.year, month: now.month - 1 };
   const goodName = (id: string) =>
     t(`content.good.${id}.name`, {
       defaultValue: t(`content.resource.${id}.name`, { defaultValue: id }),
@@ -52,13 +47,9 @@ export function FCEconomyPanel({
       data-economy-region={region.regionId}
     >
       <header className="fc-trade__header">
+        {/* Data świata jest tylko w górnym pasku; przepływy (produkcja, sprzedaż)
+            są opisane względnie „ostatni miesiąc” = ostatni zakończony tick. */}
         <h3 id="fc-economy-title">{t("world.economy.title")}</h3>
-        <p data-testid="economy-period">
-          <span className="fc-label">{t("world.trade.lastMonth")}</span>{" "}
-          <span className="fc-trade__period">
-            {t("world.trade.lastMonthValue", { year: period.year, month: period.month })}
-          </span>
-        </p>
       </header>
       <div
         className="fc-economy__fact fc-economy__fact--primary"
@@ -94,7 +85,7 @@ export function FCEconomyPanel({
         <span className="fc-economy__value">
           <span className="fc-data">
             {sales.kind === "known"
-              ? formatMoney(sales.value, i18n.language)
+              ? formatMoneyWhole(sales.value, i18n.language)
               : t("world.economy.noDataLabel")}
           </span>
           {sales.kind === "known" && (
@@ -111,7 +102,15 @@ export function FCEconomyPanel({
         <span className="fc-label">{t("world.activeCompanies")}</span>
         <span className="fc-data">{format(economy.activeCompanies)}</span>
       </div>
-      <h4 className="fc-economy__subtitle">{t("world.economy.goodsTitle")}</h4>
+      <h4 className="fc-economy__subtitle">
+        {t("world.economy.goodsTitle")}
+        {/* Widoczne bez przewijania; szczegóły w uwadze pod tabelą. */}
+        {goodsIncomplete && (
+          <span className="fc-economy__partial" data-testid="economy-goods-partial">
+            {t("world.economy.goodsPartial")}
+          </span>
+        )}
+      </h4>
       {economy.goods.length === 0 && goodsIncomplete ? (
         <p className="fc-trade__state" data-testid="economy-goods-unavailable" role="status">
           {t("world.economy.goodsUnavailable")}
@@ -167,7 +166,10 @@ export function FCEconomyPanel({
                         <span title={t("world.economy.noPrice")}>—</span>
                       ) : (
                         <>
-                          {formatMoney(g.localPrice, i18n.language)}{" "}
+                          {g.priceIndicative ? (
+                            <span title={t("world.economy.indicativePrice")}>≈ </span>
+                          ) : null}
+                          {formatUnitPrice(g.localPrice, i18n.language)}{" "}
                           <span className="fc-caption">{t("world.economy.perGoodUnit")}</span>
                         </>
                       )}

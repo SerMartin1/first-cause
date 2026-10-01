@@ -16,6 +16,8 @@ export const CompanyArchetypeDefinitionSchema = z.object({
   allowedInputs: IdRefArraySchema,
   allowedOutputs: IdRefArraySchema,
   productionMethodIds: IdRefArraySchema,
+  /** Etap 4B (2026-10-01): usługi świadczone przez archetyp (C23/C24 -- firma budowlana, transportowa). */
+  serviceIds: IdRefArraySchema,
   capitalRequirement: NonNegativeNumberSchema,
   workforceProfile: OpenRecordSchema,
   skillProfile: OpenRecordSchema,
@@ -40,6 +42,7 @@ export const companyArchetypeContentTypeSpec: ContentTypeSpec<CompanyArchetypeDe
         cardinality: "many",
       },
       { field: "knowledgeRequirements", targetType: "discovery", cardinality: "many" },
+      { field: "serviceIds", targetType: "service", cardinality: "many" },
     ],
     localizationKeyFields: ["nameKey"],
   };

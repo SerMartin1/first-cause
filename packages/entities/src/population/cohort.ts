@@ -46,6 +46,13 @@ export interface PopulationCohort {
 
   readonly consumptionBudget: number;
   readonly savingsRate: number;
+  /**
+   * Płynne oszczędności gospodarstw tej kohorty (jednostki pieniężne, suma
+   * dla całej kohorty, nie na osobę). Etap 2 naprawy gospodarki (N7,
+   * 2026-10-01): saldo = poprzednie + faktycznie otrzymane płace −
+   * faktycznie opłacone zakupy; wydawane na przetrwanie także bez pracy.
+   */
+  readonly savings: number;
   readonly taxBurden: number;
   readonly housingCost: number;
 
@@ -87,6 +94,7 @@ export function createPopulationCohort(
     literacy: 0,
     consumptionBudget: 0,
     savingsRate: 0,
+    savings: 0,
     taxBurden: 0,
     housingCost: 0,
     needs: {

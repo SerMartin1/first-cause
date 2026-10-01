@@ -29,6 +29,21 @@ export interface Inventory {
   readonly locationRegionId: string;
   readonly items: Readonly<Record<string, InventoryItem>>;
   readonly capacity: InventoryCapacity;
+  /**
+   * Etap 2 naprawy gospodarki (minimalne rozliczenie N6, 2026-10-01): towar
+   * oddany przez firmy do magazynu regionu „w komis” -- itemId -> ownerId
+   * (firma) -> ilość jeszcze niesprzedana. Kupujący płaci właścicielom pro
+   * rata; ilość ponad sumę wpisów nie ma właściciela (np. zapas ze starego
+   * modelu, w którym magazyn płacił od razu). Brak pola = brak wpisów.
+   */
+  readonly consignment?: Readonly<Record<string, Readonly<Record<string, number>>>>;
+  /**
+   * Etap 4B (2026-10-01): cena wyładunku lotu w komisie -- itemId -> ownerId
+   * -> cena za jednostkę (cena towaru u eksportera + opłata za przewóz).
+   * Kupujący płaci właścicielowi tę cenę; brak wpisu = cena lokalna rynku
+   * (towar wyprodukowany w regionie). Brak pola = brak wpisów.
+   */
+  readonly consignmentPrice?: Readonly<Record<string, Readonly<Record<string, number>>>>;
 }
 
 export interface CreateInventoryInput {

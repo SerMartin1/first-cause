@@ -631,6 +631,24 @@
       "ownerType": "region",
       "ownerId": "region_green_valley",
       "locationRegionId": "region_green_valley"
+    },
+    {
+      "id": "inventory_region_black_mountain",
+      "ownerType": "region",
+      "ownerId": "region_black_mountain",
+      "locationRegionId": "region_black_mountain"
+    },
+    {
+      "id": "inventory_region_riverside",
+      "ownerType": "region",
+      "ownerId": "region_riverside",
+      "locationRegionId": "region_riverside"
+    },
+    {
+      "id": "inventory_region_coastal_reach",
+      "ownerType": "region",
+      "ownerId": "region_coastal_reach",
+      "locationRegionId": "region_coastal_reach"
     }
   ],
   "companies": [
@@ -654,11 +672,25 @@
     }
   ],
   "markets": [
-    { "id": "market_riverside", "regionId": "region_riverside" },
+    {
+      "id": "market_riverside",
+      "regionId": "region_riverside",
+      "goods": { "flour": 4 }
+    },
     {
       "id": "market_green_valley",
       "regionId": "region_green_valley",
       "goods": { "grain": 1, "flour": 2 }
+    },
+    {
+      "id": "market_black_mountain",
+      "regionId": "region_black_mountain",
+      "goods": { "flour": 4 }
+    },
+    {
+      "id": "market_coastal_reach",
+      "regionId": "region_coastal_reach",
+      "goods": { "flour": 4 }
     }
   ],
   "technologyStates": [

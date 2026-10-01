@@ -1,6 +1,6 @@
 import type { Market, MarketGoodState, MarketHistory } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
-import { roundMoney } from "../../../core/rounding.js";
+import { roundPrice } from "../../../core/rounding.js";
 import {
   assertNonNegative,
   assertPositive,
@@ -46,8 +46,9 @@ function clamp(value: number, min: number, max: number): number {
  * `basePrice` (BaseContentPrice, M8 "Dane"). Audytowe P1 ("floor/monthly-
  * cap konflikt"): floored at `MIN_PRICE` the same way `updateMarketGood`
  * floors every later tick -- without this, a `basePrice` under half a
- * cent (e.g. 0.001) would round to exactly 0 (`roundMoney`, banker's
- * rounding), silently violating both `MIN_PRICE` and the `price > 0`
+ * cent (e.g. 0.001) would round to exactly 0 (dawniej `roundMoney`; od
+ * etapu 4A cena ma 6 miejsc -- `roundPrice` -- ale podłoga zostaje),
+ * silently violating both `MIN_PRICE` and the `price > 0`
  * invariant (Entity Data Model SS15) this file's own doc comment already
  * claims. That single inconsistency was the real root of the
  * floor/cap conflict: once a seeded price could start below `MIN_PRICE`,
@@ -61,7 +62,7 @@ export function initializeMarketGood(basePrice: number): MarketGoodState {
     supply: 0,
     demand: 0,
     inventory: 0,
-    localPrice: roundMoney(Math.max(MIN_PRICE, basePrice)),
+    localPrice: roundPrice(Math.max(MIN_PRICE, basePrice)),
     importDemand: 0, // M10 (handel międzyregionalny) -- placeholder untouched by M8
     exportSupply: 0, // M10 -- placeholder untouched by M8
     shortageSeverity: 0,
@@ -113,6 +114,64 @@ export interface UpdateMarketGoodInput {
   readonly demandSources: Readonly<Record<string, number>>;
   /** Current region `Inventory` quantity for this good (observed, not owned -- DATA-005/DATA-006). */
   readonly inventory: number;
+  /**
+   * P14 (2026-10-01): dostępne oferty w tym ticku -- towar faktycznie
+   * wystawiony w magazynie regionu przed zakupami (bez buforów firm i
+   * przyszłej produkcji). Brak = wywołujący nie śledzi ofert (zachowanie
+   * sprzed P14, bez zatrzymania presji).
+   */
+  readonly offered?: number;
+}
+
+/**
+ * P14 (decyzja właściciela 2026-10-01): okno, po którym trwały brak ofert
+ * zatrzymuje automatyczną presję cenową -- to samo okno co historia podaży
+ * (`ROLLING_WINDOW`). Krótszy brak ofert po wcześniejszej podaży zachowuje
+ * zwykłą reakcję na niedobór.
+ */
+export const OFFER_WINDOW_TICKS = ROLLING_WINDOW;
+
+/**
+ * P14: czy presja cenowa jest zatrzymana. Potrzeby bez dostępnej oferty nie
+ * podnoszą ceny bez końca: rynek, który nigdy nie miał oferty, trzyma cenę
+ * bazową jako orientacyjną; rynek bez ofert przez całe okno trzyma ostatnią
+ * cenę jako orientacyjną. Niedobór (`shortageSeverity`), popyt finansowany i
+ * potrzeby liczą się dalej normalnie -- handel, przedsiębiorczość i migracja
+ * nadal je widzą.
+ */
+interface OfferState {
+  /** Czy wywołujący śledzi oferty (podał `offered`). */
+  readonly tracked: boolean;
+  readonly ticksWithoutOffers: number | undefined;
+  readonly priceSuspension: MarketGoodState["priceSuspension"] | undefined;
+}
+
+function offerState(existing: MarketGoodState, offered: number | undefined): OfferState {
+  if (offered === undefined)
+    return {
+      tracked: false,
+      ticksWithoutOffers: existing.ticksWithoutOffers,
+      priceSuspension: existing.priceSuspension,
+    };
+  if (offered > 0) return { tracked: true, ticksWithoutOffers: 0, priceSuspension: undefined };
+  if (existing.ticksWithoutOffers === undefined)
+    return { tracked: true, ticksWithoutOffers: undefined, priceSuspension: "NEVER_OFFERED" };
+  const ticksWithoutOffers = existing.ticksWithoutOffers + 1;
+  return {
+    tracked: true,
+    ticksWithoutOffers,
+    priceSuspension: ticksWithoutOffers >= OFFER_WINDOW_TICKS ? "NO_OFFERS_IN_WINDOW" : undefined,
+  };
+}
+
+/** Bez kluczy o wartości `undefined` (stan zapisu i suma kontrolna bez „pustych” pól). */
+function withOptional<T extends object>(base: T, optional: Record<string, unknown>): T {
+  const next = { ...base } as Record<string, unknown>;
+  for (const [key, value] of Object.entries(optional)) {
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+  }
+  return next as unknown as T;
 }
 
 export interface UpdateMarketGoodResult {
@@ -133,6 +192,8 @@ export interface UpdateMarketGoodResult {
 export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGoodResult {
   const { market, goodId } = input;
   const supply = assertNonNegative(input.supply, `updateMarketGood(${goodId}).supply`);
+  if (input.offered !== undefined)
+    assertNonNegative(input.offered, `updateMarketGood(${goodId}).offered`);
   const inventory = assertNonNegative(
     input.inventory,
     `updateMarketGood(${goodId}).inventory`,
@@ -168,31 +229,57 @@ export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGood
   // `MAX_TICK_PRICE_CHANGE` (dalej przechodzi przez to samo smoothing/cap
   // co każda inna presja); brak i podaży, i popytu zostaje przy 0 -- nie
   // ma żadnego sygnału do wygenerowania.
+  //
+  // N2 (diagnoza Black Mountain 2026-10-01, P7): ta gałąź dawała zawsze
+  // maksymalny wzrost, ignorując zapas regionu -- przy 184 jedn. w magazynie
+  // i znikomym popycie cena mąki rosła 0,80 → 10 915 w 330 tickach. Teraz
+  // punktem odniesienia jest sam popyt, a podaż to `effectiveSupply` (z
+  // buforem zapasu), tak jak w gałęzi głównej: bez zapasu wynik jest jak
+  // dawniej (pełny wzrost, (d − 0)/d = 1), zapas pokrywający popyt nie
+  // podnosi ceny, a jego nadmiar ją obniża.
   const rawPressure =
     reference > 0
       ? PRICE_SENSITIVITY * ((demand - effectiveSupply) / reference)
       : demand > 0
-        ? MAX_TICK_PRICE_CHANGE
+        ? PRICE_SENSITIVITY * ((demand - effectiveSupply) / demand)
         : 0;
   const cappedPressure = clamp(
     rawPressure,
     -MAX_TICK_PRICE_CHANGE,
     MAX_TICK_PRICE_CHANGE,
   );
-  const pricePressure = cappedPressure * PRICE_SMOOTHING_FACTOR;
+  // P14: przy trwałym braku ofert (albo rynku bez żadnej oferty) presja = 0 --
+  // ostatnia cena zostaje jako orientacyjna; nie ma comiesięcznych +3% ani
+  // resetu do ceny bazowej. Limit, wygładzanie i podłoga bez zmian.
+  const offers = offerState(existing, input.offered);
+  const pricePressure =
+    offers.priceSuspension !== undefined ? 0 : cappedPressure * PRICE_SMOOTHING_FACTOR;
 
   const rawNewPrice = existing.localPrice * (1 + pricePressure);
-  const localPrice = roundMoney(Math.max(MIN_PRICE, rawNewPrice));
+  // Etap 4A (P12): cena jednostkowa z precyzją `PRICE_DECIMALS` (6 miejsc),
+  // nie do grosza -- inaczej przy cenie ≤ 0,16 cały miesięczny ruch (≤ 3%)
+  // był kasowany przez zaokrąglenie, w górę i w dół. Limit zmiany,
+  // wygładzanie i `MIN_PRICE` bez zmian.
+  const localPrice = roundPrice(Math.max(MIN_PRICE, rawNewPrice));
 
-  const nextGoodState: MarketGoodState = {
-    ...existing,
-    supply,
-    demand,
-    inventory,
-    localPrice,
-    shortageSeverity,
-    pricePressure,
-  };
+  const nextGoodState: MarketGoodState = withOptional(
+    {
+      ...existing,
+      supply,
+      demand,
+      inventory,
+      localPrice,
+      shortageSeverity,
+      pricePressure,
+    },
+    offers.tracked
+      ? {
+          offered: input.offered,
+          ticksWithoutOffers: offers.ticksWithoutOffers,
+          priceSuspension: offers.priceSuspension,
+        }
+      : {},
+  );
 
   const nextMarket: Market = {
     ...market,
@@ -217,7 +304,7 @@ export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGood
       values: {
         before: existing.localPrice,
         after: localPrice,
-        delta: localPrice - existing.localPrice,
+        delta: roundPrice(localPrice - existing.localPrice),
       },
     });
 
@@ -265,6 +352,46 @@ export function updateMarketGood(input: UpdateMarketGoodInput): UpdateMarketGood
         system: "price-adjustment",
       });
     }
+  }
+  // P14: powód zatrzymania (i wznowienia) presji cenowej -- diagnostycznie,
+  // w faktach i przyczynowości; cena jest wtedy orientacyjna.
+  if (offers.priceSuspension !== undefined && existing.priceSuspension === undefined) {
+    facts.push({
+      type: "price_pressure_suspended",
+      subject,
+      location,
+      values: { before: existing.localPrice, after: localPrice },
+    });
+    causalLinks.push({
+      targetIndex: facts.length - 1,
+      source: { kind: "external", key: `market:${market.id}:${goodId}:offers` },
+      type: "CONSTRAINING",
+      factor: {
+        key:
+          offers.priceSuspension === "NEVER_OFFERED" ? "never_offered" : "no_offers_in_window",
+        contribution: offers.ticksWithoutOffers ?? 0,
+      },
+      mechanism:
+        offers.priceSuspension === "NEVER_OFFERED"
+          ? "no available offer has ever existed in this market -- the base price is only indicative"
+          : "no available offer for the whole supply-history window -- the last price is only indicative",
+      system: "price-adjustment",
+    });
+  } else if (offers.priceSuspension === undefined && existing.priceSuspension !== undefined) {
+    facts.push({
+      type: "price_pressure_resumed",
+      subject,
+      location,
+      values: { before: existing.localPrice, after: localPrice },
+    });
+    causalLinks.push({
+      targetIndex: facts.length - 1,
+      source: { kind: "external", key: `market:${market.id}:${goodId}:offers` },
+      type: "ENABLING",
+      factor: { key: "offers_available", contribution: input.offered ?? 0 },
+      mechanism: "goods are offered for sale again, so the price reacts to funded demand",
+      system: "price-adjustment",
+    });
   }
   if (shortageSeverity > 0 && existing.shortageSeverity === 0) {
     facts.push({

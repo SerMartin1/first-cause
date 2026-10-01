@@ -1,7 +1,7 @@
 import { createCompany, type Company } from "@first-cause/entities";
 import { describe, expect, it } from "vitest";
 import { InvariantViolationError } from "../../../core/validation.js";
-import { adjustWageOffer } from "./wages.js";
+import { adjustWageOffer, affordableEmployees, planWageBounds } from "./wages.js";
 
 function company(vacancies: number, wageOffer = 10): Company {
   const base = createCompany({
@@ -73,5 +73,60 @@ describe("adjustWageOffer", () => {
       expect(c.workforce.wageOffer / previousWage - 1).toBeLessThanOrEqual(0.1);
       previousWage = c.workforce.wageOffer;
     }
+  });
+});
+
+describe("N4 wage bounds (Black Mountain diagnosis, stage 1)", () => {
+  const plan = { plannedEmployees: 6, expectedRevenue: 96, inputCosts: 0 };
+
+  it("ceiling = (revenue − non-wage costs − 10% buffer) / planned workers; floor = survival basket", () => {
+    const bounds = planWageBounds(plan, 6);
+    expect(bounds.ceiling).toBeCloseTo((96 - 9.6) / 6);
+    expect(bounds.floor).toBe(6);
+    expect(planWageBounds(undefined, 6).ceiling).toBeUndefined();
+    expect(affordableEmployees(plan, 20)).toBe(4);
+  });
+
+  it("Black Mountain regression: wages no longer spiral above what sales can pay", () => {
+    // Dawniej wakaty > siła robocza podnosiły płacę 10 → 18 bez limitu.
+    let c = company(7, 10);
+    for (let tick = 0; tick < 30; tick++) {
+      c = adjustWageOffer({ company: c, availableLabor: 0, bounds: planWageBounds(plan, 6) })
+        .company;
+    }
+    expect(c.workforce.wageOffer).toBeLessThanOrEqual(planWageBounds(plan, 6).ceiling! + 1e-9);
+  });
+
+  it("moves at most 3% per tick toward the bounds (gradual), and never below the survival floor", () => {
+    const high = adjustWageOffer({
+      company: company(0, 20),
+      availableLabor: 0,
+      bounds: { floor: 6, ceiling: 10 },
+    }).company.workforce.wageOffer;
+    expect(high).toBeCloseTo(19.4); // −3%, nie skok do 10
+    let low = company(0, 1);
+    for (let tick = 0; tick < 200; tick++)
+      low = adjustWageOffer({ company: low, availableLabor: 100, bounds: { floor: 6, ceiling: 50 } })
+        .company;
+    expect(low.workforce.wageOffer).toBeCloseTo(6, 1); // rośnie do podłogi mimo nadwyżki pracy
+  });
+});
+
+describe("P12b: stawka płacy z precyzją 6 miejsc", () => {
+  it("płaca 0,16 schodzi ku podłodze 0,06 (dawniej zaokrąglenie do grosza ją zatrzymywało)", () => {
+    let c = company(0, 0.16);
+    const wages: number[] = [];
+    for (let tick = 0; tick < 12; tick++) {
+      c = adjustWageOffer({
+        company: c,
+        availableLabor: 10,
+        bounds: { floor: 0.06, ceiling: 0.1 },
+      }).company;
+      wages.push(c.workforce.wageOffer);
+    }
+    expect(wages[0]).toBe(0.1552); // 0,16 × (1 − 3%)
+    expect(wages.at(-1)!).toBeLessThan(0.12);
+    expect(wages.at(-1)!).toBeGreaterThanOrEqual(0.06);
+    for (const w of wages) expect(Math.round(w * 1e6) / 1e6).toBe(w);
   });
 });

@@ -10,6 +10,252 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 
 ## 2026-10-01
 
+- **Gospodarka --- walidacja i ponowna diagnoza po etapie 4B.** Wykryte i
+  poprawione 4 błędy modelu: usługodawca płacił płace z debetu (tworzenie
+  pieniądza; teraz zatrudnia tylu, ilu opłaci, a bez środków zamyka się),
+  zakładanie bez możliwości działania (kapitał musi opłacić ludzi do jednego
+  zlecenia), zamówienia budowy bez decyzji AI (teraz tylko przy realnej
+  rozbudowie bez wykonawcy), blokada rozbudowy resetująca trwałość sygnału
+  (teraz rozbudowa bez wykonawcy jest cofana z zachowaniem stanu decyzji);
+  usługodawcy przetwarzani przed klientami, zdolność z pracowników po
+  zatrudnieniu. Nowe testy `services.test.ts`, migracja v7 → v8; test
+  zamkniętej firmy dostosowany do zwrotu kapitału. Raport §20
+  (`runs-summary-4b.json`): pieniądz 2030 → 2030 bez odpływu we wszystkich
+  przebiegach z contentem, płatny przewóz do Riverside, 1 rozbudowa u
+  wykonawcy (gamma); rozbieżności parametrów (kapitał budowy, cena
+  rozbudowy, wydajność transportu) do decyzji. Walidacja: typecheck, lint
+  (0 błędów), testy 1204/1204, build, E2E 18/18 --- PASS.
+
+- **Gospodarka --- etap 4B: płatny transport, finansowanie rozbudowy i
+  zwrot kapitału (Canonical §52L).** Content: usługi `basic_transport` i
+  `construction` (`content/services/`), archetypy `transport_company` i
+  `construction_company` (VS C23/C24, pole `serviceIds` w schemacie
+  archetypu), lokalizacje EN/PL. Usługodawcy zakładani tylko na sygnał
+  zamówień, z wolnym pracownikiem i kapitałem z oszczędności rodziny-
+  inwestora; zatrudnienie według popytu na usługę. Przewóz: przewoźnik w
+  regionie importera/eksportera, opłata właściciela towaru (koszt
+  operacyjny) → przychód przewoźnika, cena wyładunku lotu = cena towaru +
+  opłata, zakupy gospodarstw po cenach lotów; handel przed finansami. P13:
+  rezerwa inwestycyjna (50% nadwyżki przy aktywnym planie, ≤ koszt
+  rozbudowy). Rozbudowa opłacana firmie budowlanej i wykonywana tylko przy
+  jej wolnej zdolności. Likwidacja: zwrot wolnej gotówki zamkniętej firmy
+  (zysk + kapitał). SCHEMA 8 (migracja v7 → v8), ENGINE 9; asercje wersji
+  w testach persistence i loader testu integracyjnego contentu
+  zaktualizowane. Raport §19 (przykładowe przebiegi pieniężne). **Bez
+  uruchamiania testów, typecheck, lint, build, E2E i diagnozy (polecenie
+  właściciela).**
+
+- **Narzędzia:** `Uruchom FIRST CAUSE.bat` w katalogu głównym --- start gry
+  dwuklikiem (`pnpm dev`); przy błędzie okno konsoli zostaje otwarte.
+
+- **Gospodarka --- walidacja i ponowna diagnoza po P12b/P14.** Poprawka 1
+  błędu typu w `withOptional` (`price-adjustment.ts`, wykryty przez
+  `build:packages`). Nowe testy regresji: P14 (`price-adjustment.test.ts`),
+  P12b (`wages.test.ts`), migracja v6 → v7 (`migrations.test.ts`). Raport
+  §18 (`runs-summary-p12b-p14.json`): BM i Coastal Reach 4,00
+  (orientacyjna) zamiast 167 286; Riverside zatrzymuje się na 6--13 po
+  zaniku ofert; płace GV 0,03, cena GV do `MIN_PRICE` 0,01; zaspokojenie
+  GV t121--360 wyższe w 4/5 seedów (gamma niżej --- koncentracja pieniądza
+  u rodziny właściciela); pieniądz co do grosza. Walidacja: typecheck,
+  lint (0 błędów), testy 1197/1197, build, E2E 18/18 --- PASS.
+
+- **Gospodarka --- P12b (precyzja płac) i P14 (cena przy braku ofert),
+  Canonical §52K.** Stawka płacy z 6 miejscami (`roundWageRate`), wypłata
+  w groszach przy rozliczeniu (`transactionValue`), koszt firmy = wpływy
+  gospodarstw. Rynek: nowe pola `offered`, `ticksWithoutOffers`,
+  `priceSuspension`; trwały brak dostępnych ofert (całe okno historii
+  podaży albo rynek bez oferty) zatrzymuje presję cenową --- cena
+  orientacyjna, fakty `price_pressure_suspended` / `_resumed`, bez ceny
+  maksymalnej i bez resetu do bazowej. Import: zamówienie = niezaspokojone
+  potrzeby − zapas importera, ograniczone środkami kupujących po koszcie
+  dostawy, przepustowością i nadwyżką eksportera; importer bez ofert nie
+  czeka na wzrost ceny; zamówienia i nadwyżka zmniejszane po każdym
+  przepływie. UI: „≈” przy cenie orientacyjnej w panelu Gospodarki
+  (klucz `world.economy.indicativePrice` EN/PL). SCHEMA 7 (migracja v6 →
+  v7 bez odtwarzania historii), ENGINE 8; asercje wersji w testach
+  persistence zaktualizowane. Zaktualizowane: Entity Data Model §15, Save
+  Spec §39, Roadmapa, raport §17. **Bez uruchamiania testów, typecheck,
+  lint, build, E2E i diagnozy (polecenie właściciela).**
+
+- **Gospodarka --- N5: rynki i magazyny w zamieszkanych regionach
+  (Canonical §52J) + walidacja i ponowna diagnoza po etapie 4A.** Fixture
+  Black Mountain: rynki z mąką (4,00 = `basePrice` z contentu) w Riverside,
+  Black Mountain i Coastal Reach oraz magazyny regionów; oszczędności
+  startowe tą samą regułą §52G (pieniądz świata 770 → 2030). Poprawka błędu
+  etapu 2: zakupy gospodarstw grupują rodziny z bieżącej mapy kohort
+  (niepełne rodziny dawały syntetyczne kohorty o innych id i rekord bez
+  `id`). Poprawka regresji 4A: `roundPrice` bez asercji „safe integer”
+  (wywracała długie przebiegi z rynkiem bez podaży). Nowe testy regresji
+  P12 (`price-adjustment.test.ts`, `rounding.test.ts`); testy fixture'u
+  dostosowane do nowego świata (oszczędności BM, test integracyjny).
+  `summarize.mjs` raportuje wszystkie regiony i handel. Raport §15 (po 4A:
+  cena reaguje w obie strony, płace zamarzają na 0,16 --- P12b) i §16 (N5:
+  pierwszy handel GV → Riverside, wygasa po wydaniu oszczędności Riverside
+  --- P15; BM i Coastal bez podaży --- P16; cena bez górnej granicy, 4 →
+  167 286 w t360 --- P14). Walidacja: typecheck, lint (0 błędów), testy
+  1192/1192, build, E2E 18/18 --- PASS.
+
+- **Gospodarka --- etap 4A: precyzja cen (P12, Canonical §52I).** Cena
+  jednostkowa `localPrice` ma 6 miejsc po przecinku (`roundPrice`,
+  `PRICE_DECIMALS`) zamiast zaokrąglania do grosza, które przy cenie ≤ 0,16
+  kasowało cały miesięczny ruch (≤ 3%) w górę i w dół. Salda, płace,
+  wypłaty i wartości transakcji nadal w groszach; wartość transakcji
+  zaokrąglana w jednym miejscu (`transactionValue`) --- zakupy gospodarstw
+  i `settleProductionSale`. Limit zmiany, wygładzanie i `MIN_PRICE` bez
+  zmian. UI: `formatUnitPrice` w panelu Gospodarki (dodatnia cena < 0,005
+  jako „<0,01”). ENGINE_VERSION 7, SCHEMA_VERSION 6 (bez migracji);
+  asercje numeru wersji w testach persistence → 7. Płace mają ten sam
+  mechanizm (opisany, niezmieniony). Raport §14 z ustaleniami do etapu 4B
+  (rezerwa inwestycyjna, środki zamkniętej firmy, brak wykonawcy
+  rozbudowy). Zaktualizowane: Save Spec §39, Roadmapa. **Bez uruchamiania
+  testów, typecheck, lint, build, E2E i diagnozy (polecenie właściciela).**
+
+- **Gospodarka --- etap 3: minimalny dochód właścicielski (Canonical §52H)
+  + ponowna diagnoza Black Mountain.** Po rozliczeniu ticka firma wypłaca
+  właścicielowi `min(max(0, wynik zatrzymany), max(0, gotówka − bufor))`,
+  bufor = 2 × max(średnie płace z ≤ 3 ticków, zobowiązania najbliższego
+  ticka) (`systems/economy/owner-income.ts`, TODO tuning). Nowe pola
+  `Company.finance.retainedEarnings` (kapitał początkowy nie jest wynikiem,
+  straty pokrywane najpierw) i `operatingCostHistory`; odbiorca wg
+  `ownerType`/`ownerEntityId` (kohorta → jej gospodarstwo, przy pustej
+  kohorcie --- żyjąca kohorta tej samej rodziny; `state` bez wypłaty);
+  fakty `company_owner_payout` / `owner_income_received` z krawędziami
+  przyczynowymi. SCHEMA 6, ENGINE 6, migracja v5 → v6 (saldo 0, gotówka bez
+  zmian, bez wypłat przy wczytaniu). Testy przez prawdziwy tick i save/load
+  (`owner-income.test.ts`, `owner-income-save.test.ts`); test komisu
+  zamkniętej firmy etapu 2 dostał właściciela `state`. Ponowna diagnoza
+  (raport §13, `runs-summary-stage3.json`, nowy `summarize.mjs`): pieniądz
+  gospodarstw krąży, zatrudnienie do t360 w 5/5 seedów, zaspokojenie
+  potrzeb t13--360 67--100% (było 0,2--7%), pieniądz co do grosza; otwarte:
+  zamarzanie ceny na 0,16 (P12), brak finansowania rozbudowy z zysku (P13),
+  koncentracja oszczędności u rodziny właściciela, zwrot kapitału przy
+  likwidacji. Zaktualizowane: Entity Data Model §19, Save Spec §39,
+  Roadmapa. Rekomendacja: można przejść do N5. E2E `world-r3.spec.ts`:
+  przełącznik języka wybierany dokładną nazwą (`exact: true`) --- nowe
+  wpisy wydarzeń „company owner payout · Green Valley” zawierają podciąg
+  „en” i łamały tryb ścisły lokatora.
+
+- **Gospodarka --- etap 2 naprawy (N7 + minimalne rozliczenie N6,
+  Canonical §52G) + ponowna diagnoza Black Mountain.** Oszczędności
+  gospodarstw (`PopulationCohort.savings`, start 3 mies. koszyka, migracja
+  zapisu v4 → v5, migranci zabierają swoją część), popyt na przetrwanie całej
+  ludności z oszczędności (rodziny kohort), płace faktycznie trafiają do
+  gospodarstw, towar w magazynie regionu w komisie (`Inventory.consignment`)
+  --- firma dostaje zapłatę tylko od kupujących; rynek zapisuje potrzeby /
+  popyt opłacalny / zakupy. Pokrycie zapasem liczy tylko zapas dostępny do
+  sprzedaży (bufory firm wyłączone --- poprawka po diagnozie). SCHEMA 5,
+  ENGINE 5. Testy: zachowanie pieniądza co do grosza przez prawdziwy tick,
+  zakupy bezrobotnych, komis, migracje; scenariusze testowe z realnymi
+  oszczędnościami. Ponowna diagnoza (raport §12, `runs-summary-stage2.json`):
+  pieniądz zachowany, 72--80% potrzeb w pierwszych miesiącach, nowa firma
+  po kontrolowanym zamknięciu, 3/5 seedów z zatrudnieniem do t360 --- ale
+  zysk firm nie wraca do gospodarstw (oszczędności → 0 ok. t24); następny
+  krok: dochód właścicielski.
+
+- **Gospodarka --- etap 1 naprawy (N3 + N4, Canonical §52F) + ponowna
+  diagnoza Black Mountain.** AI-03 przepisane jako plan produkcji: wynik =
+  możliwa sprzedaż − wejścia − płace, prognoza popytu 3 mies., pokrycie
+  zapasem w miesiącach (cel 2, wzrost < 1), udział w popycie, opcje w
+  całych partiach, brak historii = brak danych. N4: zatrudnienie ≤ obecni +
+  dostępni, płaca ±3%/mies. w granicach [koszyk przetrwania, budżet płac z
+  10% buforem]. Rozbudowa i zakładanie firm na tych samych sygnałach;
+  zapotrzebowanie ponad dostępnych → sygnał migracji; zamówienia importerów
+  w historii popytu eksportera. Testy: nowy `production-decision.test.ts`,
+  granice płac w `wages.test.ts`; test integracyjny Black Mountain i E2E
+  `world-whole-people` bez zakodowanych wartości końcowych. Ponowna
+  diagnoza (raport §11, `runs-summary-stage1.json`): bankructwo i spirala
+  płac usunięte, ale gospodarka wygasa w ticku 5 na 5 seedach (P8) ---
+  następny etap: N7 + minimalne rozliczenie N6. ENGINE_VERSION 4 (ta sama
+  niewydana wersja).
+
+- **Black Mountain --- naprawy N1 i N2 + ponowna diagnoza.** N1: zamknięta
+  firma zwalnia wszystkich pracowników (`layoffWorkers`, także firmy
+  zamknięte przed poprawką --- w najbliższym ticku); wcześniej zachowywała
+  pracowników, a kohorty dochód i zatrudnienie. N2: cena przy zerowej
+  podaży w historii liczy się względem popytu z buforem zapasu (wcześniej
+  maksymalny wzrost mimo zapasu: 0,80 → 10 915). Testy regresyjne;
+  ENGINE_VERSION 4 (ta sama niewydana wersja co „całe osoby”). Ponowna
+  diagnoza (7 przebiegów, 5 seedów): ticki 0--28 bez zmian, artefakty
+  usunięte, dawne nawroty były efektem fantomowych pracowników --- teraz
+  zamknięcie w ticku 28--29 i brak odbudowy na wszystkich seedach (P8:
+  popyt tylko od zatrudnionych). Raport §9--10 z planem N3+N4 → N7 → N5 →
+  N6 (NOT STARTED, wymagają decyzji); Roadmapa zaktualizowana.
+
+- **Black Mountain --- diagnoza zaniku gospodarki (DIAGNOZA ZAKOŃCZONA,
+  NAPRAWA NIEWYKONANA).** Raport
+  `docs/verification/black-mountain-economy-diagnosis-2026-10-01/` z
+  konfiguracją gry 1:1 (`WorldSession`), skryptem tylko do odczytu
+  `diagnose.mjs`, wynikami 9 przebiegów (gra / „bare”, kod bazowy
+  `a8f0e3a` w osobnym worktree / bieżące drzewo, 3 seedy, powtórka
+  determinizmu) i chronologią. Pierwsze zero zatrudnienia: tick 29; „~240”
+  to ostatni nawrót w kodzie bazowym (230). Główne przyczyny: sprzedaż do
+  magazynu bez kupującego, AI bez sygnału zapasu i kosztu pracy, spirala
+  płac, niezwalnianie pracowników przy zamknięciu (błąd kodu), cena
+  ignorująca zapas przy zerowej podaży (błąd kodu); brak handlu: rynek
+  Riverside bez towarów i magazynu + brak popytu bez zatrudnienia.
+  Roadmapa: wynik i kolejność działań N1--N6 (NOT STARTED). Bez zmian
+  mechanik, balansu i contentu.
+
+- **M21-VIS-R4B Economy --- DONE / HUMAN VISUAL ACCEPTED** (akceptacja
+  właściciela 2026-10-01, obejmuje wdrożenie f1d7228, poprawki a8f0e3a oraz
+  zmiany z 2026-10-01: podpis „Dane częściowe”, data świata tylko w górnym
+  pasku §52D, całe osoby w modelu i przychód w całych jednostkach §52E).
+  Status zaktualizowany w Canonical §52C, Atlas Spec §14 „Economy” i
+  Roadmapie. Pozostałe tryby R4B (Resources / Technology / Development /
+  Stability / Political / Δ Change) NOT STARTED; zanik gospodarki Black
+  Mountain nadal osobnym, otwartym zadaniem diagnostycznym.
+
+- **Pracownicy w całych osobach w modelu (Canonical §52E, ENGINE_VERSION 4,
+  SCHEMA_VERSION 4; decyzja właściciela).** Przyczyna ułamków: siła
+  robocza kohorty = ludność × 0,65 bez zaokrąglenia (Green Valley w Black
+  Mountain: 6,5 pracownika). Teraz limit kohorty `ceil`, pula regionu
+  `floor` z sumy (`regionLaborForce`, `regionAvailableWorkers`),
+  zatrudnianie ograniczone pulą regionu, sumy regionu w ticku z nowej
+  funkcji, arytmetyka całkowita; Green Valley = 6. Migracja zapisu v3 → v4
+  (`normalizeWholeWorkforce`) dla zapisów z ułamkami. Scenariusz
+  weryfikacyjny Handlu: kohorta farmy 2 osoby (przy 1 osobie pula regionu
+  = 0). Testy: nowe (`whole-workforce.test.ts`,
+  `whole-workforce-save.test.ts`), monitor inwariantów Black Mountain
+  sprawdza całkowitość w każdym ticku; zaktualizowane oczekiwania 32,5 →
+  33 i 71,5 → 72 (limit kohorty), wersje zapisu 3 → 4.
+- **Przychód firm ze sprzedaży / miesiąc** (dawniej „Sprzedaż firm /
+  miesiąc”; EN „Company sales revenue / month”) w panelu Gospodarki w
+  całych jednostkach pieniężnych (wariant C); model i ceny za jednostkę
+  bez zmian (0,01); pomoc panelu wyjaśnia, co to jest. E2E
+  `world-whole-people.spec.ts` (prawdziwa gra: Green Valley = 6 os.,
+  przychód „69”), zrzuty `docs/verification/world-whole-people-2026-10-01/`.
+
+- **UI świata --- data świata tylko w górnym pasku (Canonical §52D,
+  decyzja właściciela).** Rozszerzenie wcześniejszej zmiany w panelu
+  Gospodarki na cały ekran: panel Handlu bez wiersza „Ostatni zakończony
+  miesiąc: rok R, miesiąc M” i bez diagnostycznego „tick danych” w
+  pomocy; nagłówek tabeli Handlu „Region · ostatni miesiąc”; pasek
+  zakresu analizy pod mapą pokazuje tylko „ŚWIAT | region” (bez „Miesiąc
+  N · Zmiana w ciągu 1 lat” --- okno porównania jest w kontrolce
+  „Porównaj”); oś czasu tylko „Teraz” / „Widok historyczny”; znaczniki
+  zdarzeń i WHY? jako „Tick N” zamiast mylącego „Miesiąc N” (numer
+  ticka). Dane Read Modelu bez zmian. Testy Handlu (jednostkowe, E2E
+  follow-up) zaktualizowane; nowy E2E `world-date-single-source.spec.ts`
+  ze zrzutami `docs/verification/world-date-single-source-2026-10-01/`.
+  Zaakceptowane zrzuty Handlu (2026-09-30) nie były odświeżane.
+
+- **M21-VIS-R4B Economy --- bez drugiej daty w panelu „Gospodarka
+  regionu”** (decyzja właściciela): usunięty wiersz „Ostatni zakończony
+  miesiąc: rok R, miesiąc M”, który obok daty w górnym pasku wyglądał na
+  sprzeczność (pasek = bieżąca data świata, panel = okres przepływów, tick
+  − 1). Data świata jest wyłącznie w górnym pasku; okres produkcji i
+  sprzedaży opisany względnie („ostatni miesiąc” w nagłówkach). Dane bez
+  zmian; panel Handlu ma nadal własny wiersz okresu (poza zakresem tej
+  zmiany). Testy jednostkowe i E2E zaktualizowane, zrzuty odświeżone.
+
+- **M21-VIS-R4B Economy --- podpis „Dane częściowe” / „Partial data”**
+  przy nagłówku tabeli „Produkcja według towarów”, gdy część produkcji nie
+  jest przypisana do towarów (zmiana metody w ostatnim ticku albo nieznana
+  receptura); widoczny bez przewijania przy 1280×800 (sprawdzane w E2E),
+  szczegółowa uwaga pod tabelą bez zmian. Odświeżone zrzuty
+  `r4b-economy-method-changed-*` (PL/EN). Status nadal PENDING HUMAN
+  VISUAL ACCEPTANCE.
+
 - **M21-VIS-R4B Economy --- poprawki po przeglądzie (status bez zmian:
   IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE).** (1) Produkcja w ticku
   adopcji metody: tick produkuje jeszcze starą recepturą, a

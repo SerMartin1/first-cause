@@ -3,7 +3,12 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { WorldState } from "@first-cause/entities";
-import { loadWorldFixture } from "./load-world-fixture.js";
+import {
+  INITIAL_HOUSEHOLD_SAVINGS_MONTHS,
+  SURVIVAL_GOOD_ID,
+  SURVIVAL_UNITS_PER_CAPITA,
+} from "@first-cause/simulation";
+import { DEFAULT_HOUSEHOLD_SAVINGS, loadWorldFixture } from "./load-world-fixture.js";
 
 const REPO_ROOT = path.resolve(
   fileURLToPath(new URL(".", import.meta.url)),
@@ -47,6 +52,35 @@ function totalPopulationOf(state: WorldState): number {
 }
 
 describe("loadWorldFixture -- structural (rejects bad JSON with a readable error)", () => {
+  it("etap 2 (N7): household savings start at 3 months of the survival basket at the regional price (0 without a price)", () => {
+    // Kopia stałych koszyka w ładowaczu (warstwy) musi zgadzać się z Simulation Core.
+    expect(DEFAULT_HOUSEHOLD_SAVINGS).toEqual({
+      months: INITIAL_HOUSEHOLD_SAVINGS_MONTHS,
+      survivalGoodId: SURVIVAL_GOOD_ID,
+      unitsPerCapita: SURVIVAL_UNITS_PER_CAPITA,
+    });
+    const result = loadWorldFixture(readBlackMountainFixture());
+    expect(result.ok).toBe(true);
+    const cohorts = Object.values(result.worldState!.populationCohorts);
+    const greenValley = cohorts.filter((c) => c.regionId === "region_green_valley");
+    // Green Valley: cena mąki 2,00 → 1 osoba × 3 jedn. × 2,00 × 3 mies. = 18,00.
+    for (const c of greenValley) expect(c.savings).toBe(c.population * 18);
+    // N5: Black Mountain ma rynek z mąką po 4,00 → 3 × 4,00 × 3 mies. = 36,00 na osobę.
+    for (const c of cohorts.filter((x) => x.regionId === "region_black_mountain"))
+      expect(c.savings).toBe(c.population * 36);
+    // Region bez rynku (ten sam fixture bez rynku Black Mountain): brak ceny → 0.
+    const raw = readBlackMountainFixture() as { markets: { regionId: string }[] };
+    const withoutMarket = loadWorldFixture({
+      ...raw,
+      markets: raw.markets.filter((m) => m.regionId !== "region_black_mountain"),
+    });
+    expect(withoutMarket.ok).toBe(true);
+    for (const c of Object.values(withoutMarket.worldState!.populationCohorts).filter(
+      (x) => x.regionId === "region_black_mountain",
+    ))
+      expect(c.savings).toBe(0);
+  });
+
   it("rejects a non-object", () => {
     const result = loadWorldFixture("not a fixture");
     expect(result.ok).toBe(false);

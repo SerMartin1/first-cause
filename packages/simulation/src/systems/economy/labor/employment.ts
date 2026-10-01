@@ -32,18 +32,52 @@ const WORKING_AGE_GROUPS: readonly AgeGroup[] = ["AGE_15_24", "AGE_25_44", "AGE_
  * (Simulation Test Spec SS23 "non-participating" bucket: students,
  * caregivers, the voluntarily idle -- distinct from "unemployed", which
  * *is* looking for work). TODO tuning.
+ *
+ * Wyrażona w PROCENTACH (65 = 0,65), żeby liczyć siłę roboczą arytmetyką
+ * całkowitą: `ludność × 65 / 100` daje dokładny wynik przy podzielności,
+ * bez błędów zmiennoprzecinkowych typu 20 × 0,65 = 13,000000000000002.
  */
-const LABOR_FORCE_PARTICIPATION_RATE = 0.65;
+const LABOR_FORCE_PARTICIPATION_PERCENT = 65;
 
-/** Working-age, labor-force population this cohort structurally has (before subtracting who's already employed). */
-export function eligibleLaborForce(cohort: PopulationCohort): number {
-  if (!WORKING_AGE_GROUPS.includes(cohort.ageGroup)) return 0;
-  return cohort.population * LABOR_FORCE_PARTICIPATION_RATE;
+function isWorkingAge(cohort: PopulationCohort): boolean {
+  return WORKING_AGE_GROUPS.includes(cohort.ageGroup);
 }
 
-/** Unemployed, labor-force-eligible workers this cohort has available to hire this tick. */
+/**
+ * Decyzja właściciela (2026-10-01): pracownicy to zawsze CAŁE osoby.
+ * Górny limit zatrudnienia JEDNEJ kohorty: siła robocza zaokrąglona w GÓRĘ
+ * (`ceil`), np. kohorta 1 osoby może dać 1 pracownika. Łączną liczbę
+ * pracowników regionu ogranicza w DÓŁ `regionLaborForce` (`floor` sumy) --
+ * dzięki temu małe kohorty nie tracą pracowników (jak przy `floor` per
+ * kohorta), a region nigdy nie ma ich więcej niż `ludność × 0,65`.
+ */
+export function eligibleLaborForce(cohort: PopulationCohort): number {
+  if (!isWorkingAge(cohort)) return 0;
+  return Math.ceil((cohort.population * LABOR_FORCE_PARTICIPATION_PERCENT) / 100);
+}
+
+/** Siła robocza REGIONU w całych osobach: `floor(Σ ludności w wieku produkcyjnym × 0,65)`. */
+export function regionLaborForce(cohorts: readonly PopulationCohort[]): number {
+  const workingAgePopulation = cohorts.reduce(
+    (sum, cohort) => sum + (isWorkingAge(cohort) ? cohort.population : 0),
+    0,
+  );
+  return Math.floor((workingAgePopulation * LABOR_FORCE_PARTICIPATION_PERCENT) / 100);
+}
+
+/** Bezrobotni zdolni do pracy w REGIONIE (całe osoby): pula regionu minus już zatrudnieni. */
+export function regionAvailableWorkers(cohorts: readonly PopulationCohort[]): number {
+  const employed = cohorts.reduce((sum, cohort) => sum + cohort.employment, 0);
+  return Math.max(0, Math.floor(regionLaborForce(cohorts) - employed));
+}
+
+/**
+ * Unemployed, labor-force-eligible workers this cohort has available to
+ * hire this tick (całe osoby; limit kohorty -- łączny limit regionu
+ * egzekwuje wywołujący przez `regionAvailableWorkers`).
+ */
 export function availableWorkers(cohort: PopulationCohort): number {
-  return Math.max(0, eligibleLaborForce(cohort) - cohort.employment);
+  return Math.max(0, Math.floor(eligibleLaborForce(cohort) - cohort.employment));
 }
 
 function cohortLocation(cohort: PopulationCohort): FactLocation {
@@ -97,7 +131,9 @@ export function matchEmployment(input: MatchEmploymentInput): MatchEmploymentRes
   );
   const available = availableWorkers(cohort);
 
-  const hired = Math.min(vacancies, skillCap, available);
+  // Całe osoby (decyzja 2026-10-01): nawet przy ułamkowym wejściu (np. stary
+  // zapis) nie zatrudniamy części człowieka.
+  const hired = Math.floor(Math.min(vacancies, skillCap, available));
   if (hired <= 0) {
     return { company, cohort, hired: 0, facts: [], causalLinks: [] };
   }

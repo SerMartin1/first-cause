@@ -14,6 +14,7 @@ import {
 import { createWorldRunner, type WorldRunner } from "../core/world-runner.js";
 import type { ProductionRecipe } from "../systems/economy/production.js";
 import { initializeMarketGood } from "../systems/economy/markets/price-adjustment.js";
+import { initialHouseholdSavings } from "../systems/population/household-budget.js";
 import { buildWorldSnapshot } from "../read-models/world-view-read-model.js";
 
 /**
@@ -145,6 +146,8 @@ export function buildPmAdoptionScenarioWorldState(): WorldState {
     }),
     employment: 2,
     averageIncome: 50,
+    // Etap 2 (N7): oszczędności startowe wg reguły świata (3 mies. koszyka po 5,00).
+    savings: initialHouseholdSavings(50, 5),
   };
   const baseMill = createCompany({
     id: S.companyId,

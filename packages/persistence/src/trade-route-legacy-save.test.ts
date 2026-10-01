@@ -132,10 +132,16 @@ describe("trade_route across a legacy save (engine < 3)", () => {
     });
     const entriesBefore = loaded.chronicleEntries.length;
 
-    loaded.step();
-    const delivered = loaded.facts.filter(
-      (f) => f.type === "trade_flow_active" && f.tick === loaded.tick - 1,
-    );
+    // Etap 2 (N7): pracownicy eksportera dostają płace i sami kupują część mąki,
+    // więc nadwyżka do wywozu nie powstaje w każdym ticku -- pierwszy tick z
+    // dostawą po wczytaniu (najwyżej kilka ticków).
+    let delivered: typeof loaded.facts = [];
+    for (let i = 0; i < 6 && delivered.length === 0; i++) {
+      loaded.step();
+      delivered = loaded.facts.filter(
+        (f) => f.type === "trade_flow_active" && f.tick === loaded.tick - 1,
+      );
+    }
     expect(delivered).toHaveLength(1);
     const fresh = process(loaded)!;
     // Nowy epizod: tylko ilość dostarczona tego ticka, bez znacznika.

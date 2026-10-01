@@ -11,6 +11,21 @@ export interface CompanyFinance {
   readonly profit: number;
   readonly taxes: number;
   readonly financingCost: number;
+  /**
+   * Niewypłacony wynik zatrzymany (dochód właścicielski, 2026-10-01): +
+   * rozliczony zysk, − strata, − wypłata właścicielska. Może być ujemny
+   * (kolejne zyski najpierw pokrywają straty). Kapitał początkowy i wkłady
+   * finansujące firmę NIE są wynikiem -- nowa firma zaczyna od 0.
+   */
+  readonly retainedEarnings: number;
+  /** Koszty operacyjne (dziś: płace) ostatnich ≤ 3 rozliczonych ticków, najstarszy pierwszy -- bufor operacyjny wypłaty. */
+  readonly operatingCostHistory: readonly number[];
+  /**
+   * Etap 4B (P13, 2026-10-01): rezerwa inwestycyjna -- część istniejącej
+   * gotówki wydzielona na jeden aktywny plan rozbudowy (nie nowe pieniądze);
+   * niedostępna do wypłaty właścicielskiej. 0 = brak rezerwy.
+   */
+  readonly investmentReserve: number;
 }
 
 export interface CompanyProduction {
@@ -140,6 +155,9 @@ export function createCompany(input: CreateCompanyInput): Company {
       profit: 0,
       taxes: 0,
       financingCost: 0,
+      retainedEarnings: 0,
+      operatingCostHistory: [],
+      investmentReserve: 0,
     },
     production: {
       productionMethodId: undefined,

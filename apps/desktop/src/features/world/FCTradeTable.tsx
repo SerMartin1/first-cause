@@ -51,13 +51,9 @@ export function FCTradeTable({
       </span>
     );
   };
-  const period =
-    trade.status === "RECORDED"
-      ? t("world.trade.lastMonthValue", {
-          year: trade.period.year,
-          month: trade.period.month,
-        })
-      : undefined;
+  // Data świata jest wyłącznie w górnym pasku: okres danych handlu opisany
+  // względnie („ostatni miesiąc” = ostatni zakończony tick).
+  const period = trade.status === "RECORDED" ? t("world.trade.lastMonthRelative") : undefined;
 
   return (
     <section
@@ -67,15 +63,9 @@ export function FCTradeTable({
       data-trade-status={trade.status}
       data-trade-region={region.regionId}
     >
-      {/* Hierarchia: (nazwa regionu = tytuł sekcji) → Handel regionu → okres → jednostki → tabela. */}
+      {/* Hierarchia: (nazwa regionu = tytuł sekcji) → Handel regionu → jednostki → tabela (okres w nagłówku tabeli). */}
       <header className="fc-trade__header">
         <h3 id="fc-trade-title">{t("world.trade.title")}</h3>
-        {period && (
-          <p data-testid="trade-period">
-            <span className="fc-label">{t("world.trade.lastMonth")}</span>{" "}
-            <span className="fc-trade__period">{period}</span>
-          </p>
-        )}
         {trade.status === "RECORDED" && trade.goods.length > 0 && (
           <p className="fc-caption" data-testid="trade-units">
             {t("world.trade.units")}
@@ -115,7 +105,7 @@ export function FCTradeTable({
               <col className="fc-trade__num-col" />
             </colgroup>
             <thead>
-              {/* Skrócony kontekst: po przewinięciu nadal widać, czyje i z którego miesiąca są dane. */}
+              {/* Skrócony kontekst: po przewinięciu nadal widać, czyje są dane i że dotyczą ostatniego miesiąca. */}
               <tr className="fc-trade__context" data-testid="trade-context">
                 <th colSpan={3} scope="colgroup">
                   {region.name} · {period}
@@ -269,11 +259,6 @@ export function FCTradeTable({
           <li>{t("world.trade.help.goods")}</li>
           <li>{t("world.trade.help.period")}</li>
           <li>{t("world.trade.hint")}</li>
-          {trade.status === "RECORDED" && (
-            <li className="fc-caption" data-testid="trade-diagnostic-tick">
-              {t("world.trade.help.tick", { tick: trade.period.tick })}
-            </li>
-          )}
         </ul>
       </details>
     </section>

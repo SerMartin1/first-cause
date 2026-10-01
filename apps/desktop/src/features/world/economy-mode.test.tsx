@@ -297,6 +297,15 @@ describe("Economy mode: employment in companies (M21-VIS-R4B, §52C)", () => {
     expect(change(R.marsh)).toBeUndefined(); // brak danych teraz
   });
 
+  it("inspector: complete production table has no 'partial data' label", async () => {
+    const panel = await openEconomy(R.delta);
+    expect(within(panel).getByTestId("economy-goods")).toHaveAttribute(
+      "data-economy-goods-coverage",
+      "complete",
+    );
+    expect(within(panel).queryByTestId("economy-goods-partial")).toBeNull();
+  });
+
   it("inspector: no per-good data at all is 'no data', never 'produced nothing'", async () => {
     const view = economyView();
     const onlyChanged: WorldView = {
@@ -320,6 +329,7 @@ describe("Economy mode: employment in companies (M21-VIS-R4B, §52C)", () => {
     expect(within(panel).getByTestId("economy-method-changed")).toHaveTextContent(
       "1 firma zmieniła w tym miesiącu metodę produkcji",
     );
+    expect(within(panel).getByTestId("economy-goods-partial")).toHaveTextContent("Dane częściowe");
   });
 
   it("inspector: production of a company that switched method last tick is partial data, not 'no production'", async () => {
@@ -331,6 +341,8 @@ describe("Economy mode: employment in companies (M21-VIS-R4B, §52C)", () => {
     expect(within(panel).getByTestId("economy-method-changed")).toHaveTextContent(
       "1 company switched production method",
     );
+    // Podpis przy nagłówku tabeli; szczegółowa uwaga zostaje pod tabelą.
+    expect(within(panel).getByTestId("economy-goods-partial")).toHaveTextContent("Partial data");
     // Narzędzia tylko z firmy z ZNANĄ recepturą tego ticka (900), bez 60 jedn. zgadniętych z nowej metody.
     const tools = panel.querySelector('[data-economy-good="dev_tools"] [data-economy-cell="produced"]')!;
     expect(tools).toHaveTextContent("900");
@@ -340,9 +352,10 @@ describe("Economy mode: employment in companies (M21-VIS-R4B, §52C)", () => {
   it("inspector: employment first with unit and class, sales as extra info, goods with units and no sum", async () => {
     const panel = await openEconomy(R.delta);
     expect(within(panel).getByRole("heading", { name: "Regional economy" })).toBeInTheDocument();
-    expect(within(panel).getByTestId("economy-period")).toHaveTextContent(
-      "Last completed month: year 3, month 2",
-    );
+    // Data świata tylko w górnym pasku -- panel nie powtarza (innej) daty okresu.
+    expect(within(panel).queryByTestId("economy-period")).toBeNull();
+    expect(panel).not.toHaveTextContent(/year \d+, month \d+/);
+    expect(panel).toHaveTextContent("Production by good · last month");
     const employment = fact(panel, "employment");
     expect(employment).toHaveTextContent("Employed in companies");
     expect(employment).toHaveTextContent("2,320");
@@ -356,7 +369,12 @@ describe("Economy mode: employment in companies (M21-VIS-R4B, §52C)", () => {
       f.getAttribute("data-economy-fact"),
     );
     expect(facts).toEqual(["employment", "sales", "companies"]);
-    expect(fact(panel, "sales")).toHaveTextContent("6,912.40");
+    // Przychód w całych jednostkach (6 912,40 w modelu); nazwa mówi, co to jest.
+    expect(fact(panel, "sales")).toHaveTextContent("Company sales revenue / month");
+    expect(fact(panel, "sales")).toHaveTextContent("6,912");
+    expect(fact(panel, "sales")).not.toHaveTextContent("6,912.40");
+    // Ceny za jednostkę towaru zostają z groszami.
+    expect(panel.querySelector('[data-economy-good="flour"] [data-economy-cell="price"]')).toHaveTextContent("1.30");
     expect(fact(panel, "sales")).toHaveTextContent("money units · local prices");
     const table = within(panel).getByTestId("economy-goods");
     const rows = [...table.querySelectorAll("tbody tr")].map((tr) =>

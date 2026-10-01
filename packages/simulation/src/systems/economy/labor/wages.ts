@@ -1,6 +1,6 @@
 import type { Company } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
-import { roundMoney } from "../../../core/rounding.js";
+import { roundWageRate } from "../../../core/rounding.js";
 import { assertNonNegative, assertPositive } from "../../../core/validation.js";
 import { directionalEdgeType, type PendingCausalLink } from "../../../core/causal-links.js";
 import { classifyShortageSurplus } from "../markets/shortage-surplus.js";
@@ -29,8 +29,54 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/**
+ * N4 (etap 1 naprawy po diagnozie Black Mountain 2026-10-01, decyzja
+ * właściciela): granice oferty płacowej.
+ * - `ceiling` -- budżet płac planu produkcji podzielony przez planowanych
+ *   pracowników: `(przychód − koszty pozapłacowe − WAGE_SAFETY_BUFFER ×
+ *   przychód) / pracownicy`; undefined = brak planu (brak danych o popycie).
+ * - `floor` -- lokalny miesięczny koszt koszyka przetrwania jednej osoby
+ *   (wygładzona cena); `MIN_WAGE` zostaje tylko zabezpieczeniem numerycznym.
+ * Zmiana płacy pozostaje stopniowa (najwyżej ±`MAX_TICK_WAGE_CHANGE ×
+ * WAGE_SMOOTHING_FACTOR` na tick): oferta powyżej sufitu schodzi ku niemu,
+ * poniżej podłogi -- rośnie ku niej. Gdy sufit < podłogi, firma zmniejsza plan
+ * zatrudnienia (`affordableEmployees`), a nie łamie podłogi.
+ */
+export const WAGE_SAFETY_BUFFER = 0.1; // TODO tuning
+export interface WageBounds {
+  readonly floor: number;
+  readonly ceiling: number | undefined;
+}
+export interface WagePlan {
+  readonly plannedEmployees: number;
+  readonly expectedRevenue: number;
+  readonly inputCosts: number;
+}
+export function wageBudget(plan: WagePlan): number {
+  return Math.max(
+    0,
+    plan.expectedRevenue - plan.inputCosts - WAGE_SAFETY_BUFFER * plan.expectedRevenue,
+  );
+}
+export function planWageBounds(
+  plan: WagePlan | undefined,
+  survivalBasketCost: number,
+): WageBounds {
+  return {
+    floor: Math.max(MIN_WAGE, assertNonNegative(survivalBasketCost, "planWageBounds().survivalBasketCost")),
+    ceiling:
+      plan && plan.plannedEmployees > 0 ? wageBudget(plan) / plan.plannedEmployees : undefined,
+  };
+}
+/** Ilu pracowników budżet płac planu utrzyma przy danej płacy (całe osoby). */
+export function affordableEmployees(plan: WagePlan, wage: number): number {
+  return wage > 0 ? Math.floor(wageBudget(plan) / wage + 1e-9) : plan.plannedEmployees;
+}
+
 export interface AdjustWageOfferInput {
   readonly company: Company;
+  /** N4: granice oferty (podłoga = koszyk przetrwania, sufit = budżet płac planu). */
+  readonly bounds?: WageBounds;
   /** Unemployed, labor-force-eligible workers of this company's demanded skill(s), observed by the caller (e.g. summed `availableWorkers` across matching cohorts) -- Company never owns this, same "observed not owned" rule Market applies to Inventory. */
   readonly availableLabor: number;
 }
@@ -78,8 +124,19 @@ export function adjustWageOffer(input: AdjustWageOfferInput): AdjustWageOfferRes
   const cappedPressure = clamp(rawPressure, -MAX_TICK_WAGE_CHANGE, MAX_TICK_WAGE_CHANGE);
   const wagePressure = cappedPressure * WAGE_SMOOTHING_FACTOR;
 
-  const rawWageOffer = wageOffer * (1 + wagePressure);
-  const nextWageOffer = roundMoney(Math.max(MIN_WAGE, rawWageOffer));
+  let rawWageOffer = wageOffer * (1 + wagePressure);
+  if (input.bounds) {
+    const maxStep = MAX_TICK_WAGE_CHANGE * WAGE_SMOOTHING_FACTOR;
+    const { floor, ceiling } = input.bounds;
+    if (ceiling !== undefined && rawWageOffer > ceiling)
+      rawWageOffer = Math.max(ceiling, wageOffer * (1 - maxStep));
+    if (rawWageOffer < floor) rawWageOffer = Math.min(floor, wageOffer * (1 + maxStep));
+  }
+  // P12b (2026-10-01): stawka z precyzją 6 miejsc (`roundWageRate`), nie do
+  // grosza -- inaczej przy płacy ≤ 0,16 cały miesięczny ruch (≤ 3%) był
+  // kasowany przez zaokrąglenie. Limit zmiany, wygładzanie, podłoga i sufit
+  // bez zmian; wypłata w groszach dopiero przy rozliczeniu (`transactionValue`).
+  const nextWageOffer = roundWageRate(Math.max(MIN_WAGE, rawWageOffer));
 
   const nextCompany: Company = {
     ...company,
@@ -96,7 +153,7 @@ export function adjustWageOffer(input: AdjustWageOfferInput): AdjustWageOfferRes
       values: {
         before: wageOffer,
         after: nextWageOffer,
-        delta: nextWageOffer - wageOffer,
+        delta: roundWageRate(nextWageOffer - wageOffer),
       },
     });
     // CE-04 (M17): ten sam demand/supply rozkład co `price-adjustment.ts`

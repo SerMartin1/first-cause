@@ -1,0 +1,11 @@
+{
+  "id": "construction",
+  "nameKey": "content.service.construction.name",
+  "category": "construction",
+  "workforce": {},
+  "skills": {},
+  "infrastructure": {},
+  "goodInputs": [],
+  "capacityModel": { "unitsPerEmployee": 1, "capacityExpansionWorkUnits": 4 },
+  "implementationPhase": "VS"
+}

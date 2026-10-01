@@ -872,8 +872,9 @@ Marker size = population.
 
 Kolor/intensywność = gospodarka/produkcja zgodnie z Read Model.
 
-**Implementacja `M21-VIS-R4B` --- Economy (2026-09-30; IMPLEMENTED /
-PENDING HUMAN VISUAL ACCEPTANCE; kierunek: Canonical Decisions §52C).**
+**Implementacja `M21-VIS-R4B` --- Economy (2026-09-30, poprawki
+2026-10-01; DONE / HUMAN VISUAL ACCEPTED 2026-10-01; kierunek: Canonical
+Decisions §52C).**
 Miara = zatrudnieni w przedsiębiorstwach regionu (osoby, koniec
 miesiąca); dawna suma ilości różnych towarów usunięta z Read Modelu.
 
@@ -898,15 +899,19 @@ miesiąca); dawna suma ilości różnych towarów usunięta z Read Modelu.
 -   Zaznaczenie: narożniki akcentu wokół kwadratu i śladu osad.
 -   Legenda: tytuł z jednostką, pięć klas, „0” i „brak danych”, notka
     „klasy stałe --- nie względem najlepszego regionu”.
--   Inspektor „Gospodarka regionu”: zatrudnienie (z klasą), sprzedaż firm
+-   Inspektor „Gospodarka regionu” (bez własnej daty --- data świata
+    tylko w górnym pasku, Canonical §52D): zatrudnienie (z klasą, całe
+    osoby --- §52E), przychód firm ze sprzedaży (całe jednostki pieniężne)
     jako informacja dodatkowa, aktywne firmy, produkcja według towarów
     (bez sumy, jednostki towaru, brak ceny „—”). Top Regions: kwadrat
     klasy + wartość z jednostką; regiony bez danych zliczone, nie
     rankowane.
--   **Poprawki po przeglądzie (2026-10-01, nadal PENDING HUMAN VISUAL
-    ACCEPTANCE):** produkcja firmy, która w ostatnim ticku przyjęła nową
+-   **Poprawki po przeglądzie (2026-10-01, zaakceptowane razem z
+    trybem):** produkcja firmy, która w ostatnim ticku przyjęła nową
     metodę, nie jest rozdzielana według nowej metody (tick produkował
-    jeszcze starą) --- tabela oznaczona jako częściowa z uwagą, a pusta
+    jeszcze starą) --- tabela oznaczona jako częściowa (podpis „Dane
+    częściowe” przy nagłówku, widoczny bez przewijania przy 1280×800, i
+    szczegółowa uwaga pod tabelą), a pusta
     tabela to „brak danych”, nie „nic nie wytworzono” (§52C). World
     Pulse „Zatrudnieni w firmach”: suma kompletna / częściowa
     („częśc. k/n”, wyjaśnienie w podpowiedzi) / niedostępna („—”); Δ
@@ -946,6 +951,9 @@ partnerzy); Atlas jest pomocniczy:
 Ograniczenie: dane handlu istnieją tylko na poziomie regionu. Kodowanie
 „grubość i kierunek krawędzi” z §28.5 (wszystkie przepływy naraz) nie
 jest używane w tym widoku --- zastąpione przez decyzję §52B.
+Okres tabeli opisany względnie („Region · ostatni miesiąc” w nagłówku
+tabeli), bez daty --- data świata tylko w górnym pasku (Canonical §52D,
+2026-10-01).
 
 **Follow-up (2026-09-30, HUMAN VISUAL ACCEPTED):** łuki relacji
 rysowane są po etykietach i omijają ich prostokąty (kreski pod nazwą

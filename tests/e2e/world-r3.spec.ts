@@ -140,12 +140,13 @@ test("M21-VIS-R3: Black Mountain WORLD at 1920×1080 and 1280×800 (real viewpor
     }
     // N: zmiana języka nie zmienia morfologii (klasy liczone z danych, nie z tekstu).
     const before = await settlementClasses(page);
-    await page.getByRole("button", { name: "PL" }).click();
+    // `exact`: domyślne dopasowanie podciągu łapało też wpisy wydarzeń (np. „Gr*een* Valley”).
+    await page.getByRole("button", { name: "PL", exact: true }).click();
     await atlasSettled(page);
     expect(await settlementClasses(page)).toBe(before);
     await expect(page.getByTestId("settlement-scale-legend")).toContainText("Przysiółek");
     await page.screenshot({ path: shot("r3-1280x800-black-mountain-pl.png") });
-    await page.getByRole("button", { name: "EN" }).click();
+    await page.getByRole("button", { name: "EN", exact: true }).click();
     // H: warstwa wizualna nie mutuje świata.
     expect(await page.evaluate(() => window.firstCauseWorld.getWorld(1))).toEqual(live);
     expect(errors).toEqual([]);

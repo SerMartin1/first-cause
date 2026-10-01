@@ -1,0 +1,11 @@
+{
+  "id": "transport_company",
+  "nameKey": "content.companyArchetype.transport_company.name",
+  "sector": "transport",
+  "allowedInputs": [],
+  "allowedOutputs": [],
+  "productionMethodIds": [],
+  "serviceIds": ["basic_transport"],
+  "capitalRequirement": 20,
+  "implementationPhase": "VS"
+}

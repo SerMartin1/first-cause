@@ -77,6 +77,16 @@ describe("Black Mountain fixture runs a real, wired economy tick (Etap 1 tick-lo
     const allFacts: RunEconomyTickResult["facts"][number][] = [];
 
     const initialCash = worldState.companies.company_green_valley_farm!.finance.cash;
+    // Przebieg, nie tylko stan końcowy: po etapie 1 naprawy (plan produkcji
+    // N3/N4, 2026-10-01) farma dopasowuje produkcję do popytu, a popyt mają
+    // dziś tylko zatrudnione kohorty (diagnoza Black Mountain, P8) -- więc
+    // gospodarka tego fixture'u wygasa przed tickiem 24. To znany, opisany
+    // wynik modelu (naprawa: etap 2 / N7), nie brak podłączenia ticka.
+    let maxOutput = 0;
+    let maxEmployees = 0;
+    let maxRevenue = 0;
+    let maxCosts = 0;
+    let anyRegionStock = false;
 
     for (let tick = 0; tick < 24; tick++) {
       const result = runEconomyTick({
@@ -87,6 +97,18 @@ describe("Black Mountain fixture runs a real, wired economy tick (Etap 1 tick-lo
       });
       worldState = result.worldState;
       allFacts.push(...result.facts);
+      const farm = worldState.companies.company_green_valley_farm!;
+      maxOutput = Math.max(maxOutput, farm.production.outputLastTick);
+      maxEmployees = Math.max(maxEmployees, farm.workforce.employees);
+      maxRevenue = Math.max(maxRevenue, farm.finance.revenue);
+      maxCosts = Math.max(maxCosts, farm.finance.costs);
+      // N5 (2026-10-01): magazyny regionów są też w Riverside / Coastal Reach /
+      // Black Mountain, a towar z Green Valley bywa w całości kupiony lub
+      // wywieziony w tym samym ticku -- liczy się towar w którymkolwiek z nich.
+      anyRegionStock ||= Object.values(worldState.inventories).some(
+        (inventory) =>
+          inventory.ownerType === "region" && Object.keys(inventory.items).length > 0,
+      );
       assertNoNonFiniteOrNegative(worldState.companies, `tick${tick}.companies`);
       assertNoNonFiniteOrNegative(worldState.markets, `tick${tick}.markets`);
       assertNoNonFiniteOrNegative(
@@ -100,20 +122,24 @@ describe("Black Mountain fixture runs a real, wired economy tick (Etap 1 tick-lo
     const regionInventory = worldState.inventories.inventory_region_green_valley!;
 
     // Produkcja faktycznie ruszyła (wymagało capacity/utilization/recipe z fixture, prawdziwego depozytu grain i M5 regeneracji, żeby nie wyczerpać go po drodze).
-    expect(company.production.outputLastTick).toBeGreaterThan(0);
+    expect(maxOutput).toBeGreaterThan(0);
     // Firma faktycznie zatrudniła kogoś z realnej kohorty regionu (M9 matchEmployment).
-    expect(company.workforce.employees).toBeGreaterThan(0);
+    expect(maxEmployees).toBeGreaterThan(0);
     // Cena rynkowa zmieniła się względem ceny bazowej -- rynek (M8) reaguje na realnie zaobserwowany popyt/podaż, nie stoi w miejscu.
     expect(market.goods.flour!.localPrice).not.toBe(2);
-    // Coś fizycznie trafiło do inventory regionu i/lub zostało z niego kupione -- fizyczne rozliczenie (settlement.ts) faktycznie działa, nie tylko liczy pieniądze.
-    expect(Object.keys(regionInventory.items).length).toBeGreaterThan(0);
-    // Firma wygenerowała realny przepływ finansowy (Company.finance przestało być martwym polem)
-    // -- nie sprawdzamy tu wypłacalności: przy P0-02 naprawionym ograniczeniu pracą i wciąż-P1
-    // rosnących bez końca wakatach ta konkretna, jednokohortowa gospodarka kończy 24 ticki na
-    // minusie (patrz doc comment powyżej), co jest oczekiwane, nie regresem rozliczenia.
-    expect(company.finance.cash).not.toBe(initialCash);
-    expect(company.finance.revenue).toBeGreaterThan(0);
-    expect(company.finance.costs).toBeGreaterThan(0);
+    // Coś fizycznie trafiło do inventory regionu -- fizyczne rozliczenie (settlement.ts) faktycznie działa, nie tylko liczy pieniądze.
+    expect(anyRegionStock).toBe(true);
+    expect(regionInventory).toBeDefined();
+    // Firma wygenerowała realny przepływ finansowy (Company.finance przestało być martwym polem).
+    // Etap 3 (§52H): zysk ponad bufor wraca do właściciela, więc gotówka może
+    // wrócić dokładnie do kapitału -- przepływ widać w faktach rozliczenia.
+    expect(allFacts.some((fact) => fact.type === "company_finances_settled")).toBe(true);
+    expect(
+      company.finance.cash !== initialCash ||
+        allFacts.some((fact) => fact.type === "company_owner_payout"),
+    ).toBe(true);
+    expect(maxRevenue).toBeGreaterThan(0);
+    expect(maxCosts).toBeGreaterThan(0);
 
     // Company AI faktycznie podjęło i wykonało strukturalną decyzję (nie tylko dial produkcji) w tym oknie.
     expect(allFacts.some((fact) => fact.type === "vacancies_opened")).toBe(true);

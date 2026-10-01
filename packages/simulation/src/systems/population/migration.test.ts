@@ -315,6 +315,35 @@ describe("applyMigrationFlow (FC-MIGRATION-005 accounting)", () => {
     expect(-outFact.values.delta!).toBe(inFact.values.delta); // OutMigration === InMigration
   });
 
+  it("etap 2 (N7): migrants take their share of the cohort's savings -- money is neither created nor lost", () => {
+    const sourceCohort = { ...buildCohort({ population: 100, employment: 20 }), savings: 1000 };
+    const toNew = applyMigrationFlow({
+      sourceCohort,
+      migrantCount: 10,
+      destinationRegionId: "region_b",
+      destinationSettlementId: undefined,
+      tick: 5,
+      existingDestinationCohort: undefined,
+    });
+    expect(toNew.sourceCohort.savings).toBe(900);
+    expect(toNew.destinationCohort.savings).toBe(100);
+
+    const existing = { ...buildCohort({ population: 5, employment: 0 }), id: "dest", savings: 7.5 };
+    const toExisting = applyMigrationFlow({
+      sourceCohort: { ...sourceCohort, savings: 10 },
+      migrantCount: 3,
+      destinationRegionId: "region_b",
+      destinationSettlementId: undefined,
+      tick: 5,
+      existingDestinationCohort: existing,
+    });
+    expect(toExisting.sourceCohort.savings + toExisting.destinationCohort.savings).toBeCloseTo(
+      17.5,
+      10,
+    );
+    expect(toExisting.destinationCohort.savings).toBe(7.8);
+  });
+
   it("CE-12 Test 2 (Multi-causal Migration, §90): jobs/wage are positive (CONTRIBUTING) causes, housing_cost is negative (DAMPENING), ranked by contribution magnitude", () => {
     const sourceCohort = buildCohort({ population: 100, employment: 20 });
 
@@ -447,10 +476,10 @@ describe("applyMigrationFlow (FC-MIGRATION-005 accounting)", () => {
     });
 
     expect(result.sourceCohort.population).toBe(50);
-    // eligibleLaborForce = 50 * 0.65 = 32.5 -- a weaker "capped at population
+    // eligibleLaborForce = ceil(50 * 0.65) = ceil(32.5) = 33 (całe osoby, ENGINE_VERSION 4) -- a weaker "capped at population
     // (50)" bound would still leave 50 phantom workers exceeding the real
     // working-age labor supply.
-    expect(result.sourceCohort.employment).toBe(32.5);
+    expect(result.sourceCohort.employment).toBe(33);
   });
 
   it("throws when migrantCount exceeds the source cohort's population (programmer error, fail loud)", () => {

@@ -61,6 +61,8 @@ export interface WorldRunnerConfig extends HeadlessRunnerConfig {
   readonly pmCandidatesByCurrentMethodId?: RunEconomyTickInput["pmCandidatesByCurrentMethodId"];
   /** M12: przekazane 1:1 do `runEconomyTick` -- domyślnie brak kandydatów (patrz `economy-tick.ts`). */
   readonly entrepreneurshipCandidatesByArchetypeId?: RunEconomyTickInput["entrepreneurshipCandidatesByArchetypeId"];
+  /** Etap 4B: usługodawcy (transport, budowa) z contentu -- przekazane 1:1 do `runEconomyTick`; brak = zachowanie sprzed 4B. */
+  readonly serviceProvidersByArchetypeId?: RunEconomyTickInput["serviceProvidersByArchetypeId"];
   /** M15: przekazane 1:1 do `runEconomyTick` -- domyślnie brak treści Technology (patrz `economy-tick.ts`). */
   readonly discoveryEligibilityRulesById?: RunEconomyTickInput["discoveryEligibilityRulesById"];
   readonly knowledgeDomainIds?: RunEconomyTickInput["knowledgeDomainIds"];
@@ -446,6 +448,9 @@ export class WorldRunner {
             entrepreneurshipCandidatesByArchetypeId:
               this.config.entrepreneurshipCandidatesByArchetypeId,
           }
+        : {}),
+      ...(this.config.serviceProvidersByArchetypeId !== undefined
+        ? { serviceProvidersByArchetypeId: this.config.serviceProvidersByArchetypeId }
         : {}),
     });
     this.state = result.worldState;

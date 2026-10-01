@@ -35,7 +35,7 @@ const EXPANSION_ACTIVATE_SCORE = 0.7; // TODO tuning -- SS19's own example numbe
 const EXPANSION_DEACTIVATE_SCORE = 0.4; // TODO tuning
 const EXPANSION_COOLDOWN_TICKS = 12; // TODO tuning -- SS20 "expansion -- długi"
 const EXPANSION_PERSISTENCE_TICKS = 6; // TODO tuning -- SS21's own example ("6 miesięcy")
-const EXPANSION_STEP_FRACTION = 0.25; // TODO tuning
+export const EXPANSION_STEP_FRACTION = 0.25; // TODO tuning
 const EXPANSION_MIN_STEP = 1; // TODO tuning -- additive floor when capacity starts at 0
 
 const CONTRACTION_ACTIVATE_SCORE = 0.6; // TODO tuning
@@ -63,6 +63,11 @@ export interface DecideLifecycleInput {
   readonly expectedMargin: number;
   /** Cost of one expansion step, compared against `Company.finance.cash`. */
   readonly capitalCost: number;
+  /**
+   * N3 (etap 1 naprawy po diagnozie Black Mountain): czy w regionie są wolni
+   * pracownicy na dodatkowe moce. Domyślnie true (wywołujący bez rynku pracy).
+   */
+  readonly laborAvailableForExpansion?: boolean;
 }
 
 export interface DecideLifecycleResult {
@@ -155,7 +160,15 @@ export function decideLifecycle(input: DecideLifecycleInput): DecideLifecycleRes
   // wywołana bezpośrednio (inny caller/test), "ożyć" strukturalnie przez
   // EXPAND -- dokładnie ten sam invariant co gałąź CLOSURE już egzekwuje.
   const canAffordExpansion = company.finance.cash >= capitalCost;
-  const expansionHardEligible = canAffordExpansion && company.status.active;
+  // N3: rozbudowa wymaga trwałego popytu, dodatniego wyniku po płacach,
+  // kapitału i dostępnych pracowników -- sam wysoki wynik ani niski bufor
+  // firmy już jej nie uzasadniają (diagnoza P4).
+  const expansionHardEligible =
+    canAffordExpansion &&
+    company.status.active &&
+    input.demandPersistenceScore > 0 &&
+    input.expectedMargin > 0 &&
+    (input.laborAvailableForExpansion ?? true);
   if (
     nowExpanding &&
     !input.financialHealth.distressed &&

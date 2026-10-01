@@ -1,6 +1,6 @@
 import type { Company, Inventory } from "@first-cause/entities";
 import type { FactInput } from "@first-cause/causality";
-import { roundMoney } from "../../core/rounding.js";
+import { roundMoney, transactionValue } from "../../core/rounding.js";
 import { assertNonNegative } from "../../core/validation.js";
 import { addToInventory, removeFromInventory } from "./inventory.js";
 
@@ -77,7 +77,8 @@ export function settleProductionSale(
     companyInventory: removal.inventory,
     regionInventory: addition.inventory,
     quantitySold,
-    revenue: quantitySold * price,
+    // Etap 4A: wartość w groszach liczona w jednym miejscu (cena ma 6 miejsc).
+    revenue: transactionValue(quantitySold, price),
     facts,
   };
 }
@@ -122,6 +123,9 @@ export function applyCompanyFinances(
       costs,
       profit,
       cash: roundMoney(company.finance.cash + profit),
+      // Dochód właścicielski (2026-10-01): zysk zwiększa, strata zmniejsza
+      // niewypłacony wynik zatrzymany (wypłata -- `owner-income.ts`).
+      retainedEarnings: roundMoney(company.finance.retainedEarnings + profit),
     },
   };
 

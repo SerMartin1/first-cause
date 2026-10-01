@@ -703,9 +703,10 @@ akceptacją wizualną, 2026-09-30):**
 
 # 52C. M21-VIS-R4B --- Economy: zatrudnienie w przedsiębiorstwach
 
-**Status:** CANONICAL --- kierunek zdecydowany przez właściciela
-(2026-09-30, decyzje D1--D5 po audycie danych); implementacja PENDING
-HUMAN VISUAL ACCEPTANCE. Dotyczy wyłącznie trybu Economy.
+**Status:** CANONICAL --- ACCEPTED (kierunek zdecydowany przez
+właściciela 2026-09-30, decyzje D1--D5 po audycie danych; implementacja z
+poprawkami z 2026-10-01 **DONE / HUMAN VISUAL ACCEPTED** 2026-10-01).
+Dotyczy wyłącznie trybu Economy.
 
 Diagnoza, która doprowadziła do decyzji: dawna metryka Economy
 (`WorldRegionView.production` = suma `outputLastTick` aktywnych firm)
@@ -714,7 +715,8 @@ jednostki; ta sama suma zasilała World Pulse i Δ Change.
 
 -   **D1 --- miara trybu:** zatrudnieni w przedsiębiorstwach regionu
     (suma `Company.workforce.employees` aktywnych firm; osoby; stan na
-    koniec ostatniego ticka). Region bez firm = znane 0. Sprzedaż firm
+    koniec ostatniego ticka; całe osoby --- §52E). Region bez firm =
+    znane 0. Przychód firm ze sprzedaży (dawniej „Sprzedaż firm”)
     (suma `finance.revenue`, jednostka pieniężna modelu / miesiąc, ceny
     lokalne, tylko region z Market i regionalnym Inventory --- poza
     modelem rynku „brak danych”) jest informacją dodatkową inspektora,
@@ -738,7 +740,7 @@ jednostki; ta sama suma zasilała World Pulse i Δ Change.
     „Economy”.
 
 **Poprawki po przeglądzie (2026-10-01, kierunek D1--D5 bez zmian;
-status nadal IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE):**
+zaakceptowane przez właściciela razem z trybem 2026-10-01):**
 
 -   **Produkcja w ticku adopcji metody (D5).** W ticku, w którym AI-08
     przyjmuje metodę, `economy-tick.ts` produkuje jeszcze recepturą
@@ -747,7 +749,8 @@ status nadal IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE):**
     rozdziela wtedy `outputLastTick` według nowej metody: firma
     z `ai.lastDecision.production_method_adoption` równym ostatniemu
     tickowi i produkcją > 0 trafia do `methodChangedCompanies`, a
-    inspektor pokazuje tabelę jako częściową („firma zmieniła metodę
+    inspektor pokazuje tabelę jako częściową (podpis „Dane częściowe”
+    przy nagłówku tabeli + uwaga pod tabelą: „firma zmieniła metodę
     … produkcja nie jest rozdzielona na towary”); pusta tabela z takimi
     firmami to „brak danych o produkcji według towarów”, nigdy „nic nie
     wytworzono”. Od kolejnego ticka przypisanie jest pełne. Stan nie
@@ -769,9 +772,449 @@ status nadal IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE):**
     krótkim wyjaśnieniem (brak historii / niepełne dane / inne regiony).
     Regionalne Δ Change bez zmian: liczone, gdy zatrudnienie regionu
     jest znane w obu stanach.
+-   **Data:** panel „Gospodarka regionu” nie pokazuje własnej daty
+    okresu --- zasada ogólna §52D.
 -   **Poza zakresem:** zanik gospodarki Black Mountain pozostaje osobnym,
     otwartym zadaniem diagnostycznym (nie jest udowodnionym problemem
     contentu); balans, rynki, magazyny i algorytmy gospodarki bez zmian.
+
+------------------------------------------------------------------------
+
+# 52D. UI świata --- data świata tylko w górnym pasku
+
+**Status:** CANONICAL --- decyzja właściciela 2026-10-01 (dotyczy całego
+ekranu świata).
+
+-   Bieżąca data świata (rok · miesiąc · tick) jest pokazywana
+    **wyłącznie w górnym pasku**. Panele i paski nie powtarzają jej ani
+    nie pokazują innej daty „bieżącego okresu”, bo dwie różne daty obok
+    siebie wyglądają na sprzeczność.
+-   Dane przepływowe (produkcja, sprzedaż, handel) dotyczą ostatniego
+    zakończonego ticka i są opisane **względnie**: „ostatni miesiąc” /
+    „last month” (np. „Produkcja według towarów · ostatni miesiąc”,
+    nagłówek tabeli Handlu „Great Delta · ostatni miesiąc”). Usunięte:
+    wiersze „Ostatni zakończony miesiąc: rok R, miesiąc M” w panelach
+    Gospodarki i Handlu oraz diagnostyczny „tick danych” w pomocy Handlu.
+-   Pasek zakresu analizy pod mapą pokazuje tylko zakres (ŚWIAT |
+    region); okno porównania jest w kontrolce „Porównaj” przy Atlasie.
+    Oś czasu pokazuje tylko „Teraz” / „Widok historyczny”.
+-   Znaczniki czasu **zdarzeń i faktów** (Ostatnie wydarzenia, WHY?) nie
+    są datą świata --- zostają, ale w tej samej jednostce co górny pasek
+    („Tick N”; wcześniej mylące „Miesiąc N” z numerem ticka).
+-   Dane Read Modelu (np. `RegionTradeView.period`, `sales.tick`) bez
+    zmian --- zmiana dotyczy wyłącznie prezentacji.
+
+------------------------------------------------------------------------
+
+# 52E. Pracownicy w całych osobach; przychód firm w panelu
+
+**Status:** CANONICAL --- decyzje właściciela 2026-10-01 (ENGINE_VERSION
+4, SCHEMA_VERSION 4).
+
+-   **Pracownicy to zawsze całe osoby w modelu.** Wcześniej siła robocza
+    kohorty = ludność × 0,65 bez zaokrąglenia, więc firmy zatrudniały
+    ułamki ludzi (Black Mountain, Green Valley: 0,65 + 2,6 + … = 6,5
+    pracownika). Teraz (`labor/employment.ts`): limit zatrudnienia
+    kohorty = `ceil(ludność × 65 / 100)`, a łączna pula regionu =
+    `floor(Σ ludności w wieku produkcyjnym × 65 / 100)` (`regionLaborForce`);
+    zatrudnianie jest ograniczone pulą regionu, wszystkie sumy regionu
+    (płace, przedsiębiorczość, migracja, uzgodnienie zatrudnienia P0-05)
+    liczą się z niej. Arytmetyka całkowita (bez błędów typu 20 × 0,65 =
+    13,000000000000002). Green Valley: **6** pracowników. Współczynnik
+    0,65 bez zmian (TODO tuning). Region z 1 osobą w wieku produkcyjnym
+    ma 0 pracowników.
+-   **Zapisy:** zapis silnika < 4 z ułamkowym zatrudnieniem jest przy
+    wczytaniu doprowadzany do całych osób (migracja schematu v3 → v4,
+    `normalizeWholeWorkforce`: firmy w dół, kohorty metodą największych
+    reszt, suma kohort = pracownicy firm tam, gdzie ta równość była;
+    ludność, fakty i historia bez zmian).
+-   **Przychód firm w panelu (wariant C):** etykieta „Przychód firm ze
+    sprzedaży / miesiąc” (EN „Company sales revenue / month”) = ilość
+    sprzedana na rynek regionu × lokalna cena, w umownych jednostkach
+    pieniężnych, wyświetlana w **całych jednostkach**. Model nadal liczy
+    pieniądze z dokładnością 0,01 (ADR-001 §4); ceny za jednostkę towaru
+    zostają z 2 miejscami po przecinku.
+
+------------------------------------------------------------------------
+
+# 52F. Plan produkcji, zatrudnienia i płac firm (etap 1 naprawy gospodarki)
+
+**Status:** CANONICAL --- decyzja właściciela 2026-10-01 (N3 + N4 po
+diagnozie Black Mountain, `docs/verification/black-mountain-economy-diagnosis-2026-10-01/`);
+wdrożone. Wartości liczbowe: TODO tuning.
+
+-   **Plan produkcji (AI-03):** firma ocenia poziomy produkcji w całych
+    partiach (bieżący, ± krok ≥ 1 partia) i wybiera najlepszy wynik:
+    `możliwa sprzedaż − towary wejściowe − płace`. Możliwa sprzedaż =
+    udział firmy × (prognoza popytu + uzupełnienie zapasu do celu);
+    niesprzedana produkcja zwiększa zapas, nie jest przychodem.
+-   **Prognoza i pokrycie (per towar):** prognoza = średnia popytu z 3
+    mies. (historia rynku); pokrycie = (zapas regionu + bufory firm) /
+    prognoza; cel 2 mies.; zwiększanie tylko przy pokryciu < 1 mies.,
+    powyżej 1 mies. tylko utrzymanie/zmniejszenie (sygnał ograniczania > 3
+    mies.). Zerowy popyt przy zapasie = nadwyżka; brak historii = brak
+    danych (poziom utrzymany, bez planowania na zerze). Historia popytu
+    obejmuje zamówienia importerów (ilość oceniona przez handel), także
+    niezrealizowane z braku zapasu.
+-   **Udział w popycie:** sprzedaż z poprzedniego miesiąca wśród
+    producentów towaru; firma bez sprzedaży --- według potencjału mocy.
+-   **Zatrudnienie (N4):** wynika z planu i nie przekracza `obecni
+    pracownicy + dostępni bezrobotni regionu` (aktualizowani po każdym
+    zatrudnieniu); plan nie liczy partii, do których brakuje ludzi.
+    Opłacalne zapotrzebowanie ponad dostępnych jest sygnałem „są miejsca
+    pracy” dla migracji, nie wakatem podnoszącym płace.
+-   **Płace (N4):** zmiana najwyżej ±3%/mies.; sufit = (przychód −
+    koszty pozapłacowe − 10% przychodu) / planowani pracownicy; podłoga =
+    lokalny miesięczny koszt koszyka przetrwania jednej osoby (3 jedn. ×
+    wygładzona cena żywności); `0,01` tylko zabezpieczeniem numerycznym.
+    Gdy budżetu nie starcza na podłogę, firma zmniejsza plan zatrudnienia.
+    Płace nie rosną z powodu planu większego niż dostępni pracownicy.
+    Osobna decyzja kryzysowa płac (z powodem w Chronicle) --- NOT STARTED.
+-   **Rozbudowa:** wymaga pokrycia < 1 mies. (trwały popyt), dodatniego
+    wyniku po płacach, kapitału i wolnych pracowników. **Zakładanie firm:**
+    marża partii z płacą nowej firmy.
+-   **Doprecyzowania:** wydobycie zasobu z własnego złoża nie ma kosztu
+    pieniężnego w planie (jak w finansach firmy); kryzys SS23 blokuje wzrost
+    firmie ze stratą (nie nowej firmie z gotówką 0 bez strat).
+-   **Wynik ponownej diagnozy:** załamanie firm (P2--P5) usunięte, ale
+    gospodarka Black Mountain wygasa w ticku 5 z powodu P8 (popyt tylko od
+    zatrudnionych) --- następny etap: N7 + minimalne rozliczenie N6.
+
+------------------------------------------------------------------------
+
+# 52G. Pieniądz gospodarstw i rozliczenie sprzedaży (etap 2 naprawy gospodarki)
+
+**Status:** CANONICAL --- decyzja właściciela 2026-10-01 (N7 + minimalne
+rozliczenie N6); wdrożone (SCHEMA_VERSION 5, ENGINE_VERSION 5). Wartości:
+TODO tuning.
+
+-   **Oszczędności:** każda kohorta ma płynne saldo `savings`: poprzednie +
+    faktycznie otrzymane dochody − faktycznie opłacone zakupy. Nowy świat:
+    3 miesiące koszyka przetrwania po cenie z rynku regionu (jawna
+    konfiguracja wczytywania świata, nieodnawiana); zapis sprzed schematu 5
+    --- ta sama reguła przy migracji; `averageWealth` nie jest zamieniane na
+    gotówkę. Migranci zabierają swoją część oszczędności.
+-   **Gospodarstwo:** rodzina kohort (te same co w demografii) łączy salda;
+    dochody pracujących utrzymują dzieci, starszych i niepracujących; podział
+    wewnątrz rodziny nie tworzy pieniędzy (co do grosza).
+-   **Popyt na przetrwanie:** całej ludności; popyt opłacalny = min(potrzeby,
+    oszczędności / cena), także bez pracy; zakup ograniczony zapasem; przy
+    braku towaru pieniądze zostają na koncie. Rynek zapisuje potrzeby, popyt
+    opłacalny i zakupy osobno; niezaspokojone potrzeby same nie są sygnałem
+    rentowności.
+-   **Rozliczenie (minimalne N6):** płace wypłacone przez firmę trafiają do
+    kohort regionu proporcjonalnie do zatrudnienia; towar oddany do magazynu
+    regionu jest w komisie --- firma dostaje zapłatę od kupujących, pro rata
+    do swojej części zapasu, także po zamknięciu i po wywozie (własność
+    przechodzi z towarem). Magazyn regionu nie płaci za niesprzedane. Zapas
+    bez właściciela (opłacony w starym modelu) nie przynosi pieniędzy.
+-   **Planowanie:** pokrycie zapasem liczy tylko zapas dostępny do sprzedaży
+    (magazyn regionu + zapas firm ponad ich bufor).
+-   **Poza zakresem (NOT STARTED):** transfery, zakupy firm (wejścia),
+    pozostałe kategorie potrzeb. Dochód właścicielski --- wdrożony w §52H.
+    Wynik ponownej diagnozy etapu 2: zysk firm był końcowym odpływem
+    pieniędzy gospodarstw.
+
+------------------------------------------------------------------------
+
+# 52H. Minimalny dochód właścicielski (etap 3 naprawy gospodarki)
+
+**Status:** CANONICAL --- decyzja właściciela 2026-10-01; wdrożone
+(SCHEMA_VERSION 6, ENGINE_VERSION 6). Wartości: TODO tuning.
+
+-   **Reguła:** raz na miesięczny tick, po rozliczeniu wszystkich
+    sprzedaży i kosztów (także wpłat za towar zamkniętych firm z komisu),
+    firma wypłaca właścicielowi całą kwotę
+    `min(max(0, wynik zatrzymany), max(0, gotówka − bufor))`.
+-   **Bufor operacyjny:** `OWNER_PAYOUT_BUFFER_MONTHS` (= 2, parametr
+    wymagający walidacji) × większa z wartości: średnie koszty operacyjne
+    z ostatnich 3 ticków (przy krótszej historii --- dostępne obserwacje)
+    albo zobowiązania najbliższego ticka z bieżącego planu (płaca ×
+    pracownicy po decyzji o zatrudnieniu). Koszty operacyjne = płace
+    (płatnych wejść model jeszcze nie ma; zasób z własnego złoża bez kosztu
+    pieniężnego, §52F). Bez rezerw na hipotetyczne inwestycje.
+-   **Wynik zatrzymany vs kapitał:** `Company.finance.retainedEarnings` ---
+    + zysk, − strata, − wypłata; może być ujemny, kolejne zyski najpierw
+    pokrywają straty. Kapitał początkowy i wkłady finansujące (np. 500
+    gotówki farmy, kapitał założycielski) nie są wynikiem i nie są
+    wypłacane. Wypłata nie jest kosztem operacyjnym i nie zmienia wyniku
+    produkcji: gotówka firmy − kwota, środki właściciela + ta sama kwota.
+-   **Odbiorca:** rzeczywisty `ownerType` / `ownerEntityId`. `individual` =
+    kohorta: pieniądze trafiają do jej `savings` (budżet wspólny rodziny,
+    §52G); gdy kohorta właściciela nie ma już ludzi (zgony, starzenie,
+    wyjazd), wypłatę dostaje najliczniejsza żyjąca kohorta tej samej
+    rodziny (ta sama tożsamość w regionie). Migranci zakładający nową
+    kohortę nie zabierają udziału we własności; scalenie migrantów z
+    istniejącą kohortą nie zmienia właściciela. Rodzina bez ludzi albo
+    `state` (brak skarbu) --- brak wypłaty, wynik zostaje w firmie.
+    `company` --- gotówka i wynik zatrzymany firmy-właściciela (wypłaci je
+    dalej w kolejnym ticku). Bez automatycznego podziału między wszystkich
+    mieszkańców regionu.
+-   **Kolejność:** wypłaty liczone ze stanu po rozliczeniu finansów, przed
+    handlem i migracją; handel przenosi tylko towar i własność w komisie,
+    więc drugiego naliczenia nie ma. Gospodarstwa wydają środki od
+    następnego ticka. Fakty `company_owner_payout` (firma) i
+    `owner_income_received` (odbiorca) z krawędziami przyczynowymi.
+-   **Zapisy:** migracja v5 → v6 --- wynik zatrzymany 0 (nie da się
+    wiarygodnie oddzielić zysku od kapitału w starszym zapisie; zyski sprzed
+    zapisu zostają w firmie), historia kosztów = `[finance.costs]`;
+    gotówka i oszczędności bez zmian, bez wypłat przy migracji i wczytaniu.
+-   **Likwidacja (bez zmian, luka):** zamknięta firma nadal dostaje zapłatę
+    z komisu i wypłaca ją jako zysk, ale jej kapitał (gotówka ponad wynik)
+    zostaje w firmie na zawsze --- zwrotu kapitału przy likwidacji nie ma
+    (np. 500 jedn. zamkniętej farmy w scenariuszu kontrolowanego
+    zamknięcia). Osobna decyzja.
+-   **Wynik ponownej diagnozy (raport §13):** popyt utrzymuje się po
+    wyczerpaniu oszczędności startowych (pieniądz gospodarstw krąży, nie
+    znika w firmach); zatrudnienie do t360 w 5/5 seedów; zaspokojenie
+    potrzeb 72--90% w t13--360 (etap 2: 0,7--7%). Otwarte: oszczędności
+    gromadzą się u rodziny właściciela, której potrzeby są już
+    zaspokojone, a niezaspokojone potrzeby dotyczą rodzin bez udziałów
+    (płaca = koszyk 1 osoby); firmy bez kapitału startowego nie osiągają
+    kosztu rozbudowy 100 (wypłaty zostawiają gotówkę na poziomie bufora);
+    rozbudowa jest jedynym odpływem pieniądza i finansuje się z kapitału.
+
+------------------------------------------------------------------------
+
+# 52I. Precyzja ceny jednostkowej oddzielona od pieniędzy (etap 4A, P12)
+
+**Status:** CANONICAL --- decyzja właściciela 2026-10-01; wdrożone
+(ENGINE_VERSION 7, SCHEMA_VERSION bez zmian = 6). Nie zweryfikowane nowym
+przebiegiem (walidacji i diagnozy w tym etapie nie uruchamiano).
+
+-   **Przyczyna P12:** `updateMarketGood` zapisywał nową cenę przez
+    `roundMoney` (grosze). Największa miesięczna zmiana to 3%
+    (`MAX_TICK_PRICE_CHANGE` 0,1 × `PRICE_SMOOTHING_FACTOR` 0,3); przy
+    cenie ≤ 0,16 to mniej niż pół grosza, więc zaokrąglenie kasowało cały
+    ruch --- w górę mimo niedoboru i w dół mimo nadwyżki. Powyżej 0,16
+    zmiany były skwantowane do pełnych groszy (np. przy 0,48 krok 3% =
+    0,0144 → 0,01).
+-   **Reguła:** cena jednostkowa `MarketGoodState.localPrice` ma 6 miejsc
+    po przecinku (`roundPrice`, round-half-even, `PRICE_DECIMALS = 6`) ---
+    przy inicjalizacji i w każdej aktualizacji; historia cen rynku zapisuje
+    tę samą wartość. Salda, przelewy, płace, wypłaty i końcowe wartości
+    transakcji nadal w groszach. Wartość transakcji = `transactionValue
+    (ilość, cena)` --- jedno zaokrąglenie do grosza; identyczna kwota
+    schodzi kupującemu i trafia do sprzedawcy.
+-   **Bez zmian:** limit miesięcznej zmiany, wygładzanie, `MIN_PRICE`
+    (0,01), wpływ popytu, podaży i zapasu. Minimalnej ceny ani tempa zmian
+    nie podniesiono.
+-   **Jedna cena modelowa:** rynek, plan produkcji (`buildPlanGoodMarkets`),
+    handel (`evaluateTradeFlow`), koszyk przetrwania / podłoga płac
+    (`smoothedPrice` z historii cen), oszczędności startowe i zakupy
+    gospodarstw używają tego samego `localPrice`. Formatowanie UI nie
+    wpływa na obliczenia: panel Gospodarki nadal pokazuje 2 miejsca
+    (`formatUnitPrice`), a dodatnia cena poniżej pół grosza jest pokazywana
+    jako „<0,01”, nigdy „0,00”.
+-   **Zapisy:** struktura bez zmian, więc bez migracji schematu; cena
+    zapisana do grosza jest poprawną ceną 6-miejscową. ENGINE_VERSION 7 ---
+    zmiana semantyki aktualizacji ceny.
+-   **Płace (ustalenie, bez zmiany):** `adjustWageOffer` ma ten sam
+    mechanizm --- krok ≤ 3%/mies. i `roundMoney`, więc płaca ≤ 0,16 nie
+    może się zmienić, a wyżej zmiany są kwantowane do groszy (podłoga =
+    3 × wygładzona cena nie jest śledzona dokładniej niż do grosza). Płaca
+    jest kwotą wypłacaną, więc grosze są tu uzasadnione; ewentualna zmiana
+    --- osobna decyzja.
+-   **Poza zakresem (etap 4B):** P13 (rezerwa inwestycyjna), środki
+    zamkniętej firmy, odbiorca kosztu rozbudowy, N5.
+-   **Uzupełnienie po walidacji (2026-10-01):** `roundPrice` nie ma
+    asercji „safe integer” (tylko skończoność). Przy 6 miejscach taki
+    limit wypadał przy cenie ~9·10⁹ i wywracał długie przebiegi z rynkiem
+    bez podaży (P14, §52J). Zmierzone po 4A (raport §15): cena reaguje w obie
+    strony; płace zamarzają na 0,16 tym samym mechanizmem (P12b, decyzja
+    otwarta).
+
+------------------------------------------------------------------------
+
+# 52J. N5 --- rynki i magazyny w zamieszkanych regionach Black Mountain
+
+**Status:** CANONICAL --- polecenie właściciela 2026-10-01; wdrożone jako
+dane fixture'u (bez nowego kodu mechaniki) + poprawka błędu etapu 2.
+
+-   **Dane (World Generation §27: każdy aktywny region ma rynek):**
+    `tests/worldgen/fixtures/black_mountain_reference.json` --- rynki z
+    mąką w Riverside (wcześniej rynek bez towarów), Black Mountain i
+    Coastal Reach oraz magazyny regionów (`inventory_region_*`) we
+    wszystkich trzech. Cena startowa mąki = `basePrice` z contentu (4,00)
+    w regionach bez własnej produkcji; Green Valley bez zmian (2,00,
+    lokalna produkcja). Oszczędności startowe gospodarstw liczone tą samą
+    regułą §52G (3 mies. koszyka po cenie regionu) --- pieniądz świata 770
+    → 2030. Regiony niezamieszkane bez rynku.
+-   **Poprawka błędu (etap 2, ujawniony przez N5):** zakupy gospodarstw
+    (krok 7b) grupują rodziny kohort z bieżącej mapy kohort regionu (po
+    demografii), nie z listy kohort sprzed ticka. Dla niepełnych rodzin
+    demografia i krok 7b tworzyły syntetyczne kohorty o różnych id (inny
+    „pierwszy” członek), a zapis salda tworzył rekord bez `id` (wyjątek
+    `Duplicate PopulationCohort id "undefined"`). W Green Valley kolejność
+    była zgodna, więc wcześniej błąd się nie ujawniał.
+-   **Wynik diagnozy (raport §16):** pierwszy handel w tym świecie
+    (Green Valley → Riverside, 11--29 przepływów mąki), ale wygasa, gdy
+    gospodarstwa Riverside wydadzą oszczędności (brak źródła dochodu w
+    regionie). Black Mountain i Coastal Reach nie mają żadnej podaży (brak
+    połączenia z rynkiem z nadwyżką; handel tylko między sąsiadami, bez
+    reeksportu) --- cena rośnie 3%/mies. bez górnej granicy (4 → 167 286 w
+    t360).
+-   **Otwarte (decyzje właściciela):** P14 --- brak górnej granicy ceny /
+    reguły popytu bez podaży; P15 --- regiony bez pracodawcy tracą cały
+    pieniądz przez import (brak dochodu); P16 --- brak handlu
+    tranzytowego (Coastal Reach za Riverside, Black Mountain za
+    niezamieszkanym Highland Pass).
+
+------------------------------------------------------------------------
+
+# 52K. P12b i P14 --- precyzja płac i cena przy braku dostępnych ofert
+
+**Status:** CANONICAL --- decyzja właściciela 2026-10-01; wdrożone
+(SCHEMA_VERSION 7, ENGINE_VERSION 8). Zwalidowane i zmierzone po
+wdrożeniu (raport §18): ceny regionów bez ofert zostają orientacyjne (BM i
+Coastal Reach 4,00 zamiast 167 286 w t360), płace schodzą do podłogi
+(0,03), handel do Riverside działa jak w N5.
+
+-   **P12b --- stawka płacy:** `CompanyWorkforce.wageOffer` ma 6 miejsc po
+    przecinku (`roundWageRate`, ta sama precyzja co cena jednostkowa
+    §52I). Limit ±3%/mies., wygładzanie, podłoga (koszyk przetrwania z
+    wygładzonej ceny) i sufit (budżet płac planu) bez zmian. Wypłata w
+    groszach dopiero przy rozliczeniu: `transactionValue(opłaceni
+    pracownicy, stawka)` --- ta sama kwota jest kosztem firmy i (przez
+    `splitMoney`) sumą wpływów gospodarstw regionu. Plan produkcji (koszt
+    płac), budżet płac i zobowiązania najbliższego ticka w buforze wypłat
+    właścicielskich (§52H) liczą się z tej samej stawki modelowej.
+-   **P14 --- cztery wielkości rynku (dobro przetrwania):** potrzeby
+    (`householdNeed`), zamówienia z pokryciem (`demand` = popyt opłacalny),
+    dostępne oferty (`offered` --- towar wystawiony w magazynie regionu
+    przed zakupami: produkcja oddana w komis, zapas, import przywieziony w
+    poprzednim ticku; bez buforów firm i przyszłej produkcji) oraz zakupy
+    (`householdPurchased`).
+-   **P14 --- presja cenowa:** `ticksWithoutOffers` liczy kolejne ticki bez
+    ofert (brak pola = rynek nie miał jeszcze oferty). Przy ofertach cena
+    reaguje jak dotąd (popyt finansowany, podaż, zapas, niedobór; te same
+    limity i wygładzanie). Krótki brak ofert (< okno historii podaży, 6
+    ticków) zachowuje reakcję na niedobór. Brak ofert przez całe okno
+    (`NO_OFFERS_IN_WINDOW`) albo rynek bez żadnej oferty (`NEVER_OFFERED`,
+    cena bazowa jako punkt odniesienia) --- presja = 0, cena zostaje jako
+    **orientacyjna** (`priceSuspension`), bez comiesięcznych podwyżek i bez
+    resetu do ceny bazowej. Brak globalnej ceny maksymalnej. Niedobór
+    (`shortageSeverity`), potrzeby i popyt finansowany liczone dalej
+    normalnie --- przedsiębiorczość i handel nadal je widzą. Fakty
+    `price_pressure_suspended` / `price_pressure_resumed` z krawędzią
+    przyczynową (powód: `never_offered` / `no_offers_in_window` /
+    `offers_available`). UI (panel Gospodarki): cena orientacyjna
+    oznaczona „≈” z opisem.
+-   **P14 --- import:** zamówienie importu = niezaspokojone potrzeby
+    (potrzeby − zakupy) minus towar już leżący w magazynie importera;
+    ilość ograniczona środkami kupujących po rzeczywistym koszcie dostawy
+    (`środki / importedCost`, częściowe zakupy), przepustowością połączenia
+    i nadwyżką eksportera; settlement dalej ogranicza do fizycznego zapasu.
+    Importer bez lokalnych ofert nie musi czekać na wzrost ceny ponad koszt
+    dostawy (`importerHasNoOffers`). Zrealizowany przepływ zmniejsza
+    zamówienia (ilość i środki) i nadwyżkę eksportera w tym ticku --- to
+    samo zamówienie i ta sama oferta nie są liczone przez kilka połączeń.
+    Import jest ofertą importera od ticka, w którym towar leży w jego
+    magazynie. Gospodarstwa płacą przy zakupie cenę lokalną; koszt
+    transportu nadal nie ma odbiorcy (bez zmian).
+-   **Zapisy:** migracja v6 → v7 --- `ticksWithoutOffers = 0` tylko przy
+    śladzie oferty w zapisanym ticku (`inventory > 0` albo
+    `householdPurchased > 0`); bez śladu pole puste (rynek traktowany jak
+    bez ofert do pierwszej prawdziwej oferty). Historia transakcji nie jest
+    odtwarzana. Ceny, płace i salda bez zmian.
+-   **Poza zakresem:** P13, P15 (źródła dochodu regionów), P16 (handel
+    wieloodcinkowy), likwidacja firm, odbiorca kosztu rozbudowy, nowe
+    firmy, zasoby i transfery.
+
+------------------------------------------------------------------------
+
+# 52L. Etap 4B --- płatny transport, finansowanie rozbudowy i zwrot kapitału
+
+**Status:** CANONICAL --- decyzja właściciela 2026-10-01; wdrożone
+(SCHEMA_VERSION 8, ENGINE_VERSION 9). Zwalidowane i zmierzone po
+wdrożeniu z poprawkami (raport §20): pieniądz zachowany bez odpływu,
+przewoźnicy i firmy budowlane powstają na zamówienia; rozbieżności
+parametrów (kapitał budowy, cena rozbudowy, wydajność transportu) --- do
+decyzji.
+
+-   **Usługodawcy (VS C23/C24, Production-Economy Master §7):** content
+    `content/services/basic_transport.json` (kategoria `transport`,
+    `capacityModel.unitsPerEmployee = 20` jedn. ładunku / pracownik /
+    mies.) i `content/services/construction.json` (kategoria
+    `construction`, 1 jedn. pracy / pracownik / mies., rozbudowa mocy = 4
+    jedn. pracy); archetypy `transport_company` i `construction_company`
+    (`serviceIds`, kapitał startowy 20). Wszystkie liczby: TODO tuning.
+    Zdolność usługi w ticku = pracownicy po decyzji o zatrudnieniu w tym
+    ticku × wydajność (usługodawcy przetwarzani przed klientami; zatrudnieni
+    pracują w miesiącu, za który dostają płacę); pracownik jest zatrudniony
+    tylko w jednej firmie. Usługodawca planuje
+    zatrudnienie według popytu na usługę zgłoszonego w poprzednim ticku
+    (`Company.market.expectedDemand.service`); bez zamówień --- bez
+    pracowników. Content nie zawiera materiałów budowlanych (G24), więc
+    usługa budowlana nie ma wejść towarowych --- jawna luka contentu.
+-   **Założenie usługodawcy:** wyłącznie na sygnał zamówienia --- transport:
+    zamówienia importu niezrealizowane z braku przewoźnika w poprzednim
+    ticku (`MarketGoodState.importDemand` regionu importera); budowa: plan
+    rozbudowy gotowy do opłacenia bez firmy budowlanej w regionie --- przy
+    co najmniej jednym wolnym pracowniku i bez istniejącej firmy tego typu w
+    regionie, a kapitał startowy musi opłacić miesiąc pracy ludzi
+    potrzebnych do jednego zlecenia po płacy minimalnej regionu (transport:
+    1 pracownik; budowa: praca rozbudowy / wydajność). Usługodawca zatrudnia
+    najwyżej tylu ludzi, ilu opłaci z gotówki (bez debetu); bez pracowników
+    i bez środków na jednego pracownika zamyka działalność (likwidacja).
+    Kapitał startowy pochodzi z oszczędności inwestora: rodziny
+    kohort regionu z największymi oszczędnościami (musi pokryć kapitał);
+    kwota schodzi z jej sald (co do grosza) i pojawia się jako gotówka
+    firmy; właściciel = najliczniejsza żyjąca kohorta tej rodziny
+    (`ownerType: individual`). Fakty `service_company_founded`,
+    `founding_capital_invested`.
+-   **Transport --- jedna oferta:** cena oferty dla kupującego = cena towaru
+    u eksportera (cena lotu, a dla towaru regionu --- cena lokalna) +
+    opłata za przewóz (koszt transportu wg trybu i odległości efektywnej +
+    ryzyko; cło 0 w VS). Ta sama cena ogranicza ilość finansowaną przez
+    kupujących, jest ceną wyładunku lotu w magazynie importera
+    (`Inventory.consignmentPrice`) i ceną płaconą przez gospodarstwa przy
+    zakupie (pro rata z lotów po ich cenach). Przewoźnik: aktywna firma
+    transportowa w regionie importera albo eksportera (najpierw
+    importera) z wolną zdolnością. Właściciel towaru (producent w komisie)
+    finansuje przewóz przed sprzedażą: opłata (grosze, `transactionValue`)
+    jest jego kosztem operacyjnym w ticku przewozu, a przychodem
+    przewoźnika w tym samym rozliczeniu --- za faktycznie przewiezioną
+    ilość. Ilość ogranicza też gotówka właściciela na opłatę, zapas,
+    przepustowość, nadwyżka eksportera i zdolność przewoźników.
+    Niesprzedany zapas nie daje właścicielowi przychodu. Handel jest
+    rozliczany przed finansami i wypłatami (krok 10 przed 9.9). Fakty
+    `transport_service_paid`. Bez profilu transportu w konfiguracji
+    (scenariusze testowe bez contentu) przewóz jest bezpłatny jak przed 4B,
+    a cena oferty = cena towaru.
+-   **P13 --- rezerwa inwestycyjna:** jeden aktywny plan rozbudowy
+    (`ai.activeStates.expansion_plan`), uzasadniony przez istniejące
+    sygnały AI (trwały popyt, dodatni wynik planu, dostępne wejścia, wolni
+    pracownicy, brak kryzysu), oceniany co tick --- anulowanie zwalnia
+    rezerwę. Po zabezpieczeniu bufora operacyjnego `INVESTMENT_RESERVE_SHARE`
+    (= 0,5, TODO tuning) nadwyżki kwalifikującej się do wypłaty trafia do
+    `Company.finance.investmentReserve` (gotówka zostaje w firmie,
+    niedostępna do wypłaty), reszta do właściciela; rezerwa ≤ koszt jednej
+    rozbudowy. Bez planu --- reguła §52H bez zmian.
+-   **Rozbudowa = opłacona usługa:** wymaga firmy budowlanej regionu z wolną
+    zdolnością ≥ pracy rozbudowy; wtedy klient płaci koszt rozbudowy
+    (`EXPANSION_CAPITAL_COST` = 100, bez zmiany) z gotówki (rezerwa
+    zwalniana), kwota jest przychodem wykonawcy w tym ticku, jego płace
+    trafiają do jego pracowników, moc rośnie. Bez wykonawcy plan zostaje
+    niezrealizowany (gotówka nie zwiększa mocy). Fakt
+    `construction_service_paid`. **Rozbieżność:** koszt 100 nie wynika z
+    definicji usługi (4 jedn. pracy × płaca to dziś ułamek tej kwoty) ---
+    propozycja: cena zlecenia = praca × płaca wykonawcy × (1 + marża)
+    albo jawny parametr ceny usługi w contencie; decyzja właściciela.
+-   **Likwidacja:** zamknięta firma (pracownicy zwolnieni, N1) po
+    rozliczeniu zobowiązań ticka oddaje właścicielowi całą wolną gotówkę:
+    najpierw niewypłacony zysk (do dodatniego wyniku zatrzymanego), reszta
+    jako zwrot kapitału (fakt `company_capital_returned` /
+    `capital_return_received`; nie zysk, nie przychód). Gotówka spada do
+    0, więc nic nie wraca drugi raz; późniejsza sprzedaż komisowa najpierw
+    pokrywa ewentualną ujemną gotówkę, potem jest zwykłym zyskiem
+    wypłacanym tak samo. Odbiorca wg istniejącego modelu właściciela
+    (§52H); brak odbiorcy --- gotówka zostaje, fakt
+    `capital_return_unclaimed` raz.
+-   **Zapisy:** v7 → v8 --- `investmentReserve = 0`; `consignmentPrice`
+    opcjonalne (lot bez ceny = cena lokalna).
+-   **Poza zakresem:** P15, P16, dodatkowe kategorie potrzeb, stałe
+    transfery, obowiązkowy podział własności, nowe ekrany.
 
 ------------------------------------------------------------------------
 

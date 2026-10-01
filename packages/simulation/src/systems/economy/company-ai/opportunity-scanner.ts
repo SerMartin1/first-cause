@@ -2,7 +2,7 @@ import type { Region, RegionEntrepreneurshipState } from "@first-cause/entities"
 import { assertNonNegative } from "../../../core/validation.js";
 import { clamp, evaluateHysteresisGate } from "./decision-framework.js";
 import { buildDecisionSnapshot, type DecisionSnapshot } from "./decision-snapshot.js";
-import { marginPerBatch } from "./pm-adoption.js";
+import { operatingMarginPerBatch } from "./production-decision.js";
 import type { ProductionRecipe } from "../production.js";
 
 /**
@@ -267,7 +267,14 @@ export function evaluateFounding(input: EvaluateFoundingInput): EvaluateFounding
   // === LABOR_ACCESS_BATCHES_TARGET === FOUNDING_INITIAL_CAPACITY).
   const sufficientLaborAvailable = laborTarget <= 0 || availableLabor >= laborTarget;
 
-  const marginPerBatchValue = marginPerBatch(recipe, input.prices);
+  // N3 (etap 1 naprawy po diagnozie Black Mountain): ta sama marża co plan
+  // produkcji firm -- sprzedaż − towary wejściowe − płaca nowej firmy na
+  // partię (wcześniej bez płac, więc zakładano firmy z góry deficytowe).
+  const marginPerBatchValue = operatingMarginPerBatch(
+    recipe,
+    input.prices,
+    FOUNDING_INITIAL_WAGE_OFFER,
+  );
   const competitionPenalty =
     input.existingCompetitorCount / COMPETITION_SATURATION_COMPETITORS;
   const capitalPenalty = capitalRequirement / CAPITAL_REQUIREMENT_NORMALIZATION;

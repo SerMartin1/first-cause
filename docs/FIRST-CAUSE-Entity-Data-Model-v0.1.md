@@ -761,6 +761,11 @@ Market:
       exportSupply:
       shortageSeverity:
       pricePressure:
+      householdNeed:        # potrzeby (dobro przetrwania, §52G)
+      householdPurchased:   # zakupy gospodarstw (§52G)
+      offered:              # dostępne oferty w ostatnim ticku (§52K)
+      ticksWithoutOffers:   # kolejne ticki bez ofert; brak = jeszcze bez oferty (§52K)
+      priceSuspension:      # powód ceny orientacyjnej (§52K)
 
   services:
     serviceId:
@@ -781,6 +786,15 @@ Market:
 -   `inventory >= 0`;
 -   eksport nie może przekraczać fizycznej podaży;
 -   rynek nie jest właścicielem definicji dóbr.
+
+**Stan implementacji (2026-10-01, Canonical §52I/§52K):** `localPrice` ma
+6 miejsc po przecinku (cena jednostkowa, nie przelew). `demand` to popyt
+z pokryciem finansowym, `householdNeed` potrzeby, `offered` towar
+faktycznie wystawiony w magazynie regionu, `householdPurchased` zakupy.
+Trwały brak ofert (`ticksWithoutOffers` ≥ okno historii albo brak
+jakiejkolwiek oferty) zatrzymuje presję cenową --- cena jest wtedy
+orientacyjna (`priceSuspension`). Stawka płacy `Company.workforce.wageOffer`
+ma tę samą precyzję 6 miejsc; wypłaty w groszach.
 
 ------------------------------------------------------------------------
 
@@ -896,6 +910,9 @@ Company:
     profit:
     taxes:
     financingCost:
+    retainedEarnings:      # niewypłacony wynik zatrzymany (Canonical §52H)
+    operatingCostHistory:  # koszty operacyjne ostatnich ≤ 3 ticków (bufor wypłaty)
+    investmentReserve:     # rezerwa inwestycyjna na jeden plan rozbudowy (Canonical §52L)
 
   production:
     productionMethodId:
@@ -932,6 +949,25 @@ Company:
     distressed:
     bankrupt:
 ```
+
+**Stan implementacji (2026-10-01, dochód właścicielski, Canonical §52H):**
+`finance.retainedEarnings` --- niewypłacony wynik zatrzymany: + rozliczony
+zysk, − strata, − wypłata właścicielska; może być ujemny; kapitał
+początkowy i wkłady finansujące nie są wynikiem (nowa firma: 0).
+`finance.operatingCostHistory` --- koszty operacyjne (dziś płace)
+ostatnich ≤ 3 ticków, najstarszy pierwszy. Właściciel (`ownerType` /
+`ownerEntityId`) dostaje wypłatę zysku: `individual` = kohorta i jej
+gospodarstwo, `company` = inna firma, `state` --- brak skarbu w modelu
+(bez wypłaty). `PopulationCohort.savings` (Canonical §52G) przyjmuje
+wypłaty kohorty właściciela.
+
+**Etap 4B (2026-10-01, Canonical §52L):** `finance.investmentReserve` ---
+wydzielona gotówka na aktywny plan rozbudowy (`ai.activeStates.
+expansion_plan`), niedostępna do wypłaty. Koszty operacyjne = płace +
+opłaty za przewóz własnego towaru. Firmy usługowe (`transport_company`,
+`construction_company`) nie mają metody produkcji; ich popyt na usługę z
+poprzedniego ticka jest w `market.expectedDemand.service`. Zamknięta firma
+oddaje właścicielowi wolną gotówkę (zwrot kapitału).
 
 ### Cykl AI
 

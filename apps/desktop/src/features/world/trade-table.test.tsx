@@ -96,11 +96,9 @@ describe("Trade by goods table (M21-VIS-R4B)", () => {
     expect(
       within(panel).getByRole("heading", { name: "Regional trade" }),
     ).toBeInTheDocument();
-    expect(within(panel).getByTestId("trade-period")).toHaveTextContent(
-      "Last completed month: year 3, month 2",
-    );
-    // Tick tylko w diagnostyce pomocy, nie w głównej informacji.
-    expect(within(panel).getByTestId("trade-period")).not.toHaveTextContent(/tick/i);
+    // Data świata tylko w górnym pasku: panel nie pokazuje daty okresu ani ticka.
+    expect(within(panel).queryByTestId("trade-period")).toBeNull();
+    expect(panel).not.toHaveTextContent(/year \d+, month \d+|tick/i);
     expect(within(panel).getByTestId("trade-units")).toHaveTextContent(
       "Delivered quantities, in each good's own units.",
     );
@@ -109,14 +107,12 @@ describe("Trade by goods table (M21-VIS-R4B)", () => {
     expect(help).not.toHaveAttribute("open");
     expect(within(help).getByText(/not per settlement/)).toBeInTheDocument();
     expect(within(help).getByText(/comparison window/)).toBeInTheDocument();
-    expect(within(help).getByTestId("trade-diagnostic-tick")).toHaveTextContent(
-      `data tick ${TRADE_PERIOD_TICK}`,
-    );
+    expect(within(help).queryByTestId("trade-diagnostic-tick")).toBeNull();
     const table = within(panel).getByTestId("trade-table");
     expect(columnHeaders(table)).toEqual(["Good", "Imports", "Exports"]);
-    // Kontekst w przyklejanym nagłówku: czyje i z którego miesiąca są dane.
+    // Kontekst w przyklejanym nagłówku: czyje dane, okres względnie (bez daty).
     expect(within(table).getByTestId("trade-context")).toHaveTextContent(
-      "Great Delta · year 3, month 2",
+      "Great Delta · last month",
     );
     expect(cells(goodRow("flour"))).toEqual(["20", "25"]);
     expect(cells(goodRow("timber"))).toEqual(["45", "0"]);
@@ -281,10 +277,8 @@ describe("Trade by goods table (M21-VIS-R4B)", () => {
     vi.mocked(api.getWorld).mockResolvedValue(next);
     vi.mocked(api.setSpeed).mockResolvedValue(next);
     fireEvent.click(screen.getByRole("button", { name: "×1" }));
-    await waitFor(() =>
-      expect(screen.getByTestId("trade-period")).toHaveTextContent("year 3, month 3"),
-    );
-    expect(goodRow("timber")).toBeNull();
+    // Nowy okres zastępuje stary (bez mieszania): drewna nie ma już w tabeli.
+    await waitFor(() => expect(goodRow("timber")).toBeNull());
     expect(screen.queryByTestId("trade-partners")).toBeNull();
     const current = next.current.regions.find((r) => r.regionId === R.delta);
     expect(tradeHighlight(current, "timber", R.mines)).toBeUndefined();
@@ -299,7 +293,7 @@ describe("Trade by goods table (M21-VIS-R4B)", () => {
     expect(ids).toHaveLength(LONG_LIST_GOODS.length + 1);
     const thead = panel.querySelector("table.fc-trade__table > thead")!;
     expect(within(thead as HTMLElement).getByTestId("trade-context")).toHaveTextContent(
-      "Emporium · year 3, month 2",
+      "Emporium · last month",
     );
   });
 
@@ -313,8 +307,8 @@ describe("Trade by goods table (M21-VIS-R4B)", () => {
     expect(
       within(panel).getByRole("heading", { name: "Handel regionu" }),
     ).toBeInTheDocument();
-    expect(within(panel).getByTestId("trade-period")).toHaveTextContent(
-      "Ostatni zakończony miesiąc: rok 3, miesiąc 2",
+    expect(within(panel).getByTestId("trade-context")).toHaveTextContent(
+      "Great Delta · ostatni miesiąc",
     );
     const names = [...panel.querySelectorAll("tbody tr[data-trade-good] button")].map(
       (b) => b.textContent?.replace(/^[▸▾]/, ""),
@@ -347,7 +341,7 @@ describe("Trade from a production tick (TRADE_SCENARIO) -- E, F", () => {
     await openTrade(TRADE_SCENARIO.importerRegionId, tradeSimulationView());
     expect(cells(goodRow("flour"))).toEqual([format(delivered), "0"]);
     expect(cells(goodRow("flour"))).not.toContain(format(evaluated));
-    expect(screen.getByTestId("trade-period")).toHaveTextContent("year 1, month 1");
+    expect(screen.getByTestId("trade-context")).toHaveTextContent("· last month");
     fireEvent.click(within(goodRow("flour")).getByRole("button"));
     expect(partnerRows()).toEqual([["Grain Basin", format(delivered), "0"]]);
 

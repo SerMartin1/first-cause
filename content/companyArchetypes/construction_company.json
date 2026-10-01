@@ -1,0 +1,11 @@
+{
+  "id": "construction_company",
+  "nameKey": "content.companyArchetype.construction_company.name",
+  "sector": "construction",
+  "allowedInputs": [],
+  "allowedOutputs": [],
+  "productionMethodIds": [],
+  "serviceIds": ["construction"],
+  "capitalRequirement": 20,
+  "implementationPhase": "VS"
+}

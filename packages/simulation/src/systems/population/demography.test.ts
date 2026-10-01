@@ -333,10 +333,10 @@ describe("applyMonthlyDemography -- employment reconciliation (audit regression 
     const preRetirement = result.cohorts.find((c) => c.ageGroup === "AGE_45_64")!;
 
     expect(preRetirement.population).toBe(110); // 120 - 10 aged into AGE_65_PLUS
-    // eligibleLaborForce = 110 * 0.65 = 71.5 (audit P0-05) -- a weaker
+    // eligibleLaborForce = ceil(110 * 0.65) = ceil(71.5) = 72, całe osoby (ENGINE_VERSION 4; audit P0-05) -- a weaker
     // "capped at population (110)" bound would still leave phantom workers
     // exceeding the real working-age labor supply.
-    expect(preRetirement.employment).toBe(71.5);
+    expect(preRetirement.employment).toBe(72);
   });
 });
 

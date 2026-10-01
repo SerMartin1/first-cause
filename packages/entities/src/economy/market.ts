@@ -10,6 +10,34 @@ export interface MarketGoodState {
   readonly exportSupply: number;
   readonly shortageSeverity: number;
   readonly pricePressure: number;
+  /**
+   * Etap 2 naprawy gospodarki (N7, 2026-10-01), tylko dobro przetrwania:
+   * potrzeby mieszkańców (jednostki koszyka × ludność) i faktyczne zakupy
+   * gospodarstw w ostatnim ticku. Popyt opłacalny to `demand`. Brak pola =
+   * brak danych (rynek bez gospodarstw albo stan sprzed etapu 2).
+   */
+  readonly householdNeed?: number;
+  readonly householdPurchased?: number;
+  /**
+   * P14 (2026-10-01): dostępne oferty w ostatnim ticku -- towar faktycznie
+   * wystawiony na sprzedaż w magazynie regionu przed zakupami (produkcja
+   * oddana w komis, zapas, przywieziony import); bez buforów firm i bez
+   * przyszłej produkcji. Brak pola = brak danych.
+   */
+  readonly offered?: number;
+  /**
+   * P14: liczba kolejnych ticków bez dostępnych ofert (0 = oferty w ostatnim
+   * ticku). Brak pola = rynek nie miał jeszcze żadnej oferty (albo stan z
+   * zapisu sprzed schematu 7 bez śladu oferty).
+   */
+  readonly ticksWithoutOffers?: number;
+  /**
+   * P14: powód zatrzymania automatycznej presji cenowej (cena jest wtedy
+   * orientacyjna, niepotwierdzona zakupami): `NEVER_OFFERED` -- rynek bez
+   * żadnej oferty; `NO_OFFERS_IN_WINDOW` -- brak ofert przez całe okno
+   * historii. Brak pola = cena reaguje normalnie.
+   */
+  readonly priceSuspension?: "NEVER_OFFERED" | "NO_OFFERS_IN_WINDOW";
 }
 
 export interface MarketServiceState {

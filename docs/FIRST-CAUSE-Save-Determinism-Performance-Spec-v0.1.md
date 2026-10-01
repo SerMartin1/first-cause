@@ -429,6 +429,30 @@ znaczenie zapisanych danych, dostaje własny krok migracji schematu
 otrzymują typ `trade_flow_evaluated`, bez zerowania, usuwania ani
 przeliczania). Sam numer wersji nie jest migracją.
 
+**Historia schematu (stan 2026-10-01):** v1 → v2 SET-LIFECYCLE-001
+(status osad); v2 → v3 M21-VIS-R4B (fakty handlu); v3 → v4 pracownicy w
+całych osobach (`normalizeWholeWorkforce`); v4 → v5 oszczędności
+gospodarstw `PopulationCohort.savings` (3 mies. koszyka) i komis
+`Inventory.consignment`; **v5 → v6 dochód właścicielski** (Canonical
+§52H): `Company.finance.retainedEarnings = 0` (zapis sprzed v6 nie pozwala
+wiarygodnie oddzielić zysku od kapitału początkowego, strat i rozbudów,
+więc niewypłacony wynik sprzed zapisu zostaje w firmie --- jawne
+ograniczenie migracji), `operatingCostHistory = [finance.costs]` (jedna
+obserwacja z ostatniego ticka). Gotówka firm i oszczędności gospodarstw
+bez zmian; migracja i wczytanie niczego nie wypłacają. ENGINE_VERSION 7
+(etap 4A, Canonical §52I): cena jednostkowa z 6 miejscami zamiast groszy
+--- bez zmiany struktury, więc bez kroku migracji schematu. **v6 → v7**
+(P14, Canonical §52K): dobra rynku dostają `offered`,
+`ticksWithoutOffers`, `priceSuspension`; migracja ustawia
+`ticksWithoutOffers = 0` tylko przy śladzie oferty w zapisanym ticku
+(zapas regionu > 0 albo zakupy gospodarstw > 0), bez odtwarzania
+historii transakcji. ENGINE_VERSION 8 (P12b: stawka płacy 6 miejsc; P14:
+presja cenowa i zamówienia importu). **v7 → v8** (etap 4B, Canonical
+§52L): `Company.finance.investmentReserve = 0`; opcjonalne
+`Inventory.consignmentPrice` (lot bez ceny = cena lokalna). ENGINE_VERSION
+9 (płatny przewóz, rozbudowa u wykonawcy, rezerwa P13, zwrot kapitału,
+handel przed finansami). Aktualnie SCHEMA_VERSION 8 / ENGINE_VERSION 9.
+
 ------------------------------------------------------------------------
 
 # 40. Save Migration

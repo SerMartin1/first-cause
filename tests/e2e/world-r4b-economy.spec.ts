@@ -295,7 +295,26 @@ test("M21-VIS-R4B: Economy -- employment in companies, acceptance material", asy
           "data-economy-goods-coverage",
           "partial",
         );
-        await expect(page.getByTestId("economy-method-changed")).toBeVisible();
+        await expect(page.getByTestId("economy-method-changed")).toBeAttached();
+        // Podpis „Dane częściowe” widoczny bez przewijania (w viewporcie i w kontenerze inspektora).
+        const partial = page.getByTestId("economy-goods-partial");
+        await expect(partial).toHaveText(lang === "pl" ? "Dane częściowe" : "Partial data");
+        await expect(partial).toBeInViewport({ ratio: 1 });
+        expect(
+          await partial.evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            let p = el.parentElement;
+            while (p) {
+              const style = getComputedStyle(p);
+              if (/(auto|scroll|hidden)/.test(style.overflowY)) {
+                const c = p.getBoundingClientRect();
+                if (r.top < c.top || r.bottom > c.bottom) return false;
+              }
+              p = p.parentElement;
+            }
+            return r.bottom <= window.innerHeight;
+          }),
+        ).toBe(true);
         await page.screenshot({
           path: shot(`r4b-economy-method-changed-${width}x${height}-${lang}.png`),
         });
@@ -372,13 +391,11 @@ test("M21-VIS-R4B: Economy -- employment in companies, acceptance material", asy
     await expect(employmentFact.locator(".fc-data")).toHaveText(
       people(region.economy.employment),
     );
-    // Okres produkcji i sprzedaży = ostatni zakończony miesiąc (tick − 1).
-    const date = after.current.summary.currentDate;
-    const period =
-      date.month === 1 ? { year: date.year - 1, month: 12 } : { ...date, month: date.month - 1 };
-    await expect(panel.getByTestId("economy-period")).toContainText(
-      `year ${period.year}, month ${period.month}`,
-    );
+    // Okres produkcji i sprzedaży = ostatni zakończony tick (tick − 1), opisany względnie
+    // („last month”); data świata jest wyłącznie w górnym pasku, panel jej nie powtarza.
+    await expect(panel.getByTestId("economy-period")).toHaveCount(0);
+    await expect(panel).not.toContainText(/year \d+, month \d+/);
+    await expect(panel).toContainText("Production by good · last month");
     if (region.economy.sales.status === "RECORDED")
       expect(region.economy.sales.tick).toBe(after.current.summary.currentTick - 1);
     const salesState = await panel

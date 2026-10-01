@@ -1,7 +1,7 @@
 import { createMarket, type Market } from "@first-cause/entities";
 import { describe, expect, it } from "vitest";
 import { InvariantViolationError } from "../../../core/validation.js";
-import { initializeMarketGood, updateMarketGood } from "./price-adjustment.js";
+import { initializeMarketGood, OFFER_WINDOW_TICKS, updateMarketGood } from "./price-adjustment.js";
 
 function seedMarket(goodId: string, basePrice: number): Market {
   const market = createMarket({ id: "market_region_001", regionId: "region_001" });
@@ -95,6 +95,43 @@ describe("updateMarketGood", () => {
       expect(price).toBeGreaterThan(previousPrice); // before the fix this stayed frozen at 10 forever
       previousPrice = price;
     }
+  });
+
+  it("N2 (Black Mountain diagnosis P7): with zero recent supply, regional inventory that covers demand does not push the price up; a glut pushes it down", () => {
+    // Zapas 184 jedn. przy popycie 0,5/tick i zerowej podaży (stan z
+    // diagnozy, seed-alpha): wcześniej +3%/tick bez końca (0,80 → 10 915).
+    let market = seedMarket("flour", 0.8);
+    for (let tick = 0; tick < 12; tick++) {
+      market = updateMarketGood({
+        market,
+        goodId: "flour",
+        supply: 0,
+        demandSources: { households: 0.5 },
+        inventory: 184,
+      }).market;
+    }
+    expect(market.goods.flour!.localPrice).toBeLessThan(0.8);
+    expect(market.goods.flour!.shortageSeverity).toBe(0);
+
+    // Zapas dokładnie pokrywający popyt (bufor 0,5 × 20 = 10): cena stoi.
+    const covered = updateMarketGood({
+      market: seedMarket("flour", 2),
+      goodId: "flour",
+      supply: 0,
+      demandSources: { households: 10 },
+      inventory: 20,
+    }).market;
+    expect(covered.goods.flour!.localPrice).toBe(2);
+
+    // Bez zapasu zachowanie bez zmian: pełny wzrost przy niedoborze.
+    const stockout = updateMarketGood({
+      market: seedMarket("flour", 2),
+      goodId: "flour",
+      supply: 0,
+      demandSources: { households: 10 },
+      inventory: 0,
+    }).market;
+    expect(stockout.goods.flour!.localPrice).toBe(2.06);
   });
 
   it("does not manufacture price pressure for a good with neither supply nor demand (no signal to react to)", () => {
@@ -339,5 +376,106 @@ describe("updateMarketGood", () => {
     expect(market.history.rollingSupply.grain!.length).toBeLessThanOrEqual(6);
     expect(market.history.rollingDemand.grain!.length).toBeLessThanOrEqual(6);
     expect(market.history.rollingPrice.grain!.length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("etap 4A (P12): precyzja ceny jednostkowej oddzielona od groszy", () => {
+  it("cena 0,16 rośnie przy trwałym niedoborze i spada przy nadwyżce (dawniej zaokrąglenie do grosza kasowało ruch)", () => {
+    let up = seedMarket("flour", 0.16);
+    let down = seedMarket("flour", 0.16);
+    for (let tick = 0; tick < 12; tick++) {
+      up = updateMarketGood({
+        market: up,
+        goodId: "flour",
+        supply: 0,
+        demandSources: { households: 66 },
+        inventory: 0,
+      }).market;
+      down = updateMarketGood({
+        market: down,
+        goodId: "flour",
+        supply: 60,
+        demandSources: { households: 20 },
+        inventory: 200,
+      }).market;
+    }
+    const upPrice = up.goods.flour!.localPrice;
+    const downPrice = down.goods.flour!.localPrice;
+    // 12 × maks. +3% ≈ 0,228; spadek ograniczony podłogą MIN_PRICE 0,01.
+    expect(upPrice).toBeGreaterThan(0.2);
+    expect(upPrice).toBeLessThanOrEqual(0.16 * 1.03 ** 12 + 1e-6);
+    expect(downPrice).toBeLessThan(0.12);
+    expect(downPrice).toBeGreaterThanOrEqual(0.01);
+    // 6 miejsc po przecinku, nie grosze.
+    expect(Math.round(upPrice * 1e6) / 1e6).toBe(upPrice);
+    expect(Math.round(upPrice * 100) / 100).not.toBe(upPrice);
+  });
+
+  it("pierwszy krok z 0,16 to dokładnie +3% (limit i wygładzanie bez zmian)", () => {
+    const next = updateMarketGood({
+      market: seedMarket("flour", 0.16),
+      goodId: "flour",
+      supply: 0,
+      demandSources: { households: 10 },
+      inventory: 0,
+    }).market;
+    expect(next.goods.flour!.localPrice).toBe(0.1648);
+  });
+});
+
+describe("P14: cena przy braku dostępnych ofert", () => {
+  const step = (market: Market, offered: number, inventory = 0) =>
+    updateMarketGood({
+      market,
+      goodId: "flour",
+      supply: 0,
+      demandSources: { households: 30 },
+      inventory,
+      offered,
+    });
+
+  it("rynek bez żadnej oferty: cena bazowa zostaje (orientacyjna), niedobór dalej 1, fakt z powodem", () => {
+    let market = seedMarket("flour", 4);
+    const first = step(market, 0);
+    expect(first.facts.map((f) => f.type)).toContain("price_pressure_suspended");
+    expect(first.causalLinks.some((l) => l.factor.key === "never_offered")).toBe(true);
+    market = first.market;
+    for (let tick = 0; tick < 24; tick++) market = step(market, 0).market;
+    const good = market.goods.flour!;
+    expect(good.localPrice).toBe(4);
+    expect(good.priceSuspension).toBe("NEVER_OFFERED");
+    expect(good.shortageSeverity).toBe(1);
+    expect(good.demand).toBe(30);
+  });
+
+  it("krótki brak ofert po podaży nadal podnosi cenę; po całym oknie podwyżki stają; oferty je wznawiają", () => {
+    let market = step(seedMarket("flour", 4), 10, 10).market; // oferty
+    expect(market.goods.flour!.ticksWithoutOffers).toBe(0);
+    const prices: number[] = [];
+    for (let tick = 0; tick < OFFER_WINDOW_TICKS + 4; tick++) {
+      market = step(market, 0).market;
+      prices.push(market.goods.flour!.localPrice);
+    }
+    // Ticki 1..okno−1: wzrost; od okna: cena stoi.
+    expect(prices[0]!).toBeGreaterThan(4);
+    expect(prices[OFFER_WINDOW_TICKS - 2]!).toBeGreaterThan(prices[0]!);
+    expect(prices.at(-1)).toBe(prices[OFFER_WINDOW_TICKS - 2]);
+    expect(market.goods.flour!.priceSuspension).toBe("NO_OFFERS_IN_WINDOW");
+    const resumed = step(market, 5, 0);
+    expect(resumed.facts.map((f) => f.type)).toContain("price_pressure_resumed");
+    expect(resumed.market.goods.flour!.priceSuspension).toBeUndefined();
+    expect(resumed.market.goods.flour!.localPrice).toBeGreaterThan(prices.at(-1)!);
+  });
+
+  it("bez `offered` (wywołujący nie śledzi ofert) zachowanie sprzed P14", () => {
+    const next = updateMarketGood({
+      market: seedMarket("flour", 4),
+      goodId: "flour",
+      supply: 0,
+      demandSources: { households: 30 },
+      inventory: 0,
+    }).market.goods.flour!;
+    expect(next.localPrice).toBe(4.12);
+    expect(next.ticksWithoutOffers).toBeUndefined();
   });
 });

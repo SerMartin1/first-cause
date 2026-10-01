@@ -21,10 +21,38 @@ import {
   offsetCausalLinks,
   type PendingCausalLink,
 } from "./causal-links.js";
-import { sortedEntries } from "./determinism.js";
 import { advanceCalendarDate } from "./time.js";
 import type { RngStream } from "./rng.js";
+import { roundMoney, roundWageRate, transactionValue } from "./rounding.js";
 import { groupCohortsIntoFamilies } from "../systems/population/cohorts.js";
+import {
+  splitMoney,
+  SURVIVAL_GOOD_ID,
+  SURVIVAL_UNITS_PER_CAPITA,
+} from "../systems/population/household-budget.js";
+import {
+  addConsignment,
+  consignmentOf,
+  takeConsignment,
+} from "../systems/economy/consignment.js";
+import {
+  liquidationSplit,
+  operatingBuffer,
+  ownerPayoutAmount,
+  recordOperatingCosts,
+  resolveOwnerRecipient,
+  splitSurplus,
+} from "../systems/economy/owner-income.js";
+import {
+  blendedUnitPrice,
+  lotUnitPrice,
+  plannedServiceEmployees,
+  pruneLotPrices,
+  SERVICE_DEMAND_KEY,
+  serviceCapacity,
+  withLandedPrice,
+  type ServiceProviderProfile,
+} from "../systems/economy/services.js";
 import { applyMonthlyDemography } from "../systems/population/demography.js";
 import { applyHouseholdConsumption } from "../systems/population/consumption.js";
 import {
@@ -49,11 +77,17 @@ import {
 } from "../systems/economy/settlement.js";
 import {
   availableWorkers,
-  eligibleLaborForce,
+  regionAvailableWorkers,
+  regionLaborForce,
   layoffWorkers,
   matchEmployment,
 } from "../systems/economy/labor/employment.js";
-import { adjustWageOffer } from "../systems/economy/labor/wages.js";
+import {
+  adjustWageOffer,
+  affordableEmployees,
+  planWageBounds,
+  type WageBounds,
+} from "../systems/economy/labor/wages.js";
 import { updateMarketGood } from "../systems/economy/markets/price-adjustment.js";
 import { evaluateTradeFlow } from "../systems/economy/trade/flows.js";
 import {
@@ -68,6 +102,10 @@ import {
   decideLabor,
   decideLifecycle,
   decideProduction,
+  EXPANSION_STEP_FRACTION,
+  forecastDemand,
+  INCREASE_BELOW_MONTHS,
+  type PlanGoodMarket,
   evaluateFounding,
 } from "../systems/economy/company-ai/index.js";
 import { evaluatePmAdoption } from "../systems/economy/company-ai/pm-adoption.js";
@@ -173,8 +211,6 @@ import { tickArchitectInfluence } from "../systems/architect/influence.js";
 const EMPLOYEES_PER_CAPACITY_UNIT = 1; // TODO tuning -- most z decyzji produkcyjnej (capacity*utilization) do docelowego zatrudnienia; żaden system tego nie liczy (AI-04 zakłada gotowy target)
 const TARGET_FINISHED_GOOD_BUFFER = 5; // TODO tuning -- ile jednostek gotowego dobra firma trzyma jako bufor przed sprzedażą (settleProductionSale)
 const EXPANSION_CAPITAL_COST = 100; // TODO tuning -- decideLifecycle wymaga jakiegoś kosztu ekspansji; content/finance model to nie ten etap
-const SURVIVAL_UNITS_PER_CAPITA = 3; // TODO tuning -- ile jednostek dobra "survival" jedna osoba potrzebuje na tick; 0.05 z M8+M9 regression test było skalibrowane pod inny scenariusz (jeden dobrze opłacany pracownik kupujący zboże po cenie 10), nie pod ten fixture
-const SURVIVAL_GOOD_ID = "flour"; // TODO content -- Etap 1 hardcoded most kategoria->dobro (pełne mapowanie z contentu to osobna praca, patrz plan sekcja 1)
 const DEFAULT_TRANSPORT_MODE_ID = "cart"; // TODO tuning -- fallback gdy connection.infrastructure.transportModes jest puste/niedopasowane
 
 /**
@@ -183,6 +219,12 @@ const DEFAULT_TRANSPORT_MODE_ID = "cart"; // TODO tuning -- fallback gdy connect
  * regionie. `capitalRequirement` to `CompanyArchetypeDefinition.
  * capitalRequirement` (M2) wprost, bez transformacji.
  */
+type OwnerPayoutTarget = NonNullable<ReturnType<typeof resolveOwnerRecipient>>;
+interface ImportOrders {
+  unmetNeed: number;
+  funds: number;
+}
+
 export interface EntrepreneurshipCandidate {
   readonly archetypeId: string;
   readonly productionMethodId: string;
@@ -259,6 +301,15 @@ export interface RunEconomyTickInput {
    * caller'a, który tego nie poda).
    */
   readonly priorFactIndex?: Readonly<Record<string, string>>;
+  /**
+   * Etap 4B (2026-10-01, Canonical §52L): usługodawcy z contentu
+   * (`companyArchetype.serviceIds` → `ServiceDefinition`), kluczowani po
+   * `archetypeId`. Bez profilu transportu handel działa jak przed 4B (bez
+   * przewoźnika i opłaty), bez profilu budowy -- rozbudowa jak przed 4B
+   * (koszt bez odbiorcy); dotyczy tylko konfiguracji bez contentu (scenariusze
+   * testowe), gra ładuje oba profile.
+   */
+  readonly serviceProvidersByArchetypeId?: Readonly<Record<string, ServiceProviderProfile>>;
 }
 
 export interface RunEconomyTickResult {
@@ -268,29 +319,101 @@ export interface RunEconomyTickResult {
   readonly causalLinks: readonly PendingCausalLink[];
 }
 
-function recipeCost(
-  recipe: ProductionRecipe,
-  prices: Readonly<Record<string, number>>,
-): number {
-  let cost = 0;
-  for (const [resourceId, quantity] of sortedEntries(recipe.resourceInputsPerBatch)) {
-    cost += quantity * (prices[resourceId] ?? 0);
-  }
-  for (const [goodId, quantity] of sortedEntries(recipe.goodInputsPerBatch)) {
-    cost += quantity * (prices[goodId] ?? 0);
-  }
-  return cost;
+/** Średnia z ostatnich `DEMAND_SMOOTHING_MONTHS` cen towaru (historia rynku); bez historii -- bieżąca cena, bez towaru -- 0. */
+function smoothedPrice(market: Market, goodId: string): number {
+  const history = market.history.rollingPrice[goodId];
+  const forecast = forecastDemand(history);
+  return forecast ?? market.goods[goodId]?.localPrice ?? 0;
 }
 
-function recipeRevenuePerBatch(
-  recipe: ProductionRecipe,
-  prices: Readonly<Record<string, number>>,
-): number {
-  let revenue = 0;
-  for (const [goodId, quantity] of sortedEntries(recipe.goodOutputsPerBatch)) {
-    revenue += quantity * (prices[goodId] ?? 0);
+/**
+ * N3: rynek per towar oczami każdej aktywnej firmy regionu (`PlanGoodMarket`).
+ * Zapas = magazyn regionu + zapasy firm ponad ich bufor (towar jest albo tu,
+ * albo tu -- bez podwójnego liczenia; bufor nie jest wystawiony na sprzedaż). Udział firmy w towarze = jej sprzedaż z poprzedniego
+ * miesiąca (`finance.revenue`) wśród producentów tego towaru; firma bez
+ * sprzedaży (nowa albo bezczynna) -- według potencjału mocy (capacity ×
+ * wyjście × cena), także obok konkurentów ze sprzedażą.
+ * Region bez rynku: brak wpisów (plan nie powstaje -- brak danych).
+ */
+function buildPlanGoodMarkets(args: {
+  readonly market: Market | undefined;
+  readonly regionInventory: Inventory | undefined;
+  readonly companies: readonly Company[];
+  readonly inventories: Readonly<Record<string, Inventory>>;
+  readonly productionRecipesByMethodId: Readonly<Record<string, ProductionRecipe>>;
+}): Map<string, Record<string, PlanGoodMarket>> {
+  const result = new Map<string, Record<string, PlanGoodMarket>>();
+  const { market } = args;
+  if (!market) return result;
+  const recipeOf = (c: Company) =>
+    c.production.productionMethodId
+      ? args.productionRecipesByMethodId[c.production.productionMethodId]
+      : undefined;
+  const goodIds = new Set<string>();
+  for (const c of args.companies) {
+    const recipe = recipeOf(c);
+    if (!recipe) continue;
+    for (const g of Object.keys(recipe.goodOutputsPerBatch)) goodIds.add(g);
+    for (const g of Object.keys(recipe.goodInputsPerBatch)) goodIds.add(g);
   }
-  return revenue;
+  const view = new Map<string, { price: number; forecast: number | undefined; stock: number }>();
+  for (const goodId of [...goodIds].sort()) {
+    const good = market.goods[goodId];
+    if (!good) continue;
+    // Zapas DOSTĘPNY do sprzedaży: magazyn regionu + to, co firmy mają ponad
+    // własny bufor (bufora firma nie wystawia -- `settleProductionSale`).
+    // Wcześniej liczone całe stany firm: bufory bezczynnych firm (po 5 jedn.)
+    // udawały zapas, którego nikt nie mógł kupić, i blokowały wzrost przy
+    // pustym magazynie (diagnoza etapu 2, seed-delta).
+    const stock =
+      (args.regionInventory?.items[goodId]?.quantity ?? 0) +
+      args.companies.reduce(
+        (sum, c) =>
+          sum +
+          Math.max(
+            0,
+            (args.inventories[c.inventoryId]?.items[goodId]?.quantity ?? 0) -
+              TARGET_FINISHED_GOOD_BUFFER,
+          ),
+        0,
+      );
+    view.set(goodId, {
+      price: good.localPrice,
+      forecast: forecastDemand(market.history.rollingDemand[goodId]),
+      stock,
+    });
+  }
+  const weights = new Map<string, Map<string, number>>();
+  for (const [goodId, v] of view) {
+    const producers = args.companies.filter(
+      (c) => (recipeOf(c)?.goodOutputsPerBatch[goodId] ?? 0) > 0,
+    );
+    const w = new Map<string, number>();
+    for (const c of producers) {
+      const potential =
+        c.production.capacity * (recipeOf(c)!.goodOutputsPerBatch[goodId] ?? 0) * v.price;
+      w.set(c.id, c.finance.revenue > 0 ? c.finance.revenue : potential);
+    }
+    weights.set(goodId, w);
+  }
+  for (const c of args.companies) {
+    const goods: Record<string, PlanGoodMarket> = {};
+    for (const [goodId, v] of view) {
+      const w = weights.get(goodId)!;
+      const total = [...w.values()].reduce((a, b) => a + b, 0);
+      const own = w.get(c.id);
+      const share =
+        own === undefined ? 0 : total > 0 ? own / total : 1 / Math.max(1, w.size);
+      goods[goodId] = {
+        price: v.price,
+        forecastDemand: v.forecast,
+        totalStock: v.stock,
+        share,
+      };
+    }
+    result.set(c.id, goods);
+  }
+  return result;
 }
 
 function clamp01(value: number): number {
@@ -387,6 +510,40 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   const availableFactIndexByRegionAndDiscovery: Record<string, Record<string, number>> = {};
 
   const regionIds = Object.keys(worldState.regions).sort();
+  // Etap 2 (N6 min.): wpłaty kupujących dla firm (także z innych regionów) i
+  // koszty płac -- finanse firm rozliczane po pętli regionów.
+  const salesRevenueByCompanyId: Record<string, number> = {};
+  // P14: niezrealizowane, finansowo pokryte zamówienia gospodarstw per
+  // `${marketId}:${goodId}` (krok 7b) -- zmniejszane przez faktyczny import
+  // (krok 10), żeby to samo zamówienie nie było liczone dwa razy.
+  const importOrdersByMarketGood: Record<string, ImportOrders> = {};
+  const laborCostByCompanyId: Record<string, number> = {};
+  // Dochód właścicielski: zobowiązania najbliższego ticka z bieżącego planu
+  // (płaca × pracownicy po decyzji o zatrudnieniu tego ticka).
+  const nextTickObligationsByCompanyId: Record<string, number> = {};
+  // Etap 4B (Canonical §52L): usługodawcy. Zdolność usługi w tym ticku =
+  // pracownicy po decyzji o zatrudnieniu w tym ticku × wydajność (ustawiana w
+  // pętli firm; tu wartość startowa); zużywana przez przewozy i budowy.
+  const serviceProviders = input.serviceProvidersByArchetypeId ?? {};
+  const providerOf = (company: Company): ServiceProviderProfile | undefined =>
+    serviceProviders[company.archetypeId];
+  const transportServiceEnabled = Object.values(serviceProviders).some(
+    (p) => p.kind === "transport",
+  );
+  const constructionProfile = Object.values(serviceProviders)
+    .filter((p) => p.kind === "construction")
+    .sort((a, b) => a.archetypeId.localeCompare(b.archetypeId))[0];
+  const serviceCapacityRemaining: Record<string, number> = {};
+  for (const company of Object.values(worldState.companies)) {
+    const profile = providerOf(company);
+    if (profile) serviceCapacityRemaining[company.id] = serviceCapacity(company, profile);
+  }
+  /** Zgłoszony w tym ticku popyt na usługę (jednostki) -- plan zatrudnienia usługodawcy w następnym. */
+  const serviceDemandByCompanyId: Record<string, number> = {};
+  /** Opłaty za przewóz należne od właścicieli towaru (koszt operacyjny, rozliczany w finansach). */
+  const transportCostByCompanyId: Record<string, number> = {};
+  /** Region z planem rozbudowy gotowym do opłacenia, ale bez firmy budowlanej (sygnał założenia). */
+  const constructionRequestsByRegion: Record<string, boolean> = {};
 
   // 1. Regeneracja odnawialnych zasobów (M5, już istniejący system): bez
   // tego wywołania każdy `renewable: true` depozyt tylko by się wyczerpywał
@@ -729,7 +886,13 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     let region = regions[regionId]!;
     const marketId = region.economy.marketId;
     const regionInventoryId = region.economy.regionalInventoryId;
-    const companyIds = [...region.economy.companyIds].sort();
+    // Etap 4B: usługodawcy najpierw -- ich zdolność w tym ticku (pracownicy po
+    // decyzji o zatrudnieniu) musi być znana, zanim klienci zamówią usługę.
+    const companyIds = [...region.economy.companyIds].sort((a, b) => {
+      const providerA = worldState.companies[a] && providerOf(worldState.companies[a]) ? 0 : 1;
+      const providerB = worldState.companies[b] && providerOf(worldState.companies[b]) ? 0 : 1;
+      return providerA - providerB || a.localeCompare(b);
+    });
     const cohortIds = [...region.population.cohortIds].sort();
 
     const depositIdByResource = new Map<string, string>();
@@ -747,10 +910,59 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     // "Zastosuj industry adoption" (poniżej) linkuje `technology_
     // adoption_increased` do TEGO, nie do samego `discovery_occurred`.
     const productionMethodAdoptedFactIndexByDiscoveryId: Record<string, number> = {};
+    // N4: zapotrzebowanie na pracę ponad dostępnych bezrobotnych regionu.
+    let unmetLaborNeed = 0;
+    // Etap 2: płace wypłacone w tym ticku przez firmy regionu (do gospodarstw).
+    let regionWageBill = 0;
+
+    // N3 (etap 1 naprawy po diagnozie Black Mountain, 2026-10-01): rynek per
+    // towar dla planów firm -- prognoza popytu (historia rynku), zapas regionu
+    // + bufory firm (bez podwójnego liczenia) i udział każdej firmy (sprzedaż
+    // z poprzedniego miesiąca; nowa firma -- według mocy). Stan z początku ticka.
+    const planGoodsByCompanyId = buildPlanGoodMarkets({
+      market: marketId ? markets[marketId] : undefined,
+      regionInventory: regionInventoryId ? inventories[regionInventoryId] : undefined,
+      companies: companyIds.map((id) => companies[id]!).filter((c) => c.status.active),
+      inventories,
+      productionRecipesByMethodId,
+    });
+    // N4: lokalny miesięczny koszt koszyka przetrwania jednej osoby (wygładzona cena).
+    const survivalBasketCost = marketId
+      ? SURVIVAL_UNITS_PER_CAPITA * smoothedPrice(markets[marketId]!, SURVIVAL_GOOD_ID)
+      : 0;
+
+    // N1 (diagnoza Black Mountain 2026-10-01, P6): zamknięta firma zwalnia
+    // WSZYSTKICH pracowników -- wcześniej zachowywała `employees`, a kohorty
+    // `employment` i dochód, więc ludzie „pracowali” dla nieistniejącej firmy
+    // (zawyżony popyt, pomniejszona siła robocza). Ten sam mechanizm co
+    // zwykły layoff (`layoffWorkers`, kohorty w kolejności id); nadwyżka bez
+    // pokrycia w kohortach (zatrudnienie kohorty zmalało wcześniej przez
+    // demografię/migrację) po prostu znika -- tych ludzi już nie ma.
+    const releaseClosedCompanyWorkers = (closed: Company): Company => {
+      let next = closed;
+      for (const cohortId of cohortIds) {
+        if (next.workforce.employees <= 0) break;
+        const cohort = populationCohorts[cohortId]!;
+        const count = Math.min(next.workforce.employees, cohort.employment);
+        if (count <= 0) continue;
+        const layoffResult = layoffWorkers({ company: next, cohort, count });
+        next = layoffResult.company;
+        populationCohorts[cohortId] = layoffResult.cohort;
+        const baseIndex = facts.length;
+        facts.push(...layoffResult.facts);
+        causalLinks.push(...offsetCausalLinks(layoffResult.causalLinks, baseIndex));
+      }
+      return { ...next, workforce: { ...next.workforce, employees: 0, vacancies: 0 } };
+    };
 
     for (const companyId of companyIds) {
       let company = companies[companyId]!;
-      if (!company.status.active) continue;
+      if (!company.status.active) {
+        // Firma zamknięta wcześniej (np. stary zapis) z pracownikami: zwolnij.
+        if (company.workforce.employees > 0 || company.workforce.vacancies > 0)
+          companies[companyId] = releaseClosedCompanyWorkers(company);
+        continue;
+      }
 
       const market = marketId ? markets[marketId] : undefined;
       const prices = market
@@ -778,9 +990,6 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       }
 
       const companyInventoryBeforeDecision = inventories[company.inventoryId]!;
-      const expectedMargin = recipe
-        ? recipeRevenuePerBatch(recipe, prices) - recipeCost(recipe, prices)
-        : 0;
       const inputAvailability = recipe
         ? computeInputAvailability(
             recipe,
@@ -788,32 +997,97 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
             depositsForRecipe,
           )
         : 1;
-      const primaryOutputGoodId = recipe
-        ? Object.keys(recipe.goodOutputsPerBatch)[0]
-        : undefined;
-      const finishedGoodQuantity = primaryOutputGoodId
-        ? (companyInventoryBeforeDecision.items[primaryOutputGoodId]?.quantity ?? 0)
-        : 0;
-      const inventoryLevel =
-        TARGET_FINISHED_GOOD_BUFFER > 0
-          ? finishedGoodQuantity / TARGET_FINISHED_GOOD_BUFFER
-          : 0;
 
-      const productionDecision = decideProduction({
-        company,
-        expectedMargin,
-        inputAvailability,
-        inventoryLevel,
-        financialHealth,
-      });
-      company = productionDecision.company;
-      facts.push(...productionDecision.facts);
-
-      const targetEmployment = Math.ceil(
-        company.production.capacity *
-          company.production.utilization *
-          EMPLOYEES_PER_CAPACITY_UNIT,
+      // N4: ilu ludzi firma może mieć -- obecni + dostępni bezrobotni regionu.
+      const regionAvailableNow = regionAvailableWorkers(
+        cohortIds.map((cohortId) => populationCohorts[cohortId]!),
       );
+      // N3: plan produkcji (możliwa sprzedaż − wejścia − płace, pokrycie zapasem),
+      // tylko w granicach osiągalnych pracowników.
+      const productionDecision = recipe
+        ? decideProduction({
+            company,
+            recipe,
+            goods: planGoodsByCompanyId.get(company.id) ?? {},
+            inputAvailability,
+            financialHealth,
+            employeesPerCapacityUnit: EMPLOYEES_PER_CAPACITY_UNIT,
+            maxEmployees: company.workforce.employees + regionAvailableNow,
+          })
+        : undefined;
+      if (productionDecision) {
+        company = productionDecision.company;
+        facts.push(...productionDecision.facts);
+      }
+      const plan = productionDecision?.plan;
+
+      // N4: zatrudnienie wynika z planu i jest ograniczone do obecnych
+      // pracowników + dostępnych bezrobotnych regionu (bez planowania ludzi,
+      // których nie ma); przy budżecie poniżej płacy-podłogi -- mniejszy plan.
+      const wageBoundsForCompany: WageBounds = planWageBounds(plan, survivalBasketCost);
+      // Etap 4B: usługodawca planuje pracowników według popytu na usługę
+      // zgłoszonego w poprzednim ticku (bez zamówień -- bez pracowników).
+      const serviceProfile = providerOf(company);
+      // Etap 4B: usługodawca zatrudnia najwyżej tylu ludzi, ilu opłaci z
+      // posiadanej gotówki (działalność wymaga finansowania -- bez debetu, który
+      // tworzyłby pieniądz). Bez pracowników i bez środków na jednego pracownika
+      // zamyka działalność (likwidacja zwraca resztę gotówki właścicielowi);
+      // przy kolejnych zamówieniach może powstać nowy usługodawca.
+      const affordableServiceStaff =
+        serviceProfile && company.workforce.wageOffer > 0
+          ? Math.floor(Math.max(0, company.finance.cash) / company.workforce.wageOffer + 1e-9)
+          : Number.POSITIVE_INFINITY;
+      if (serviceProfile && company.workforce.employees === 0 && affordableServiceStaff === 0) {
+        const closed: Company = {
+          ...company,
+          closedTick: tick,
+          status: { ...company.status, active: false, distressed: true },
+        };
+        facts.push({
+          type: "company_closed",
+          subject: { entityType: "company", entityId: company.id },
+          location: { regionId: company.regionId },
+          values: { before: 1, after: 0 },
+        });
+        causalLinks.push({
+          targetIndex: facts.length - 1,
+          source: { kind: "external", key: `company:${company.id}:cash` },
+          type: "CONSTRAINING",
+          factor: { key: "cannot_fund_one_worker", contribution: company.finance.cash },
+          mechanism: "usługodawca nie ma pracowników ani środków na płacę jednego pracownika",
+          system: "service-provider",
+        });
+        companies[companyId] = releaseClosedCompanyWorkers(closed);
+        continue;
+      }
+      let plannedEmployees = serviceProfile
+        ? Math.min(plannedServiceEmployees(company, serviceProfile), affordableServiceStaff)
+        : plan
+          ? plan.plannedEmployees
+          : Math.ceil(
+              company.production.capacity *
+                company.production.utilization *
+                EMPLOYEES_PER_CAPACITY_UNIT,
+            );
+      if (
+        plan &&
+        wageBoundsForCompany.ceiling !== undefined &&
+        wageBoundsForCompany.ceiling < wageBoundsForCompany.floor
+      )
+        plannedEmployees = Math.min(
+          plannedEmployees,
+          affordableEmployees(plan, wageBoundsForCompany.floor),
+        );
+      const targetEmployment = Math.min(
+        plannedEmployees,
+        company.workforce.employees + regionAvailableNow,
+      );
+      // Zapotrzebowania ponad dostępnych ludzi nie zatrudniamy ani nie
+      // podbijamy nim płac, ale zostaje sygnałem „są miejsca pracy” dla
+      // migracji (krok 9.5) -- tak jak dawniej robiły to wakaty.
+      unmetLaborNeed +=
+        Math.max(0, plannedEmployees - targetEmployment) +
+        (productionDecision?.unmetLaborNeed ?? 0);
       const laborDecision = decideLabor({
         company,
         tick,
@@ -823,18 +1097,127 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       company = laborDecision.company;
       facts.push(...laborDecision.facts);
 
-      const demandPersistenceScore = primaryOutputGoodId
-        ? (market?.goods[primaryOutputGoodId]?.shortageSeverity ?? 0)
+      // N3: rozbudowa na tych samych sygnałach -- trwały popyt (pokrycie
+      // zapasem poniżej progu zwiększania), wynik po płacach (znormalizowany
+      // do przychodu), kapitał i wolni pracownicy na nowe moce.
+      const coverage = productionDecision?.coverage;
+      const demandPersistenceScore =
+        coverage?.kind === "MONTHS"
+          ? clamp01(1 - coverage.months / INCREASE_BELOW_MONTHS)
+          : 0;
+      const normalizedResult = plan
+        ? plan.expectedRevenue > 0
+          ? Math.max(-1, Math.min(1, plan.expectedResult / plan.expectedRevenue))
+          : plan.expectedResult < 0
+            ? -1
+            : 0
         : 0;
+      const expansionWorkers = Math.ceil(
+        company.production.capacity * EXPANSION_STEP_FRACTION * EMPLOYEES_PER_CAPACITY_UNIT,
+      );
+      const laborAvailableForExpansion =
+        regionAvailableNow - Math.max(0, targetEmployment - company.workforce.employees) >=
+        expansionWorkers;
+
+      // Etap 4B (P13 + wykonanie rozbudowy, Canonical §52L): jeden aktywny plan
+      // rozbudowy uzasadniony przez istniejące sygnały AI (trwały popyt, wynik,
+      // wejścia, wolni pracownicy), oceniany od nowa co tick -- anulowanie
+      // zwalnia rezerwę. Rozbudowę wykonuje firma budowlana regionu z wolną
+      // zdolnością pracy; bez niej plan zostaje niezrealizowany (sama gotówka
+      // nie zwiększa mocy). Bez profilu budowy w konfiguracji -- jak przed 4B.
+      let contractorId: string | undefined;
+      if (constructionProfile && recipe) {
+        const expansionJustified =
+          !financialHealth.distressed &&
+          demandPersistenceScore > 0 &&
+          normalizedResult > 0 &&
+          inputAvailability > 0 &&
+          laborAvailableForExpansion;
+        const reserve = company.finance.investmentReserve ?? 0;
+        if (!expansionJustified && reserve > 0) {
+          facts.push({
+            type: "investment_reserve_released",
+            subject: { entityType: "company", entityId: company.id },
+            location: { regionId },
+            values: { before: reserve, after: 0, delta: -reserve },
+          });
+          causalLinks.push({
+            targetIndex: facts.length - 1,
+            source: { kind: "external", key: `company:${company.id}:expansion_plan` },
+            type: "CONSTRAINING",
+            factor: { key: "expansion_plan_cancelled", contribution: reserve },
+            mechanism: "plan rozbudowy nie spełnia już warunków -- rezerwa wraca do wolnej gotówki",
+            system: "investment-reserve",
+          });
+        }
+        company = {
+          ...company,
+          finance: {
+            ...company.finance,
+            investmentReserve: expansionJustified ? reserve : 0,
+          },
+          ai: {
+            ...company.ai,
+            activeStates: { ...company.ai.activeStates, expansion_plan: expansionJustified },
+          },
+        };
+        // Wykonawca: pierwsza (po id) firma budowlana regionu z wolną
+        // zdolnością w tym ticku (usługodawcy są przetwarzani wcześniej).
+        contractorId = companyIds
+          .map((id) => companies[id]!)
+          .find(
+            (c) =>
+              c.status.active &&
+              providerOf(c)?.kind === "construction" &&
+              (serviceCapacityRemaining[c.id] ?? 0) + 1e-9 >=
+                constructionProfile.expansionWorkUnits,
+          )?.id;
+      }
+
       const companyBeforeLifecycle = company;
-      const lifecycleDecision = decideLifecycle({
+      const decided = decideLifecycle({
         company,
         tick,
         financialHealth,
         demandPersistenceScore,
-        expectedMargin,
+        expectedMargin: normalizedResult,
         capitalCost: EXPANSION_CAPITAL_COST,
+        laborAvailableForExpansion,
       });
+      // Etap 4B: decyzja AI zapada normalnie (trwałość, cooldown, gotówka).
+      // Gdy wychodzi rozbudowa, a nie ma wolnego wykonawcy -- plan zostaje
+      // niezrealizowany: moc, gotówka i cooldown bez zmian, ale stan trwałości
+      // sygnału (histereza, licznik) zostaje, a zamówienie budowy trafia do
+      // istniejącej firmy budowlanej (plan jej zatrudnienia) albo jest sygnałem
+      // założenia firmy budowlanej w regionie.
+      const expansionBlocked =
+        constructionProfile !== undefined &&
+        recipe !== undefined &&
+        decided.action === "EXPAND" &&
+        contractorId === undefined;
+      if (expansionBlocked && constructionProfile) {
+        const builder = companyIds
+          .map((id) => companies[id]!)
+          .find((c) => c.status.active && providerOf(c)?.kind === "construction");
+        if (builder)
+          serviceDemandByCompanyId[builder.id] =
+            (serviceDemandByCompanyId[builder.id] ?? 0) + constructionProfile.expansionWorkUnits;
+        else constructionRequestsByRegion[regionId] = true;
+      }
+      const lifecycleDecision = expansionBlocked
+        ? {
+            action: "HOLD" as const,
+            snapshot: undefined,
+            company: {
+              ...companyBeforeLifecycle,
+              ai: {
+                ...companyBeforeLifecycle.ai,
+                activeStates: decided.company.ai.activeStates,
+                opportunityStreak: decided.company.ai.opportunityStreak,
+              },
+            },
+          }
+        : decided;
       company = lifecycleDecision.company;
 
       // CE-04 (M17): audytowe -- `decideLifecycle` liczy `snapshot`
@@ -879,6 +1262,44 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
             system: "lifecycle-decision",
           });
         }
+      }
+
+      // Etap 4B: rozbudowa wykonana przez firmę budowlaną. Klient zapłacił
+      // koszt rozbudowy z gotówki (najpierw z rezerwy) w `decideLifecycle`; ta
+      // sama kwota jest przychodem wykonawcy (rozliczenie finansów w tym
+      // ticku), a jego płace trafiają do jego pracowników. Plan zakończony,
+      // niewykorzystana rezerwa zwolniona.
+      if (lifecycleDecision.action === "EXPAND" && contractorId !== undefined && constructionProfile) {
+        const expandedFactIndex = facts.length - 1;
+        serviceCapacityRemaining[contractorId] = Math.max(
+          0,
+          (serviceCapacityRemaining[contractorId] ?? 0) - constructionProfile.expansionWorkUnits,
+        );
+        salesRevenueByCompanyId[contractorId] = roundMoney(
+          (salesRevenueByCompanyId[contractorId] ?? 0) + EXPANSION_CAPITAL_COST,
+        );
+        company = {
+          ...company,
+          finance: { ...company.finance, investmentReserve: 0 },
+          ai: {
+            ...company.ai,
+            activeStates: { ...company.ai.activeStates, expansion_plan: false },
+          },
+        };
+        facts.push({
+          type: "construction_service_paid",
+          subject: { entityType: "company", entityId: contractorId },
+          location: { regionId },
+          values: { before: 0, after: EXPANSION_CAPITAL_COST, delta: EXPANSION_CAPITAL_COST },
+        });
+        causalLinks.push({
+          targetIndex: facts.length - 1,
+          source: { kind: "sameBatch", index: expandedFactIndex },
+          type: "DIRECT",
+          factor: { key: "capacity_expansion_contract", contribution: EXPANSION_CAPITAL_COST },
+          mechanism: `firma ${company.id} zapłaciła wykonawcy za rozbudowę mocy`,
+          system: "construction-service",
+        });
       }
 
       const candidateMethodId = company.production.productionMethodId
@@ -982,16 +1403,23 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         }
       }
 
+      if (!company.status.active) {
+        // CLOSE w tym ticku: pracownicy wracają do kohort od razu (N1).
+        companies[companyId] = releaseClosedCompanyWorkers(company);
+        continue;
+      }
       companies[companyId] = company;
-      if (!company.status.active) continue;
 
-      // 4. Rynek pracy: wages -> hire/layoff.
-      const availableLabor = cohortIds.reduce(
-        (sum, cohortId) => sum + availableWorkers(populationCohorts[cohortId]!),
-        0,
-      );
+      // 4. Rynek pracy: wages -> hire/layoff. Całe osoby (2026-10-01):
+      // dostępni = pula regionu (`floor`), nie suma limitów kohort.
+      const regionCohorts = () => cohortIds.map((cohortId) => populationCohorts[cohortId]!);
+      const availableLabor = regionAvailableWorkers(regionCohorts());
       if (company.workforce.wageOffer > 0) {
-        const wageResult = adjustWageOffer({ company, availableLabor });
+        const wageResult = adjustWageOffer({
+          company,
+          availableLabor,
+          bounds: wageBoundsForCompany,
+        });
         company = wageResult.company;
         {
           const baseIndex = facts.length;
@@ -1008,8 +1436,12 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       const employeesBeforeLaborAction = company.workforce.employees;
 
       if (laborDecision.action === "HIRE") {
+        // Łączny limit regionu w całych osobach -- limity kohort (`ceil`) razem
+        // mogą go przekraczać, więc zatrudnienie z kohort jest dodatkowo
+        // ograniczone pozostałą pulą regionu.
+        let regionRemaining = regionAvailableWorkers(regionCohorts());
         for (const cohortId of cohortIds) {
-          if (company.workforce.vacancies <= 0) break;
+          if (company.workforce.vacancies <= 0 || regionRemaining <= 0) break;
           const cohort = populationCohorts[cohortId]!;
           if (cohort.population <= 0) continue;
           // Etap 1 most: nic nie liczy prawdziwego skill mixu (AI-owned,
@@ -1021,13 +1453,14 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
               ...company.workforce,
               skillDemand: {
                 ...company.workforce.skillDemand,
-                [cohort.skillLevel]: company.workforce.vacancies,
+                [cohort.skillLevel]: Math.min(company.workforce.vacancies, regionRemaining),
               },
             },
           };
           const matchResult = matchEmployment({ company, cohort });
           company = matchResult.company;
           populationCohorts[cohortId] = matchResult.cohort;
+          regionRemaining -= matchResult.hired;
           {
             const baseIndex = facts.length;
             facts.push(...matchResult.facts);
@@ -1057,6 +1490,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         }
       }
       companies[companyId] = company;
+      // Etap 4B: zdolność usługodawcy w tym ticku = pracownicy po decyzji o
+      // zatrudnieniu × wydajność -- zatrudnieni pracują w miesiącu, za który
+      // dostają płacę (budowy klientów w tej pętli, przewozy w kroku 10).
+      if (serviceProfile)
+        serviceCapacityRemaining[company.id] = serviceCapacity(company, serviceProfile);
 
       // 5. Produkcja.
       let companyInventory = inventories[company.inventoryId]!;
@@ -1113,8 +1551,11 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       inventories[company.inventoryId] = companyInventory;
       companies[companyId] = company;
 
-      // 6. Rozliczenie sprzedaży (fizyczne + finansowe).
-      let revenueThisTick = 0;
+      // 6. Sprzedaż do magazynu regionu -- etap 2 (minimalne rozliczenie
+      // N6, 2026-10-01): firma oddaje nadwyżkę ponad bufor W KOMIS (rejestr
+      // własności `Inventory.consignment`) i NIE dostaje za nią pieniędzy;
+      // płaci jej dopiero kupujący (krok 7). Wcześniej magazyn płacił za całą
+      // produkcję, także niesprzedaną (diagnoza Black Mountain P1).
       if (recipe && regionInventoryId && market) {
         let regionInventory = inventories[regionInventoryId]!;
         for (const goodId of Object.keys(recipe.goodOutputsPerBatch).sort()) {
@@ -1128,72 +1569,202 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
             targetBufferQuantity: TARGET_FINISHED_GOOD_BUFFER,
           });
           inventories[company.inventoryId] = saleResult.companyInventory;
-          regionInventory = saleResult.regionInventory;
-          revenueThisTick += saleResult.revenue;
+          regionInventory = addConsignment(
+            saleResult.regionInventory,
+            goodId,
+            company.id,
+            saleResult.quantitySold,
+          );
           facts.push(...saleResult.facts);
         }
         inventories[regionInventoryId] = regionInventory;
       }
 
+      // Płace: koszt firmy = płaca × opłaceni pracownicy; ta sama kwota trafia
+      // do gospodarstw regionu (krok 7a). Finanse firmy rozliczane po pętli
+      // regionów, gdy znane są już wszystkie wpłaty kupujących (także z
+      // innych regionów, za towar wywieziony w komisie).
       const employeesPaidThisTick = Math.max(
         employeesBeforeLaborAction,
         company.workforce.employees,
       );
-      const laborCostThisTick = company.workforce.wageOffer * employeesPaidThisTick;
-      const financeResult = applyCompanyFinances({
-        company,
-        revenue: revenueThisTick,
-        costs: laborCostThisTick,
-      });
-      companies[companyId] = financeResult.company;
-      facts.push(...financeResult.facts);
+      // P12b: stawka ma 6 miejsc; wypłata = jedno zaokrąglenie do grosza. Ta
+      // sama kwota jest kosztem firmy i trafia do gospodarstw (krok 7a).
+      const laborCostThisTick = transactionValue(
+        employeesPaidThisTick,
+        company.workforce.wageOffer,
+      );
+      laborCostByCompanyId[company.id] = laborCostThisTick;
+      nextTickObligationsByCompanyId[company.id] = transactionValue(
+        company.workforce.employees,
+        company.workforce.wageOffer,
+      );
+      regionWageBill = roundMoney(regionWageBill + laborCostThisTick);
+      companies[companyId] = company;
     }
 
-    // 7. Gospodarstwa domowe: dochód -> wydatki -> fizyczny zakup.
-    if (marketId) {
-      const survivalPrice = markets[marketId]!.goods[SURVIVAL_GOOD_ID]?.localPrice;
-      for (const cohortId of cohortIds) {
-        let cohort = populationCohorts[cohortId]!;
-        if (cohort.population <= 0 || cohort.employment <= 0) continue;
-
-        const survivalCost =
-          survivalPrice !== undefined
-            ? cohort.population * SURVIVAL_UNITS_PER_CAPITA * survivalPrice
-            : 0;
-        const consumptionResult = applyHouseholdConsumption({
-          cohort,
-          categoryCost: {
-            survival: survivalCost,
-            basic: 0,
-            services: 0,
-            comfort: 0,
-            prosperity: 0,
-            luxury: 0,
-          },
-        });
-        cohort = consumptionResult.cohort;
-        {
-          const baseIndex = facts.length;
-          facts.push(...consumptionResult.facts);
-          causalLinks.push(...offsetCausalLinks(consumptionResult.causalLinks, baseIndex));
-        }
-
-        if (survivalPrice !== undefined && regionInventoryId) {
-          const desiredQuantity = consumptionResult.spent.survival / survivalPrice;
-          householdDemandByGood[SURVIVAL_GOOD_ID] =
-            (householdDemandByGood[SURVIVAL_GOOD_ID] ?? 0) + desiredQuantity;
-
-          const purchaseResult = settleHouseholdPurchase({
-            regionInventory: inventories[regionInventoryId]!,
-            goodId: SURVIVAL_GOOD_ID,
-            desiredQuantity,
-          });
-          inventories[regionInventoryId] = purchaseResult.regionInventory;
-          facts.push(...purchaseResult.facts);
-        }
-
-        populationCohorts[cohortId] = cohort;
+    // 7. Gospodarstwa domowe -- etap 2 (N7 + minimalne rozliczenie N6,
+    // decyzja właściciela 2026-10-01): pieniądz faktycznie krąży.
+    // 7a. Płace wypłacone przez firmy regionu trafiają do kohort regionu
+    // proporcjonalnie do zatrudnienia (firma zna tylko łączną liczbę
+    // pracowników; ten sam agregat co `layoffWorkers`).
+    if (regionWageBill > 0 && cohortIds.length > 0) {
+      const regionCohortList = cohortIds.map((id) => populationCohorts[id]!);
+      const employed = regionCohortList.reduce((sum, c) => sum + c.employment, 0);
+      const shares = splitMoney(
+        regionWageBill,
+        regionCohortList.map(
+          (c) => [c.id, employed > 0 ? c.employment : c.population] as const,
+        ),
+      );
+      for (const cohort of regionCohortList) {
+        const received = shares[cohort.id] ?? 0;
+        if (received <= 0) continue;
+        populationCohorts[cohort.id] = {
+          ...cohort,
+          savings: roundMoney(cohort.savings + received),
+          averageIncome:
+            cohort.employment > 0 ? received / cohort.employment : cohort.averageIncome,
+        };
       }
+    }
+    // Księgowość budżetu (fakty `consumption_budget_changed`): budżet kohorty =
+    // faktycznie otrzymana płaca (zatrudnienie × otrzymana stawka).
+    for (const cohortId of cohortIds) {
+      const cohort = populationCohorts[cohortId]!;
+      if (cohort.population <= 0 || cohort.employment <= 0) continue;
+      const consumptionResult = applyHouseholdConsumption({
+        cohort,
+        categoryCost: {
+          survival: 0,
+          basic: 0,
+          services: 0,
+          comfort: 0,
+          prosperity: 0,
+          luxury: 0,
+        },
+      });
+      populationCohorts[cohortId] = consumptionResult.cohort;
+      const baseIndex = facts.length;
+      facts.push(...consumptionResult.facts);
+      causalLinks.push(...offsetCausalLinks(consumptionResult.causalLinks, baseIndex));
+    }
+
+    // 7b. Zakup koszyka przetrwania przez gospodarstwa (rodziny kohort --
+    // dochody pracujących utrzymują dzieci, starszych i niepracujących; podział
+    // wewnątrz rodziny nie tworzy pieniędzy). Popyt opłacalny = min(potrzeby,
+    // oszczędności / cena) -- także bez pracy; zakup ograniczony zapasem;
+    // przy braku towaru pieniądze zostają na koncie. Zapłata trafia do
+    // właścicieli towaru w komisie (pro rata); część bez właściciela (zapas
+    // opłacony jeszcze w poprzednim modelu) nie trafia do nikogo.
+    // P14 (2026-10-01): dostępne oferty = towar wystawiony w magazynie regionu
+    // przed zakupami (produkcja oddana w komis, zapas, import przywieziony w
+    // poprzednim ticku); bufory firm i przyszła produkcja się nie liczą.
+    const offeredByGood: Record<string, number> = {};
+    if (marketId && regionInventoryId)
+      for (const goodId of Object.keys(markets[marketId]!.goods))
+        offeredByGood[goodId] =
+          inventories[regionInventoryId]!.items[goodId]?.quantity ?? 0;
+    let householdNeed = 0;
+    let householdPurchased = 0;
+    let householdFundsAfterPurchase = 0;
+    const survivalPrice = marketId
+      ? markets[marketId]!.goods[SURVIVAL_GOOD_ID]?.localPrice
+      : undefined;
+    if (marketId && regionInventoryId && survivalPrice !== undefined && survivalPrice > 0) {
+      // N5 (2026-10-01, błąd etapu 2 ujawniony rynkami w kolejnych
+      // regionach): rodziny z BIEŻĄCEJ mapy kohort regionu (po demografii, z
+      // jej syntetycznymi kohortami), nie z cache `cohortIds` sprzed ticka.
+      // Grupowanie niepełnej rodziny z cache tworzyło syntetyczne kohorty o
+      // innych id (inny „pierwszy” członek niż w demografii), a zapis salda
+      // dla nich dawał rekord bez `id`. Saldo dostają tylko istniejące kohorty.
+      const liveRegionCohorts = Object.values(populationCohorts)
+        .filter((c) => c.regionId === regionId)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      const families = groupCohortsIntoFamilies(liveRegionCohorts)
+        .map((family) =>
+          Object.values(family)
+            .filter((c) => populationCohorts[c.id] !== undefined)
+            .sort((a, b) => a.id.localeCompare(b.id)),
+        )
+        .filter((members) => members.length > 0)
+        .sort((a, b) => a[0]!.id.localeCompare(b[0]!.id));
+      for (const members of families) {
+        const need =
+          members.reduce((sum, c) => sum + c.population, 0) * SURVIVAL_UNITS_PER_CAPITA;
+        const pool = roundMoney(members.reduce((sum, c) => sum + c.savings, 0));
+        // Etap 4B: zakup pro rata z lotów po ich cenach (import: cena towaru u
+        // eksportera + opłata za przewóz, ustalona przy dostawie; towar
+        // regionu: cena lokalna) -- ta sama oferta, którą planował handel.
+        const storeBeforePurchase = inventories[regionInventoryId]!;
+        const unitPrice = blendedUnitPrice(storeBeforePurchase, SURVIVAL_GOOD_ID, survivalPrice);
+        const payable = Math.min(need, pool / unitPrice);
+        householdNeed += need;
+        householdDemandByGood[SURVIVAL_GOOD_ID] =
+          (householdDemandByGood[SURVIVAL_GOOD_ID] ?? 0) + payable;
+
+        const stockBefore =
+          inventories[regionInventoryId]!.items[SURVIVAL_GOOD_ID]?.quantity ?? 0;
+        const purchaseResult = settleHouseholdPurchase({
+          regionInventory: inventories[regionInventoryId]!,
+          goodId: SURVIVAL_GOOD_ID,
+          desiredQuantity: payable,
+        });
+        facts.push(...purchaseResult.facts);
+        const bought = purchaseResult.quantityPurchased;
+        const take = takeConsignment(
+          purchaseResult.regionInventory,
+          SURVIVAL_GOOD_ID,
+          bought,
+          stockBefore,
+        );
+        inventories[regionInventoryId] = pruneLotPrices(take.inventory, SURVIVAL_GOOD_ID);
+        householdPurchased += bought;
+
+        // Zapłata co do grosza, nigdy ponad saldo rodziny. Etap 4A (P12): cena
+        // modelowa ma 6 miejsc; wartość transakcji (ilość × cena) zaokrąglana
+        // do grosza tylko w `transactionValue` -- ta sama kwota schodzi z salda
+        // rodziny i trafia do sprzedawcy.
+        let paid = 0;
+        for (const [ownerId, quantity] of Object.entries(take.takenByOwner).sort(
+          ([x], [y]) => x.localeCompare(y),
+        )) {
+          const money = Math.min(
+            transactionValue(
+              quantity,
+              lotUnitPrice(storeBeforePurchase, SURVIVAL_GOOD_ID, ownerId, survivalPrice),
+            ),
+            roundMoney(pool - paid),
+          );
+          if (money <= 0) continue;
+          salesRevenueByCompanyId[ownerId] = roundMoney(
+            (salesRevenueByCompanyId[ownerId] ?? 0) + money,
+          );
+          paid = roundMoney(paid + money);
+        }
+        paid = roundMoney(
+          paid +
+            Math.max(0, Math.min(transactionValue(take.unowned, survivalPrice), pool - paid)),
+        );
+        const remaining = splitMoney(
+          roundMoney(pool - paid),
+          members.map((c) => [c.id, c.population] as const),
+        );
+        for (const member of members)
+          populationCohorts[member.id] = {
+            ...populationCohorts[member.id]!,
+            savings: remaining[member.id] ?? 0,
+          };
+        householdFundsAfterPurchase = roundMoney(
+          householdFundsAfterPurchase + roundMoney(pool - paid),
+        );
+      }
+      // P14: niezrealizowane zamówienia regionu dla handlu (krok 10) --
+      // potrzeby bez zakupu i środki, które gospodarstwom zostały.
+      importOrdersByMarketGood[`${marketId}:${SURVIVAL_GOOD_ID}`] = {
+        unmetNeed: Math.max(0, householdNeed - householdPurchased),
+        funds: householdFundsAfterPurchase,
+      };
     }
 
     // 8. Rynek: cena/niedobór na podstawie realnie zaobserwowanego popytu/podaży tego ticku.
@@ -1215,8 +1786,20 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
           supply: supplyByGood[goodId] ?? 0,
           demandSources,
           inventory: regionInventory?.items[goodId]?.quantity ?? 0,
+          // P14: bez magazynu regionu nie ma gdzie wystawić oferty -- rynek
+          // nie jest wtedy śledzony (zachowanie sprzed P14).
+          ...(regionInventoryId ? { offered: offeredByGood[goodId] ?? 0 } : {}),
         });
         market = updateResult.market;
+        if (goodId === SURVIVAL_GOOD_ID && survivalPrice !== undefined && regionInventoryId) {
+          market = {
+            ...market,
+            goods: {
+              ...market.goods,
+              [goodId]: { ...market.goods[goodId]!, householdNeed, householdPurchased },
+            },
+          };
+        }
         const baseIndex = facts.length;
         facts.push(...updateResult.facts);
         causalLinks.push(...offsetCausalLinks(updateResult.causalLinks, baseIndex));
@@ -1233,9 +1816,8 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       const prices = Object.fromEntries(
         Object.entries(market.goods).map(([goodId, good]) => [goodId, good.localPrice]),
       );
-      const availableLabor = cohortIds.reduce(
-        (sum, cohortId) => sum + availableWorkers(populationCohorts[cohortId]!),
-        0,
+      const availableLabor = regionAvailableWorkers(
+        cohortIds.map((cohortId) => populationCohorts[cohortId]!),
       );
       // Audytowe P1-01: fizyczny stock nie może ujawniać się scannerowi
       // niezależnie od stanu odkrycia (World Generation Spec §16 -- Black
@@ -1410,6 +1992,81 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       }
     }
 
+    // 9.2 Etap 4B (Canonical §52L): założenie usługodawcy -- tylko na sygnał
+    // rzeczywistego zamówienia, z wolnym pracownikiem i z kapitałem z
+    // istniejących oszczędności inwestora (rodzina regionu z największymi
+    // oszczędnościami). Transport: niezrealizowane zamówienia importu z braku
+    // przewoźnika w poprzednim ticku (`importDemand` dobra na rynku regionu) i
+    // brak firmy transportowej w regionie. Budowa: plan rozbudowy gotowy do
+    // opłacenia w tym ticku bez firmy budowlanej w regionie.
+    for (const profile of Object.values(serviceProviders).sort((a, b) =>
+      a.archetypeId.localeCompare(b.archetypeId),
+    )) {
+      const regionCompanies = Object.values(companies).filter(
+        (c) => c.regionId === regionId && c.status.active,
+      );
+      if (regionCompanies.some((c) => providerOf(c)?.kind === profile.kind)) continue;
+      const market = marketId ? markets[marketId] : undefined;
+      const requestedUnits =
+        profile.kind === "transport"
+          ? Object.values(market?.goods ?? {}).reduce((sum, g) => sum + g.importDemand, 0)
+          : constructionRequestsByRegion[regionId]
+            ? profile.expansionWorkUnits
+            : 0;
+      if (!(requestedUnits > 0)) continue;
+      const liveCohorts = Object.values(populationCohorts)
+        .filter((c) => c.regionId === regionId)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      if (regionAvailableWorkers(liveCohorts) < 1) continue;
+      // Uzasadniona działalność: kapitał startowy musi opłacić miesiąc pracy
+      // ludzi potrzebnych do wykonania jednego zlecenia po płacy minimalnej
+      // regionu (koszyk przetrwania) -- transport: 1 pracownik, budowa:
+      // praca rozbudowy / wydajność. Inaczej firma zamknęłaby się bez
+      // wykonania usługi (zakładanie i zamykanie bez działalności).
+      const initialWageOffer = roundWageRate(Math.max(survivalBasketCost, 0.01));
+      const jobStaff =
+        profile.kind === "construction" && profile.unitsPerEmployee > 0
+          ? Math.ceil(profile.expansionWorkUnits / profile.unitsPerEmployee - 1e-9)
+          : 1;
+      if (profile.capitalRequirement < initialWageOffer * Math.max(1, jobStaff)) continue;
+      const founded = foundServiceCompany({
+        profile,
+        region,
+        tick,
+        liveCohorts,
+        settlements,
+        initialWageOffer,
+        requestedUnits,
+      });
+      if (!founded) continue;
+      companies[founded.company.id] = founded.company;
+      inventories[founded.inventory.id] = founded.inventory;
+      for (const cohort of founded.cohorts) populationCohorts[cohort.id] = cohort;
+      const foundedIndex = facts.length;
+      facts.push(...founded.facts);
+      causalLinks.push(
+        {
+          targetIndex: foundedIndex,
+          source: { kind: "external", key: `region:${regionId}:${profile.kind}_orders` },
+          type: "TRIGGERING",
+          factor: { key: `${profile.kind}_service_orders`, contribution: requestedUnits },
+          mechanism:
+            profile.kind === "transport"
+              ? "niezrealizowane zamówienia importu z braku przewoźnika"
+              : "plan rozbudowy gotowy do opłacenia bez firmy budowlanej w regionie",
+          system: "service-founding",
+        },
+        {
+          targetIndex: foundedIndex + 1,
+          source: { kind: "sameBatch", index: foundedIndex },
+          type: "DIRECT",
+          factor: { key: "founding_capital", contribution: profile.capitalRequirement },
+          mechanism: "inwestor przekazał kapitał z własnych oszczędności",
+          system: "service-founding",
+        },
+      );
+    }
+
     // 9.5 Migration attraction (M13, AI-09): region's own pull/push
     // signal, computed fresh this tick from labor market + housing state
     // (post-entrepreneurship, więc widzi ewentualną nowo założoną firmę),
@@ -1417,7 +2074,9 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
     // (krok 11, po pętli regionów) czyta go i jako źródło, i jako pull
     // każdego kandydata docelowego.
     {
-      let vacancies = 0;
+      // Wakaty firm + zapotrzebowanie na pracę ponad dostępnych (N4) -- pełny
+      // sygnał „są miejsca pracy” dla migracji.
+      let vacancies = unmetLaborNeed;
       let wageWeightedSum = 0;
       let wageWeight = 0;
       for (const companyId of companyIds) {
@@ -1428,9 +2087,8 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         wageWeightedSum += company.workforce.wageOffer * weight;
         wageWeight += weight;
       }
-      const regionEligibleLaborForce = cohortIds.reduce(
-        (sum, id) => sum + eligibleLaborForce(populationCohorts[id]!),
-        0,
+      const regionEligibleLaborForce = regionLaborForce(
+        cohortIds.map((id) => populationCohorts[id]!),
       );
       // SET-LIFECYCLE-001: koszt mieszkania liczą wyłącznie aktywne osady.
       const settlementIdsInRegion = region.settlements.settlementIds.filter((id) => {
@@ -1496,6 +2154,33 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   }
 
   // 10. Handel: fizyczne przeniesienie dóbr wzdłuż każdego Connection (M10).
+  // Etap 4B: PRZED rozliczeniem finansów -- opłaty za przewóz (koszt
+  // właściciela towaru, przychód przewoźnika) rozliczają się w tym samym
+  // ticku, przed wypłatami właścicielskimi. Zakupy gospodarstw już zaszły,
+  // więc kolejność nie zmienia popytu ani cen tego ticka.
+  const remainingExportByMarketGood: Record<string, number> = {};
+  // Etap 4B: `importDemand` = zamówienia importu niezrealizowane z braku
+  // przewoźnika w TYM ticku (sygnał założenia firmy transportowej w następnym).
+  for (const marketId of Object.keys(markets).sort()) {
+    const market = markets[marketId]!;
+    if (Object.values(market.goods).every((g) => g.importDemand === 0)) continue;
+    markets[marketId] = {
+      ...market,
+      goods: Object.fromEntries(
+        Object.entries(market.goods).map(([goodId, g]) => [goodId, { ...g, importDemand: 0 }]),
+      ),
+    };
+  }
+  const transportContext: TransportContext = {
+    enabled: transportServiceEnabled,
+    companies,
+    isCarrier: (company) => providerOf(company)?.kind === "transport",
+    capacityRemaining: serviceCapacityRemaining,
+    feesOwed: transportCostByCompanyId,
+    serviceRevenue: salesRevenueByCompanyId,
+    laborCost: laborCostByCompanyId,
+    serviceDemand: serviceDemandByCompanyId,
+  };
   const connectionIds = Object.keys(worldState.connections).sort();
   for (const connectionId of connectionIds) {
     let connection = connections[connectionId]!;
@@ -1526,6 +2211,9 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         inventories,
         facts,
         causalLinks,
+        importOrders: importOrdersByMarketGood,
+        remainingExport: remainingExportByMarketGood,
+        transport: transportContext,
       });
       connection = tradeOneDirection({
         connection,
@@ -1539,9 +2227,270 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
         inventories,
         facts,
         causalLinks,
+        importOrders: importOrdersByMarketGood,
+        remainingExport: remainingExportByMarketGood,
+        transport: transportContext,
       });
     }
     connections[connectionId] = connection;
+  }
+
+  // Etap 4B: popyt na usługę zgłoszony w tym ticku (przewozy, budowy) staje
+  // się planem zatrudnienia usługodawcy w następnym; nowo założona firma
+  // zachowuje popyt, który ją uruchomił.
+  for (const companyId of Object.keys(companies).sort()) {
+    const company = companies[companyId]!;
+    if (!providerOf(company) || company.foundedTick === tick) continue;
+    companies[companyId] = {
+      ...company,
+      market: {
+        ...company.market,
+        expectedDemand: {
+          ...company.market.expectedDemand,
+          [SERVICE_DEMAND_KEY]: serviceDemandByCompanyId[companyId] ?? 0,
+        },
+      },
+    };
+  }
+
+  // Etap 2 (N6 min.): finanse firm po wszystkich regionach -- przychód =
+  // faktyczne wpłaty kupujących (także z innych regionów za towar wywieziony
+  // w komisie), koszt = płace wypłacone gospodarstwom. Firma zamknięta, której
+  // towar sprzedano z komisu, też dostaje zapłatę.
+  const financeFactIndexByCompanyId: Record<string, number> = {};
+  // Etap 4B: koszt operacyjny = płace + opłaty za przewóz towaru firmy;
+  // przychód = wpłaty kupujących + przychód z usług (przewóz, budowa).
+  const operatingCostOf = (companyId: string): number =>
+    roundMoney((laborCostByCompanyId[companyId] ?? 0) + (transportCostByCompanyId[companyId] ?? 0));
+  for (const companyId of [
+    ...new Set([
+      ...Object.keys(laborCostByCompanyId),
+      ...Object.keys(salesRevenueByCompanyId),
+      ...Object.keys(transportCostByCompanyId),
+    ]),
+  ].sort()) {
+    const company = companies[companyId];
+    if (!company) continue;
+    const financeResult = applyCompanyFinances({
+      company,
+      revenue: salesRevenueByCompanyId[companyId] ?? 0,
+      costs: operatingCostOf(companyId),
+    });
+    companies[companyId] = financeResult.company;
+    facts.push(...financeResult.facts);
+    if (financeResult.facts.length > 0) financeFactIndexByCompanyId[companyId] = facts.length - 1;
+  }
+
+  // 9.9 Dochód właścicielski (decyzja właściciela 2026-10-01, Canonical
+  // §52H): po rozliczeniu WSZYSTKICH sprzedaży i kosztów ticka (także wpłat
+  // za towar zamkniętych firm z komisu) każda firma wypłaca właścicielowi
+  // min(wynik zatrzymany, gotówka − bufor). Kwoty liczone ze stanu sprzed
+  // jakiejkolwiek wypłaty (firma-właściciel wypłaci otrzymane środki dopiero w
+  // następnym ticku), raz na tick -- handel (krok 10) przenosi tylko towar i
+  // własność w komisie, nie pieniądze, więc nie ma drugiego naliczenia.
+  // Gospodarstwa wydają otrzymane środki od następnego ticka.
+  {
+    // Etap 4B: `profit` = wypłata zysku (zmniejsza wynik zatrzymany);
+    // `capital` = zwrot kapitału przy likwidacji (nie zysk, nie przychód).
+    const payouts: {
+      companyId: string;
+      amount: number;
+      recipient: OwnerPayoutTarget;
+      kind: "profit" | "capital";
+    }[] = [];
+    for (const companyId of Object.keys(companies).sort()) {
+      const company = companies[companyId]!;
+      const operatingCostHistory = recordOperatingCosts(
+        company.finance.operatingCostHistory,
+        operatingCostOf(companyId),
+      );
+      let withHistory: Company = {
+        ...company,
+        finance: { ...company.finance, operatingCostHistory },
+      };
+      companies[companyId] = withHistory;
+
+      // Etap 4B -- likwidacja: zamknięta firma (pracownicy już zwolnieni, N1)
+      // po rozliczeniu zobowiązań tego ticka oddaje właścicielowi całą wolną
+      // gotówkę: niewypłacony zysk + zwrot kapitału. Gotówka spada do 0, więc
+      // nic nie wraca drugi raz; późniejsze wpływy z komisu najpierw pokrywają
+      // ewentualną ujemną gotówkę, potem są zwykłym zyskiem. Brak odbiorcy --
+      // gotówka zostaje w firmie, fakt jeden raz (bez zastępczej rodziny).
+      if (!withHistory.status.active) {
+        const liquidation = liquidationSplit(withHistory);
+        if (liquidation.profit + liquidation.capital <= 0) continue;
+        const recipient = resolveOwnerRecipient(withHistory, populationCohorts, companies);
+        if (!recipient) {
+          if (withHistory.ai.activeStates.liquidation_unclaimed !== true) {
+            withHistory = {
+              ...withHistory,
+              ai: {
+                ...withHistory.ai,
+                activeStates: { ...withHistory.ai.activeStates, liquidation_unclaimed: true },
+              },
+            };
+            companies[companyId] = withHistory;
+            facts.push({
+              type: "capital_return_unclaimed",
+              subject: { entityType: "company", entityId: companyId },
+              location: { regionId: withHistory.regionId },
+              values: { before: withHistory.finance.cash, after: withHistory.finance.cash },
+            });
+            causalLinks.push({
+              targetIndex: facts.length - 1,
+              source: { kind: "external", key: `company:${companyId}:owner` },
+              type: "CONSTRAINING",
+              factor: { key: "owner_unavailable", contribution: withHistory.finance.cash },
+              mechanism:
+                "właściciel zamkniętej firmy nie istnieje albo nie ma skarbu -- brak odbiorcy zwrotu",
+              system: "liquidation",
+            });
+          }
+          continue;
+        }
+        if (liquidation.profit > 0)
+          payouts.push({ companyId, amount: liquidation.profit, recipient, kind: "profit" });
+        if (liquidation.capital > 0)
+          payouts.push({ companyId, amount: liquidation.capital, recipient, kind: "capital" });
+        continue;
+      }
+
+      const buffer = operatingBuffer(
+        operatingCostHistory,
+        nextTickObligationsByCompanyId[companyId] ?? 0,
+      );
+      const eligible = ownerPayoutAmount(withHistory, buffer);
+      if (eligible <= 0) continue;
+      // P13: przy aktywnym planie rozbudowy część nadwyżki trafia do rezerwy
+      // (gotówka zostaje w firmie, niedostępna do wypłaty), reszta do
+      // właściciela; rezerwa nie przekracza kosztu jednej rozbudowy.
+      const reserve = withHistory.finance.investmentReserve ?? 0;
+      const surplus = splitSurplus(
+        eligible,
+        reserve,
+        constructionProfile && withHistory.ai.activeStates.expansion_plan === true
+          ? EXPANSION_CAPITAL_COST
+          : undefined,
+      );
+      if (surplus.toReserve > 0) {
+        const after = roundMoney(reserve + surplus.toReserve);
+        withHistory = {
+          ...withHistory,
+          finance: { ...withHistory.finance, investmentReserve: after },
+        };
+        companies[companyId] = withHistory;
+        facts.push({
+          type: "investment_reserved",
+          subject: { entityType: "company", entityId: companyId },
+          location: { regionId: withHistory.regionId },
+          values: { before: reserve, after, delta: surplus.toReserve },
+        });
+        causalLinks.push({
+          targetIndex: facts.length - 1,
+          source: { kind: "external", key: `company:${companyId}:expansion_plan` },
+          type: "ENABLING",
+          factor: { key: "active_expansion_plan", contribution: surplus.toReserve },
+          mechanism: "aktywny plan rozbudowy -- część nadwyżki odłożona na jego finansowanie",
+          system: "investment-reserve",
+        });
+      }
+      if (surplus.payout <= 0) continue;
+      const recipient = resolveOwnerRecipient(withHistory, populationCohorts, companies);
+      if (!recipient) continue;
+      payouts.push({ companyId, amount: surplus.payout, recipient, kind: "profit" });
+    }
+    for (const { companyId, amount, recipient, kind } of payouts) {
+      const company = companies[companyId]!;
+      const cashAfter = roundMoney(company.finance.cash - amount);
+      companies[companyId] = {
+        ...company,
+        finance: {
+          ...company.finance,
+          cash: cashAfter,
+          retainedEarnings:
+            kind === "profit"
+              ? roundMoney(company.finance.retainedEarnings - amount)
+              : company.finance.retainedEarnings,
+          investmentReserve: company.status.active ? (company.finance.investmentReserve ?? 0) : 0,
+        },
+      };
+      facts.push({
+        type: kind === "profit" ? "company_owner_payout" : "company_capital_returned",
+        subject: { entityType: "company", entityId: companyId },
+        location: { regionId: company.regionId },
+        values: { before: company.finance.cash, after: cashAfter, delta: -amount },
+      });
+      const payoutIndex = facts.length - 1;
+      const financeIndex = financeFactIndexByCompanyId[companyId];
+      causalLinks.push({
+        targetIndex: payoutIndex,
+        source:
+          kind === "capital"
+            ? { kind: "external", key: `company:${companyId}:closed` }
+            : financeIndex !== undefined
+              ? { kind: "sameBatch", index: financeIndex }
+              : { kind: "external", key: `company:${companyId}:retained_earnings` },
+        type: kind === "capital" ? "DIRECT" : "ENABLING",
+        factor:
+          kind === "capital"
+            ? { key: "liquidation_capital", contribution: amount }
+            : { key: "retained_earnings", contribution: company.finance.retainedEarnings },
+        mechanism:
+          kind === "capital"
+            ? "zamknięta firma zwraca właścicielowi wolną gotówkę (zwrot kapitału)"
+            : "niewypłacony wynik zatrzymany ponad bufor operacyjny wypłacony właścicielowi",
+        system: kind === "capital" ? "liquidation" : "owner-income",
+      });
+      let receivedFact: FactInput;
+      if (recipient.kind === "cohort") {
+        const cohort = populationCohorts[recipient.id]!;
+        const after = roundMoney(cohort.savings + amount);
+        populationCohorts[recipient.id] = { ...cohort, savings: after };
+        receivedFact = {
+          type: kind === "profit" ? "owner_income_received" : "capital_return_received",
+          subject: { entityType: "populationCohort", entityId: cohort.id },
+          location: {
+            regionId: cohort.regionId,
+            ...(cohort.settlementId !== undefined ? { settlementId: cohort.settlementId } : {}),
+          },
+          values: { before: cohort.savings, after, delta: amount },
+        };
+      } else {
+        const owner = companies[recipient.id]!;
+        const after = roundMoney(owner.finance.cash + amount);
+        companies[recipient.id] = {
+          ...owner,
+          finance: {
+            ...owner.finance,
+            cash: after,
+            // Dywidenda od firmy zależnej to wynik właściciela; zwrot kapitału
+            // przy likwidacji -- nie (wraca zainwestowany kapitał).
+            retainedEarnings:
+              kind === "profit"
+                ? roundMoney(owner.finance.retainedEarnings + amount)
+                : owner.finance.retainedEarnings,
+          },
+        };
+        receivedFact = {
+          type: kind === "profit" ? "owner_income_received" : "capital_return_received",
+          subject: { entityType: "company", entityId: owner.id },
+          location: { regionId: owner.regionId },
+          values: { before: owner.finance.cash, after, delta: amount },
+        };
+      }
+      facts.push(receivedFact);
+      causalLinks.push({
+        targetIndex: facts.length - 1,
+        source: { kind: "sameBatch", index: payoutIndex },
+        type: "DIRECT",
+        factor: { key: kind === "profit" ? "owner_payout" : "capital_return", contribution: amount },
+        mechanism:
+          kind === "profit"
+            ? `wypłata zysku firmy ${companyId} właścicielowi`
+            : `zwrot kapitału zamkniętej firmy ${companyId} właścicielowi`,
+        system: kind === "profit" ? "owner-income" : "liquidation",
+      });
+    }
   }
 
   // 11. Migracja (M13, AI-09): probabilistyczna reakcja na push/pull między
@@ -1608,9 +2557,8 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
       const regionCompanyIds = (companyIdsByRegionId.get(regionId) ?? []).sort();
       if (regionCompanyIds.length === 0) continue;
 
-      const regionEligibleLaborForce = regionCohortIds.reduce(
-        (sum, id) => sum + eligibleLaborForce(populationCohorts[id]!),
-        0,
+      const regionEligibleLaborForce = regionLaborForce(
+        regionCohortIds.map((id) => populationCohorts[id]!),
       );
       const regionCompanyEmployees = regionCompanyIds.reduce(
         (sum, id) => sum + companies[id]!.workforce.employees,
@@ -1839,6 +2787,115 @@ export function runEconomyTick(input: RunEconomyTickInput): RunEconomyTickResult
   return { worldState: nextWorldState, facts, causalLinks };
 }
 
+/**
+ * Etap 4B: założenie usługodawcy z kapitałem inwestora. Inwestor = rodzina
+ * kohort regionu z największymi oszczędnościami (remis: id); jej saldo musi
+ * pokryć `capitalRequirement`. Kapitał schodzi z oszczędności członków rodziny
+ * (proporcjonalnie, co do grosza) i pojawia się jako gotówka firmy;
+ * właściciel = najliczniejsza żyjąca kohorta tej rodziny (istniejący model
+ * `ownerType: individual`). Brak inwestora albo kapitału -- brak firmy.
+ */
+function foundServiceCompany(args: {
+  readonly profile: ServiceProviderProfile;
+  readonly region: Region;
+  readonly tick: number;
+  readonly liveCohorts: readonly PopulationCohort[];
+  readonly settlements: Readonly<Record<string, Settlement>>;
+  readonly initialWageOffer: number;
+  readonly requestedUnits: number;
+}):
+  | {
+      readonly company: Company;
+      readonly inventory: Inventory;
+      readonly cohorts: readonly PopulationCohort[];
+      readonly facts: readonly FactInput[];
+    }
+  | undefined {
+  const { profile, region, tick } = args;
+  const families = groupCohortsIntoFamilies(args.liveCohorts)
+    .map((family) =>
+      Object.values(family)
+        .filter((c) => args.liveCohorts.some((live) => live.id === c.id))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    )
+    .filter((members) => members.length > 0 && members.some((c) => c.population > 0));
+  const ranked = families
+    .map((members) => ({
+      members,
+      savings: roundMoney(members.reduce((sum, c) => sum + c.savings, 0)),
+    }))
+    .sort((a, b) => b.savings - a.savings || a.members[0]!.id.localeCompare(b.members[0]!.id));
+  const investor = ranked[0];
+  if (!investor || investor.savings < profile.capitalRequirement) return undefined;
+  const owner = [...investor.members]
+    .filter((c) => c.population > 0)
+    .sort((a, b) => b.population - a.population || a.id.localeCompare(b.id))[0]!;
+  const capital = roundMoney(profile.capitalRequirement);
+  const deductions =
+    capital > 0
+      ? splitMoney(
+          capital,
+          investor.members.map((c) => [c.id, c.savings] as const),
+        )
+      : {};
+  const cohorts = investor.members.map((c) => ({
+    ...c,
+    savings: roundMoney(c.savings - (deductions[c.id] ?? 0)),
+  }));
+  if (cohorts.some((c) => c.savings < 0)) return undefined;
+
+  const companyId = `company_${profile.archetypeId}_${region.id}_t${tick}`;
+  const inventoryId = `inventory_${companyId}`;
+  const settlementId = [...region.settlements.settlementIds]
+    .filter((id) => {
+      const settlement = args.settlements[id];
+      return settlement !== undefined && isSettlementActive(settlement);
+    })
+    .sort()[0];
+  const base = createCompany({
+    id: companyId,
+    archetypeId: profile.archetypeId,
+    // TODO content -- brak generatora nazw firm (jak przy M12).
+    name: `New ${profile.archetypeId} (${region.name})`,
+    foundedTick: tick,
+    regionId: region.id,
+    ...(settlementId !== undefined ? { settlementId } : {}),
+    ownerType: "individual",
+    ownerEntityId: owner.id,
+    inventoryId,
+    initialCash: capital,
+    initialWageOffer: args.initialWageOffer,
+  });
+  const company: Company = {
+    ...base,
+    market: {
+      ...base.market,
+      expectedDemand: { [SERVICE_DEMAND_KEY]: args.requestedUnits },
+    },
+  };
+  const inventory = createInventory({
+    id: inventoryId,
+    ownerType: "company",
+    ownerId: companyId,
+    locationRegionId: region.id,
+  });
+  const facts: FactInput[] = [
+    {
+      type: "service_company_founded",
+      subject: { entityType: "company", entityId: companyId },
+      location: { regionId: region.id },
+      values: { before: 0, after: 1 },
+    },
+    {
+      type: "founding_capital_invested",
+      subject: { entityType: "populationCohort", entityId: owner.id },
+      location: { regionId: region.id },
+      values: { before: investor.savings, after: roundMoney(investor.savings - capital), delta: -capital },
+    },
+  ];
+  return { company, inventory, cohorts, facts };
+}
+
 function evaluatePmAdoptionSafely(args: {
   readonly company: Company;
   readonly tick: number;
@@ -1857,6 +2914,29 @@ function evaluatePmAdoptionSafely(args: {
   return { company: result.company, adopted: result.adopted, snapshot: result.snapshot };
 }
 
+/**
+ * Etap 4B (Canonical §52L): kontekst płatnego przewozu. Przewoźnik = aktywna
+ * firma transportowa w regionie importera albo eksportera (najpierw
+ * importera), z wolną zdolnością w tym ticku. Właściciel towaru (producent w
+ * komisie) finansuje przewóz przed sprzedażą -- opłata jest jego kosztem
+ * operacyjnym w tym ticku, przychodem przewoźnika w tym samym rozliczeniu.
+ */
+interface TransportContext {
+  /** Czy przewóz jest płatną usługą (profil transportu w konfiguracji). */
+  readonly enabled: boolean;
+  readonly companies: Record<string, Company>;
+  readonly isCarrier: (company: Company) => boolean;
+  readonly capacityRemaining: Record<string, number>;
+  /** Opłaty należne od właścicieli towaru (koszt operacyjny). */
+  readonly feesOwed: Record<string, number>;
+  /** Przychody firm z tego ticka (tu: przychód przewoźnika). */
+  readonly serviceRevenue: Record<string, number>;
+  /** Koszt płac w tym ticku -- ogranicza środki właściciela na opłaty. */
+  readonly laborCost: Readonly<Record<string, number>>;
+  /** Zgłoszony popyt na usługę (jednostki) -- plan zatrudnienia przewoźnika. */
+  readonly serviceDemand: Record<string, number>;
+}
+
 interface TradeOneDirectionArgs {
   readonly connection: Connection;
   readonly exportingMarketId: string;
@@ -1869,6 +2949,11 @@ interface TradeOneDirectionArgs {
   readonly inventories: Record<string, Inventory>;
   readonly facts: FactInput[];
   readonly causalLinks: PendingCausalLink[];
+  /** P14: niezrealizowane, finansowo pokryte zamówienia importerów (zmniejszane po każdym przepływie). */
+  readonly importOrders: Record<string, ImportOrders>;
+  /** P14: pozostała nadwyżka eksporterów w tym ticku (`${marketId}:${goodId}`). */
+  readonly remainingExport: Record<string, number>;
+  readonly transport: TransportContext;
 }
 
 /** Ocenia i fizycznie rozlicza jeden kierunek handlu (importer = strona przekazana jako "importing"). */
@@ -1876,14 +2961,34 @@ function tradeOneDirection(args: TradeOneDirectionArgs): Connection {
   const exportingGood = args.markets[args.exportingMarketId]!.goods[args.goodId];
   const importingGood = args.markets[args.importingMarketId]!.goods[args.goodId];
   if (!exportingGood || !importingGood) return args.connection;
+  const transport = args.transport;
 
-  const desiredImportQuantity = Math.max(0, importingGood.demand - importingGood.supply);
+  // P14 (2026-10-01): zamówienie importu = niezaspokojone potrzeby z pokryciem
+  // w środkach kupujących (krok 7b) minus towar, który już leży w magazynie
+  // importera -- ta sama oferta i to samo zamówienie nie są liczone dwa razy
+  // (także przez kilka połączeń). Ilość ogranicza cena oferty (etap 4B: cena
+  // towaru + opłata za przewóz -- ta sama, którą zapłaci kupujący),
+  // przepustowość i nadwyżka eksportera. Rynek bez śledzonych zamówień --
+  // zachowanie sprzed P14 (popyt − oferty).
+  const orders = args.importOrders[`${args.importingMarketId}:${args.goodId}`];
+  const importerStock = args.importingRegionInventoryId
+    ? (args.inventories[args.importingRegionInventoryId]?.items[args.goodId]?.quantity ?? 0)
+    : 0;
+  const desiredImportQuantity = orders
+    ? Math.max(0, orders.unmetNeed - importerStock)
+    : Math.max(0, importingGood.demand - (importingGood.offered ?? importingGood.supply));
+  const exportKey = `${args.exportingMarketId}:${args.goodId}`;
+  const exportableLimit = args.remainingExport[exportKey];
   const tradeResult = evaluateTradeFlow({
     connection: args.connection,
     exportingGood,
     importingGood,
     transportMode: args.transportMode,
     desiredImportQuantity,
+    ...(orders ? { buyerFunds: orders.funds } : {}),
+    importerHasNoOffers: importingGood.offered === 0,
+    chargeTransport: transport.enabled,
+    ...(exportableLimit !== undefined ? { exportableLimit } : {}),
   });
   {
     const baseIndex = args.facts.length;
@@ -1895,50 +3000,225 @@ function tradeOneDirection(args: TradeOneDirectionArgs): Connection {
   // `trade_flow_active` niósł ilość faktycznie przeniesioną między
   // inventory (`settleTradeFlow` ogranicza ją do realnego stocku), a nie
   // ilość ocenioną przez `evaluateTradeFlow` -- to drugie byłoby
-  // zamówieniem, nie dostawą. Kolejność faktów bez zmian (handel, potem
-  // inventory). Brak regionalnego inventory = brak fizycznego ruchu.
+  // zamówieniem, nie dostawą. Brak regionalnego inventory = brak ruchu.
+  const exportingStore = args.exportingRegionInventoryId
+    ? args.inventories[args.exportingRegionInventoryId]
+    : undefined;
+  const exportingStockBefore = exportingStore?.items[args.goodId]?.quantity ?? 0;
+  const fee = tradeResult.transportFeePerUnit;
+
+  // Etap 4B: przewóz wymaga przewoźnika z wolną zdolnością i środków
+  // właścicieli towaru na opłatę (pro rata do ich części zapasu eksportera).
+  let quantity = tradeResult.importedQuantity;
+  let carriers: Company[] = [];
+  if (transport.enabled && quantity > 0) {
+    const importerRegionId = args.markets[args.importingMarketId]!.regionId;
+    const exporterRegionId = args.markets[args.exportingMarketId]!.regionId;
+    carriers = Object.values(transport.companies)
+      .filter(
+        (c) =>
+          transport.isCarrier(c) &&
+          c.status.active &&
+          (c.regionId === importerRegionId || c.regionId === exporterRegionId),
+      )
+      .sort(
+        (a, b) =>
+          Number(b.regionId === importerRegionId) - Number(a.regionId === importerRegionId) ||
+          a.id.localeCompare(b.id),
+      );
+    const requested = quantity;
+    if (carriers.length > 0) {
+      const preferred = carriers[0]!.id;
+      transport.serviceDemand[preferred] = (transport.serviceDemand[preferred] ?? 0) + requested;
+    } else {
+      // Brak przewoźnika: zamówienie niezrealizowane -- sygnał dla założenia
+      // firmy transportowej w regionie importera (`importDemand`).
+      const importing = args.markets[args.importingMarketId]!;
+      const good = importing.goods[args.goodId]!;
+      args.markets[args.importingMarketId] = {
+        ...importing,
+        goods: {
+          ...importing.goods,
+          [args.goodId]: { ...good, importDemand: good.importDemand + requested },
+        },
+      };
+    }
+    const carrierCapacity = carriers.reduce(
+      (sum, c) => sum + (transport.capacityRemaining[c.id] ?? 0),
+      0,
+    );
+    let fundedByOwners = Number.POSITIVE_INFINITY;
+    if (fee > 0 && exportingStore && exportingStockBefore > 0) {
+      for (const [ownerId, owned] of Object.entries(consignmentOf(exportingStore, args.goodId))) {
+        const share = Math.min(owned, exportingStockBefore) / exportingStockBefore;
+        if (!(share > 0)) continue;
+        const owner = transport.companies[ownerId];
+        const available = owner
+          ? owner.finance.cash -
+            (transport.laborCost[ownerId] ?? 0) -
+            (transport.feesOwed[ownerId] ?? 0)
+          : 0;
+        fundedByOwners = Math.min(fundedByOwners, Math.max(0, available) / (share * fee));
+      }
+    }
+    quantity = Math.max(0, Math.min(quantity, carrierCapacity, fundedByOwners));
+  }
+
   const settleResult =
-    tradeResult.importedQuantity > 0 &&
-    args.exportingRegionInventoryId &&
-    args.importingRegionInventoryId
+    quantity > 0 && args.exportingRegionInventoryId && args.importingRegionInventoryId
       ? settleTradeFlow({
           exportingInventory: args.inventories[args.exportingRegionInventoryId]!,
           importingInventory: args.inventories[args.importingRegionInventoryId]!,
           goodId: args.goodId,
-          desiredQuantity: tradeResult.importedQuantity,
+          desiredQuantity: quantity,
         })
       : undefined;
 
+  // N3 (etap 1): zamówienie importera (ilość oceniona, możliwa do
+  // rozliczenia -- oba magazyny istnieją) to opłacony popyt na rynku
+  // eksportera. Doliczone do popytu tego ticka w historii rynku eksportera,
+  // także gdy zapas eksportera nie pozwolił go w pełni zrealizować --
+  // inaczej plan eksportera widzi tylko popyt lokalny i handel zanika.
+  // Historia popytu służy wyłącznie prognozie planu; cena tego ticka już zapadła.
+  if (
+    tradeResult.importedQuantity > 0 &&
+    args.exportingRegionInventoryId &&
+    args.importingRegionInventoryId
+  ) {
+    const exporting = args.markets[args.exportingMarketId]!;
+    const history = exporting.history.rollingDemand[args.goodId] ?? [];
+    const ordered = tradeResult.importedQuantity;
+    args.markets[args.exportingMarketId] = {
+      ...exporting,
+      history: {
+        ...exporting.history,
+        rollingDemand: {
+          ...exporting.history.rollingDemand,
+          [args.goodId]:
+            history.length > 0
+              ? [...history.slice(0, -1), history[history.length - 1]! + ordered]
+              : [ordered],
+        },
+      },
+    };
+  }
+
+  let tradeFactIndex: number | undefined;
   if (settleResult && settleResult.quantityMoved > 0) {
-    // M19 (Chronicle `trade_route_emerged`, CH-03): a raw per-tick
-    // signal that this connection+good actually moved physical volume --
-    // `values.after` = `settleTradeFlow(...).quantityMoved` (M21-VIS-R4B:
-    // wcześniej `importedQuantity`, które mogło przekraczać realny stock
-    // eksportera). Deliberately fires every tick
-    // trade flows, not only on change: unlike `extraction.ts`'s
-    // `deposit.extraction.currentExtraction`, nothing here persists a
-    // "previous tick's flow" to compare against, and inventing that
-    // state on `Connection` (which has no per-good slot) is a bigger
-    // entity-model change than this fact needs. Whether repeated ticks
-    // of the same flow become a Chronicle "route" is `ActiveProcessRegistry`
-    // accumulation on the Chronicle side, not a simulation-side concern
-    // (same division of labor as `population_migrated_in` -> `migration_wave`).
+    // M19 (Chronicle `trade_route_emerged`, CH-03): sygnał co tick, w którym
+    // połączenie faktycznie przewiozło towar (`quantityMoved`); kumulację w
+    // „trasę” robi Chronicle (`ActiveProcessRegistry`).
     args.facts.push({
       type: "trade_flow_active",
-      // `<connectionId>:<goodId>`, same "compound entityId for a
-      // multiplexed relationship" pattern as `price-adjustment.ts`'s
-      // `marketId:goodId` -- one connection can carry many goods, each
-      // its own Chronicle-eligible flow.
       subject: { entityType: "connectionGood", entityId: `${args.connection.id}:${args.goodId}` },
       location: { regionId: args.markets[args.importingMarketId]!.regionId },
       values: { before: 0, after: settleResult.quantityMoved },
     });
+    tradeFactIndex = args.facts.length - 1;
   }
 
-  if (settleResult) {
-    args.inventories[args.exportingRegionInventoryId!] = settleResult.exportingInventory;
-    args.inventories[args.importingRegionInventoryId!] = settleResult.importingInventory;
+  const quantityMoved = settleResult?.quantityMoved ?? 0;
+  if (settleResult && quantityMoved > 0) {
+    // Etap 2 (N6 min.): własność towaru w komisie przechodzi razem z towarem.
+    // Etap 4B: lot dostaje cenę wyładunku = cena lotu u eksportera (towar
+    // regionu: cena lokalna eksportera) + opłata za przewóz; tę cenę zapłaci
+    // kupujący u importera. Niesprzedany zapas nie daje właścicielowi przychodu.
+    const take = takeConsignment(
+      settleResult.exportingInventory,
+      args.goodId,
+      quantityMoved,
+      exportingStockBefore,
+    );
+    let destination = settleResult.importingInventory;
+    const ownerIds = Object.keys(take.takenByOwner).sort();
+    for (const ownerId of ownerIds) {
+      const q = take.takenByOwner[ownerId]!;
+      if (!(q > 0)) continue;
+      const before = consignmentOf(destination, args.goodId)[ownerId] ?? 0;
+      const sourcePrice = exportingStore
+        ? lotUnitPrice(exportingStore, args.goodId, ownerId, exportingGood.localPrice)
+        : exportingGood.localPrice;
+      destination = withLandedPrice(
+        addConsignment(destination, args.goodId, ownerId, q),
+        args.goodId,
+        ownerId,
+        before,
+        q,
+        sourcePrice + fee,
+      );
+    }
+    args.inventories[args.exportingRegionInventoryId!] = pruneLotPrices(
+      take.inventory,
+      args.goodId,
+    );
+    args.inventories[args.importingRegionInventoryId!] = destination;
     args.facts.push(...settleResult.facts);
+
+    // Etap 4B: opłaty za przewóz -- właściciel towaru płaci za swoją część
+    // (grosze, jedno zaokrąglenie na właściciela); suma trafia do przewoźników
+    // proporcjonalnie do przewiezionych przez nich jednostek. Część bez
+    // właściciela (zapas sprzed komisu) jest przewożona bez opłaty (luka).
+    if (transport.enabled && fee > 0 && carriers.length > 0) {
+      let totalFee = 0;
+      for (const ownerId of ownerIds) {
+        const q = take.takenByOwner[ownerId]!;
+        const amount = transactionValue(q, fee);
+        if (!(amount > 0)) continue;
+        transport.feesOwed[ownerId] = roundMoney((transport.feesOwed[ownerId] ?? 0) + amount);
+        totalFee = roundMoney(totalFee + amount);
+      }
+      const unitsByCarrier: [string, number][] = [];
+      let left = quantityMoved;
+      for (const carrier of carriers) {
+        if (!(left > 0)) break;
+        const units = Math.min(left, transport.capacityRemaining[carrier.id] ?? 0);
+        if (!(units > 0)) continue;
+        transport.capacityRemaining[carrier.id] =
+          (transport.capacityRemaining[carrier.id] ?? 0) - units;
+        unitsByCarrier.push([carrier.id, units]);
+        left -= units;
+      }
+      const shares = totalFee > 0 ? splitMoney(totalFee, unitsByCarrier) : {};
+      for (const [carrierId, amount] of Object.entries(shares).sort(([a], [b]) =>
+        a.localeCompare(b),
+      )) {
+        if (!(amount > 0)) continue;
+        transport.serviceRevenue[carrierId] = roundMoney(
+          (transport.serviceRevenue[carrierId] ?? 0) + amount,
+        );
+        args.facts.push({
+          type: "transport_service_paid",
+          subject: { entityType: "company", entityId: carrierId },
+          location: { regionId: args.markets[args.importingMarketId]!.regionId },
+          values: { before: 0, after: amount, delta: amount },
+        });
+        args.causalLinks.push({
+          targetIndex: args.facts.length - 1,
+          source:
+            tradeFactIndex !== undefined
+              ? { kind: "sameBatch", index: tradeFactIndex }
+              : { kind: "external", key: `connection:${args.connection.id}:${args.goodId}` },
+          type: "DIRECT",
+          factor: { key: "transported_quantity", contribution: quantityMoved },
+          mechanism: "właściciel towaru zapłacił przewoźnikowi za faktycznie przewiezioną ilość",
+          system: "transport-service",
+        });
+      }
+    }
+  }
+
+  // P14: zrealizowany przepływ zmniejsza zamówienia importera (ilość i środki
+  // zarezerwowane po cenie oferty) oraz nadwyżkę eksportera w tym ticku.
+  if (quantityMoved > 0) {
+    if (orders) {
+      orders.unmetNeed = Math.max(0, orders.unmetNeed - quantityMoved);
+      orders.funds = Math.max(0, orders.funds - quantityMoved * tradeResult.offerUnitPrice);
+    }
+    const exportable = Math.max(0, exportingGood.supply - exportingGood.demand);
+    args.remainingExport[exportKey] = Math.max(
+      0,
+      (args.remainingExport[exportKey] ?? exportable) - quantityMoved,
+    );
   }
 
   return tradeResult.connection;

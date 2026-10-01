@@ -13,17 +13,20 @@ import {
   type ProductionMethodDefinition,
   type ResourceDefinition,
   type ResourceDiscoveryRules,
+  type ServiceDefinition,
   type TransportModeDefinition,
 } from "@first-cause/content";
 import {
   parseArchitectInterventionRule,
   parseDiscoveryEligibilityRule,
   parseProductionRecipe,
+  parseServiceProviderProfile,
   parseTransportModeProfile,
   type ArchitectInterventionRule,
   type DiscoveryEligibilityRule,
   type EntrepreneurshipCandidate,
   type ProductionRecipe,
+  type ServiceProviderProfile,
   type TransportModeProfile,
 } from "@first-cause/simulation";
 
@@ -54,6 +57,13 @@ export interface LoadEconomyContentResult {
   readonly entrepreneurshipCandidatesByArchetypeId: Readonly<
     Record<string, EntrepreneurshipCandidate>
   >;
+  /**
+   * Etap 4B (Canonical §52L): `companyArchetype.id` -> profil usługodawcy
+   * (pierwsza usługa z `serviceIds` o kategorii `transport` albo
+   * `construction`, `ServiceDefinition.capacityModel`) -- gotowe do
+   * `RunEconomyTickInput.serviceProvidersByArchetypeId`.
+   */
+  readonly serviceProvidersByArchetypeId: Readonly<Record<string, ServiceProviderProfile>>;
   /** M15: `content/discoveries/*.json`, kluczowane po id -- wejście Discovery Engine. */
   readonly discoveryDefinitionsById: Readonly<Record<string, DiscoveryDefinition>>;
   /** M15: `content/knowledgeDomains/*.json`, kluczowane po id. */
@@ -189,6 +199,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       companyArchetype: readJsonDir(path.join(contentDir, "companyArchetypes")),
       productionMethod: readJsonDir(path.join(contentDir, "productionMethods")),
       transportMode: readJsonDir(path.join(contentDir, "transportModes")),
+      service: readJsonDir(path.join(contentDir, "services")),
       discovery: readJsonDir(path.join(contentDir, "discoveries")),
       knowledgeDomain: readJsonDir(path.join(contentDir, "knowledgeDomains")),
       intervention: readJsonDir(path.join(contentDir, "interventions")),
@@ -208,6 +219,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
       productionRecipesByMethodId: {},
       transportModeProfilesByModeId: {},
       entrepreneurshipCandidatesByArchetypeId: {},
+      serviceProvidersByArchetypeId: {},
       discoveryDefinitionsById: {},
       knowledgeDomainDefinitionsById: {},
       discoveryEligibilityRulesById: {},
@@ -279,9 +291,27 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     string,
     EntrepreneurshipCandidate
   > = {};
+  const serviceRegistry = result.registries.service as
+    DefinitionRegistry<ServiceDefinition> | undefined;
+  const serviceProvidersByArchetypeId: Record<string, ServiceProviderProfile> = {};
   const sectorByCompanyArchetypeId: Record<string, string> = {};
   for (const definition of companyArchetypeRegistry?.all() ?? []) {
     sectorByCompanyArchetypeId[definition.id] = definition.sector;
+    for (const serviceId of definition.serviceIds) {
+      const service = serviceRegistry?.get(serviceId);
+      if (!service) continue;
+      const profile = parseServiceProviderProfile({
+        archetypeId: definition.id,
+        serviceId,
+        category: service.category,
+        capacityModel: service.capacityModel,
+        capitalRequirement: definition.capitalRequirement,
+      });
+      if (profile) {
+        serviceProvidersByArchetypeId[definition.id] = profile;
+        break;
+      }
+    }
     const productionMethodId = definition.productionMethodIds[0];
     if (!productionMethodId) continue; // an archetype with no production method yet can't be founded
     entrepreneurshipCandidatesByArchetypeId[definition.id] = {
@@ -331,6 +361,7 @@ export function loadEconomyContent(repoRoot: string): LoadEconomyContentResult {
     productionRecipesByMethodId,
     transportModeProfilesByModeId,
     entrepreneurshipCandidatesByArchetypeId,
+    serviceProvidersByArchetypeId,
     discoveryDefinitionsById,
     knowledgeDomainDefinitionsById,
     discoveryEligibilityRulesById,

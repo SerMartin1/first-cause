@@ -21,8 +21,8 @@ import { initializeMarketGood } from "../systems/economy/markets/price-adjustmen
  * częścią świata Black Mountain. Deterministyczny STAN POCZĄTKOWY dwóch
  * regionów, w których obecny model handlu faktycznie wymienia towar:
  *
- * - „Grain Basin” (eksporter): farma zbożowa (capacity 20) przy 1-osobowej
- *   kohorcie o minimalnym dochodzie -- realna nadwyżka mąki;
+ * - „Grain Basin” (eksporter): farma zbożowa (capacity 20) przy 2-osobowej
+ *   kohorcie (1 pracownik) o minimalnym dochodzie -- realna nadwyżka mąki;
  * - „Market Coast” (importer): 200 zatrudnionych konsumentów z dochodem,
  *   bez produkcji mąki -- realny niedobór;
  * - oba mają Market i regionalne Inventory, połączenie z capacity 1000.
@@ -144,12 +144,16 @@ export function buildTradeScenarioWorldState(): WorldState {
       id: "scenario_cohort_farm_worker",
       regionId: exporter.id,
       ageGroup: "AGE_25_44",
-      population: 1,
+      // 2 osoby: siła robocza regionu w całych osobach = floor(2 × 0,65) = 1
+      // pracownik farmy (przy 1 osobie byłoby 0 -- ENGINE_VERSION 4).
+      population: 2,
       economicClass: "WORKING",
       skillLevel: "UNSKILLED",
     }),
     employment: 1,
     averageIncome: 1,
+    // Etap 2 (N7): prawie brak oszczędności -- lokalny popyt na mąkę znikomy.
+    savings: 2,
   };
   const consumers = {
     ...createPopulationCohort({
@@ -162,6 +166,8 @@ export function buildTradeScenarioWorldState(): WorldState {
     }),
     employment: 200,
     averageIncome: 5000,
+    // Etap 2 (N7): realna siła nabywcza = oszczędności (12 mies. koszyka po 5,00).
+    savings: 200 * 3 * 5 * 12,
   };
   const baseFarm = createCompany({
     id: "scenario_company_farm",

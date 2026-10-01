@@ -34,6 +34,12 @@ export interface RegionEconomyGood {
   readonly companies: number;
   /** Lokalna cena rynku regionu; undefined = brak ceny (region bez rynku / towar nienotowany). */
   readonly localPrice: number | undefined;
+  /**
+   * P14 (2026-10-01): `true`, gdy presja cenowa jest zatrzymana z braku ofert
+   * (`MarketGoodState.priceSuspension`) -- cena jest orientacyjna, nie
+   * potwierdzona zakupami. Brak pola = cena reaguje normalnie.
+   */
+  readonly priceIndicative?: true;
 }
 export type RegionSalesFact =
   | { readonly status: "RECORDED"; readonly value: number; readonly tick: number }
@@ -117,6 +123,9 @@ export function buildRegionEconomyReadModels(
           produced: g.produced,
           companies: g.companies,
           localPrice: market?.goods[goodId]?.localPrice,
+          ...(market?.goods[goodId]?.priceSuspension !== undefined
+            ? { priceIndicative: true as const }
+            : {}),
         })),
       unattributedCompanies: unattributed,
       methodChangedCompanies: methodChanged,

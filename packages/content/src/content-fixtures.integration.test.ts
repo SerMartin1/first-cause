@@ -36,6 +36,7 @@ describe("content fixtures on disk (content/, locales/)", () => {
         companyArchetype: readJsonDir("content/companyArchetypes"),
         productionMethod: readJsonDir("content/productionMethods"),
         transportMode: readJsonDir("content/transportModes"),
+        service: readJsonDir("content/services"),
         discovery: readJsonDir("content/discoveries"),
         knowledgeDomain: readJsonDir("content/knowledgeDomains"),
         intervention: readJsonDir("content/interventions"),

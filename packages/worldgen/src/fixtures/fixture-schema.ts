@@ -168,6 +168,8 @@ const WorldFixtureSchema = z.object({
         population: z.number().int().nonnegative(),
         economicClass: z.enum(["POOR", "WORKING", "MIDDLE", "WEALTHY", "ELITE"]),
         skillLevel: z.enum(["UNSKILLED", "SKILLED", "SPECIALIST"]),
+        /** Etap 2 (N7): jawne oszczędności startowe kohorty; brak = reguła ładowacza. */
+        savings: z.number().nonnegative().optional(),
       }),
     )
     .default([]),

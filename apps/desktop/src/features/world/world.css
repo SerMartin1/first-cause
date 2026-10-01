@@ -768,6 +768,18 @@
   font-weight: 600;
   color: var(--fc-text-secondary);
 }
+/* Podpis „Dane częściowe” przy nagłówku tabeli produkcji (R4B, §52C). */
+.fc-economy__partial {
+  display: inline-block;
+  margin-left: var(--fc-space-2);
+  padding: 0 var(--fc-space-1);
+  border: var(--fc-border-width) solid var(--fc-warning);
+  border-radius: 2px;
+  font-size: var(--fc-text-caption);
+  font-weight: 600;
+  color: var(--fc-text-primary);
+  white-space: nowrap;
+}
 .fc-economy__chip {
   flex: none;
   vertical-align: middle;

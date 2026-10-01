@@ -169,7 +169,11 @@ test("M21-VIS-R4B follow-up: trade readability, no goods sum, real simulation tr
     ] as const) {
       const page = await openPage(app, server, `${base}&lang=${lang}`, width, height);
       await atlasReady(page, "trade");
-      await expect(page.getByTestId("trade-period")).toBeVisible();
+      // Data świata tylko w górnym pasku: panel bez daty okresu.
+      await expect(page.getByTestId("trade-period")).toHaveCount(0);
+      await expect(page.getByTestId("trade-context")).toContainText(
+        lang === "pl" ? "ostatni miesiąc" : "last month",
+      );
       await expect(page.getByTestId("trade-units")).toBeVisible();
       await expect(page.getByTestId("trade-help")).not.toHaveAttribute("open");
       await nothingClipped(page);
@@ -227,7 +231,7 @@ test("M21-VIS-R4B follow-up: trade readability, no goods sum, real simulation tr
     expect(header.y).toBeGreaterThanOrEqual(context.y + context.height - 1);
     expect(header.y + header.height).toBeLessThanOrEqual(aside.y + 90);
     await expect(long.getByTestId("trade-context")).toHaveText(
-      "Emporium · year 3, month 2",
+      "Emporium · last month",
     );
     await nothingClipped(long);
     await noMidWordBreaks(long);
@@ -343,9 +347,8 @@ test("M21-VIS-R4B follow-up: trade readability, no goods sum, real simulation tr
         1080,
       );
       await atlasReady(sim, "trade");
-      await expect(sim.getByTestId("trade-period")).toHaveText(
-        "Last completed month: year 1, month 1",
-      );
+      await expect(sim.getByTestId("trade-period")).toHaveCount(0);
+      await expect(sim.getByTestId("trade-context")).toContainText("last month");
       const [imports, exports] = await cellTexts(sim, "flour");
       expect(cells === "import" ? exports : imports).toBe("0");
       expect(Number(cells === "import" ? imports : exports)).toBeGreaterThan(0);

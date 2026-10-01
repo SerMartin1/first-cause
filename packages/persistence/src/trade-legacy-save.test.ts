@@ -76,12 +76,17 @@ const tradeOf = (runner: WorldRunner, regionId: string) =>
   )!.trade;
 
 describe("legacy engine trade facts across save / load", () => {
-  it("classifies schema v2 as migratable (existing sequential policy) and v3 as compatible", () => {
-    expect(SCHEMA_VERSION).toBe(3);
-    expect(ENGINE_VERSION).toBe(3);
+  it("classifies schema v2 as migratable (existing sequential policy) v3–v7 as migratable and v8 as compatible", () => {
+    expect(SCHEMA_VERSION).toBe(8);
+    expect(ENGINE_VERSION).toBe(9);
     expect(classifyVersionCompatibility(2)).toBe("migratable");
-    expect(classifyVersionCompatibility(3)).toBe("compatible");
-    expect(classifyVersionCompatibility(4)).toBe("unsupported-newer");
+    expect(classifyVersionCompatibility(3)).toBe("migratable");
+    expect(classifyVersionCompatibility(4)).toBe("migratable");
+    expect(classifyVersionCompatibility(5)).toBe("migratable");
+    expect(classifyVersionCompatibility(6)).toBe("migratable");
+    expect(classifyVersionCompatibility(7)).toBe("migratable");
+    expect(classifyVersionCompatibility(8)).toBe("compatible");
+    expect(classifyVersionCompatibility(9)).toBe("unsupported-newer");
   });
 
   it("migrateV2ToV3 relabels only engine < 3 trade facts, keeps identity and values, purely", () => {
@@ -129,7 +134,7 @@ describe("legacy engine trade facts across save / load", () => {
 
     // D. Bezpośrednio po wczytaniu, przed nowym tickiem.
     const { runner: loaded, saveGame: data } = await loadGame(first, restore);
-    expect(data.versions.schemaVersion).toBe(3);
+    expect(data.versions.schemaVersion).toBe(8);
     const legacy = loaded.facts.filter((f) => f.type === LEGACY_TRADE_FLOW_FACT_TYPE);
     expect(legacy).toHaveLength(1);
     expect(legacy[0]!.values.after).toBe(evaluated); // historia zachowana, nie wyzerowana
@@ -166,7 +171,7 @@ describe("legacy engine trade facts across save / load", () => {
     const second = await tempFile();
     await saveGame(second, { runner: loaded, ...metadata, compact: false });
     const { runner: reloaded, saveGame: data2 } = await loadGame(second, restore);
-    expect(data2.versions).toMatchObject({ schemaVersion: 3, engineVersion: 3 });
+    expect(data2.versions).toMatchObject({ schemaVersion: 8, engineVersion: 9 });
     const types = (r: WorldRunner) =>
       r.facts
         .filter(

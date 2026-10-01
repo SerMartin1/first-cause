@@ -397,10 +397,19 @@ export function applyMigrationFlow(
     sourceCohort.employment,
     eligibleLaborForce({ ...sourceCohort, population: sourcePopulationAfter }),
   );
+  // Etap 2 (N7): migranci zabierają swoją część oszczędności kohorty
+  // (proporcjonalnie do liczby osób, co do grosza) -- pieniądze nie powstają
+  // ani nie znikają przy przeprowadzce.
+  const sourceSavings = sourceCohort.savings ?? 0;
+  const migrantSavings =
+    sourcePopulationBefore > 0
+      ? Math.round((sourceSavings * migrantCount * 100) / sourcePopulationBefore) / 100
+      : 0;
   const nextSourceCohort: PopulationCohort = {
     ...sourceCohort,
     population: sourcePopulationAfter,
     employment: sourceEmploymentAfter,
+    savings: Math.round((sourceSavings - migrantSavings) * 100) / 100,
   };
 
   const destinationPopulationBefore = existingDestinationCohort?.population ?? 0;
@@ -437,6 +446,8 @@ export function applyMigrationFlow(
     ? {
         ...existingDestinationCohort,
         population: destinationPopulationAfter,
+        savings:
+          Math.round(((existingDestinationCohort.savings ?? 0) + migrantSavings) * 100) / 100,
         averageWealth: nextAverageWealth,
         educationLevel: nextEducationLevel,
         literacy: nextLiteracy,
@@ -467,6 +478,7 @@ export function applyMigrationFlow(
         // `createPopulationCohort` nie przyjmuje `profession` -- doklejane
         // ręcznie z template, tak samo jak cohorts.ts's createSyntheticZeroCohort.
         profession: sourceCohort.profession,
+        savings: migrantSavings,
         averageWealth: nextAverageWealth,
         educationLevel: nextEducationLevel,
         literacy: nextLiteracy,

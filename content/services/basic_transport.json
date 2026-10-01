@@ -1,0 +1,11 @@
+{
+  "id": "basic_transport",
+  "nameKey": "content.service.basic_transport.name",
+  "category": "transport",
+  "workforce": {},
+  "skills": {},
+  "infrastructure": {},
+  "goodInputs": [],
+  "capacityModel": { "unitsPerEmployee": 20 },
+  "implementationPhase": "VS"
+}

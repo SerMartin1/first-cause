@@ -5,7 +5,9 @@ import {
   fromMoneyMinorUnits,
   roundHalfEven,
   roundMoney,
+  roundPrice,
   toMoneyMinorUnits,
+  transactionValue,
 } from "./index.js";
 
 describe("roundHalfEven", () => {
@@ -71,5 +73,14 @@ describe("roundMoney", () => {
 
   it("rejects non-finite input the same way toMoneyMinorUnits does", () => {
     expect(() => roundMoney(NaN)).toThrow(InvariantViolationError);
+  });
+});
+
+describe("etap 4A (P12): roundPrice / transactionValue", () => {
+  it("roundPrice keeps 6 decimals; transactionValue rounds once to the cent", () => {
+    expect(roundPrice(0.1648)).toBe(0.1648);
+    expect(roundPrice(0.16974400000001)).toBe(0.169744);
+    expect(transactionValue(48, 0.1648)).toBe(7.91); // 7,9104
+    expect(transactionValue(3, 0.004)).toBe(0.01); // 0,012
   });
 });

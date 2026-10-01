@@ -36,6 +36,28 @@ export interface EvaluateTradeFlowInput {
   readonly transportMode: TransportModeProfile;
   /** How much the importing region would like to bring in this tick (e.g. derived from its own shortage). */
   readonly desiredImportQuantity: number;
+  /**
+   * P14 (2026-10-01): środki kupujących importera na niezrealizowane
+   * zamówienia -- ilość ograniczona do `buyerFunds / importedCost`
+   * (rzeczywisty koszt dostawy, częściowe zakupy). Brak = bez ograniczenia
+   * (zachowanie sprzed P14).
+   */
+  readonly buyerFunds?: number;
+  /**
+   * P14: importer nie ma lokalnych ofert -- jego cena jest orientacyjna, więc
+   * import nie może czekać, aż urośnie ponad koszt dostawy; wystarczą
+   * finansowane zamówienia (`buyerFunds`).
+   */
+  readonly importerHasNoOffers?: boolean;
+  /**
+   * Etap 4B: czy przewóz jest płatną usługą (przewoźnik z contentu). Wtedy
+   * cena oferty dla kupującego = cena towaru + opłata za przewóz (koszt
+   * transportu + ryzyko, cło 0 w VS); bez usługi -- sama cena towaru (jak
+   * przed 4B). Ta sama cena ogranicza ilość finansowaną (`buyerFunds`).
+   */
+  readonly chargeTransport?: boolean;
+  /** P14: pozostała oferta eksportera w tym ticku (po wcześniejszych przepływach) -- ta sama nadwyżka nie jest liczona dwa razy. */
+  readonly exportableLimit?: number;
   /** Bulk/value density of this specific good (Production-Economy-Master SS5 "cargo_factor") -- TODO tuning placeholder, defaults to 1 until `GoodDefinition.transportProperties` is formalized. */
   readonly cargoFactor?: number;
 }
@@ -46,6 +68,10 @@ export interface EvaluateTradeFlowResult {
   readonly importedQuantity: number;
   /** Per-unit delivered cost (`ImportedCost`). */
   readonly importedCost: number;
+  /** Etap 4B: opłata za przewóz jednej jednostki (transport + ryzyko; 0 bez płatnej usługi). */
+  readonly transportFeePerUnit: number;
+  /** Etap 4B: cena oferty dla kupującego za jednostkę (cena towaru + opłata). */
+  readonly offerUnitPrice: number;
   readonly feasible: boolean;
   readonly facts: readonly FactInput<number>[];
   /** M17 (CE-04): `targetIndex`/`sameBatch.index` względne do WŁASNEJ tablicy `facts` -- patrz `offsetCausalLinks`. */
@@ -88,14 +114,26 @@ export function evaluateTradeFlow(
   const economicallyFeasible = importedCost < input.importingGood.localPrice;
   const criticalShortage =
     input.importingGood.shortageSeverity >= CRITICAL_SHORTAGE_THRESHOLD;
-  const feasible = economicallyFeasible || criticalShortage;
+  const feasible =
+    economicallyFeasible || criticalShortage || input.importerHasNoOffers === true;
 
-  const exportableSurplus = Math.max(
-    0,
-    input.exportingGood.supply - input.exportingGood.demand,
+  const exportableSurplus = Math.min(
+    Math.max(0, input.exportingGood.supply - input.exportingGood.demand),
+    input.exportableLimit ?? Number.POSITIVE_INFINITY,
   );
+  const transportFeePerUnit = input.chargeTransport === true ? transportCost + riskCost + TARIFF : 0;
+  const offerUnitPrice = input.exportingGood.localPrice + transportFeePerUnit;
+  const fundedQuantity =
+    input.buyerFunds === undefined
+      ? Number.POSITIVE_INFINITY
+      : offerUnitPrice > 0
+        ? Math.max(0, input.buyerFunds) / offerUnitPrice
+        : 0;
   const importedQuantity = feasible
-    ? Math.min(desiredImportQuantity, congestion.cappedFlow, exportableSurplus)
+    ? Math.max(
+        0,
+        Math.min(desiredImportQuantity, fundedQuantity, congestion.cappedFlow, exportableSurplus),
+      )
     : 0;
 
   const facts = [...distance.facts, ...congestion.facts];
@@ -108,6 +146,8 @@ export function evaluateTradeFlow(
     connection: congestion.connection,
     importedQuantity,
     importedCost,
+    transportFeePerUnit,
+    offerUnitPrice,
     feasible,
     facts,
     causalLinks,

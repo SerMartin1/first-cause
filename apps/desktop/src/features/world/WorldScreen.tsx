@@ -667,7 +667,7 @@ export function WorldScreen() {
                   />
                 )}
                 {regionTab === "economy" && (
-                  <FCEconomyPanel region={region} snapshot={snapshot} format={format} />
+                  <FCEconomyPanel region={region} format={format} />
                 )}
                 {regionTab === "overview" && (
                   <>
@@ -818,11 +818,7 @@ export function WorldScreen() {
             >
               {region?.name ?? t("world.selectedRegion")}
             </button>
-            <span className="fc-caption">
-              {" "}
-              · {t("world.tick", { tick: analysis.tick })} ·{" "}
-              {t("world.comparison", { years: ui.comparisonWindow })}
-            </span>
+            {/* Data świata i okno porównania są już w górnym pasku i przy Atlasie („Porównaj”). */}
           </div>
           <div className="fc-world__analysis-modules">
             <section data-testid="analysis-causes" data-scope={scope.kind}>
@@ -943,8 +939,7 @@ export function WorldScreen() {
           {...moduleProps("timeline")}
         >
           <label>
-            {ui.timelineCursor === undefined ? t("world.live") : t("world.historical")} ·{" "}
-            {t("world.tick", { tick: snapshot.summary.currentTick })}
+            {ui.timelineCursor === undefined ? t("world.live") : t("world.historical")}
             <input
               aria-label={t("world.timeline")}
               type="range"
