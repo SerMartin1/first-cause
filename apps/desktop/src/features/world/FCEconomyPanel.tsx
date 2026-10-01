@@ -39,6 +39,11 @@ export function FCEconomyPanel({
     });
   const employment = regionEmploymentFact(region);
   const sales = regionSalesFact(region);
+  // Produkcja, której nie da się rozdzielić na towary (nieznana receptura albo
+  // adopcja metody w ostatnim ticku): tabela jest częściowa, a pusta tabela
+  // to „brak danych”, nigdy „nic nie wytworzono”.
+  const methodChanged = economy.methodChangedCompanies;
+  const goodsIncomplete = economy.unattributedCompanies + methodChanged > 0;
   return (
     <section
       className="fc-trade fc-economy"
@@ -107,7 +112,11 @@ export function FCEconomyPanel({
         <span className="fc-data">{format(economy.activeCompanies)}</span>
       </div>
       <h4 className="fc-economy__subtitle">{t("world.economy.goodsTitle")}</h4>
-      {economy.goods.length === 0 ? (
+      {economy.goods.length === 0 && goodsIncomplete ? (
+        <p className="fc-trade__state" data-testid="economy-goods-unavailable" role="status">
+          {t("world.economy.goodsUnavailable")}
+        </p>
+      ) : economy.goods.length === 0 ? (
         <p className="fc-trade__state" data-testid="economy-no-production" role="status">
           {t(
             economy.activeCompanies === 0
@@ -120,7 +129,11 @@ export function FCEconomyPanel({
           <p className="fc-caption" data-testid="economy-units">
             {t("world.economy.units")}
           </p>
-          <table className="fc-trade__table" data-testid="economy-goods">
+          <table
+            className="fc-trade__table"
+            data-testid="economy-goods"
+            data-economy-goods-coverage={goodsIncomplete ? "partial" : "complete"}
+          >
             <colgroup>
               <col />
               <col className="fc-trade__num-col" />
@@ -168,6 +181,11 @@ export function FCEconomyPanel({
       {economy.unattributedCompanies > 0 && (
         <p className="fc-trade__warnings" data-testid="economy-unattributed" role="status">
           {t("world.economy.unattributed", { count: economy.unattributedCompanies })}
+        </p>
+      )}
+      {methodChanged > 0 && (
+        <p className="fc-trade__warnings" data-testid="economy-method-changed" role="status">
+          {t("world.economy.methodChanged", { count: methodChanged })}
         </p>
       )}
       <details className="fc-trade__help">

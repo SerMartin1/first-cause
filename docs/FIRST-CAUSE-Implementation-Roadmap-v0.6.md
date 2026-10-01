@@ -4831,22 +4831,43 @@ propozycja: `docs/verification/world-r4b-economy-proposal-2026-09-30/`).
     `activeCompanies`, `sales` (`RECORDED` | `NO_DATA`:
     `NO_COMPLETED_PERIOD` / `OUTSIDE_MARKET_MODEL`), `goods` (produkcja
     per towar z proporcji `goodOutputsPerBatch` contentu, cena lokalna),
-    `unattributedCompanies`. Pole `production` usunięte. Bez zmian
+    `unattributedCompanies`, `methodChangedCompanies` (2026-10-01). Pole
+    `production` usunięte. Bez zmian
     symulacji, zapisu gry i checksumy.
 -   **UI:** tryb Economy (kwadrat klasy, legenda, etykiety --- Atlas Spec
     §14 „Economy”); zakładka „Gospodarka regionu”; World Pulse
     „Zatrudnieni w firmach”; Δ Change „Zatrudnienia w firmach”; Top
     Regions z klasą i jednostką.
+-   **Poprawki po przeglądzie (2026-10-01; status bez zmian: IMPLEMENTED
+    / PENDING HUMAN VISUAL ACCEPTANCE):** (1) produkcja w ticku adopcji
+    metody --- `outputLastTick` pochodzi ze starej receptury, więc Read
+    Model nie rozdziela jej według nowej metody (`methodChangedCompanies`,
+    tabela częściowa; „brak danych”, nie „brak produkcji”); test
+    regresyjny przez `WorldRunner.step()` (scenariusz weryfikacyjny
+    `pm-adoption-scenario.ts`, zmiana zestawu wyjść mąka → mąka + chleb),
+    kolejny tick i zapis/odczyt (`pm-adoption-economy-save.test.ts`);
+    pełna rekonstrukcja wymaga nowego pola stanu + migracji (OPEN, §52C);
+    (2) legenda: rozłączne zakresy `>0–<10` … `≥10 000`, liczby obcinane
+    przy wyświetlaniu; (3) World Pulse: suma kompletna / częściowa /
+    niedostępna, Δ tylko między kompletnymi sumami o tym samym pokryciu;
+    (4) E2E: krok prawdziwej gry przez worker („Przesuń o rok”),
+    zgodność Read Model ↔ Pulse ↔ inspektor, okres, rzeczywisty punkt
+    odniesienia i „Δ —” bez historii.
 -   Otwarte: jednostki ilości towarów (Entity Data Model §66 p. 2) ---
-    UI używa abstrakcyjnej „jedn.”; progi klas TODO tuning; realny świat
-    Black Mountain ma prawie zerowe zatrudnienie w firmach (content,
-    decyzja właściciela).
+    UI używa abstrakcyjnej „jedn.”; progi klas TODO tuning; zapis wyjść
+    per towar dla ticka adopcji metody (zmiana kontraktu, §52C); zanik
+    gospodarki w realnym świecie Black Mountain (prawie zerowe
+    zatrudnienie w firmach) --- osobne, otwarte zadanie diagnostyczne,
+    przyczyna nieustalona (nie udowodniono problemu contentu).
 
-Materiały: `docs/verification/world-r4b-economy-2026-09-30/`; E2E
+Materiały: `docs/verification/world-r4b-economy-2026-09-30/` (odświeżone
+2026-10-01: legenda, World Pulse kompletne / częściowe / niedostępne,
+tabela częściowa, krok prawdziwej gry); E2E
 `tests/e2e/world-r4b-economy.spec.ts`; testy
-`region-economy-read-model.test.ts`, `economy-mode.test.tsx`; fixture
+`region-economy-read-model.test.ts`, `region-economy-pm-adoption.test.ts`,
+`pm-adoption-economy-save.test.ts`, `economy-mode.test.tsx`; fixture
 `visual-economy-fixture.ts` (VISUAL DEVELOPMENT DATA;
-`fixture=economy|economy-low`).
+`fixture=economy|economy-low`, `pulse=partial|partial-history|complete|none`).
 
 Otwarte poza R4: `M21-VIS-R5` (WHY?), `M22` (geometria świata),
 reprezentacja złóż SUSPECTED, CONTENT-IRON-01, przyszły system

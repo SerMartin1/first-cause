@@ -57,7 +57,12 @@ export const ECONOMY_SQUARE = {
   stroke: 1.3,
 } as const;
 
-/** Etykiety klas legendy (od najniższej): „<10”, „10–99”, … „10 tys.+”. */
+/**
+ * Etykiety klas legendy (od najniższej), rozłączne dla danych ciągłych --
+ * dokładnie zakresy `economyClass`: „>0–<10”, „10–<100”, „100–<1000”,
+ * „1000–<10 000”, „≥10 000” (z notacją zwartą: „1 tys.–<10 tys.”, „≥10 tys.”).
+ * „>0” odróżnia pierwszą dodatnią klasę od osobno pokazanego zera.
+ */
 export function economyClassLabels(locale: string): string[] {
   const f = (n: number) =>
     new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 0 }).format(
@@ -65,11 +70,11 @@ export function economyClassLabels(locale: string): string[] {
     );
   const b = ECONOMY_CLASS_BOUNDS;
   return [
-    `<${f(b[0])}`,
-    `${f(b[0])}–${f(b[1] - 1)}`,
-    `${f(b[1])}–${f(b[2] - 1)}`,
-    `${f(b[2])}–${f(b[3])}`,
-    `${f(b[3])}+`,
+    `>${f(0)}–<${f(b[0])}`,
+    `${f(b[0])}–<${f(b[1])}`,
+    `${f(b[1])}–<${f(b[2])}`,
+    `${f(b[2])}–<${f(b[3])}`,
+    `≥${f(b[3])}`,
   ];
 }
 
@@ -78,21 +83,34 @@ function belowOne(value: number, locale: string): string | undefined {
   return value > 0 && value < 1 ? `<${(1).toLocaleString(locale)}` : undefined;
 }
 
+/**
+ * Zaokrąglenie W DÓŁ (obcięcie) przy wyświetlaniu: liczba na ekranie nigdy
+ * nie przeskakuje do wyższej klasy niż ta, którą `economyClass` policzyło z
+ * surowej wartości (99,5 os. to „99,5”, nie „100” przy klasie „10–<100”).
+ * `roundingMode` (ES2023 Intl) jest w Chromium/Electron i Node 22; typy
+ * projektu (lib ES2022) go jeszcze nie znają.
+ */
+function employmentFormat(
+  locale: string,
+  options: Intl.NumberFormatOptions,
+): Intl.NumberFormat {
+  const withTrunc = { ...options, roundingMode: "trunc" } as Intl.NumberFormatOptions;
+  return new Intl.NumberFormat(locale, withTrunc);
+}
+
 /** Zwarta liczba zatrudnionych przy regionie. */
 export function formatEmploymentCompact(value: number, locale: string): string {
   return (
     belowOne(value, locale) ??
-    new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(
-      Math.round(value),
-    )
+    employmentFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(value)
   );
 }
 
-/** Pełna liczba zatrudnionych (inspektor, Top Regions, World Pulse). */
+/** Pełna liczba zatrudnionych (inspektor, Top Regions, World Pulse); do 1 miejsca po przecinku. */
 export function formatEmploymentFull(value: number, locale: string): string {
   return (
     belowOne(value, locale) ??
-    new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value)
+    employmentFormat(locale, { maximumFractionDigits: 1 }).format(value)
   );
 }
 
@@ -104,10 +122,62 @@ export function formatMoney(value: number, locale: string): string {
   }).format(value);
 }
 
-/** Suma zatrudnienia świata (World Pulse): tylko regiony ze znaną wartością. */
-export function worldEmployment(regions: readonly WorldRegionView[]): number {
-  return regions.reduce((sum, r) => {
+/**
+ * Suma zatrudnienia świata (World Pulse) z jawnym pokryciem danych:
+ * - `complete` -- wszystkie regiony znane (znane 0 = prawdziwe zero);
+ * - `partial` -- suma TYLKO znanych regionów, z liczbą regionów znanych/wszystkich;
+ * - `unavailable` -- żaden region nie ma danych (UI: „—”, nigdy 0).
+ */
+export type WorldEmploymentFact =
+  | {
+      readonly kind: "complete" | "partial";
+      readonly value: number;
+      readonly knownRegionIds: readonly string[];
+      readonly totalRegions: number;
+    }
+  | { readonly kind: "unavailable"; readonly totalRegions: number };
+
+export function worldEmployment(regions: readonly WorldRegionView[]): WorldEmploymentFact {
+  let value = 0;
+  const knownRegionIds: string[] = [];
+  for (const r of regions) {
     const fact = regionEmploymentFact(r);
-    return sum + (fact.kind === "known" ? fact.value : 0);
-  }, 0);
+    if (fact.kind !== "known") continue;
+    value += fact.value;
+    knownRegionIds.push(r.regionId);
+  }
+  knownRegionIds.sort();
+  if (knownRegionIds.length === 0) return { kind: "unavailable", totalRegions: regions.length };
+  return {
+    kind: knownRegionIds.length === regions.length ? "complete" : "partial",
+    value,
+    knownRegionIds,
+    totalRegions: regions.length,
+  };
+}
+
+/**
+ * Δ World Pulse dla zatrudnienia. Porównuje WYŁĄCZNIE dwie kompletne sumy o
+ * tym samym zbiorze regionów -- suma częściowa albo inne pokrycie dałyby
+ * zmianę, która jest artefaktem braków danych, a nie zmianą świata.
+ */
+export type EmploymentDelta =
+  | { readonly kind: "known"; readonly value: number }
+  | {
+      readonly kind: "unavailable";
+      readonly reason: "NO_HISTORY" | "INCOMPLETE_DATA" | "COVERAGE_CHANGED";
+    };
+
+export function worldEmploymentDelta(
+  current: WorldEmploymentFact,
+  baseline: WorldEmploymentFact | undefined,
+): EmploymentDelta {
+  if (!baseline) return { kind: "unavailable", reason: "NO_HISTORY" };
+  if (current.kind !== "complete" || baseline.kind !== "complete")
+    return { kind: "unavailable", reason: "INCOMPLETE_DATA" };
+  const same =
+    current.knownRegionIds.length === baseline.knownRegionIds.length &&
+    current.knownRegionIds.every((id, k) => id === baseline.knownRegionIds[k]);
+  if (!same) return { kind: "unavailable", reason: "COVERAGE_CHANGED" };
+  return { kind: "known", value: current.value - baseline.value };
 }

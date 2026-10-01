@@ -87,6 +87,10 @@
 .fc-world__delta--down {
   color: var(--fc-negative);
 }
+/* R4B Economy: oznaczenie danych częściowych / powodu braku Δ w World Pulse. */
+.fc-world__coverage {
+  color: var(--fc-text-secondary);
+}
 .fc-world__speed {
   display: flex;
   margin-left: auto;
@@ -565,10 +569,20 @@
     column-gap: var(--fc-space-4);
   }
   .fc-world__pulse {
-    gap: var(--fc-space-3);
+    gap: var(--fc-space-2);
+  }
+  .fc-world__pulse > div {
+    padding-left: var(--fc-space-2);
   }
   .fc-world__pulse > .fc-caption {
     display: none;
+  }
+  /* R4B Economy: długie etykiety (PL „Aktywne przedsiębiorstwa”) nie wypychają
+     wartości pod przyciski prędkości -- przycięcie z pełną nazwą w `title`. */
+  .fc-world__pulse dt {
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 

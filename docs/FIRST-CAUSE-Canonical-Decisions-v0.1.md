@@ -737,6 +737,42 @@ jednostki; ta sama suma zasilała World Pulse i Δ Change.
     §8) obok niezmienionej morfologii osad; szczegóły: Atlas Spec §14
     „Economy”.
 
+**Poprawki po przeglądzie (2026-10-01, kierunek D1--D5 bez zmian;
+status nadal IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE):**
+
+-   **Produkcja w ticku adopcji metody (D5).** W ticku, w którym AI-08
+    przyjmuje metodę, `economy-tick.ts` produkuje jeszcze recepturą
+    sprzed decyzji (zatwierdzony moment adopcji --- bez zmian), a
+    `productionMethodId` wskazuje już nową metodę. Read Model nie
+    rozdziela wtedy `outputLastTick` według nowej metody: firma
+    z `ai.lastDecision.production_method_adoption` równym ostatniemu
+    tickowi i produkcją > 0 trafia do `methodChangedCompanies`, a
+    inspektor pokazuje tabelę jako częściową („firma zmieniła metodę
+    … produkcja nie jest rozdzielona na towary”); pusta tabela z takimi
+    firmami to „brak danych o produkcji według towarów”, nigdy „nic nie
+    wytworzono”. Od kolejnego ticka przypisanie jest pełne. Stan nie
+    zapisuje poprzedniej metody ani wyjść per towar, więc pełna
+    rekonstrukcja ticka adopcji wymaga **osobnej zmiany kontraktu**
+    (np. `Company.production.outputByGoodLastTick` zapisywane przez
+    `runProduction` + migracja zapisu) --- OPEN, decyzja właściciela.
+-   **Legenda (D4).** Rozłączne zakresy dla danych ciągłych, dokładnie
+    jak `economyClass`: `>0–<10`, `10–<100`, `100–<1000`,
+    `1000–<10 000`, `≥10 000` (w UI notacja zwarta, np. „1 tys.–<10
+    tys.” / „1K–<10K”). Klasa liczona z surowej wartości; liczby
+    zatrudnienia na ekranie są obcinane (nie zaokrąglane w górę), więc
+    nigdy nie przeskakują do wyższej klasy (99,5 → „99,5”, nie „100”).
+-   **World Pulse (D2/D3).** Suma zatrudnienia ma jawne pokrycie:
+    kompletna (wszystkie regiony znane; znane 0 = 0), częściowa (suma
+    znanych regionów + oznaczenie „częśc. k/n”) albo niedostępna („—”,
+    nigdy 0). Δ Pulse liczona wyłącznie między dwiema kompletnymi sumami
+    o tym samym zbiorze regionów; w pozostałych przypadkach „Δ —” z
+    krótkim wyjaśnieniem (brak historii / niepełne dane / inne regiony).
+    Regionalne Δ Change bez zmian: liczone, gdy zatrudnienie regionu
+    jest znane w obu stanach.
+-   **Poza zakresem:** zanik gospodarki Black Mountain pozostaje osobnym,
+    otwartym zadaniem diagnostycznym (nie jest udowodnionym problemem
+    contentu); balans, rynki, magazyny i algorytmy gospodarki bez zmian.
+
 ------------------------------------------------------------------------
 
 # 53. TECH-001 --- brak klasycznego tech tree

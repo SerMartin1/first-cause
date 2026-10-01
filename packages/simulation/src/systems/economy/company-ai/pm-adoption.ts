@@ -33,7 +33,13 @@ import { buildDecisionSnapshot, type DecisionSnapshot } from "./decision-snapsho
 const PM_ADOPTION_COOLDOWN_TICKS = 6; // TODO tuning -- SS20 "PM adoption -- średni"
 const PM_ADOPTION_PERSISTENCE_TICKS = 3; // TODO tuning -- SS40/SS41 confidence-building persistence
 const PM_ADOPTION_MIN_ADVANTAGE = 0.05; // TODO tuning -- SS38 "wymaga dodatniej przewagi"
-const PM_DECISION_TYPE = "production_method_adoption";
+/**
+ * Klucz `Company.ai.lastDecision` dla adopcji metody: tick adopcji jest
+ * jedynym zapisanym w stanie śladem, że `productionMethodId` zmienił się
+ * PO produkcji tego ticka (R4B Economy, Read Model produkcji według towarów).
+ */
+export const PM_ADOPTION_DECISION_TYPE = "production_method_adoption";
+const PM_DECISION_TYPE = PM_ADOPTION_DECISION_TYPE;
 
 /** Reused by `opportunity-scanner.ts` (M12) for candidate ExpectedMargin -- same per-batch margin, same "missing price defaults to 0" bounded-rationality allowance. */
 export function marginPerBatch(

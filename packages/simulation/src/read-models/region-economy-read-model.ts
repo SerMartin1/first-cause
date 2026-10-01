@@ -1,4 +1,5 @@
 import type { WorldState } from "@first-cause/entities";
+import { PM_ADOPTION_DECISION_TYPE } from "../systems/economy/company-ai/pm-adoption.js";
 
 /**
  * M21-VIS-R4B Economy (Canonical Decisions §52C).
@@ -17,6 +18,14 @@ import type { WorldState } from "@first-cause/entities";
  * - `goods` -- wytworzona ilość per towar (jednostka towaru; bez sumy
  *   różnych towarów). `outputLastTick` jest sumą wyjść receptury, więc
  *   rozkład na towary wymaga proporcji `goodOutputsPerBatch` z contentu.
+ *
+ * Tick adopcji metody (AI-08): `economy-tick.ts` produkuje jeszcze recepturą
+ * sprzed decyzji, a `productionMethodId` wskazuje już NOWĄ metodę. Stan nie
+ * zapisuje poprzedniej metody ani wyjść per towar, więc produkcji takiej
+ * firmy nie da się wiarygodnie rozdzielić na towary -- nie zgadujemy jej z
+ * nowej metody: firma trafia do `methodChangedCompanies` (dane częściowe,
+ * nie „brak produkcji”). Pełna rekonstrukcja wymaga nowego pola stanu
+ * (np. wyjść per towar z ostatniego ticka) i migracji zapisu -- §52C.
  */
 export interface RegionEconomyGood {
   readonly goodId: string;
@@ -39,6 +48,12 @@ export interface RegionEconomyView {
   readonly goods: readonly RegionEconomyGood[];
   /** Firmy z produkcją, której nie da się przypisać do towaru (nieznana receptura). */
   readonly unattributedCompanies: number;
+  /**
+   * Firmy, które w ostatnim ticku przyjęły nową metodę produkcji i coś
+   * wytworzyły: produkowały jeszcze poprzednią recepturą, której stan nie
+   * zapisuje -- ich produkcja nie jest w `goods` (tabela częściowa).
+   */
+  readonly methodChangedCompanies: number;
 }
 
 export function buildRegionEconomyReadModels(
@@ -60,7 +75,14 @@ export function buildRegionEconomyReadModels(
     const inMarketModel = !!market && !!region.economy.regionalInventoryId;
     const goods = new Map<string, { produced: number; companies: number }>();
     let unattributed = 0;
+    let methodChanged = 0;
     for (const company of companies) {
+      // Adopcja w ostatnim ticku: `outputLastTick` pochodzi z poprzedniej
+      // receptury, a nie z `productionMethodId` -- bez zgadywania towarów.
+      if (lastTick >= 0 && company.ai.lastDecision[PM_ADOPTION_DECISION_TYPE] === lastTick) {
+        if (company.production.outputLastTick > 0) methodChanged++;
+        continue;
+      }
       const methodId = company.production.productionMethodId;
       const outputs = methodId ? goodOutputsPerBatchByMethodId[methodId] : undefined;
       const total = outputs ? Object.values(outputs).reduce((a, b) => a + b, 0) : 0;
@@ -97,6 +119,7 @@ export function buildRegionEconomyReadModels(
           localPrice: market?.goods[goodId]?.localPrice,
         })),
       unattributedCompanies: unattributed,
+      methodChangedCompanies: methodChanged,
     });
   }
   return result;

@@ -8,6 +8,33 @@ replacement for `docs/FIRST-CAUSE-Implementation-Roadmap-v0.6.md`
 (milestone plan/status) or `docs/FIRST-CAUSE-Canonical-Decisions-v0.1.md`
 (design decisions) -- see those for the "why".
 
+## 2026-10-01
+
+- **M21-VIS-R4B Economy --- poprawki po przeglądzie (status bez zmian:
+  IMPLEMENTED / PENDING HUMAN VISUAL ACCEPTANCE).** (1) Produkcja w ticku
+  adopcji metody: tick produkuje jeszcze starą recepturą, a
+  `productionMethodId` wskazuje już nową --- Read Model rozdzielał
+  `outputLastTick` według nowej metody (np. „chleb”, którego nikt nie
+  wytworzył). Teraz firma z adopcją w ostatnim ticku (`ai.lastDecision`)
+  trafia do `methodChangedCompanies`; inspektor pokazuje tabelę częściową
+  albo „brak danych o produkcji według towarów” (nigdy „nic nie
+  wytworzono”); moment adopcji i produkcja bez zmian. Scenariusz
+  weryfikacyjny `pm-adoption-scenario.ts` + testy przez `WorldRunner.step()`
+  (tick adopcji, kolejny tick) i przez `saveGame`/`loadGame`; pełna
+  rekonstrukcja wymaga nowego pola stanu + migracji (OPEN, §52C).
+  (2) Legenda: rozłączne zakresy `>0–<10`, `10–<100`, `100–<1 tys.`,
+  `1 tys.–<10 tys.`, `≥10 tys.` (PL/EN); liczby zatrudnienia obcinane przy
+  wyświetlaniu, by nie przeskakiwały klasy (99,5 → „99,5”). (3) World
+  Pulse: suma kompletna / częściowa („częśc. k/n”) / niedostępna („—”);
+  Δ tylko między kompletnymi sumami o tym samym zbiorze regionów, inaczej
+  „Δ —” z powodem; przy 1280--1439 px etykiety Pulse przycinane
+  wielokropkiem (wartości nie wchodzą już pod przyciski prędkości ---
+  nachodzenie istniało od f1d7228). (4) E2E: krok prawdziwej gry przez
+  worker, zgodność Read Model ↔ Pulse ↔ inspektor, okres, rzeczywisty
+  punkt odniesienia i „Δ —” bez historii; nowe zrzuty Pulse / legendy /
+  tabeli częściowej PL/EN 1920×1080 i 1280×800 (dane deweloperskie).
+  Zaktualizowane: Canonical §52C, Atlas Spec §14 „Economy”, Roadmapa.
+
 ## 2026-09-30
 
 - **M21-VIS-R4B Economy --- zatrudnienie w przedsiębiorstwach

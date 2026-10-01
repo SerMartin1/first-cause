@@ -19,6 +19,7 @@ import {
   buildWorldSnapshot,
   discoverDeposit,
   extractFromDeposit,
+  PM_ADOPTION_DECISION_TYPE,
   type BuildRegionVisualProfileOptions,
   type WorldView,
 } from "@first-cause/simulation";
@@ -92,6 +93,8 @@ export interface RegionSpec {
     /** R4B Economy: metoda produkcji i przychód ostatniego ticka. */
     readonly methodId?: string;
     readonly revenue?: number;
+    /** R4B Economy: tick adopcji `methodId` (AI-08) -- `ai.lastDecision`, jak zapisuje symulacja. */
+    readonly methodAdoptedTick?: number;
   }[];
   readonly deposits?: readonly {
     readonly resourceId: string;
@@ -303,6 +306,17 @@ function withCompanyState(
       bankrupt: spec.status === "closed",
     },
     closedTick: spec.status === "closed" ? 10 : undefined,
+    ...(spec.methodAdoptedTick === undefined
+      ? {}
+      : {
+          ai: {
+            ...company.ai,
+            lastDecision: {
+              ...company.ai.lastDecision,
+              [PM_ADOPTION_DECISION_TYPE]: spec.methodAdoptedTick,
+            },
+          },
+        }),
   };
 }
 

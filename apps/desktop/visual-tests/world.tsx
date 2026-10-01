@@ -31,6 +31,7 @@ import {
   ECONOMY_DEV_NAMES,
   economyLowView,
   economyView,
+  type EconomyPulseVariant,
 } from "../src/features/world/visual-economy-fixture.js";
 import { MAP_MODES, type MapMode } from "../src/features/world/atlas-model.js";
 import { useWorldStore } from "../src/features/world/world-store.js";
@@ -55,7 +56,8 @@ import "../src/index.css";
 // partner), `lang` (`en` | `pl`). Follow-up: `trade-sim` (handel z produkcyjnego
 // ticka scenariusza `TRADE_SCENARIO`), `trade-legacy` (stan po migracji zapisu silnika < 3).
 // R4B Economy: `economy` (klasy 0..5, brak danych, rynek i bez rynku), `economy-low`
-// (rząd wielkości realnego świata Black Mountain).
+// (rząd wielkości realnego świata Black Mountain); `pulse=partial|partial-history|complete|none`
+// -- wariant pokrycia danych World Pulse dla `economy`.
 const params = new URLSearchParams(window.location.search);
 const fixture = params.get("fixture");
 const view =
@@ -76,7 +78,9 @@ const view =
                 : fixture === "extinction-after"
                   ? extinctionAfterView()
                   : fixture === "economy"
-                    ? economyView()
+                    ? economyView(
+                        (params.get("pulse") as EconomyPulseVariant | null) ?? "partial",
+                      )
                     : fixture === "economy-low"
                       ? economyLowView()
                       : fixture === "trade"

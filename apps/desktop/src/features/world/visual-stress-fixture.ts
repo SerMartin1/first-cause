@@ -143,6 +143,7 @@ export function visualStressView(index: number): WorldView {
       sales: { status: "NO_DATA", reason: "NO_COMPLETED_PERIOD" },
       goods: [],
       unattributedCompanies: 0,
+      methodChangedCompanies: 0,
     },
   };
   const current = {

@@ -28,6 +28,7 @@ import {
   formatEmploymentFull,
   regionEmploymentFact,
   worldEmployment,
+  worldEmploymentDelta,
 } from "./economy-mode.js";
 import {
   MAP_MODES,
@@ -267,9 +268,6 @@ export function WorldScreen() {
   const pulse = (
     [
       ["population", t("world.population"), (w) => w.summary.totalPopulation],
-      // R4B Economy (§52C, D2): suma zatrudnienia w firmach (stan, bez „/ miesiąc”)
-      // zamiast dawnej „produkcji”, która sumowała ilości różnych towarów.
-      ["employment", t("world.economy.pulse"), (w) => worldEmployment(w.regions)],
       ["companies", t("world.activeCompanies"), (w) => w.summary.activeCompanyCount],
       ["settlements", t("world.settlements"), (w) => w.summary.settlementCount],
     ] as const satisfies readonly (readonly [
@@ -283,6 +281,22 @@ export function WorldScreen() {
     current: value(snapshot),
     delta: view.baseline ? value(snapshot) - value(view.baseline) : undefined,
   }));
+  // R4B Economy (§52C, D2): suma zatrudnienia w firmach (stan, bez „/ miesiąc”)
+  // z jawnym pokryciem: kompletna / częściowa / brak danych („—”, nigdy 0).
+  // Δ tylko między dwiema kompletnymi sumami o tym samym zbiorze regionów.
+  const employmentNow = worldEmployment(snapshot.regions);
+  const employmentDelta = worldEmploymentDelta(
+    employmentNow,
+    view.baseline ? worldEmployment(view.baseline.regions) : undefined,
+  );
+  const deltaClass = (delta: number | undefined) =>
+    `fc-data fc-world__delta${
+      delta === undefined || delta === 0
+        ? ""
+        : delta > 0
+          ? " fc-world__delta--up"
+          : " fc-world__delta--down"
+    }`;
   const signed = (value: number) => `${value > 0 ? "+" : ""}${format(value)}`;
   const moduleProps = (id: string) => ({
     open: openModules.includes(id),
@@ -311,24 +325,86 @@ export function WorldScreen() {
             aria-label={t("world.pulse")}
             title={t("world.comparison", { years: ui.comparisonWindow })}
           >
-            {pulse.map((metric) => (
+            {pulse.slice(0, 1).map((metric) => (
               <div key={metric.id}>
-                <dt>{metric.label}</dt>
+                <dt title={metric.label}>{metric.label}</dt>
                 <dd>
-                  <span className="fc-data">
-                    {metric.id === "employment"
-                      ? formatEmploymentFull(metric.current, i18n.language)
-                      : format(metric.current)}
-                  </span>{" "}
-                  <span
-                    className={`fc-data fc-world__delta${
-                      metric.delta === undefined || metric.delta === 0
-                        ? ""
-                        : metric.delta > 0
-                          ? " fc-world__delta--up"
-                          : " fc-world__delta--down"
-                    }`}
-                  >
+                  <span className="fc-data">{format(metric.current)}</span>{" "}
+                  <span className={deltaClass(metric.delta)}>
+                    {metric.delta === undefined ? "Δ —" : signed(metric.delta)}
+                  </span>
+                </dd>
+              </div>
+            ))}
+            <div
+              data-testid="pulse-employment"
+              data-pulse-coverage={employmentNow.kind}
+              data-pulse-delta={
+                employmentDelta.kind === "known" ? "known" : employmentDelta.reason
+              }
+            >
+              <dt title={t("world.economy.pulse")}>{t("world.economy.pulse")}</dt>
+              <dd
+                title={[
+                  employmentNow.kind === "partial"
+                    ? t("world.economy.pulsePartialTitle", {
+                        known: employmentNow.knownRegionIds.length,
+                        total: employmentNow.totalRegions,
+                      })
+                    : employmentNow.kind === "unavailable"
+                      ? t("world.economy.pulseUnavailableTitle")
+                      : "",
+                  employmentDelta.kind === "unavailable"
+                    ? t(`world.economy.pulseDelta.${employmentDelta.reason}`)
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <span className="fc-data" data-pulse-value>
+                  {employmentNow.kind === "unavailable"
+                    ? t("world.economy.noDataLabel")
+                    : formatEmploymentFull(employmentNow.value, i18n.language)}
+                </span>
+                {employmentNow.kind === "partial" && (
+                  <>
+                    {" "}
+                    <span className="fc-caption fc-world__coverage" data-pulse-partial>
+                      {t("world.economy.pulsePartial", {
+                        known: employmentNow.knownRegionIds.length,
+                        total: employmentNow.totalRegions,
+                      })}
+                    </span>
+                  </>
+                )}{" "}
+                <span
+                  className={deltaClass(
+                    employmentDelta.kind === "known" ? employmentDelta.value : undefined,
+                  )}
+                  data-pulse-delta-value
+                >
+                  {employmentDelta.kind === "known"
+                    ? `${employmentDelta.value > 0 ? "+" : employmentDelta.value < 0 ? "-" : ""}${formatEmploymentFull(Math.abs(employmentDelta.value), i18n.language)}`
+                    : "Δ —"}
+                </span>
+                {employmentDelta.kind === "unavailable" &&
+                  employmentDelta.reason !== "NO_HISTORY" &&
+                  employmentNow.kind === "complete" && (
+                    <>
+                      {" "}
+                      <span className="fc-caption fc-world__coverage">
+                        {t(`world.economy.pulseDeltaShort.${employmentDelta.reason}`)}
+                      </span>
+                    </>
+                  )}
+              </dd>
+            </div>
+            {pulse.slice(1).map((metric) => (
+              <div key={metric.id}>
+                <dt title={metric.label}>{metric.label}</dt>
+                <dd>
+                  <span className="fc-data">{format(metric.current)}</span>{" "}
+                  <span className={deltaClass(metric.delta)}>
                     {metric.delta === undefined ? "Δ —" : signed(metric.delta)}
                   </span>
                 </dd>

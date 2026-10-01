@@ -9,3 +9,4 @@ export * from "./systems/society/index.js";
 export * from "./systems/technology/index.js";
 export * from "./systems/architect/index.js";
 export * from "./verification/trade-scenario.js";
+export * from "./verification/pm-adoption-scenario.js";

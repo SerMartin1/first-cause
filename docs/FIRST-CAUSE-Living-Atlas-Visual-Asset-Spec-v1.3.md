@@ -880,8 +880,12 @@ miesiąca); dawna suma ilości różnych towarów usunięta z Read Modelu.
 -   Znak: kwadrat „Economic Output” (Visual Alphabet v1.1 §8) na prawo od
     śladu osad, stały rozmiar ekranowy (klasa to fakt, nie detal);
     wypełnienie `--fc-info`, rozmiar i krycie rosną z klasą. Klasy stałe
-    i absolutne: <10 / 10--99 / 100--999 / 1 tys.--10 tys. / 10 tys.+
-    (TODO tuning) --- bez normalizacji do najlepszego regionu (§16).
+    i absolutne, rozłączne dla danych ciągłych: >0--<10 / 10--<100 /
+    100--<1 tys. / 1 tys.--<10 tys. / ≥10 tys. (TODO tuning; poprawka
+    2026-10-01, zastępuje „<10 / 10--99 / … / 10 tys.+”) --- bez
+    normalizacji do najlepszego regionu (§16). Klasa liczona z surowej
+    wartości; wyświetlana liczba obcinana do 1 miejsca (nie zaokrąglana
+    w górę), więc nie przeskakuje do wyższej klasy.
 -   Znane 0: pełny cienki kontur, etykieta „0”; brak danych: przerywany
     kontur `muted`, „—” (symulacja zawsze zna zatrudnienie --- brak
     danych to kontrakt prezentacji dla Read Modelu bez wartości, jak w
@@ -899,6 +903,17 @@ miesiąca); dawna suma ilości różnych towarów usunięta z Read Modelu.
     (bez sumy, jednostki towaru, brak ceny „—”). Top Regions: kwadrat
     klasy + wartość z jednostką; regiony bez danych zliczone, nie
     rankowane.
+-   **Poprawki po przeglądzie (2026-10-01, nadal PENDING HUMAN VISUAL
+    ACCEPTANCE):** produkcja firmy, która w ostatnim ticku przyjęła nową
+    metodę, nie jest rozdzielana według nowej metody (tick produkował
+    jeszcze starą) --- tabela oznaczona jako częściowa z uwagą, a pusta
+    tabela to „brak danych”, nie „nic nie wytworzono” (§52C). World
+    Pulse „Zatrudnieni w firmach”: suma kompletna / częściowa
+    („częśc. k/n”, wyjaśnienie w podpowiedzi) / niedostępna („—”); Δ
+    tylko między kompletnymi sumami o tym samym zbiorze regionów, inaczej
+    „Δ —” z powodem. Przy 1280--1439 px etykiety Pulse są przycinane
+    wielokropkiem (pełna nazwa w podpowiedzi), żeby wartości nie
+    wchodziły pod przyciski prędkości.
 
 ## Resources
 

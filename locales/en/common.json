@@ -484,5 +484,16 @@
   "world.economy.goodUnit": "u.",
   "world.economy.perGoodUnit": "/ u.",
   "world.economy.unattributed_one": "{{count}} company produced goods that cannot be assigned to a good (unknown production method).",
-  "world.economy.unattributed_other": "{{count}} companies produced goods that cannot be assigned to a good (unknown production method)."
+  "world.economy.unattributed_other": "{{count}} companies produced goods that cannot be assigned to a good (unknown production method).",
+  "world.economy.goodsUnavailable": "No per-good production data this month — see the note below (this does not mean nothing was produced).",
+  "world.economy.methodChanged_one": "{{count}} company switched production method this month: it still produced with the previous method, which the state does not record — its output is not split per good (partial table).",
+  "world.economy.methodChanged_other": "{{count}} companies switched production method this month: they still produced with the previous method, which the state does not record — their output is not split per good (partial table).",
+  "world.economy.pulsePartial": "partial {{known}}/{{total}}",
+  "world.economy.pulsePartialTitle": "Partial data: sum of {{known}} of {{total}} regions — the others have no employment data.",
+  "world.economy.pulseUnavailableTitle": "No employment data in any region.",
+  "world.economy.pulseDelta.NO_HISTORY": "Δ unavailable: no baseline for this period yet.",
+  "world.economy.pulseDelta.INCOMPLETE_DATA": "Δ unavailable: comparison needs complete data now and at the baseline.",
+  "world.economy.pulseDelta.COVERAGE_CHANGED": "Δ unavailable: data covers different regions than at the baseline.",
+  "world.economy.pulseDeltaShort.INCOMPLETE_DATA": "incomplete baseline",
+  "world.economy.pulseDeltaShort.COVERAGE_CHANGED": "other regions"
 }

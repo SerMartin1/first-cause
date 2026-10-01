@@ -488,5 +488,18 @@
   "world.economy.unattributed_one": "{{count}} firma wytworzyła dobra, których nie da się przypisać do towaru (nieznana metoda produkcji).",
   "world.economy.unattributed_few": "{{count}} firmy wytworzyły dobra, których nie da się przypisać do towaru (nieznana metoda produkcji).",
   "world.economy.unattributed_many": "{{count}} firm wytworzyło dobra, których nie da się przypisać do towaru (nieznana metoda produkcji).",
-  "world.economy.unattributed_other": "{{count}} firmy wytworzyły dobra, których nie da się przypisać do towaru (nieznana metoda produkcji)."
+  "world.economy.unattributed_other": "{{count}} firmy wytworzyły dobra, których nie da się przypisać do towaru (nieznana metoda produkcji).",
+  "world.economy.goodsUnavailable": "Brak danych o produkcji według towarów w tym miesiącu — patrz uwaga poniżej (to nie oznacza braku produkcji).",
+  "world.economy.methodChanged_one": "{{count}} firma zmieniła w tym miesiącu metodę produkcji: wytworzyła dobra jeszcze poprzednią metodą, której stan nie zapisuje — jej produkcja nie jest rozdzielona na towary (tabela częściowa).",
+  "world.economy.methodChanged_few": "{{count}} firmy zmieniły w tym miesiącu metodę produkcji: wytworzyły dobra jeszcze poprzednią metodą, której stan nie zapisuje — ich produkcja nie jest rozdzielona na towary (tabela częściowa).",
+  "world.economy.methodChanged_many": "{{count}} firm zmieniło w tym miesiącu metodę produkcji: wytworzyły dobra jeszcze poprzednią metodą, której stan nie zapisuje — ich produkcja nie jest rozdzielona na towary (tabela częściowa).",
+  "world.economy.methodChanged_other": "{{count}} firmy zmieniły w tym miesiącu metodę produkcji: wytworzyły dobra jeszcze poprzednią metodą, której stan nie zapisuje — ich produkcja nie jest rozdzielona na towary (tabela częściowa).",
+  "world.economy.pulsePartial": "częśc. {{known}}/{{total}}",
+  "world.economy.pulsePartialTitle": "Dane częściowe: suma {{known}} z {{total}} regionów — pozostałe nie mają danych o zatrudnieniu.",
+  "world.economy.pulseUnavailableTitle": "Brak danych o zatrudnieniu w żadnym regionie.",
+  "world.economy.pulseDelta.NO_HISTORY": "Δ niedostępna: brak historii dla tego okresu.",
+  "world.economy.pulseDelta.INCOMPLETE_DATA": "Δ niedostępna: porównanie wymaga kompletnych danych teraz i w punkcie odniesienia.",
+  "world.economy.pulseDelta.COVERAGE_CHANGED": "Δ niedostępna: dane obejmują inne regiony niż w punkcie odniesienia.",
+  "world.economy.pulseDeltaShort.INCOMPLETE_DATA": "niepełna historia",
+  "world.economy.pulseDeltaShort.COVERAGE_CHANGED": "inne regiony"
 }

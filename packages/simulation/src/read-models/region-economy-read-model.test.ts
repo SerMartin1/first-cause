@@ -12,6 +12,7 @@ import {
   type WorldState,
 } from "@first-cause/entities";
 import { buildRegionEconomyReadModels } from "./region-economy-read-model.js";
+import { PM_ADOPTION_DECISION_TYPE } from "../systems/economy/company-ai/pm-adoption.js";
 import { buildWorldSnapshot } from "./world-view-read-model.js";
 
 const geography = createRegionGeography({
@@ -31,6 +32,8 @@ const OUTPUTS = {
 
 interface CompanySpec {
   readonly region: string;
+  /** Tick adopcji metody (AI-08) w `ai.lastDecision`. */
+  readonly adoptedTick?: number;
   readonly method?: string;
   readonly employees: number;
   readonly output: number;
@@ -125,6 +128,13 @@ function economyState(companies: readonly CompanySpec[], tick = 5): WorldState {
         },
         finance: { ...company.finance, revenue: spec.revenue },
         status: { ...company.status, active: spec.active ?? true },
+        ai:
+          spec.adoptedTick === undefined
+            ? company.ai
+            : {
+                ...company.ai,
+                lastDecision: { [PM_ADOPTION_DECISION_TYPE]: spec.adoptedTick },
+              },
       };
     }),
   });
@@ -203,6 +213,29 @@ describe("region economy read model (M21-VIS-R4B Economy, §52C)", () => {
     );
     expect(view.get("nomarket")!.goods).toEqual([]);
     expect(view.get("nomarket")!.unattributedCompanies).toBe(1);
+  });
+
+  it("method adopted in the last tick: output is not split by the new method (partial), earlier adoption is", () => {
+    // tick 5 → ostatni zakończony tick = 4.
+    const view = buildRegionEconomyReadModels(
+      economyState([
+        { region: "market", method: "mixed", employees: 1, output: 8, revenue: 0, adoptedTick: 4 },
+        { region: "market", method: "mixed", employees: 1, output: 0, revenue: 0, adoptedTick: 4 },
+        { region: "nomarket", method: "mixed", employees: 1, output: 8, revenue: 0, adoptedTick: 3 },
+      ]),
+      OUTPUTS,
+    );
+    const market = view.get("market")!;
+    expect(market.goods).toEqual([]); // nic nie zgadnięte z metody „mixed”
+    expect(market.methodChangedCompanies).toBe(1); // tylko firma, która coś wytworzyła
+    expect(market.unattributedCompanies).toBe(0);
+    expect(market.employment).toBe(2);
+    // Adopcja tick wcześniej: ten tick produkował już nową recepturą.
+    expect(view.get("nomarket")!.goods).toEqual([
+      { goodId: "bran", produced: 2, companies: 1, localPrice: undefined },
+      { goodId: "flour", produced: 6, companies: 1, localPrice: undefined },
+    ]);
+    expect(view.get("nomarket")!.methodChangedCompanies).toBe(0);
   });
 
   it("world snapshot exposes `economy` and no longer the cross-good `production` sum; deterministic", () => {

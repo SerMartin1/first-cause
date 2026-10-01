@@ -102,8 +102,14 @@ const REGIONS: readonly RegionSpec[] = [
     name: "Salt Harbour",
     geography: geo("plains", "temperate", 0.4, "coast"),
     settlement: { stage: "TOWN", population: 24_000 },
-    // 480 os. (klasa 3); sprzedaż 12 480 -- mało ludzi, drogie wyroby.
-    companies: [works(300, 900, 10_800), bakery(180, 400, 1_680)],
+    // 520 os. (klasa 3); sprzedaż 12 480 -- mało ludzi, drogie wyroby. Trzecia
+    // firma przyjęła metodę w ostatnim ticku (25): produkcja jeszcze poprzednią
+    // recepturą -- niepodzielona na towary, tabela częściowa (nie „brak produkcji”).
+    companies: [
+      works(300, 900, 10_800),
+      bakery(180, 400, 1_680),
+      { ...works(40, 60, 0), methodAdoptedTick: 25 },
+    ],
   },
   {
     id: R.emporium,
@@ -172,7 +178,26 @@ const PRICES: Readonly<Record<string, Readonly<Record<string, number>>>> = {
   [R.mines]: { dev_planks: 1.5 },
 };
 
-export function economyView(): WorldView {
+/**
+ * Wariant World Pulse (zatrudnienie świata) do akceptacji wizualnej:
+ * - `partial` (domyślny) -- Reed Marsh bez danych, brak historii (Δ —);
+ * - `partial-history` -- jw., ale z kompletnym punktem odniesienia (Δ — : niepełne dane);
+ * - `complete` -- wszystkie regiony znane, punkt odniesienia 12 ticków wcześniej (Δ znana);
+ * - `none` -- żaden region nie ma danych („—”, nigdy 0).
+ */
+export type EconomyPulseVariant = "partial" | "partial-history" | "complete" | "none";
+
+const withoutEmployment = (
+  regions: WorldView["current"]["regions"],
+  ids: ReadonlySet<string> | "all",
+): WorldView["current"]["regions"] =>
+  regions.map((r) =>
+    ids === "all" || ids.has(r.regionId)
+      ? { ...r, economy: { ...r.economy, employment: Number.NaN } }
+      : r,
+  );
+
+export function economyView(pulse: EconomyPulseVariant = "partial"): WorldView {
   const view = buildVisualWorldView({
     id: "dev_economy_world",
     seed: "visual-r4b-economy",
@@ -184,18 +209,38 @@ export function economyView(): WorldView {
     currentTick: 26,
     startDate: { year: 3, month: 3 },
   });
+  // Punkt odniesienia (rok wcześniej): ten sam produkcyjny Read Model, mniej
+  // zatrudnionych w Great Delta i Emporium -- tylko dla wariantów z historią.
+  const baselineView = buildVisualWorldView({
+    id: "dev_economy_world",
+    seed: "visual-r4b-economy",
+    regions: REGIONS.map((spec) =>
+      spec.id === R.delta || spec.id === R.emporium
+        ? {
+            ...spec,
+            companies: (spec.companies ?? []).map((c) => ({
+              ...c,
+              employees: Math.round(c.employees * 0.9),
+            })),
+          }
+        : spec,
+    ),
+    connections: CONNECTIONS,
+    tradeRegionIds: MARKET_REGIONS,
+    marketPrices: PRICES,
+    goodOutputsPerBatchByMethodId: OUTPUTS,
+    currentTick: 14,
+    startDate: { year: 2, month: 3 },
+  });
   // Symulacja zawsze zna zatrudnienie; „brak danych” to kontrakt prezentacji dla
   // Read Modelu bez wartości (jak Population R4) -- tu Reed Marsh bez liczby.
+  const missing: ReadonlySet<string> | "all" =
+    pulse === "none" ? "all" : pulse === "complete" ? new Set() : new Set([R.marsh]);
   return {
     ...view,
-    current: {
-      ...view.current,
-      regions: view.current.regions.map((r) =>
-        r.regionId === R.marsh
-          ? { ...r, economy: { ...r.economy, employment: Number.NaN } }
-          : r,
-      ),
-    },
+    current: { ...view.current, regions: withoutEmployment(view.current.regions, missing) },
+    baseline:
+      pulse === "complete" || pulse === "partial-history" ? baselineView.current : undefined,
   };
 }
 
